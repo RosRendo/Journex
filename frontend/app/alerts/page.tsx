@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-const BRIDGE = process.env.NEXT_PUBLIC_BRIDGE_URL ?? "";
+const BRIDGE = process.env.NEXT_PUBLIC_BRIDGE_URL ?? "\";
 
 interface AlertConfig {
     discord_news_webhook: string;
