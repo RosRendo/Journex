@@ -81,7 +81,7 @@ export function useCsvTrades(accountId?: number, autoRefreshMs: number = 0) {
     };
   }, []);
 
-  const API_BASE = "\";
+  const API_BASE = "";
 
   // Fetch true history from Live MT5 bridge (bypassing node backend)
   const fetchTrades = useCallback(

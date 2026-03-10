@@ -35,7 +35,7 @@ interface Candle {
 type DataSource = "mt5" | "demo" | "loading";
 
 /* ─── Constants ──────────────────────────────────────────────────────────── */
-const MT5_API = "\";
+const MT5_API = "";
 
 const PAIRS = [
   { label: "XAU/USD", key: "XAUUSD", basePrice: 2900.00, digits: 2, color: "#f59e0b", volatility: 0.0008 },

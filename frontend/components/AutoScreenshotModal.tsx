@@ -18,7 +18,7 @@ interface Props {
     onClose: () => void;
 }
 
-const BRIDGE = process.env.NEXT_PUBLIC_BRIDGE_URL ?? "\";
+const BRIDGE = process.env.NEXT_PUBLIC_BRIDGE_URL ?? "";
 
 // ── draw one chart in a given container div ──────────────────────────────────
 async function drawChart(container: HTMLDivElement, trades: ChartTrade[]): Promise<any> {
