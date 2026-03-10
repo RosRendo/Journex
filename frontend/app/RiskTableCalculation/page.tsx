@@ -79,33 +79,36 @@ export default function ForexRiskDashboard() {
     }
   }, []);
 
-  const fetchData = useCallback(async (showSpinner = false) => {
-    if (showSpinner) setIsRefreshing(true);
-    try {
-      const qs = `?risk_percent=${riskPercent}&rr_ratio=${rrRatio}&atr_sl_multiplier=${atrMultiplier}`;
-      const response = await fetchWithRetry(
-        `${MT5_API}/api/calculations${qs}`,
-        {},
-        2,
-        500,
-      );
-      const jsonData = await response.json();
-      setData((prev) => ({
-        ...prev,
-        calculations: jsonData.calculations || [],
-        last_update: jsonData.last_update || null,
-        balance: jsonData.account_balance || prev.balance,
-        risk_percent: jsonData.risk_percent || 1.0,
-        is_running: jsonData.is_running ?? true,
-      }));
-      setServiceError(null);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-      setServiceError((error as Error).message || "Service unavailable");
-    } finally {
-      if (showSpinner) setIsRefreshing(false);
-    }
-  }, [riskPercent, rrRatio, atrMultiplier]);
+  const fetchData = useCallback(
+    async (showSpinner = false) => {
+      if (showSpinner) setIsRefreshing(true);
+      try {
+        const qs = `?risk_percent=${riskPercent}&rr_ratio=${rrRatio}&atr_sl_multiplier=${atrMultiplier}`;
+        const response = await fetchWithRetry(
+          `${MT5_API}/api/calculations${qs}`,
+          {},
+          2,
+          500,
+        );
+        const jsonData = await response.json();
+        setData((prev) => ({
+          ...prev,
+          calculations: jsonData.calculations || [],
+          last_update: jsonData.last_update || null,
+          balance: jsonData.account_balance || prev.balance,
+          risk_percent: jsonData.risk_percent || 1.0,
+          is_running: jsonData.is_running ?? true,
+        }));
+        setServiceError(null);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        setServiceError((error as Error).message || "Service unavailable");
+      } finally {
+        if (showSpinner) setIsRefreshing(false);
+      }
+    },
+    [riskPercent, rrRatio, atrMultiplier],
+  );
 
   useEffect(() => {
     checkMT5Connection().then(setMtConnected);
@@ -154,7 +157,14 @@ export default function ForexRiskDashboard() {
     return Number(val).toFixed(decimals);
   };
 
-  const executeTrade = async (symbol: string, direction: "BUY" | "SELL", lot_size: number, sl: number, tp: number, rr_ratio: number) => {
+  const executeTrade = async (
+    symbol: string,
+    direction: "BUY" | "SELL",
+    lot_size: number,
+    sl: number,
+    tp: number,
+    rr_ratio: number,
+  ) => {
     if (!mtConnected) {
       toast.error("MT5 not connected!");
       return;
@@ -163,7 +173,9 @@ export default function ForexRiskDashboard() {
       toast.error("Invalid calculation parameters for execution");
       return;
     }
-    const toastId = toast.loading(`Sending ${direction} order for ${symbol}...`);
+    const toastId = toast.loading(
+      `Sending ${direction} order for ${symbol}...`,
+    );
     try {
       const res = await fetch(`${MT5_API}/api/execute-trade`, {
         method: "POST",
@@ -181,13 +193,15 @@ export default function ForexRiskDashboard() {
       if (resData.success) {
         toast.success(
           `✅ Trade executed! Ticket #${resData.ticket} | ${direction} ${lot_size.toFixed(2)} ${symbol} @ ${resData.price || "market"}`,
-          { duration: 8000, id: toastId }
+          { duration: 8000, id: toastId },
         );
       } else {
         toast.error(`❌ ${resData.error}`, { duration: 7000, id: toastId });
       }
     } catch (err) {
-      toast.error("Network error — is the MT5 bridge running?", { id: toastId });
+      toast.error("Network error — is the MT5 bridge running?", {
+        id: toastId,
+      });
     }
   };
 
@@ -224,16 +238,18 @@ export default function ForexRiskDashboard() {
           </p>
         </div>
         <div
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold border ${data.is_running
-            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-            : "bg-muted text-muted-foreground border-border"
-            }`}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold border ${
+            data.is_running
+              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+              : "bg-muted text-muted-foreground border-border"
+          }`}
         >
           <span
-            className={`w-2 h-2 rounded-full ${data.is_running
-              ? "bg-emerald-400 animate-pulse"
-              : "bg-muted-foreground"
-              }`}
+            className={`w-2 h-2 rounded-full ${
+              data.is_running
+                ? "bg-emerald-400 animate-pulse"
+                : "bg-muted-foreground"
+            }`}
           />
           {data.is_running ? "Live" : "Stopped"}
         </div>
@@ -284,8 +300,12 @@ export default function ForexRiskDashboard() {
           {/* Risk Percent */}
           <div>
             <div className="flex justify-between text-sm mb-1.5">
-              <span className="font-medium text-foreground">Risk per Trade (%)</span>
-              <span className="font-bold font-mono text-violet-400">{riskPercent}%</span>
+              <span className="font-medium text-foreground">
+                Risk per Trade (%)
+              </span>
+              <span className="font-bold font-mono text-violet-400">
+                {riskPercent}%
+              </span>
             </div>
             <input
               type="range"
@@ -300,8 +320,12 @@ export default function ForexRiskDashboard() {
           {/* Reward Ratio */}
           <div>
             <div className="flex justify-between text-sm mb-1.5">
-              <span className="font-medium text-foreground">Target Reward Ratio (1:X)</span>
-              <span className="font-bold font-mono text-emerald-400">1:{rrRatio}</span>
+              <span className="font-medium text-foreground">
+                Target Reward Ratio (1:X)
+              </span>
+              <span className="font-bold font-mono text-emerald-400">
+                1:{rrRatio}
+              </span>
             </div>
             <input
               type="range"
@@ -316,8 +340,12 @@ export default function ForexRiskDashboard() {
           {/* ATR Multiplier */}
           <div>
             <div className="flex justify-between text-sm mb-1.5">
-              <span className="font-medium text-foreground">Volatility TP/SL (ATR x Multiplier)</span>
-              <span className="font-bold font-mono text-amber-400">{atrMultiplier}x</span>
+              <span className="font-medium text-foreground">
+                Volatility TP/SL (ATR x Multiplier)
+              </span>
+              <span className="font-bold font-mono text-amber-400">
+                {atrMultiplier}x
+              </span>
             </div>
             <input
               type="range"
@@ -475,12 +503,13 @@ export default function ForexRiskDashboard() {
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">R:R Ratio</span>
                   <span
-                    className={`px-2 py-0.5 rounded text-xs font-bold ${calc.rr_ratio >= 2
-                      ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                      : calc.rr_ratio >= 1
-                        ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                        : "bg-red-500/10 text-red-400 border border-red-500/20"
-                      }`}
+                    className={`px-2 py-0.5 rounded text-xs font-bold ${
+                      calc.rr_ratio >= 2
+                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                        : calc.rr_ratio >= 1
+                          ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                          : "bg-red-500/10 text-red-400 border border-red-500/20"
+                    }`}
                   >
                     1 : {formatNum(calc.rr_ratio, 2)}
                   </span>
@@ -535,7 +564,16 @@ export default function ForexRiskDashboard() {
                       </div>
                     </div>
                     <button
-                      onClick={() => executeTrade(calc.symbol, "BUY", calc.lot_size, calc.buy?.sl ?? 0, calc.buy?.tp ?? 0, calc.rr_ratio)}
+                      onClick={() =>
+                        executeTrade(
+                          calc.symbol,
+                          "BUY",
+                          calc.lot_size,
+                          calc.buy?.sl ?? 0,
+                          calc.buy?.tp ?? 0,
+                          calc.rr_ratio,
+                        )
+                      }
                       disabled={!mtConnected}
                       className="w-full py-1.5 mt-2 rounded bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold transition-colors shadow-sm shadow-emerald-500/20 disabled:opacity-50"
                     >
@@ -566,7 +604,16 @@ export default function ForexRiskDashboard() {
                       </div>
                     </div>
                     <button
-                      onClick={() => executeTrade(calc.symbol, "SELL", calc.lot_size, calc.sell?.sl ?? 0, calc.sell?.tp ?? 0, calc.rr_ratio)}
+                      onClick={() =>
+                        executeTrade(
+                          calc.symbol,
+                          "SELL",
+                          calc.lot_size,
+                          calc.sell?.sl ?? 0,
+                          calc.sell?.tp ?? 0,
+                          calc.rr_ratio,
+                        )
+                      }
                       disabled={!mtConnected}
                       className="w-full py-1.5 mt-2 rounded bg-red-500 hover:bg-red-400 text-white text-xs font-bold transition-colors shadow-sm shadow-red-500/20 disabled:opacity-50"
                     >

@@ -1,5 +1,5 @@
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
-const BRIDGE_URL = process.env.NEXT_PUBLIC_BRIDGE_URL || '\';
+const BRIDGE_URL = process.env.NEXT_PUBLIC_BRIDGE_URL || '';
 
 export interface Trade {
   id?: number;

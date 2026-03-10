@@ -2,8 +2,8 @@ import { useState, useCallback, useEffect } from "react";
 
 export interface TradeData {
   id: number;
-  date: string;        // close time
-  openTime?: string;   // open/entry time
+  date: string; // close time
+  openTime?: string; // open/entry time
   pair: string;
   direction: "Long" | "Short";
   entry: number;
@@ -76,57 +76,56 @@ export function useCsvTrades(accountId?: number, autoRefreshMs: number = 0) {
       profitFactor: totalLosses > 0 ? totalWins / totalLosses : 0,
       avgWin: wins.length > 0 ? totalWins / wins.length : 0,
       avgLoss: losses.length > 0 ? -totalLosses / losses.length : 0,
-      bestTrade: wins.length > 0 ? Math.max(...tradesList.map((t) => t.profit)) : 0,
-      worstTrade: losses.length > 0 ? Math.min(...tradesList.map((t) => t.profit)) : 0,
+      bestTrade:
+        wins.length > 0 ? Math.max(...tradesList.map((t) => t.profit)) : 0,
+      worstTrade:
+        losses.length > 0 ? Math.min(...tradesList.map((t) => t.profit)) : 0,
     };
   }, []);
 
   const API_BASE = "";
 
   // Fetch true history from Live MT5 bridge (bypassing node backend)
-  const fetchTrades = useCallback(
-    async () => {
-      try {
-        setLoading(true);
-        setError(null);
+  const fetchTrades = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        const url = `${API_BASE}/api/history`;
-        const response = await fetch(url);
+      const url = `${API_BASE}/api/history`;
+      const response = await fetch(url);
 
-        if (!response.ok) {
-          throw new Error(`Failed to fetch MT5 history (${response.status})`);
-        }
-
-        const data = await response.json();
-        const fetchedTrades = data.data || [];
-
-        const normalized: TradeData[] = fetchedTrades.map((t: any) => ({
-          id: t.id,
-          date: t.date,
-          openTime: t.openTime,
-          pair: t.pair,
-          direction: t.direction,
-          entry: t.entry,
-          closePrice: t.closePrice,
-          lotSize: t.lotSize,
-          profit: t.profit,
-          outcome: t.outcome,
-          ticket: t.ticket,
-        }));
-
-        setTrades(normalized);
-        const calculatedAnalytics = calculateAnalytics(normalized);
-        setAnalytics(calculatedAnalytics);
-        setLastUpdated(new Date().toISOString());
-      } catch (err: any) {
-        setError(err.message || "Error fetching trades");
-        console.error("Error fetching CSV trades:", err);
-      } finally {
-        setLoading(false);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch MT5 history (${response.status})`);
       }
-    },
-    [accountId, calculateAnalytics, API_BASE],
-  );
+
+      const data = await response.json();
+      const fetchedTrades = data.data || [];
+
+      const normalized: TradeData[] = fetchedTrades.map((t: any) => ({
+        id: t.id,
+        date: t.date,
+        openTime: t.openTime,
+        pair: t.pair,
+        direction: t.direction,
+        entry: t.entry,
+        closePrice: t.closePrice,
+        lotSize: t.lotSize,
+        profit: t.profit,
+        outcome: t.outcome,
+        ticket: t.ticket,
+      }));
+
+      setTrades(normalized);
+      const calculatedAnalytics = calculateAnalytics(normalized);
+      setAnalytics(calculatedAnalytics);
+      setLastUpdated(new Date().toISOString());
+    } catch (err: any) {
+      setError(err.message || "Error fetching trades");
+      console.error("Error fetching CSV trades:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [accountId, calculateAnalytics, API_BASE]);
 
   // Fetch trades when component mounts
   useEffect(() => {
@@ -167,7 +166,9 @@ export function useBrokerAnalytics(accountId: number) {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`${API_BASE}/api/broker/analytics/${accountId}`);
+      const response = await fetch(
+        `${API_BASE}/api/broker/analytics/${accountId}`,
+      );
 
       if (!response.ok) {
         throw new Error("Failed to fetch analytics");

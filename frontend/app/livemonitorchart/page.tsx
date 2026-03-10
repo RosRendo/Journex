@@ -1,10 +1,21 @@
 "use client";
 import React, {
-  useState, useEffect, useRef, useCallback, useMemo,
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
 } from "react";
 import {
-  BarChart3, RefreshCw, TrendingUp, TrendingDown, Activity,
-  Database, FlaskConical, AlertCircle, MoonStar,
+  BarChart3,
+  RefreshCw,
+  TrendingUp,
+  TrendingDown,
+  Activity,
+  Database,
+  FlaskConical,
+  AlertCircle,
+  MoonStar,
 } from "lucide-react";
 
 /* ─── Market hours helper ────────────────────────────────────────────────── */
@@ -12,20 +23,20 @@ import {
 // XAU/USD follows the same schedule.
 function isMarketOpen(): boolean {
   const now = new Date();
-  const day = now.getUTCDay();   // 0=Sun … 6=Sat
+  const day = now.getUTCDay(); // 0=Sun … 6=Sat
   const hour = now.getUTCHours();
   const min = now.getUTCMinutes();
   const timeVal = hour * 60 + min; // minutes since midnight UTC
 
-  if (day === 6) return false;                        // Saturday all day closed
-  if (day === 0 && timeVal < 22 * 60) return false;  // Sunday before 22:00 UTC
+  if (day === 6) return false; // Saturday all day closed
+  if (day === 0 && timeVal < 22 * 60) return false; // Sunday before 22:00 UTC
   if (day === 5 && timeVal >= 22 * 60) return false; // Friday after 22:00 UTC
   return true;
 }
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 interface Candle {
-  time: number;   // unix seconds UTC
+  time: number; // unix seconds UTC
   open: number;
   high: number;
   low: number;
@@ -38,16 +49,86 @@ type DataSource = "mt5" | "demo" | "loading";
 const MT5_API = "";
 
 const PAIRS = [
-  { label: "XAU/USD", key: "XAUUSD", basePrice: 2900.00, digits: 2, color: "#f59e0b", volatility: 0.0008 },
-  { label: "EUR/USD", key: "EURUSD", basePrice: 1.08500, digits: 5, color: "#6366f1", volatility: 0.00015 },
-  { label: "GBP/USD", key: "GBPUSD", basePrice: 1.26500, digits: 5, color: "#8b5cf6", volatility: 0.00018 },
-  { label: "USD/JPY", key: "USDJPY", basePrice: 149.800, digits: 3, color: "#ef4444", volatility: 0.00013 },
-  { label: "AUD/USD", key: "AUDUSD", basePrice: 0.63500, digits: 5, color: "#10b981", volatility: 0.00014 },
-  { label: "NZD/USD", key: "NZDUSD", basePrice: 0.58500, digits: 5, color: "#14b8a6", volatility: 0.00013 },
-  { label: "USD/CHF", key: "USDCHF", basePrice: 0.89500, digits: 5, color: "#0ea5e9", volatility: 0.00012 },
-  { label: "USD/CAD", key: "USDCAD", basePrice: 1.35500, digits: 5, color: "#f97316", volatility: 0.00012 },
-  { label: "GBP/JPY", key: "GBPJPY", basePrice: 190.500, digits: 3, color: "#ec4899", volatility: 0.00020 },
-  { label: "EUR/JPY", key: "EURJPY", basePrice: 162.500, digits: 3, color: "#06b6d4", volatility: 0.00017 },
+  {
+    label: "XAU/USD",
+    key: "XAUUSD",
+    basePrice: 2900.0,
+    digits: 2,
+    color: "#f59e0b",
+    volatility: 0.0008,
+  },
+  {
+    label: "EUR/USD",
+    key: "EURUSD",
+    basePrice: 1.085,
+    digits: 5,
+    color: "#6366f1",
+    volatility: 0.00015,
+  },
+  {
+    label: "GBP/USD",
+    key: "GBPUSD",
+    basePrice: 1.265,
+    digits: 5,
+    color: "#8b5cf6",
+    volatility: 0.00018,
+  },
+  {
+    label: "USD/JPY",
+    key: "USDJPY",
+    basePrice: 149.8,
+    digits: 3,
+    color: "#ef4444",
+    volatility: 0.00013,
+  },
+  {
+    label: "AUD/USD",
+    key: "AUDUSD",
+    basePrice: 0.635,
+    digits: 5,
+    color: "#10b981",
+    volatility: 0.00014,
+  },
+  {
+    label: "NZD/USD",
+    key: "NZDUSD",
+    basePrice: 0.585,
+    digits: 5,
+    color: "#14b8a6",
+    volatility: 0.00013,
+  },
+  {
+    label: "USD/CHF",
+    key: "USDCHF",
+    basePrice: 0.895,
+    digits: 5,
+    color: "#0ea5e9",
+    volatility: 0.00012,
+  },
+  {
+    label: "USD/CAD",
+    key: "USDCAD",
+    basePrice: 1.355,
+    digits: 5,
+    color: "#f97316",
+    volatility: 0.00012,
+  },
+  {
+    label: "GBP/JPY",
+    key: "GBPJPY",
+    basePrice: 190.5,
+    digits: 3,
+    color: "#ec4899",
+    volatility: 0.0002,
+  },
+  {
+    label: "EUR/JPY",
+    key: "EURJPY",
+    basePrice: 162.5,
+    digits: 3,
+    color: "#06b6d4",
+    volatility: 0.00017,
+  },
 ];
 
 const INTERVALS = [
@@ -71,14 +152,16 @@ function generateSimulated(
   bars: number,
 ): Candle[] {
   const now = Math.floor(Date.now() / 1000);
-  const start = Math.floor((now - bars * intervalSec) / intervalSec) * intervalSec;
+  const start =
+    Math.floor((now - bars * intervalSec) / intervalSec) * intervalSec;
   const list: Candle[] = [];
   let price = basePrice * (1 + (Math.random() - 0.5) * 0.002);
 
   for (let i = 0; i < bars; i++) {
     const t = start + i * intervalSec;
     const open = price;
-    let high = price, low = price;
+    let high = price,
+      low = price;
     for (let j = 0; j < 20; j++) {
       price += (Math.random() - 0.499) * volatility * price;
       if (price > high) high = price;
@@ -92,10 +175,16 @@ function generateSimulated(
 // Simple per-pair simulation cache (keyed by "EURUSD-300" etc.) so switching
 // pair/TF doesn't regenerate on every render.
 const simCache = new Map<string, Candle[]>();
-function getSimulated(pair: typeof PAIRS[number], iv: typeof INTERVALS[number]) {
+function getSimulated(
+  pair: (typeof PAIRS)[number],
+  iv: (typeof INTERVALS)[number],
+) {
   const k = `${pair.key}-${iv.seconds}`;
   if (!simCache.has(k))
-    simCache.set(k, generateSimulated(pair.basePrice, pair.volatility, iv.seconds, iv.bars));
+    simCache.set(
+      k,
+      generateSimulated(pair.basePrice, pair.volatility, iv.seconds, iv.bars),
+    );
   return simCache.get(k)!;
 }
 
@@ -126,7 +215,9 @@ function LWChart({
 
       // tear down previous
       if (chartRef.current) {
-        try { chartRef.current.remove(); } catch (_) { }
+        try {
+          chartRef.current.remove();
+        } catch (_) {}
         chartRef.current = null;
         seriesRef.current = null;
       }
@@ -138,14 +229,22 @@ function LWChart({
           horzLines: { color: "rgba(255,255,255,0.04)" },
         },
         crosshair: {
-          vertLine: { color: "rgba(255,255,255,0.2)", labelBackgroundColor: "#1f2937" },
-          horzLine: { color: "rgba(255,255,255,0.2)", labelBackgroundColor: "#1f2937" },
+          vertLine: {
+            color: "rgba(255,255,255,0.2)",
+            labelBackgroundColor: "#1f2937",
+          },
+          horzLine: {
+            color: "rgba(255,255,255,0.2)",
+            labelBackgroundColor: "#1f2937",
+          },
         },
         rightPriceScale: { borderColor: "rgba(255,255,255,0.06)" },
         timeScale: {
           borderColor: "rgba(255,255,255,0.06)",
-          timeVisible: true, secondsVisible: false,
-          rightOffset: 8, barSpacing: 8,
+          timeVisible: true,
+          secondsVisible: false,
+          rightOffset: 8,
+          barSpacing: 8,
         },
         handleScroll: true,
         handleScale: true,
@@ -158,8 +257,10 @@ function LWChart({
       let series: any;
       if (chartType === "Candle") {
         series = chart.addCandlestickSeries({
-          upColor: "#22c55e", downColor: "#ef4444",
-          wickUpColor: "#16a34a", wickDownColor: "#dc2626",
+          upColor: "#22c55e",
+          downColor: "#ef4444",
+          wickUpColor: "#16a34a",
+          wickDownColor: "#dc2626",
           borderVisible: false,
         });
       } else if (chartType === "Line") {
@@ -175,16 +276,20 @@ function LWChart({
       seriesRef.current = series;
 
       // data
-      const data = chartType === "Candle"
-        ? candles
-        : candles.map((c) => ({ time: c.time, value: c.close }));
+      const data =
+        chartType === "Candle"
+          ? candles
+          : candles.map((c) => ({ time: c.time, value: c.close }));
       series.setData(data);
       chart.timeScale().fitContent();
 
       // crosshair
       if (onCrosshairMove) {
         chart.subscribeCrosshairMove((param: any) => {
-          if (!param?.seriesData) { onCrosshairMove(null); return; }
+          if (!param?.seriesData) {
+            onCrosshairMove(null);
+            return;
+          }
           const d = param.seriesData.values().next().value;
           onCrosshairMove(d?.close ?? d?.value ?? null);
         });
@@ -193,7 +298,10 @@ function LWChart({
       // resize observer
       const ro = new ResizeObserver(() => {
         if (containerRef.current && chart)
-          chart.resize(containerRef.current.clientWidth, containerRef.current.clientHeight);
+          chart.resize(
+            containerRef.current.clientWidth,
+            containerRef.current.clientHeight,
+          );
       });
       ro.observe(containerRef.current!);
       cleanup = () => ro.disconnect();
@@ -203,7 +311,9 @@ function LWChart({
     return () => {
       cleanup?.();
       if (chartRef.current) {
-        try { chartRef.current.remove(); } catch (_) { }
+        try {
+          chartRef.current.remove();
+        } catch (_) {}
         chartRef.current = null;
         seriesRef.current = null;
       }
@@ -222,11 +332,12 @@ function LWChart({
     } catch (_) {
       /* time went backwards — do a full setData */
       try {
-        const data = chartType === "Candle"
-          ? candles
-          : candles.map((c) => ({ time: c.time, value: c.close }));
+        const data =
+          chartType === "Candle"
+            ? candles
+            : candles.map((c) => ({ time: c.time, value: c.close }));
         series.setData(data);
-      } catch (_2) { }
+      } catch (_2) {}
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candles]);
@@ -237,7 +348,7 @@ function LWChart({
 /* ─── Page ───────────────────────────────────────────────────────────────── */
 export default function LiveMonitorChart() {
   const [pair, setPair] = useState(PAIRS[0]);
-  const [iv, setIv] = useState(INTERVALS[1]);  // 5m default
+  const [iv, setIv] = useState(INTERVALS[1]); // 5m default
   const [ct, setCt] = useState<ChartType>("Candle");
   const [candles, setCandles] = useState<Candle[]>([]);
   const [livePrice, setLivePrice] = useState<number | null>(null);
@@ -277,8 +388,9 @@ export default function LiveMonitorChart() {
         throw new Error(json.error ?? "No candles returned");
       }
 
-      const sorted: Candle[] = (json.candles as Candle[])
-        .sort((a, b) => a.time - b.time);
+      const sorted: Candle[] = (json.candles as Candle[]).sort(
+        (a, b) => a.time - b.time,
+      );
 
       setCandles(sorted);
       const last = sorted[sorted.length - 1];
@@ -288,7 +400,9 @@ export default function LiveMonitorChart() {
       setSource("mt5");
       return; // success — no need for demo
     } catch (e: any) {
-      setError(`MT5 unreachable — using demo prices (${e?.message ?? "timeout"})`);
+      setError(
+        `MT5 unreachable — using demo prices (${e?.message ?? "timeout"})`,
+      );
     }
 
     /* Demo fallback */
@@ -301,7 +415,9 @@ export default function LiveMonitorChart() {
     setSource("demo");
   }, [pair, iv]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   /* ── Live tick — MT5 OR Demo ── */
   useEffect(() => {
@@ -320,12 +436,15 @@ export default function LiveMonitorChart() {
       if (source === "mt5") {
         try {
           // Poll for the last 2 candles to seamlessly update or append the active forming candle
-          const res = await fetch(`${MT5_API}/api/candles?symbol=${pair.key}&timeframe=${iv.mt5}&count=2`, { signal: AbortSignal.timeout(2000) });
+          const res = await fetch(
+            `${MT5_API}/api/candles?symbol=${pair.key}&timeframe=${iv.mt5}&count=2`,
+            { signal: AbortSignal.timeout(2000) },
+          );
           if (!res.ok) return;
           const json = await res.json();
           if (json.error || !json.candles?.length) return;
 
-          setCandles(prev => {
+          setCandles((prev) => {
             if (prev.length === 0) return prev;
             const newCandles = json.candles as Candle[];
             const forming = newCandles[newCandles.length - 1]; // Current active candle
@@ -364,7 +483,8 @@ export default function LiveMonitorChart() {
 
         if (bucket === last.time) {
           const updated: Candle = {
-            time: last.time, open: last.open,
+            time: last.time,
+            open: last.open,
             high: Math.max(last.high, newP),
             low: Math.min(last.low, newP),
             close: newP,
@@ -373,7 +493,8 @@ export default function LiveMonitorChart() {
           return [...prev.slice(0, -1), updated];
         } else {
           const nc: Candle = {
-            time: bucket, open: last.close,
+            time: bucket,
+            open: last.close,
             high: Math.max(last.close, newP),
             low: Math.min(last.close, newP),
             close: newP,
@@ -387,21 +508,36 @@ export default function LiveMonitorChart() {
 
     if (tickRef.current) clearInterval(tickRef.current);
     tickRef.current = setInterval(tick, 1000);
-    return () => { if (tickRef.current) clearInterval(tickRef.current); };
+    return () => {
+      if (tickRef.current) clearInterval(tickRef.current);
+    };
   }, [pair, iv, marketOpen, source]);
 
   /* ── Derived ── */
   const displayPrice = crosshair ?? livePrice;
-  const isUp = displayPrice !== null && prevClose !== null ? displayPrice >= prevClose : true;
-  const priceChange = livePrice !== null && prevClose !== null ? livePrice - prevClose : null;
-  const pricePct = priceChange !== null && prevClose ? (priceChange / prevClose) * 100 : null;
-  const dayHigh = useMemo(() => candles.length ? Math.max(...candles.map((c) => c.high)) : null, [candles]);
-  const dayLow = useMemo(() => candles.length ? Math.min(...candles.map((c) => c.low)) : null, [candles]);
+  const isUp =
+    displayPrice !== null && prevClose !== null
+      ? displayPrice >= prevClose
+      : true;
+  const priceChange =
+    livePrice !== null && prevClose !== null ? livePrice - prevClose : null;
+  const pricePct =
+    priceChange !== null && prevClose ? (priceChange / prevClose) * 100 : null;
+  const dayHigh = useMemo(
+    () => (candles.length ? Math.max(...candles.map((c) => c.high)) : null),
+    [candles],
+  );
+  const dayLow = useMemo(
+    () => (candles.length ? Math.min(...candles.map((c) => c.low)) : null),
+    [candles],
+  );
 
   /* ── Trade Execution ── */
   const executeTrade = async (action: "buy" | "sell") => {
     if (source !== "mt5") {
-      alert(`Cannot execute trade: MT5 is disconnected. You are viewing demo data.`);
+      alert(
+        `Cannot execute trade: MT5 is disconnected. You are viewing demo data.`,
+      );
       return;
     }
     setIsExecuting(true);
@@ -412,12 +548,14 @@ export default function LiveMonitorChart() {
         body: JSON.stringify({
           symbol: pair.key,
           action,
-          lot_size: lotSize
+          lot_size: lotSize,
         }),
       });
       const data = await res.json();
       if (data.success) {
-        alert(`Trade Successful! ${action.toUpperCase()} ${lotSize} on ${pair.key} @ ${data.price || "market"}\nTicket: ${data.ticket}`);
+        alert(
+          `Trade Successful! ${action.toUpperCase()} ${lotSize} on ${pair.key} @ ${data.price || "market"}\nTicket: ${data.ticket}`,
+        );
       } else {
         alert(`Trade Failed: ${data.error}`);
       }
@@ -429,24 +567,34 @@ export default function LiveMonitorChart() {
   };
 
   /* ── Button helpers ── */
-  const pairBtn = (p: typeof PAIRS[number]) =>
-    `px-2.5 py-1.5 rounded-md text-xs font-bold transition-all ${pair.key === p.key ? "text-black shadow-md" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+  const pairBtn = (p: (typeof PAIRS)[number]) =>
+    `px-2.5 py-1.5 rounded-md text-xs font-bold transition-all ${
+      pair.key === p.key
+        ? "text-black shadow-md"
+        : "text-muted-foreground hover:text-foreground hover:bg-muted"
     }`;
-  const tfBtn = (t: typeof INTERVALS[number]) =>
-    `px-2.5 py-1.5 rounded-md text-xs font-bold transition-all ${iv.seconds === t.seconds ? "bg-violet-600 text-foreground shadow-md" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+  const tfBtn = (t: (typeof INTERVALS)[number]) =>
+    `px-2.5 py-1.5 rounded-md text-xs font-bold transition-all ${
+      iv.seconds === t.seconds
+        ? "bg-violet-600 text-foreground shadow-md"
+        : "text-muted-foreground hover:text-foreground hover:bg-muted"
     }`;
   const ctBtn = (c: ChartType) =>
-    `px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all ${ct === c ? "bg-emerald-600 text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+    `px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
+      ct === c
+        ? "bg-emerald-600 text-foreground"
+        : "text-muted-foreground hover:text-foreground hover:bg-muted"
     }`;
 
   /* ── Market status badge ── */
   const MarketBadge = () => {
-    if (!marketOpen) return (
-      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-600/30 bg-slate-800/50 text-xs font-medium text-slate-400">
-        <MoonStar size={12} />
-        Market Closed
-      </div>
-    );
+    if (!marketOpen)
+      return (
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-600/30 bg-slate-800/50 text-xs font-medium text-slate-400">
+          <MoonStar size={12} />
+          Market Closed
+        </div>
+      );
     return (
       <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-xs font-medium text-emerald-400">
         <Activity size={12} className="animate-pulse" />
@@ -457,18 +605,20 @@ export default function LiveMonitorChart() {
 
   /* ── Source badge ── */
   const SourceBadge = () => {
-    if (source === "loading") return (
-      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-card text-xs text-muted-foreground">
-        <div className="w-3 h-3 rounded-full border border-violet-500 border-t-transparent animate-spin" />
-        Loading…
-      </div>
-    );
-    if (source === "mt5") return (
-      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-xs font-medium text-emerald-400">
-        <Database size={12} />
-        MT5 Real Data
-      </div>
-    );
+    if (source === "loading")
+      return (
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-card text-xs text-muted-foreground">
+          <div className="w-3 h-3 rounded-full border border-violet-500 border-t-transparent animate-spin" />
+          Loading…
+        </div>
+      );
+    if (source === "mt5")
+      return (
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-xs font-medium text-emerald-400">
+          <Database size={12} />
+          MT5 Real Data
+        </div>
+      );
     return (
       <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-xs font-medium text-amber-400">
         <FlaskConical size={12} />
@@ -479,8 +629,10 @@ export default function LiveMonitorChart() {
 
   /* ── Render ── */
   return (
-    <div className="flex flex-col gap-3" style={{ height: "calc(100vh - 88px)" }}>
-
+    <div
+      className="flex flex-col gap-3"
+      style={{ height: "calc(100vh - 88px)" }}
+    >
       {/* Header row */}
       <div className="flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-4">
@@ -499,20 +651,34 @@ export default function LiveMonitorChart() {
           {displayPrice !== null && (
             <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-border bg-card">
               <div>
-                <div className="text-xs text-muted-foreground mb-0.5 font-medium">{pair.label}</div>
-                <div className={`text-2xl font-bold font-mono leading-none ${isUp ? "text-emerald-400" : "text-red-400"}`}>
+                <div className="text-xs text-muted-foreground mb-0.5 font-medium">
+                  {pair.label}
+                </div>
+                <div
+                  className={`text-2xl font-bold font-mono leading-none ${isUp ? "text-emerald-400" : "text-red-400"}`}
+                >
                   {displayPrice.toFixed(pair.digits)}
                 </div>
               </div>
               {priceChange !== null && (
                 <div className="flex flex-col items-end gap-0.5">
-                  <div className={`flex items-center gap-1 text-xs font-semibold ${isUp ? "text-emerald-400" : "text-red-400"}`}>
-                    {isUp ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                    {priceChange >= 0 ? "+" : ""}{priceChange.toFixed(pair.digits)}
+                  <div
+                    className={`flex items-center gap-1 text-xs font-semibold ${isUp ? "text-emerald-400" : "text-red-400"}`}
+                  >
+                    {isUp ? (
+                      <TrendingUp size={12} />
+                    ) : (
+                      <TrendingDown size={12} />
+                    )}
+                    {priceChange >= 0 ? "+" : ""}
+                    {priceChange.toFixed(pair.digits)}
                   </div>
                   {pricePct !== null && (
-                    <div className={`text-xs font-medium px-1.5 py-0.5 rounded ${isUp ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400"}`}>
-                      {pricePct >= 0 ? "+" : ""}{pricePct.toFixed(3)}%
+                    <div
+                      className={`text-xs font-medium px-1.5 py-0.5 rounded ${isUp ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400"}`}
+                    >
+                      {pricePct >= 0 ? "+" : ""}
+                      {pricePct.toFixed(3)}%
                     </div>
                   )}
                 </div>
@@ -525,11 +691,15 @@ export default function LiveMonitorChart() {
             <div className="flex items-center gap-3 text-xs">
               <div>
                 <div className="text-muted-foreground">H</div>
-                <div className="text-emerald-400 font-mono font-semibold">{dayHigh.toFixed(pair.digits)}</div>
+                <div className="text-emerald-400 font-mono font-semibold">
+                  {dayHigh.toFixed(pair.digits)}
+                </div>
               </div>
               <div>
                 <div className="text-muted-foreground">L</div>
-                <div className="text-red-400 font-mono font-semibold">{dayLow?.toFixed(pair.digits)}</div>
+                <div className="text-red-400 font-mono font-semibold">
+                  {dayLow?.toFixed(pair.digits)}
+                </div>
               </div>
             </div>
           )}
@@ -537,15 +707,20 @@ export default function LiveMonitorChart() {
 
         {/* Right controls */}
         <div className="flex items-center gap-4">
-
           {/* Trade Execution Panel */}
           <div className="flex items-center gap-2 bg-card border border-border/60 p-1.5 rounded-xl shadow-sm">
             <div className="flex items-center gap-1 bg-secondary/40 px-2 py-1.5 rounded-lg border border-border/50">
-              <span className="text-xs font-bold text-muted-foreground mr-1">LOT:</span>
+              <span className="text-xs font-bold text-muted-foreground mr-1">
+                LOT:
+              </span>
               <button
-                onClick={() => setLotSize(prev => Math.max(0.01, prev - 0.01))}
+                onClick={() =>
+                  setLotSize((prev) => Math.max(0.01, prev - 0.01))
+                }
                 className="w-5 h-5 flex items-center justify-center rounded bg-card border border-border hover:bg-muted text-xs font-bold"
-              >-</button>
+              >
+                -
+              </button>
               <input
                 type="number"
                 step="0.01"
@@ -555,9 +730,11 @@ export default function LiveMonitorChart() {
                 className="w-14 bg-transparent text-center text-sm font-black focus:outline-none"
               />
               <button
-                onClick={() => setLotSize(prev => prev + 0.01)}
+                onClick={() => setLotSize((prev) => prev + 0.01)}
                 className="w-5 h-5 flex items-center justify-center rounded bg-card border border-border hover:bg-muted text-xs font-bold"
-              >+</button>
+              >
+                +
+              </button>
             </div>
 
             <button
@@ -592,10 +769,19 @@ export default function LiveMonitorChart() {
       {/* MT5 error / demo notice */}
       {error && (
         <div className="flex items-start gap-2 px-3 py-2 rounded-lg border border-amber-500/20 bg-amber-500/5 flex-shrink-0">
-          <AlertCircle size={14} className="text-amber-400 mt-0.5 flex-shrink-0" />
+          <AlertCircle
+            size={14}
+            className="text-amber-400 mt-0.5 flex-shrink-0"
+          />
           <p className="text-xs text-amber-300/80">
-            <span className="font-semibold text-amber-400">MT5 not connected → Demo mode. </span>
-            {error} · Start <code className="bg-black/30 px-1 rounded">python mt5_bridge.py</code> in your project folder to get real data.
+            <span className="font-semibold text-amber-400">
+              MT5 not connected → Demo mode.{" "}
+            </span>
+            {error} · Start{" "}
+            <code className="bg-black/30 px-1 rounded">
+              python mt5_bridge.py
+            </code>{" "}
+            in your project folder to get real data.
           </p>
         </div>
       )}
@@ -608,9 +794,15 @@ export default function LiveMonitorChart() {
               key={p.key}
               onClick={() => setPair(p)}
               className={pairBtn(p)}
-              style={pair.key === p.key
-                ? { backgroundColor: p.color + "22", color: p.color, border: `1px solid ${p.color}44` }
-                : {}}
+              style={
+                pair.key === p.key
+                  ? {
+                      backgroundColor: p.color + "22",
+                      color: p.color,
+                      border: `1px solid ${p.color}44`,
+                    }
+                  : {}
+              }
             >
               {p.label}
             </button>
@@ -633,18 +825,25 @@ export default function LiveMonitorChart() {
         <div className="flex items-center gap-0.5 bg-card rounded-lg border border-border p-1">
           <span className="px-2 text-xs text-muted-foreground">Type:</span>
           {CHART_TYPES.map((c) => (
-            <button key={c} onClick={() => setCt(c)} className={ctBtn(c)}>{c}</button>
+            <button key={c} onClick={() => setCt(c)} className={ctBtn(c)}>
+              {c}
+            </button>
           ))}
         </div>
         {/* Stats */}
         <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
           <span>
-            <span className="text-foreground font-medium">{candles.length}</span> candles
+            <span className="text-foreground font-medium">
+              {candles.length}
+            </span>{" "}
+            candles
           </span>
           <span>·</span>
           <span className="text-violet-400 font-medium">{iv.label}</span>
           <span>·</span>
-          <span style={{ color: pair.color }} className="font-medium">{pair.label}</span>
+          <span style={{ color: pair.color }} className="font-medium">
+            {pair.label}
+          </span>
           {source === "mt5" && (
             <>
               <span>·</span>
@@ -676,16 +875,22 @@ export default function LiveMonitorChart() {
 
       {/* Footer */}
       <p className="text-center text-xs text-muted-foreground flex-shrink-0">
-        Powered by <span className="text-violet-400">Lightweight Charts™</span> (TradingView open-source) ·{" "}
-        {source === "mt5"
-          ? <span className="text-emerald-400">Real MT5 broker data</span>
-          : <span className="text-amber-400">Demo mode — start MT5 bridge for real prices</span>
-        }
+        Powered by <span className="text-violet-400">Lightweight Charts™</span>{" "}
+        (TradingView open-source) ·{" "}
+        {source === "mt5" ? (
+          <span className="text-emerald-400">Real MT5 broker data</span>
+        ) : (
+          <span className="text-amber-400">
+            Demo mode — start MT5 bridge for real prices
+          </span>
+        )}
         {!marketOpen && (
-          <span className="text-slate-500"> · Market closed — chart is static until Sunday 22:00 UTC</span>
+          <span className="text-slate-500">
+            {" "}
+            · Market closed — chart is static until Sunday 22:00 UTC
+          </span>
         )}
       </p>
-
     </div>
   );
 }
