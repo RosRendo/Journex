@@ -1,0 +1,163 @@
+version: "3"
+
+services:
+  # Main API Gateway (TypeScript/Express)
+  # This is the ONLY port exposed to the user (5000)
+  # All other services are internal and communicate via Docker network
+  main_gateway:
+    build: ./backend
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - PAIR_BOT_URL=http://pair_bot:5001
+      - XAUUSD_BOT_URL=http://xauusd_bot:5000
+      - RISK_TABLE_URL=http://risk_table:5002
+      - BACKTESTING_URL=http://backtesting:5004
+      - CALENDAR_SHEET_URL=http://calendar_sheet:8765
+    networks:
+      - trading_network
+    depends_on:
+      - pair_bot
+      - xauusd_bot
+      - risk_table
+      - calendar_sheet
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # NOTE: MT5 Bridge must be running on Windows host:
+  # Start with: python mt5_bridge_server.py
+  # The bridge exposes MT5 data via HTTP API on port 5003
+  # MT5 Bridge is NOT containerized as it needs direct MT5 access
+
+  # Internal Service 1: Pair Trading Bot
+  pair_bot:
+    build: ./Tradingbot1_Server_Pair
+    expose:
+      - "5001"
+    environment:
+      - PORT=5001
+      - MT5_BRIDGE_URL=http://host.docker.internal:5003
+    networks:
+      - trading_network
+    restart: on-failure
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import requests; requests.get('http://localhost:5001/health', timeout=5)",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Internal Service 2: XAUUSD Trading Bot
+  xauusd_bot:
+    build: ./Tradingbot2_Server_Xauusd
+    expose:
+      - "5000"
+    environment:
+      - PORT=5000
+      - MT5_BRIDGE_URL=http://host.docker.internal:5003
+    networks:
+      - trading_network
+    restart: on-failure
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import requests; requests.get('http://localhost:5000/health', timeout=5)",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Internal Service 3: Risk Table Calculator
+  risk_table:
+    build: ./RiskTableCalculation_Server
+    expose:
+      - "5002"
+    environment:
+      - PORT=5002
+      - MT5_BRIDGE_URL=http://host.docker.internal:5003
+    networks:
+      - trading_network
+    restart: on-failure
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import requests; requests.get('http://localhost:5002/health', timeout=5)",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Internal Service 4: Calendar Sheet Journal
+  calendar_sheet:
+    build: ./CalendarSheetJournal_Server
+    expose:
+      - "8765"
+    environment:
+      - PORT=8765
+      - MT5_BRIDGE_URL=http://host.docker.internal:5003
+    networks:
+      - trading_network
+    restart: on-failure
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import requests; requests.get('http://localhost:8765/health', timeout=5)",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Internal Service 5: Backtesting Engine
+  backtesting:
+    build: ./Backtesting_Server
+    expose:
+      - "5004"
+    environment:
+      - PORT=5004
+      - MT5_BRIDGE_URL=http://host.docker.internal:5003
+      - BACKEND_URL=http://main_gateway:5000
+    networks:
+      - trading_network
+    restart: on-failure
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import requests; requests.get('http://localhost:5004/health', timeout=5)",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+networks:
+  trading_network:
+    driver: bridge
