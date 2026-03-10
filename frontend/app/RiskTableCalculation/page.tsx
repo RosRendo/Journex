@@ -46,7 +46,7 @@ interface DashboardData {
   is_running: boolean;
 }
 
-const MT5_API = "\";
+const MT5_API = process.env.NEXT_PUBLIC_MT5_API ?? "";
 
 export default function ForexRiskDashboard() {
   const [data, setData] = useState<DashboardData>({
