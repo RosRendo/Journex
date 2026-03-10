@@ -1,5 +1,6 @@
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
-const BRIDGE_URL = process.env.NEXT_PUBLIC_BRIDGE_URL || '';
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+const BRIDGE_URL = process.env.NEXT_PUBLIC_BRIDGE_URL || "";
 
 export interface Trade {
   id?: number;
@@ -47,8 +48,8 @@ class ApiService {
 
   async createTrade(trade: Trade): Promise<Trade> {
     const response = await fetch(`${BACKEND_URL}/api/trades`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(trade),
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -58,8 +59,8 @@ class ApiService {
 
   async updateTrade(id: number, trade: Partial<Trade>): Promise<Trade> {
     const response = await fetch(`${BACKEND_URL}/api/trades/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(trade),
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -69,16 +70,16 @@ class ApiService {
 
   async deleteTrade(id: number): Promise<void> {
     const response = await fetch(`${BACKEND_URL}/api/trades/${id}`, {
-      method: 'DELETE',
+      method: "DELETE",
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
   }
 
   async uploadImage(file: File): Promise<string> {
     const formData = new FormData();
-    formData.append('image', file);
+    formData.append("image", file);
     const response = await fetch(`${BACKEND_URL}/api/upload`, {
-      method: 'POST',
+      method: "POST",
       body: formData,
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -102,13 +103,13 @@ class ApiService {
 
   // XAUUSD Bot API (Port 5000)
   async getBotStatus(): Promise<any> {
-    const response = await fetch('http://localhost:5000/api/status');
+    const response = await fetch("http://localhost:5000/api/status");
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return response.json();
   }
 
   async getBotAccount(): Promise<any> {
-    const response = await fetch('http://localhost:5000/api/account');
+    const response = await fetch("http://localhost:5000/api/account");
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return response.json();
   }

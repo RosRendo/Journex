@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CheckCircle2, ArrowRight, Sparkles } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export default function SubscriptionSuccessPage() {
   const params = useSearchParams();
   const plan = params.get("plan") ?? "Pro";
@@ -12,14 +14,16 @@ export default function SubscriptionSuccessPage() {
 
   // Animate loading dots while session refreshes
   useEffect(() => {
-    const id = setInterval(() => setDots((d) => (d.length >= 3 ? "." : d + ".")), 500);
+    const id = setInterval(
+      () => setDots((d) => (d.length >= 3 ? "." : d + ".")),
+      500,
+    );
     return () => clearInterval(id);
   }, []);
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <div className="max-w-md w-full bg-card border border-border rounded-3xl p-10 flex flex-col items-center text-center shadow-2xl animate-in zoom-in-95 duration-500">
-
         {/* Success Icon */}
         <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mb-8">
           <CheckCircle2 className="w-10 h-10 text-green-500" />
@@ -30,14 +34,16 @@ export default function SubscriptionSuccessPage() {
         </h1>
 
         <p className="text-muted-foreground mb-2">
-          Welcome to <strong className="text-foreground">TradeKiller {plan}</strong>.
-          Your payment was processed successfully.
+          Welcome to{" "}
+          <strong className="text-foreground">TradeKiller {plan}</strong>. Your
+          payment was processed successfully.
         </p>
 
         {plan === "Pro" && (
           <div className="mt-4 px-4 py-3 rounded-xl bg-primary/10 border border-primary/20 w-full text-sm text-primary font-medium">
             <Sparkles className="inline w-4 h-4 mr-1.5 -mt-0.5" />
-            Your <strong>7-day free trial</strong> starts today. You won&apos;t be charged until it ends.
+            Your <strong>7-day free trial</strong> starts today. You won&apos;t
+            be charged until it ends.
           </div>
         )}
 
