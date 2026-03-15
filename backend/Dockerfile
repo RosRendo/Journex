@@ -41,12 +41,15 @@ COPY --from=builder /app/prisma ./prisma
 # Create uploads directory
 RUN mkdir -p uploads
 
-# Expose port
-EXPOSE 5000
+# Expose port (will be set by Railway/environment)
+EXPOSE ${PORT:-5000}
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD curl -f http://localhost:5000/health || exit 1
+  CMD curl -f http://localhost:${PORT:-5000}/health || exit 1
+
+# Start the application
+CMD ["node", "dist/server.js"]
 
 # Start application
 CMD ["node", "dist/server.js"]
