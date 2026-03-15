@@ -112,6 +112,7 @@ const Sidebar = () => {
       items: [
         { href: "/livemonitorchart", label: "Live Monitor Chart" },
         { href: "/notificationandmonitor", label: "Notifications & Alerts" },
+        { href: "/positions", label: "Active Positions" },
         { href: "/news", label: "News & Macro Insights" },
       ],
     },

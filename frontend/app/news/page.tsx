@@ -40,7 +40,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-const BRIDGE = "";
+const BRIDGE = process.env.NEXT_PUBLIC_BRIDGE_URL ?? "http://localhost:5003";
 
 /* ────────────────── Types ──────────────────────────────── */
 interface NewsItem {

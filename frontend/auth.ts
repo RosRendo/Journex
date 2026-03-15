@@ -15,12 +15,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 password: { label: "Password", type: "password" },
             },
             async authorize(credentials) {
-                // ── Demo mode: accept any non-empty email/password ──
-                // Replace this block with a real DB lookup before production.
+                // ── Mock Lifetime User ──────────────────────────────────────
+                // Accept any non-empty email + password combo.
+                // All credential logins are treated as a lifetime-plan user.
+                // Replace with a real DB lookup before going live.
                 if (credentials?.email && credentials?.password) {
                     return {
-                        id: "demo-user-1",
-                        name: "Trader",
+                        id: "mock-lifetime-user",
+                        name: "Ros Rendo",
                         email: credentials.email as string,
                         image: null,
                     };
@@ -32,22 +34,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     session: { strategy: "jwt" },
     pages: { signIn: "/auth" },
     callbacks: {
-        async jwt({ token, user, trigger }) {
+        async jwt({ token, user, account }) {
             if (user) {
                 token.id = user.id;
                 token.email = user.email;
 
-                // --- Mock Database Logic ---
-                // In production, fetch this from a real database.
-                if (user.email === "rousrendo@gmail.com") {
-                    token.isPro = true; // Lifetime admin/pro
+                // Google OAuth users: check if this is YOUR email for lifetime
+                if (account?.provider === "google") {
+                    const adminEmails = ["rousrendo@gmail.com"];
+                    token.isPro = adminEmails.includes(user.email ?? "");
+                    token.plan = token.isPro ? "lifetime" : "free";
+                    token.trialEndsAt = null;
                 } else {
-                    // For anyone else, set a fake trial expiration. To demo the "Expired" state, 
-                    // we'll pretend non-pro users who login with "expired@demo.com" are already expired.
-                    // For others, we pretend their 7-day trial started 8 days ago (so they are expired) 
-                    // EXCEPT if they just signed up (we'll make regular users expired by default so you can see the gate).
-                    token.isPro = false;
-                    token.trialEndsAt = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(); // Expired 1 day ago
+                    // Credentials provider → always lifetime mock
+                    token.isPro = true;
+                    token.plan = "lifetime";
+                    token.trialEndsAt = null;
                 }
             }
             return token;
@@ -56,6 +58,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             if (session.user) {
                 (session.user as any).id = token.id;
                 (session.user as any).isPro = token.isPro;
+                (session.user as any).plan = token.plan;
                 (session.user as any).trialEndsAt = token.trialEndsAt;
             }
             return session;

@@ -116,9 +116,10 @@ export default function Navbar() {
 
 
 
-  const handleLogout = () => {
-    signOut({ callbackUrl: "/auth" });
+  const handleLogout = async () => {
     setShowProfileMenu(false);
+    await signOut({ redirect: false }); // clear the session cookie first
+    router.push("/auth");               // then navigate — middleware sees no session
   };
 
   const handleProfileClick = () => {

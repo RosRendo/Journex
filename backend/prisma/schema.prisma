@@ -122,6 +122,8 @@ model Post {
   pair        String?  @db.VarChar(20)
   direction   String?  @db.VarChar(10)
   entry       String?  @db.VarChar(50)
+  tp          String?  @db.VarChar(50)
+  sl          String?  @db.VarChar(50)
   result      String?  @db.VarChar(50)
   createdAt   DateTime @default(now()) @map("created_at")
 

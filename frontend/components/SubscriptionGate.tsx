@@ -86,7 +86,10 @@ export default function SubscriptionGate({ children }: { children: React.ReactNo
                         </button>
 
                         <button
-                            onClick={() => window.location.href = "/auth"}
+                            onClick={async () => {
+                                await import("next-auth/react").then(m => m.signOut({ redirect: false }));
+                                window.location.href = "/auth";
+                            }}
                             className="mt-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                         >
                             Sign out

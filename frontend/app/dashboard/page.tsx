@@ -84,19 +84,31 @@ export default function Dashboard() {
   } | null>(null);
 
   useEffect(() => {
-    // Poll the unified MT5 server (Python) running on 5003
+    const BRIDGE_URL = process.env.NEXT_PUBLIC_BRIDGE_URL ?? "http://localhost:5003";
+    // Poll the MT5 Python bridge /health endpoint
     const fetchMT5 = async () => {
       try {
-        const res = await fetch("\/api/status");
+        const res = await fetch(`${BRIDGE_URL}/health`);
         if (res.ok) {
           const data = await res.json();
-          setMt5Data({
-            connected: data.connected,
-            balance: data.account?.balance,
-            equity: data.account?.equity,
-            profit: data.account?.profit,
-            margin_level: data.account?.margin_level,
-          });
+          // /health gives us connected + balance, try /api/account for full stats
+          if (data.connected) {
+            try {
+              const accRes = await fetch(`${BRIDGE_URL}/api/account`);
+              if (accRes.ok) {
+                const acc = await accRes.json();
+                setMt5Data({
+                  connected: true,
+                  balance: acc.balance,
+                  equity: acc.equity,
+                  profit: acc.profit,
+                  margin_level: acc.margin_level,
+                });
+                return;
+              }
+            } catch (_) {}
+          }
+          setMt5Data({ connected: data.connected, balance: data.balance });
         }
       } catch (e) {
         setMt5Data({ connected: false });

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import {
     getProfile, updateProfile,
-    getPosts, createPost,
+    getPosts, createPost, updatePost, deletePost,
     likePost, createComment,
     getCommunities, createCommunity,
     joinCommunity, leaveCommunity, getCommunityMembers
@@ -14,6 +14,8 @@ router.post("/profile", updateProfile);
 
 router.get("/posts", getPosts);
 router.post("/posts", createPost);
+router.put("/posts/:id", updatePost);
+router.delete("/posts/:id", deletePost);
 
 router.post("/posts/:id/like", likePost);
 router.post("/posts/:id/comments", createComment);

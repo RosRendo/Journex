@@ -83,7 +83,7 @@ export function useCsvTrades(accountId?: number, autoRefreshMs: number = 0) {
     };
   }, []);
 
-  const API_BASE = "";
+  const API_BASE = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
 
   // Fetch true history from Live MT5 bridge (bypassing node backend)
   const fetchTrades = useCallback(async () => {

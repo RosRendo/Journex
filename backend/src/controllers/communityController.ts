@@ -90,7 +90,7 @@ export const createPost = async (req: Request, res: Response) => {
         const profile = await db.userProfile.findUnique({ where: { userId: uid } });
         if (!profile) return res.status(404).json({ error: "Profile not found" });
 
-        const { content, image, pair, direction, entry, result, communityId } = req.body;
+        const { content, image, pair, direction, entry, tp, sl, result, communityId } = req.body;
 
         const post = await db.post.create({
             data: {
@@ -99,6 +99,8 @@ export const createPost = async (req: Request, res: Response) => {
                 pair,
                 direction,
                 entry,
+                tp,
+                sl,
                 result,
                 authorId: profile.id,
                 communityId: communityId || null
@@ -112,6 +114,64 @@ export const createPost = async (req: Request, res: Response) => {
         });
 
         res.json(post);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const updatePost = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const uid = String((req as any).user?.id || req.body.userId || "demo-user-1");
+        const profile = await db.userProfile.findUnique({ where: { userId: uid } });
+        if (!profile) return res.status(404).json({ error: "Profile not found" });
+
+        const post = await db.post.findUnique({ where: { id }, include: { author: true } });
+        if (!post) return res.status(404).json({ error: "Post not found" });
+
+        if (post.authorId !== profile.id && uid !== "rousrendo@gmail.com") {
+            return res.status(403).json({ error: "Unauthorized" });
+        }
+
+        const { content } = req.body;
+        const updated = await db.post.update({
+            where: { id },
+            data: { content },
+            include: {
+                author: true,
+                community: true,
+                comments: { include: { author: true } },
+                _count: { select: { likes: true } }
+            }
+        });
+
+        res.json(updated);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const deletePost = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const uid = String((req as any).user?.id || req.headers["x-user-id"] || "demo-user-1");
+        
+        const profile = await db.userProfile.findUnique({ where: { userId: uid } });
+        if (!profile) return res.status(404).json({ error: "Profile not found" });
+
+        const post = await db.post.findUnique({ where: { id } });
+        if (!post) return res.status(404).json({ error: "Post not found" });
+
+        if (post.authorId !== profile.id && uid !== "rousrendo@gmail.com") {
+            return res.status(403).json({ error: "Unauthorized" });
+        }
+
+        // Must delete related likes, comments first due to constraints
+        await db.postLike.deleteMany({ where: { postId: id } });
+        await db.comment.deleteMany({ where: { postId: id } });
+        await db.post.delete({ where: { id } });
+
+        res.json({ success: true });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
@@ -193,7 +253,11 @@ export const createCommunity = async (req: Request, res: Response) => {
         const profile = await db.userProfile.findUnique({ where: { userId: uid } });
         if (!profile) return res.status(404).json({ error: "Profile not found" });
 
-        const { name, description } = req.body;
+        const { name, description, isPro } = req.body;
+
+        if (!isPro && uid !== "demo-user-1") {
+            return res.status(403).json({ error: "Only Pro users can create communities." });
+        }
 
         const community = await db.community.create({
             data: {

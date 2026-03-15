@@ -6,12 +6,13 @@ import hashlib
 import json
 import math
 import os
+import time
 import aiohttp
 import requests
 import feedparser
 from contextlib import asynccontextmanager
-from datetime import datetime
-from typing import Optional
+from datetime import datetime, timedelta
+from typing import Optional, Dict
 from pydantic import BaseModel
 
 # Load .env file if it exists (python-dotenv)
@@ -23,20 +24,47 @@ except ImportError:
     pass  # dotenv not installed — env vars read from system environment
 
 # ─── Discord Webhooks (loaded from .env) ─────────────────────────────────────
-DISCORD_NEWS_WEBHOOK     = os.environ.get("DISCORD_NEWS_WEBHOOK", "")
-DISCORD_CALENDAR_WEBHOOK = os.environ.get("DISCORD_CALENDAR_WEBHOOK", "")
+DISCORD_NEWS_WEBHOOK      = os.environ.get("DISCORD_NEWS_WEBHOOK", "")
+DISCORD_CALENDAR_WEBHOOK  = os.environ.get("DISCORD_CALENDAR_WEBHOOK", "")
+DISCORD_SIGNALS_WEBHOOK   = os.environ.get("DISCORD_SIGNALS_WEBHOOK", "")
+DISCORD_ALERTS_WEBHOOK    = os.environ.get("DISCORD_ALERTS_WEBHOOK", "")
 
 # ─── Telegram (loaded from .env) ─────────────────────────────────────────────
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-TELEGRAM_CHAT_ID   = os.environ.get("TELEGRAM_CHAT_ID", "")
+
+# MODE A — 4 separate channels (each channel has its own chat_id)
+TELEGRAM_CHAT_SIGNALS  = os.environ.get("TELEGRAM_CHAT_SIGNALS", "")
+TELEGRAM_CHAT_ALERTS   = os.environ.get("TELEGRAM_CHAT_ALERTS", "")
+TELEGRAM_CHAT_NEWS     = os.environ.get("TELEGRAM_CHAT_NEWS", "")
+TELEGRAM_CHAT_CALENDAR = os.environ.get("TELEGRAM_CHAT_CALENDAR", "")
+
+# MODE B — 1 supergroup with Topics + per-topic thread_ids
+TELEGRAM_CHAT_ID         = os.environ.get("TELEGRAM_CHAT_ID", "")
+TELEGRAM_THREAD_SIGNALS  = os.environ.get("TELEGRAM_THREAD_SIGNALS", "")
+TELEGRAM_THREAD_ALERTS   = os.environ.get("TELEGRAM_THREAD_ALERTS", "")
+TELEGRAM_THREAD_NEWS     = os.environ.get("TELEGRAM_THREAD_NEWS", "")
+TELEGRAM_THREAD_CALENDAR = os.environ.get("TELEGRAM_THREAD_CALENDAR", "")
 
 # ─── Runtime alert config (can be overridden by frontend via /api/alert-config)
 _alert_config: dict = {
+    # Discord — one webhook per channel
     "discord_news_webhook":     DISCORD_NEWS_WEBHOOK,
     "discord_calendar_webhook": DISCORD_CALENDAR_WEBHOOK,
+    "discord_signals_webhook":  DISCORD_SIGNALS_WEBHOOK,
+    "discord_alerts_webhook":   DISCORD_ALERTS_WEBHOOK,
+    # Telegram bot
     "telegram_bot_token":       TELEGRAM_BOT_TOKEN,
-    "telegram_news_chat_id":    TELEGRAM_CHAT_ID,
-    "telegram_cal_chat_id":     TELEGRAM_CHAT_ID,
+    # MODE A — channel chat_ids
+    "telegram_chat_signals":    TELEGRAM_CHAT_SIGNALS,
+    "telegram_chat_alerts":     TELEGRAM_CHAT_ALERTS,
+    "telegram_chat_news":       TELEGRAM_CHAT_NEWS,
+    "telegram_chat_calendar":   TELEGRAM_CHAT_CALENDAR,
+    # MODE B — group + topic thread_ids
+    "telegram_chat_id":         TELEGRAM_CHAT_ID,
+    "telegram_thread_signals":  TELEGRAM_THREAD_SIGNALS,
+    "telegram_thread_alerts":   TELEGRAM_THREAD_ALERTS,
+    "telegram_thread_news":     TELEGRAM_THREAD_NEWS,
+    "telegram_thread_calendar": TELEGRAM_THREAD_CALENDAR,
 }
 
 # ─── Multi-user MT5 Credentials ───────────────────────────────────────────────
@@ -139,6 +167,32 @@ def health_check():
         "connected": connected,
         "status": "running",
         "balance": acc.balance if acc else None
+    }
+
+@app.get("/api/account")
+def get_account():
+    """Return full MT5 account details (balance, equity, profit, margin_level, etc.)"""
+    global connected
+    if not connected or mt5.terminal_info() is None:
+        init_mt5()
+    if not connected:
+        return {"success": False, "error": "MT5 not connected"}
+    acc = mt5.account_info()
+    if acc is None:
+        return {"success": False, "error": "No account logged in"}
+    return {
+        "success": True,
+        "login": acc.login,
+        "balance": acc.balance,
+        "equity": acc.equity,
+        "profit": acc.profit,
+        "margin": acc.margin,
+        "margin_free": acc.margin_free,
+        "margin_level": acc.margin_level,
+        "currency": acc.currency,
+        "server": acc.server,
+        "leverage": acc.leverage,
+        "name": acc.name,
     }
 
 class ConnectRequest(BaseModel):
@@ -417,39 +471,134 @@ def execute_trade(req: TradeRequest):
 
 class NotifyMessage(BaseModel):
     message: str
-    discordWebhookUrl: str = None
-    telegramBotToken: str = None
-    telegramChatId: str = None
+    # channel type: "news" | "calendar" | "signal" | "alert" | "custom"
+    # Determines which Discord channel to route to.
+    # Telegram always gets ALL messages (single group, labeled by emoji).
+    channel: Optional[str] = "news"
+    # Override targets (optional — omit to use .env defaults)
+    discordWebhookUrl: Optional[str] = None
+    telegramBotToken:  Optional[str] = None
+    telegramChatId:    Optional[str] = None
+
+
+# ─── Channel → Discord webhook key ──────────────────────────────────────────
+_CHANNEL_WEBHOOK_MAP = {
+    "news":     "discord_news_webhook",
+    "calendar": "discord_calendar_webhook",
+    "signal":   "discord_signals_webhook",
+    "alert":    "discord_alerts_webhook",
+}
+# ─── MODE A: channel → Telegram chat_id key ──────────────────────────────────
+_CHANNEL_CHAT_MAP = {
+    "news":     "telegram_chat_news",
+    "calendar": "telegram_chat_calendar",
+    "signal":   "telegram_chat_signals",
+    "alert":    "telegram_chat_alerts",
+}
+# ─── MODE B: channel → Telegram thread_id key ────────────────────────────────
+_CHANNEL_THREAD_MAP = {
+    "news":     "telegram_thread_news",
+    "calendar": "telegram_thread_calendar",
+    "signal":   "telegram_thread_signals",
+    "alert":    "telegram_thread_alerts",
+}
 
 @app.post("/api/notify")
 def send_notification(req: NotifyMessage):
     success = True
-    errors = []
+    errors  = []
+    channel = (req.channel or "news").lower()
 
-    # Discord Webhook Notification
-    if req.discordWebhookUrl and req.discordWebhookUrl.strip():
+    # ── 1. Resolve Discord target ──────────────────────────────────────────────
+    discord_url = (
+        req.discordWebhookUrl
+        or _alert_config.get(_CHANNEL_WEBHOOK_MAP.get(channel, "discord_news_webhook"))
+        or _alert_config.get("discord_news_webhook")
+    )
+
+    # ── 2. Resolve Telegram target (auto-detect Mode A vs Mode B) ─────────────
+    tele_token = req.telegramBotToken or _alert_config.get("telegram_bot_token", "")
+
+    # MODE A — dedicated channel: each message type has its own channel chat_id
+    mode_a_chat = _alert_config.get(_CHANNEL_CHAT_MAP.get(channel, ""), "")
+
+    # MODE B — shared group with Topics: one chat_id + a per-topic thread_id
+    mode_b_chat   = _alert_config.get("telegram_chat_id", "")
+    thread_key    = _CHANNEL_THREAD_MAP.get(channel, "")
+    mode_b_thread = _alert_config.get(thread_key, "") if thread_key else ""
+
+    # ── 3. Send to Discord ─────────────────────────────────────────────────────
+    if discord_url and discord_url.strip():
         try:
-            res = requests.post(req.discordWebhookUrl.strip(), json={"content": req.message})
-            if not res.ok:
+            r = requests.post(discord_url.strip(), json={"content": req.message}, timeout=8)
+            if not r.ok:
                 success = False
-                errors.append(f"Discord error {res.status_code}")
+                errors.append(f"Discord error {r.status_code}: {r.text[:120]}")
         except Exception as e:
             success = False
             errors.append(f"Discord exception: {str(e)}")
 
-    # Telegram Bot Notification
-    if req.telegramBotToken and req.telegramChatId and req.telegramBotToken.strip() and req.telegramChatId.strip():
-        try:
-            url = f"https://api.telegram.org/bot{req.telegramBotToken.strip()}/sendMessage"
-            res = requests.post(url, json={"chat_id": req.telegramChatId.strip(), "text": req.message})
-            if not res.ok:
-                success = False
-                errors.append(f"Telegram error {res.status_code}")
-        except Exception as e:
-            success = False
-            errors.append(f"Telegram exception: {str(e)}")
+    # ── 4. Send to Telegram ────────────────────────────────────────────────────
+    active_mode = "none"
+    if tele_token and tele_token.strip():
+        tele_payload: dict = {
+            "text":       req.message,
+            "parse_mode": "Markdown",
+        }
 
-    return {"success": success, "errors": errors}
+        if mode_a_chat and mode_a_chat.strip():
+            # ✨ MODE A — dedicated channel per type
+            tele_payload["chat_id"] = mode_a_chat.strip()
+            active_mode = "A"
+        elif mode_b_chat and mode_b_chat.strip():
+            # ✨ MODE B — shared group, route to topic thread
+            tele_payload["chat_id"] = mode_b_chat.strip()
+            if mode_b_thread and mode_b_thread.strip():
+                tele_payload["message_thread_id"] = int(mode_b_thread.strip())
+            active_mode = "B"
+        else:
+            errors.append(f"Telegram: no chat_id configured for channel '{channel}'")
+
+        if active_mode != "none":
+            try:
+                url = f"https://api.telegram.org/bot{tele_token.strip()}/sendMessage"
+                r = requests.post(url, json=tele_payload, timeout=8)
+                if not r.ok:
+                    success = False
+                    errors.append(f"Telegram error {r.status_code}: {r.text[:120]}")
+            except Exception as e:
+                success = False
+                errors.append(f"Telegram exception: {str(e)}")
+
+    return {"success": success, "channel": channel, "telegram_mode": active_mode, "errors": errors}
+
+
+@app.get("/api/positions")
+def get_positions():
+    if not connected:
+        return {"success": False, "error": "MT5 not connected"}
+    
+    positions = mt5.positions_get()
+    if positions is None:
+        return {"success": True, "positions": []}
+        
+    pos_list = []
+    for p in positions:
+        pos_list.append({
+            "ticket": p.ticket,
+            "symbol": p.symbol,
+            "type": p.type,  # 0: Buy, 1: Sell
+            "volume": p.volume,
+            "price_open": p.price_open,
+            "sl": p.sl,
+            "tp": p.tp,
+            "price_current": p.price_current,
+            "profit": p.profit,
+            "time": p.time,
+            "comment": p.comment,
+            "swap": p.swap
+        })
+    return {"success": True, "positions": pos_list}
 
 # --- REAL-TIME MARKET NEWS (Multi-source FREE RSS) ---
 # ForexLive works. FXStreet & others need a browser UA to avoid 301/403.
@@ -1537,11 +1686,12 @@ def get_history():
     if not connected:
         return {"data": []}
 
-    from_date = datetime(2020, 1, 1)
+    # Fetch history for the last 90 days
+    from_date = datetime.now() - timedelta(days=90)
     to_date = datetime.now()
     history = mt5.history_deals_get(from_date, to_date)
     
-    if not history:
+    if history is None or len(history) == 0:
         return {"data": []}
 
     # Separate open (entry=0) and close (entry=1) deals, keyed by position_id
@@ -1639,6 +1789,91 @@ def execute_trade(data: dict):
         "message": f"Successfully executed {direction} {lot_size} lot on {working_symbol} at {price}",
         "ticket": result.order,
         "price": result.price
+    }
+
+@app.post("/api/execute-signal")
+def execute_signal(data: dict):
+    """
+    Execute a community signal on MT5, auto-calculating lot size based on 1% risk of balance.
+    Expects json: {"symbol": "XAUUSD", "action": "buy" | "sell", "tp": 2000.0, "sl": 1990.0}
+    """
+    if not connected:
+        return {"success": False, "error": "MT5 not connected"}
+    
+    symbol = data.get("symbol", "XAUUSD")
+    action = data.get("action", "").lower()
+    tp = float(data.get("tp", 0.0))
+    sl = float(data.get("sl", 0.0))
+    
+    working_symbol = ensure_symbol(symbol)
+    symbol_info = mt5.symbol_info(working_symbol)
+    
+    if symbol_info is None:
+        return {"success": False, "error": f"{symbol} not found in Market Watch"}
+        
+    if not symbol_info.visible:
+        if not mt5.symbol_select(working_symbol, True):
+            return {"success": False, "error": f"Failed to select {working_symbol}"}
+    
+    acc = mt5.account_info()
+    if acc is None:
+        return {"success": False, "error": "No broker account logged in"}
+        
+    tick = mt5.symbol_info_tick(working_symbol)
+    order_type = mt5.ORDER_TYPE_BUY if action == "buy" else mt5.ORDER_TYPE_SELL
+    price = tick.ask if action == "buy" else tick.bid
+
+    # Determine pip size
+    if "JPY" in working_symbol or "XAG" in working_symbol:
+        pip_size = 0.01
+    elif "XAU" in working_symbol:
+        pip_size = 0.1
+    else:
+        pip_size = 0.0001
+        
+    sl_distance = abs(price - sl)
+    sl_pips = sl_distance / pip_size
+    
+    # Auto-calculate Risk Amount (1% of balance)
+    risk_percent = 1.0
+    risk_amount = acc.balance * (risk_percent / 100)
+    
+    pip_val = get_pip_value(working_symbol)
+    if pip_val <= 0 or sl_pips <= 0:
+        lot_size = 0.01  # safe fallback if math fails
+    else:
+        lot_size = risk_amount / (sl_pips * pip_val)
+        
+    # Round to broker step
+    lot_step = symbol_info.volume_step if symbol_info.volume_step > 0 else 0.01
+    lot_size = round(lot_size / lot_step) * lot_step
+    lot_size = max(symbol_info.volume_min, min(symbol_info.volume_max, lot_size))
+    
+    request = {
+        "action": mt5.TRADE_ACTION_DEAL,
+        "symbol": working_symbol,
+        "volume": float(lot_size),
+        "type": order_type,
+        "price": price,
+        "sl": sl,
+        "tp": tp,
+        "deviation": 20,
+        "magic": 999112,
+        "comment": "TradeKiller CopySignal",
+        "type_time": mt5.ORDER_TIME_GTC,
+        "type_filling": mt5.ORDER_FILLING_IOC,
+    }
+
+    result = mt5.order_send(request)
+    if result.retcode != mt5.TRADE_RETCODE_DONE:
+        return {"success": False, "error": f"Order failed, retcode={result.retcode} ({mt5.last_error()})"}
+
+    return {
+        "success": True, 
+        "message": f"Automatically risked 1% on {lot_size} lot {action} for {working_symbol}",
+        "ticket": result.order,
+        "price": result.price,
+        "lot_size": lot_size
     }
 
 

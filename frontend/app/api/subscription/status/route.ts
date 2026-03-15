@@ -28,6 +28,15 @@ export async function GET(_req: NextRequest) {
       );
     }
 
+    // --- Mock / Lifetime Bypass ---
+    // If auth.ts gave them `isPro: true`, respect it without checking Stripe!
+    if ((session.user as any).isPro) {
+      return NextResponse.json(
+        { isPro: true, trialEndsAt: null },
+        { status: 200 },
+      );
+    }
+
     const email = session.user.email!;
     const stripe = getStripeClient();
 

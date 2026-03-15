@@ -2,8 +2,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Menu, Zap, TrendingUp, Compass, Users, Clock, Filter, Sparkles, MessageSquare, Play, RefreshCw, BarChart2, Briefcase, Plus, Send, Heart, Reply, Share, Activity, Search, AlertCircle, Bookmark, Eye, CornerDownRight, ThumbsUp, ChevronDown, User, Edit3, Image as ImageIcon, Share2, TrendingDown } from "lucide-react";
+import { Menu, Zap, TrendingUp, Compass, Users, Clock, Filter, Sparkles, MessageSquare, Play, RefreshCw, BarChart2, Briefcase, Plus, Send, Heart, Reply, Share, Activity, Search, AlertCircle, Bookmark, Eye, CornerDownRight, ThumbsUp, ChevronDown, User, Edit3, Image as ImageIcon, Share2, TrendingDown, Crosshair, Target, Trash2, Save, X, MoreHorizontal } from "lucide-react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 
 interface Comment {
     id: string;
@@ -15,7 +16,9 @@ interface Comment {
 
 interface Post {
     id: string;
+    authorId: string;
     author: {
+        userId: string;
         name: string;
         tradeStyle: string;
         avatar: string;
@@ -25,6 +28,8 @@ interface Post {
     pair?: string;
     direction?: "Long" | "Short";
     entry?: string;
+    tp?: string;
+    sl?: string;
     result?: string;
     _count: { likes: number };
     comments: Comment[];
@@ -54,6 +59,9 @@ const DEFAULT_PROFILE: UserProfile = {
 };
 
 export default function CommunityPage() {
+    const { data: session } = useSession();
+    const isPro = (session?.user as any)?.isPro === true;
+
     const [profile, setProfile] = useState<UserProfile>(DEFAULT_PROFILE);
     const [posts, setPosts] = useState<Post[]>([]);
     const [communities, setCommunities] = useState<Community[]>([]);
@@ -61,6 +69,17 @@ export default function CommunityPage() {
 
     // New post state
     const [newPostContent, setNewPostContent] = useState("");
+    const [editingPostId, setEditingPostId] = useState<string | null>(null);
+    const [editContent, setEditContent] = useState("");
+    const [isSignal, setIsSignal] = useState(false);
+    const [signalPair, setSignalPair] = useState("XAUUSD");
+    const [signalDirection, setSignalDirection] = useState<"Long" | "Short">("Long");
+    const [signalEntry, setSignalEntry] = useState("");
+    const [signalTP, setSignalTP] = useState("");
+    const [signalSL, setSignalSL] = useState("");
+
+    const [signalStrategy, setSignalStrategy] = useState("Custom");
+    const [priceLoading, setPriceLoading] = useState(false);
 
     // Create Community state
     const [isCreateCommunityModalOpen, setIsCreateCommunityModalOpen] = useState(false);
@@ -70,6 +89,9 @@ export default function CommunityPage() {
     // Commenting state
     const [activeCommentPostId, setActiveCommentPostId] = useState<string | null>(null);
     const [commentText, setCommentText] = useState("");
+
+    // Execution risk adjustment
+    const [executionRisk, setExecutionRisk] = useState<Record<string, number>>({});
 
     const fetchProfile = async () => {
         try {
@@ -108,18 +130,52 @@ export default function CommunityPage() {
         fetchPosts(activeCommunityId);
     }, [activeCommunityId]);
 
-    const saveProfile = async (p: UserProfile) => {
+    const handleAutoStrategyFill = async (strategy: string) => {
+        setSignalStrategy(strategy);
+        if (strategy === "Custom") {
+            setSignalTP("");
+            setSignalSL("");
+            return;
+        }
+
+        // Strategy → { slPips, tpPips }
+        const strategyPips: Record<string, { sl: number; tp: number }> = {
+            "Scalp (1:1.5)":  { sl: 10, tp: 15 },
+            "Day Trade (1:2)": { sl: 20, tp: 40 },
+            "Swing (1:3)":    { sl: 50, tp: 150 },
+        };
+        const pips = strategyPips[strategy];
+        if (!pips) return;
+
         try {
-            const res = await fetch("http://localhost:5000/api/community/profile", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(p),
-            });
-            if (res.ok) {
-                const updated = await res.json();
-                setProfile(updated);
-            }
-        } catch (e) { }
+            setPriceLoading(true);
+            const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
+            const res = await fetch(`${bridgeUrl}/api/symbol-price?symbol=${signalPair.toUpperCase()}`);
+            if (!res.ok) throw new Error("Bridge not reachable");
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || "Price fetch failed");
+
+            // Use mid-price (ask for long, bid for short estimate)
+            const midPrice: number = (data.ask + data.bid) / 2;
+            const pipSize: number = data.pip_size;
+            const digits: number = data.digits;
+
+            const slPrice  = signalDirection === "Long"
+                ? midPrice - pips.sl * pipSize
+                : midPrice + pips.sl * pipSize;
+            const tpPrice  = signalDirection === "Long"
+                ? midPrice + pips.tp * pipSize
+                : midPrice - pips.tp * pipSize;
+
+            setSignalTP(tpPrice.toFixed(digits));
+            setSignalSL(slPrice.toFixed(digits));
+        } catch {
+            // Fallback: if bridge unreachable, just clear so user types manually
+            setSignalTP("");
+            setSignalSL("");
+        } finally {
+            setPriceLoading(false);
+        }
     };
 
     const handlePost = async () => {
@@ -131,15 +187,84 @@ export default function CommunityPage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     content: newPostContent,
-                    communityId: activeCommunityId
+                    communityId: activeCommunityId,
+                    ...(isSignal && {
+                        pair: signalPair.toUpperCase(),
+                        direction: signalDirection,
+                        entry: signalEntry || undefined,
+                        tp: signalTP || undefined,
+                        sl: signalSL || undefined,
+                    })
                 }),
             });
             if (res.ok) {
                 const created = await res.json();
+
+                // 🚨 NEW AUTO-BROADCAST LOGIC:
+                // If admin posts a Signal on the Global feed, ping Discord/Telegram directly!
+                if (session?.user?.email === "rousrendo@gmail.com" && !activeCommunityId && isSignal) {
+                    try {
+                        const message = `🚨 **NEW SIGNAL ALERT: ${signalPair.toUpperCase()}** 🚨\n\n**Direction:** ${signalDirection}\n**Entry Target:** ${signalEntry || "Market Price"}\n**Take Profit:** ${signalTP || "Open"}\n**Stop Loss:** ${signalSL || "Open"}\n\n📝 **Notes:** ${newPostContent}\n\n⚡ Execute this exact trade instantly with auto-calculated risk on TradeKiller Pro:\nhttps://tradekiller.com/community`;
+                        const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
+                        fetch(`${bridgeUrl}/api/notify`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ message, channel: "signal" })
+                        }).catch(err => console.error("Webhook broadcast failed:", err));
+                    } catch (err) {}
+                }
+
                 setPosts([created, ...posts]);
                 setNewPostContent("");
+                setIsSignal(false);
+                setSignalEntry("");
+                setSignalTP("");
+                setSignalSL("");
             }
         } catch (e) { }
+    };
+
+    const handleDeletePost = async (postId: string) => {
+        if (!confirm("Are you sure you want to delete this post?")) return;
+        
+        try {
+            const uid = session?.user?.email || "demo-user-1";
+            const res = await fetch(`http://localhost:5000/api/community/posts/${postId}`, {
+                method: "DELETE",
+                headers: { "x-user-id": uid }
+            });
+            if (res.ok) {
+                setPosts(posts.filter(p => p.id !== postId));
+            } else {
+                alert("Failed to delete post");
+            }
+        } catch (error) {
+            console.error("Error deleting post:", error);
+        }
+    };
+
+    const handleEditPost = async (postId: string) => {
+        if (!editContent.trim()) return;
+
+        try {
+            const uid = session?.user?.email || "demo-user-1";
+            const res = await fetch(`http://localhost:5000/api/community/posts/${postId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ userId: uid, content: editContent })
+            });
+            
+            if (res.ok) {
+                const updated = await res.json();
+                setPosts(posts.map(p => p.id === postId ? updated : p));
+                setEditingPostId(null);
+                setEditContent("");
+            } else {
+                alert("Failed to edit post");
+            }
+        } catch (error) {
+            console.error("Error editing post:", error);
+        }
     };
 
     const handleCreateCommunity = async () => {
@@ -148,7 +273,12 @@ export default function CommunityPage() {
             const res = await fetch("http://localhost:5000/api/community/list", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name: newCommunityName, description: newCommunityDesc }),
+                body: JSON.stringify({ 
+                    name: newCommunityName, 
+                    description: newCommunityDesc,
+                    isPro: isPro,
+                    userId: session?.user?.email 
+                }),
             });
             if (res.ok) {
                 const newComm = await res.json();
@@ -212,6 +342,41 @@ export default function CommunityPage() {
         return d.toLocaleDateString();
     };
 
+    const executeSignal = async (post: Post) => {
+        if (!post.pair || !post.tp || !post.sl) return;
+        
+        const risk = executionRisk[post.id] || 1.0;
+
+        // Ensure user confirms
+        if (!window.confirm(`Execute ${post.direction} on ${post.pair} risking ${risk}% of your balance?\nTP: ${post.tp} | SL: ${post.sl}`)) {
+            return;
+        }
+
+        try {
+            const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
+            const res = await fetch(`${bridgeUrl}/api/execute-signal`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    symbol: post.pair,
+                    action: post.direction?.toLowerCase() || 'buy',
+                    tp: parseFloat(post.tp),
+                    sl: parseFloat(post.sl),
+                    risk: risk,
+                    // the python bridge will calculate lot size automatically based on SL distance and balance
+                }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(`Trade Executed!\nTicket: ${data.ticket}\nPrice: ${data.price}`);
+            } else {
+                alert(`Execution failed: ${data.error}`);
+            }
+        } catch (e: any) {
+            alert(`Execution error: ${e.message}`);
+        }
+    };
+
     return (
         <div className="flex flex-col lg:flex-row gap-6 max-h-[calc(100vh-6rem)] relative overflow-hidden">
 
@@ -244,12 +409,71 @@ export default function CommunityPage() {
                                     className="w-full bg-transparent border-none focus:ring-0 resize-none text-foreground placeholder:text-muted-foreground/60 p-0 text-lg min-h-[60px]"
                                 />
 
+                                {/* Signal Inputs */}
+                                {isSignal && (
+                                    <div className="mt-3 bg-secondary/30 p-4 rounded-xl border border-secondary flex flex-wrap gap-3 items-center">
+                                        
+                                        <div className="flex flex-col gap-1 w-full sm:w-auto flex-1">
+                                            <label className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1"><Crosshair className="w-3 h-3"/> Strategy</label>
+                                            <select 
+                                                value={signalStrategy} 
+                                                onChange={e => handleAutoStrategyFill(e.target.value)} 
+                                                className="bg-card border border-border/50 rounded-md px-2 py-1.5 text-sm font-bold text-foreground focus:outline-none w-full"
+                                            >
+                                                <option value="Custom">Custom Entry</option>
+                                                <option value="Scalp (1:1.5)">Scalp (1:1.5 RRR)</option>
+                                                <option value="Day Trade (1:2)">Day Trade (1:2 RRR)</option>
+                                                <option value="Swing (1:3)">Swing (1:3 RRR)</option>
+                                            </select>
+                                        </div>
+
+                                        <div className="flex flex-col gap-1 w-24">
+                                            <label className="text-[10px] uppercase font-bold text-muted-foreground">Pair</label>
+                                            <select value={signalPair} onChange={e => {
+                                                setSignalPair(e.target.value);
+                                                if (signalStrategy !== "Custom") handleAutoStrategyFill(signalStrategy);
+                                            }} className="bg-card border border-border/50 rounded-md px-2 py-1.5 text-sm font-bold text-foreground focus:outline-none">
+                                                <option value="XAUUSD">XAUUSD</option>
+                                                <option value="EURUSD">EURUSD</option>
+                                                <option value="GBPUSD">GBPUSD</option>
+                                                <option value="USDJPY">USDJPY</option>
+                                                <option value="AUDUSD">AUDUSD</option>
+                                                <option value="USDCAD">USDCAD</option>
+                                                <option value="BTCUSD">BTCUSD</option>
+                                                <option value="ETHUSD">ETHUSD</option>
+                                            </select>
+                                        </div>
+                                        <div className="flex flex-col gap-1 w-24">
+                                            <label className="text-[10px] uppercase font-bold text-muted-foreground">Dir.</label>
+                                            <select value={signalDirection} onChange={e => {
+                                                setSignalDirection(e.target.value as any);
+                                                if (signalStrategy !== "Custom") handleAutoStrategyFill(signalStrategy);
+                                            }} className="bg-card border border-border/50 rounded-md px-2 py-1.5 text-sm font-bold text-foreground focus:outline-none">
+                                                <option value="Long">Long</option>
+                                                <option value="Short">Short</option>
+                                            </select>
+                                        </div>
+                                        <div className="flex flex-col gap-1 w-32">
+                                            <label className="text-[10px] uppercase font-bold text-emerald-500 flex items-center gap-1"><Target className="w-3 h-3"/> TP {priceLoading && <span className="text-[9px] animate-pulse text-muted-foreground">fetching...</span>}</label>
+                                            <input type="number" step="0.001" value={signalTP} onChange={e => setSignalTP(e.target.value)} className="bg-card border border-border/50 rounded-md px-2 py-1.5 text-sm font-mono focus:border-emerald-500/50 w-full" placeholder="0.00" />
+                                        </div>
+                                        <div className="flex flex-col gap-1 w-32">
+                                            <label className="text-[10px] uppercase font-bold text-red-500 flex items-center gap-1"><AlertCircle className="w-3 h-3"/> SL {priceLoading && <span className="text-[9px] animate-pulse text-muted-foreground">fetching...</span>}</label>
+                                            <input type="number" step="0.001" value={signalSL} onChange={e => setSignalSL(e.target.value)} className="bg-card border border-border/50 rounded-md px-2 py-1.5 text-sm font-mono focus:border-red-500/50 w-full" placeholder="0.00" />
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
                                     <div className="flex items-center gap-2">
                                         <button className="p-2 text-muted-foreground hover:bg-secondary/80 rounded-full transition-colors">
                                             <ImageIcon className="w-5 h-5" />
                                         </button>
-                                        <button className="p-2 text-muted-foreground hover:bg-secondary/80 rounded-full transition-colors">
+                                        <button 
+                                            onClick={() => setIsSignal(!isSignal)}
+                                            className={`p-2 rounded-full transition-colors ${isSignal ? 'text-primary bg-primary/20' : 'text-muted-foreground hover:bg-secondary/80'}`}
+                                            title="Attach Trade Signal"
+                                        >
                                             <TrendingUp className="w-5 h-5" />
                                         </button>
                                     </div>
@@ -284,10 +508,61 @@ export default function CommunityPage() {
                                         <span className="text-xs text-muted-foreground">{formatTime(post.createdAt)}</span>
                                     </div>
                                 </div>
+                                
+                                {/* Edit & Delete Actions (Only visible to Author or Admin) */}
+                                {(session?.user?.email === post.author.userId || session?.user?.email === "rousrendo@gmail.com" || (!session?.user?.email && post.author.userId === "demo-user-1")) && (
+                                    <div className="flex items-center gap-2 z-10">
+                                        {/* Dropdown can be used, using simple buttons for speed */}
+                                        <button 
+                                            onClick={() => {
+                                                setEditingPostId(post.id);
+                                                setEditContent(post.content);
+                                            }}
+                                            className="p-1.5 text-muted-foreground hover:bg-secondary rounded-full transition-colors"
+                                            title="Edit Post"
+                                        >
+                                            <Edit3 className="w-4 h-4" />
+                                        </button>
+                                        <button 
+                                            onClick={() => handleDeletePost(post.id)}
+                                            className="p-1.5 text-red-500/70 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors"
+                                            title="Delete Post"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="mt-4 text-[15px] leading-relaxed text-foreground">
-                                {post.content}
+                                {editingPostId === post.id ? (
+                                    <div className="flex flex-col gap-2">
+                                        <textarea
+                                            value={editContent}
+                                            onChange={e => setEditContent(e.target.value)}
+                                            className="w-full bg-secondary/30 rounded-lg p-3 text-sm border-none focus:outline-none focus:ring-1 focus:ring-primary min-h-[80px]"
+                                        />
+                                        <div className="flex justify-end gap-2">
+                                            <button 
+                                                onClick={() => {
+                                                    setEditingPostId(null);
+                                                    setEditContent("");
+                                                }}
+                                                className="px-3 py-1.5 text-xs font-bold text-muted-foreground hover:bg-secondary rounded-lg transition-colors flex items-center gap-1"
+                                            >
+                                                <X className="w-3 h-3" /> Cancel
+                                            </button>
+                                            <button 
+                                                onClick={() => handleEditPost(post.id)}
+                                                className="px-3 py-1.5 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-colors flex items-center gap-1"
+                                            >
+                                                <Save className="w-3 h-3" /> Save Changes
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>{post.content}</>
+                                )}
                             </div>
 
                             {/* Trade Pill Attachment */}
@@ -302,11 +577,48 @@ export default function CommunityPage() {
                                             Entry: <span className="font-mono ml-1 text-foreground">{post.entry}</span>
                                         </div>
                                     )}
+                                    {post.tp && (
+                                        <div className="flex items-center px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-sm font-medium text-emerald-500">
+                                            TP: <span className="font-mono ml-1">{post.tp}</span>
+                                        </div>
+                                    )}
+                                    {post.sl && (
+                                        <div className="flex items-center px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-sm font-medium text-red-500">
+                                            SL: <span className="font-mono ml-1">{post.sl}</span>
+                                        </div>
+                                    )}
                                     {post.result && (
                                         <div className="flex items-center px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-sm font-bold text-primary">
                                             {post.result}
                                         </div>
                                     )}
+                                </div>
+                            )}
+
+                            {/* Execute Signal Button & Risk Adj */}
+                            {post.pair && post.tp && post.sl && (
+                                <div className="mt-4 bg-secondary/10 border border-border/50 rounded-2xl p-4">
+                                    <div className="flex items-center justify-between mb-3 text-sm font-bold">
+                                        <span className="text-muted-foreground flex items-center gap-1"><AlertCircle className="w-4 h-4"/> Auto-Risk Allocation</span>
+                                        <span className={((executionRisk[post.id] || 1.0) > 2) ? 'text-red-500' : 'text-primary'}>
+                                            {(executionRisk[post.id] || 1.0).toFixed(1)}% of Balance
+                                        </span>
+                                    </div>
+                                    <input 
+                                        type="range" 
+                                        min="0.1" 
+                                        max="5" 
+                                        step="0.1" 
+                                        value={executionRisk[post.id] || 1.0}
+                                        onChange={(e) => setExecutionRisk({...executionRisk, [post.id]: parseFloat(e.target.value)})}
+                                        className="w-full appearance-none bg-secondary/80 h-2 rounded-full outline-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary cursor-pointer mb-4"
+                                    />
+                                    <button 
+                                        onClick={() => executeSignal(post)}
+                                        className="w-full bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-primary/20"
+                                    >
+                                        <Zap className="w-5 h-5 fill-current" /> Execute 1-Click Trade
+                                    </button>
                                 </div>
                             )}
 
@@ -421,9 +733,11 @@ export default function CommunityPage() {
                         <h3 className="font-bold flex items-center gap-2 text-sm uppercase tracking-wider text-muted-foreground">
                             <Users className="w-4 h-4" /> Explore Spaces
                         </h3>
-                        <button onClick={() => setIsCreateCommunityModalOpen(true)} className="text-xs text-primary font-bold hover:underline px-2 py-1 bg-primary/10 rounded-md">
-                            + New
-                        </button>
+                        {isPro && (
+                            <button onClick={() => setIsCreateCommunityModalOpen(true)} className="text-xs text-primary font-bold hover:underline px-2 py-1 bg-primary/10 rounded-md">
+                                + New
+                            </button>
+                        )}
                     </div>
 
                     <button

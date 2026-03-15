@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useAuth } from "../../src/context/AuthContext";
+import { signOut, useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -15,14 +15,15 @@ import { User, DollarSign, ShieldAlert, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export default function Settings() {
-  const { user, logout } = useAuth();
+  const { data: session } = useSession();
+  const user = session?.user;
   const router = useRouter();
   const [currency, setCurrency] = useState("USD");
   const [riskPerTrade, setRiskPerTrade] = useState("2");
   const [maxDailyLoss, setMaxDailyLoss] = useState("5");
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await signOut({ redirect: false });
     router.push("/auth");
   };
 
