@@ -1,8 +1,8 @@
 # Multi-stage build for the main API Gateway
-FROM node:20-alpine AS builder
+FROM node:20 AS builder
 
 # Install dependencies
-RUN apk add --no-cache python3 make g++
+RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -24,12 +24,12 @@ RUN npm run prisma:generate
 RUN npm run build
 
 # Production stage
-FROM node:20-alpine
+FROM node:20
 
 WORKDIR /app
 
-# Install runtime dependencies only
-RUN apk add --no-cache curl
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
 
