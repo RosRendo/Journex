@@ -1,4 +1,9 @@
-import MetaTrader5 as mt5
+try:
+    import MetaTrader5 as mt5
+except ImportError:
+    mt5 = None
+    print("[bridge] MetaTrader5 not available (Windows-only, expected on Linux)")
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
