@@ -17,6 +17,9 @@ RUN npm ci
 COPY src ./src
 COPY prisma ./prisma
 
+# Generate Prisma client
+RUN npm run prisma:generate
+
 # Build TypeScript
 RUN npm run build
 
@@ -37,6 +40,9 @@ RUN npm ci --only=production
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
+
+# Generate Prisma client in production
+RUN npm run prisma:generate
 
 # Create uploads directory
 RUN mkdir -p uploads
