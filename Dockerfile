@@ -8,8 +8,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application files
 COPY mt5_bridge.py .
-COPY .env .env
-COPY user_mt5_credentials.json user_mt5_credentials.json
 
 # Expose port (will be set by Railway)
 EXPOSE ${PORT:-8000}
