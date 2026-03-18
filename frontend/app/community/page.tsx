@@ -95,7 +95,8 @@ export default function CommunityPage() {
 
     const fetchProfile = async () => {
         try {
-            const res = await fetch("http://localhost:5000/api/community/profile");
+            const backend = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+            const res = await fetch(`${backend}/api/community/profile`);
             if (res.ok) {
                 const data = await res.json();
                 setProfile(data);
@@ -105,14 +106,16 @@ export default function CommunityPage() {
 
     const fetchCommunities = async () => {
         try {
-            const res = await fetch("http://localhost:5000/api/community/list");
+            const backend = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+            const res = await fetch(`${backend}/api/community/list`);
             if (res.ok) setCommunities(await res.json());
         } catch (e) { }
     };
 
     const fetchPosts = async (cid?: string | null) => {
         try {
-            const url = cid ? `http://localhost:5000/api/community/posts?communityId=${cid}` : "http://localhost:5000/api/community/posts";
+            const backend = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+            const url = cid ? `${backend}/api/community/posts?communityId=${cid}` : `${backend}/api/community/posts`;
             const res = await fetch(url);
             if (res.ok) {
                 const data = await res.json();
@@ -182,7 +185,8 @@ export default function CommunityPage() {
         if (!newPostContent.trim()) return;
 
         try {
-            const res = await fetch("http://localhost:5000/api/community/posts", {
+            const backend = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+            const res = await fetch(`${backend}/api/community/posts`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -229,7 +233,8 @@ export default function CommunityPage() {
         
         try {
             const uid = session?.user?.email || "demo-user-1";
-            const res = await fetch(`http://localhost:5000/api/community/posts/${postId}`, {
+            const backend = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+            const res = await fetch(`${backend}/api/community/posts/${postId}`, {
                 method: "DELETE",
                 headers: { "x-user-id": uid }
             });
@@ -248,7 +253,8 @@ export default function CommunityPage() {
 
         try {
             const uid = session?.user?.email || "demo-user-1";
-            const res = await fetch(`http://localhost:5000/api/community/posts/${postId}`, {
+            const backend = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+            const res = await fetch(`${backend}/api/community/posts/${postId}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ userId: uid, content: editContent })
@@ -270,7 +276,8 @@ export default function CommunityPage() {
     const handleCreateCommunity = async () => {
         if (!newCommunityName.trim()) return;
         try {
-            const res = await fetch("http://localhost:5000/api/community/list", {
+            const backend = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+            const res = await fetch(`${backend}/api/community/list`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ 
@@ -294,21 +301,24 @@ export default function CommunityPage() {
 
     const joinCommunity = async (cid: string) => {
         try {
-            const res = await fetch(`http://localhost:5000/api/community/list/${cid}/join`, { method: "POST" });
+            const backend = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+            const res = await fetch(`${backend}/api/community/list/${cid}/join`, { method: "POST" });
             if (res.ok) { fetchProfile(); fetchCommunities(); }
         } catch (e) { }
     };
 
     const leaveCommunity = async (cid: string) => {
         try {
-            const res = await fetch(`http://localhost:5000/api/community/list/${cid}/leave`, { method: "POST" });
+            const backend = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+            const res = await fetch(`${backend}/api/community/list/${cid}/leave`, { method: "POST" });
             if (res.ok) { fetchProfile(); fetchCommunities(); }
         } catch (e) { }
     };
 
     const handleLike = async (postId: string) => {
         try {
-            const res = await fetch(`http://localhost:5000/api/community/posts/${postId}/like`, { method: "POST" });
+            const backend = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+            const res = await fetch(`${backend}/api/community/posts/${postId}/like`, { method: "POST" });
             if (res.ok) {
                 fetchPosts(); // Refresh likes
             }
@@ -319,7 +329,8 @@ export default function CommunityPage() {
         if (!commentText.trim()) return;
 
         try {
-            const res = await fetch(`http://localhost:5000/api/community/posts/${postId}/comments`, {
+            const backend = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+            const res = await fetch(`${backend}/api/community/posts/${postId}/comments`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ content: commentText }),

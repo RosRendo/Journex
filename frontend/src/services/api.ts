@@ -101,15 +101,15 @@ class ApiService {
     return result.trades || [];
   }
 
-  // XAUUSD Bot API (Port 5000)
+  // XAUUSD Bot API
   async getBotStatus(): Promise<any> {
-    const response = await fetch("http://localhost:5000/api/status");
+    const response = await fetch(`${BACKEND_URL}/api/status`);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return response.json();
   }
 
   async getBotAccount(): Promise<any> {
-    const response = await fetch("http://localhost:5000/api/account");
+    const response = await fetch(`${BACKEND_URL}/api/account`);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return response.json();
   }

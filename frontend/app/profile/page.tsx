@@ -9,7 +9,7 @@ import {
     Briefcase, Clock
 } from "lucide-react";
 
-const API = "http://localhost:5000/api/community";
+const API = `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000"}/api/community`;
 
 interface Community { id: string; name: string; description: string; }
 interface Comment { id: string; content: string; createdAt: string; author: { name: string; avatar: string; }; }

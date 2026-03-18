@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     const origin =
       req.headers.get("origin") ||
       process.env.NEXT_PUBLIC_APP_URL ||
-      "http://localhost:3000";
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
 
     const priceMap: Record<CheckoutPayload["plan"], string | undefined> = {
       Basic: process.env.STRIPE_PRICE_ID_BASIC,
