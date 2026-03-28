@@ -1,53 +1,35 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
 export function middleware(request: NextRequest) {
-  try {
-    const pathname = request.nextUrl.pathname;
+  const { pathname } = request.nextUrl;
 
-    // Check if user has a session/token (check for auth cookie)
-    const token =
-      request.cookies.get("next-auth.session-token")?.value ||
-      request.cookies.get("__Secure-next-auth.session-token")?.value;
+  // ✅ Check for token cookie (NextAuth session token)
+  const token =
+    request.cookies.get("next-auth.session-token")?.value ||
+    request.cookies.get("__Secure-next-auth.session-token")?.value;
 
-    const isLoggedIn = !!token;
-    const isAuthPage = pathname.startsWith("/auth");
-    const isPublicPage =
-      isAuthPage ||
-      pathname.startsWith("/subscription") ||
-      pathname === "/" ||
-      pathname.startsWith("/api/stripe");
+  // Define public/auth routes that don't require a token
+  const publicRoutes = ["/auth", "/subscription", "/api/stripe"];
+  const isPublicRoute =
+    pathname === "/" ||
+    publicRoutes.some((route) => pathname.startsWith(route));
 
-    // Redirect logged-in users away from auth pages
-    if (isAuthPage && isLoggedIn) {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
-    }
-
-    // Allow public pages
-    if (isPublicPage) {
-      return NextResponse.next();
-    }
-
-    // Protect all other routes
-    if (!isLoggedIn) {
-      const callbackUrl = `${pathname}${request.nextUrl.search || ""}`;
-      return NextResponse.redirect(
-        new URL(
-          `/auth?callbackUrl=${encodeURIComponent(callbackUrl)}`,
-          request.url,
-        ),
-      );
-    }
-
-    return NextResponse.next();
-  } catch (error) {
-    // If middleware fails, allow the request to proceed
-    // This prevents middleware errors from blocking the app
-    return NextResponse.next();
+  // No token + trying to access protected route = redirect to login
+  if (!token && !isPublicRoute) {
+    const url = new URL("/auth", request.url);
+    url.searchParams.set("callbackUrl", pathname);
+    return NextResponse.redirect(url);
   }
+
+  // Has token + trying to access auth page = redirect to dashboard
+  if (token && pathname.startsWith("/auth")) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)",
-  ],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\..*|_next).*)"],
 };
