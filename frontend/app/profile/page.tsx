@@ -31,8 +31,9 @@ export default function ProfilePage() {
     const [profile, setProfile] = useState<Profile | null>(null);
     const [posts, setPosts] = useState<Post[]>([]);
     const [isEditing, setIsEditing] = useState(false);
-    const [form, setForm] = useState({ name: "", bio: "", tradeStyle: "", avatarSeed: "TraderX" });
+    const [form, setForm] = useState({ name: "", bio: "", tradeStyle: "", avatarSeed: "TraderX", avatar: "" });
     const [saving, setSaving] = useState(false);
+    const [uploadingImage, setUploadingImage] = useState(false);
     const [activeTab, setActiveTab] = useState<"posts" | "communities">("posts");
 
     const fetchProfile = async () => {
@@ -41,8 +42,8 @@ export default function ProfilePage() {
             if (res.ok) {
                 const data = await res.json();
                 setProfile(data);
-                const seed = data.avatar?.split("seed=")[1] || "TraderX";
-                setForm({ name: data.name, bio: data.bio || "", tradeStyle: data.tradeStyle || "Day Trader", avatarSeed: seed });
+                const seed = data.avatar?.includes("seed=") ? data.avatar.split("seed=")[1] : "TraderX";
+                setForm({ name: data.name, bio: data.bio || "", tradeStyle: data.tradeStyle || "Day Trader", avatarSeed: seed, avatar: data.avatar || "" });
             }
         } catch (_) { }
     };
@@ -63,9 +64,40 @@ export default function ProfilePage() {
         fetchMyPosts();
     }, []);
 
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setUploadingImage(true);
+        const formData = new FormData();
+        formData.append("image", file);
+
+        try {
+            const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000"}/api/upload`, {
+                method: "POST",
+                body: formData
+            });
+            if (uploadRes.ok) {
+                const data = await uploadRes.json();
+                if (data.success) {
+                    const fullUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000"}${data.data.url}`;
+                    setForm({ ...form, avatar: fullUrl });
+                }
+            }
+        } catch (err) {
+            console.error("Upload failed", err);
+        } finally {
+            setUploadingImage(false);
+        }
+    };
+
     const handleSave = async () => {
         setSaving(true);
         try {
+            const finalAvatar = form.avatar && !form.avatar.includes("dicebear") 
+                ? form.avatar 
+                : `https://api.dicebear.com/7.x/avataaars/svg?seed=${form.avatarSeed}`;
+
             const res = await fetch(`${API}/profile`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -73,7 +105,7 @@ export default function ProfilePage() {
                     name: form.name,
                     bio: form.bio,
                     tradeStyle: form.tradeStyle,
-                    avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${form.avatarSeed}`,
+                    avatar: finalAvatar,
                 }),
             });
             if (res.ok) {
@@ -140,7 +172,7 @@ export default function ProfilePage() {
                             {/* Avatar */}
                             <div className="relative w-fit">
                                 <img
-                                    src={profile.avatar}
+                                    src={isEditing ? (form.avatar && !form.avatar.includes("dicebear") ? form.avatar : `https://api.dicebear.com/7.x/avataaars/svg?seed=${form.avatarSeed}`) : profile.avatar}
                                     alt="Avatar"
                                     className="w-20 h-20 rounded-2xl border-4 border-card bg-secondary shadow-xl"
                                 />
@@ -204,14 +236,42 @@ export default function ProfilePage() {
                                     </div>
                                     <div>
                                         <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-2 block">
-                                            Avatar Style
+                                            Avatar
                                         </label>
-                                        <div className="grid grid-cols-4 gap-1.5">
+                                        
+                                        <div className="flex items-center gap-3 mb-3">
+                                            <input 
+                                                type="file" 
+                                                accept="image/*" 
+                                                onChange={handleImageUpload}
+                                                className="hidden" 
+                                                id="avatar-upload"
+                                            />
+                                            <label 
+                                                htmlFor="avatar-upload"
+                                                className="flex-1 max-w-[200px] flex items-center justify-center gap-2 px-3 py-2 bg-secondary border border-border/50 rounded-xl text-sm font-bold text-foreground cursor-pointer hover:bg-secondary/80 transition-colors"
+                                            >
+                                                <Camera className="w-4 h-4" />
+                                                {uploadingImage ? "Uploading..." : "Upload Photo"}
+                                            </label>
+                                            
+                                            {form.avatar && !form.avatar.includes("dicebear") && (
+                                                <button 
+                                                    onClick={() => setForm({...form, avatar: ""})}
+                                                    className="px-3 py-2 text-xs font-bold text-red-400 hover:text-red-300 transition-colors"
+                                                >
+                                                    Remove
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        <p className="text-[10px] text-muted-foreground mb-2">Or select a generated avatar:</p>
+                                        <div className="grid grid-cols-4 gap-1.5 opacity-90 hover:opacity-100 transition-opacity">
                                             {AVATAR_SEEDS.map(seed => (
                                                 <button
                                                     key={seed}
-                                                    onClick={() => setForm({ ...form, avatarSeed: seed })}
-                                                    className={`p-1 rounded-lg border-2 transition-all ${form.avatarSeed === seed ? "border-primary bg-primary/10" : "border-transparent hover:border-border"}`}
+                                                    onClick={() => setForm({ ...form, avatarSeed: seed, avatar: "" })}
+                                                    className={`p-1 rounded-lg border-2 transition-all ${form.avatarSeed === seed && (!form.avatar || form.avatar.includes("dicebear")) ? "border-primary bg-primary/10" : "border-transparent hover:border-border"}`}
                                                 >
                                                     <img
                                                         src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`}

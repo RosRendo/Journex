@@ -150,9 +150,7 @@ export default function JournalPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="animate-spin">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full shadow-[0_0_15px_rgba(59,130,246,0.5)]"></div>
-        </div>
+        <div className="w-10 h-10 border-2 border-[--accent] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -162,28 +160,29 @@ export default function JournalPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-4xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-primary to-blue-400">
+          <h1 className="text-[28px] font-bold" style={{ fontFamily: "var(--font-display, Syne, sans-serif)", color: "var(--text-primary)" }}>
             Trading Journal
           </h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="text-[12px] mt-0.5" style={{ color: "var(--text-tertiary)" }}>
             Your professional trading history and detailed trade annotations
           </p>
         </div>
         <div className="flex gap-3">
           <button
             onClick={() => refresh()}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border hover:bg-secondary text-sm font-medium transition-all hover:scale-105 active:scale-95"
-            title="Refresh trades"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-[12px] font-bold transition-all"
+            style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className="w-3.5 h-3.5" />
             Refresh
           </button>
           <button
             onClick={() => setShowUpload(!showUpload)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary text-sm font-bold transition-all shadow-[0_0_10px_rgba(59,130,246,0.15)] hover:shadow-[0_0_15px_rgba(59,130,246,0.25)] hover:scale-105 active:scale-95"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-[12px] font-bold transition-all"
+            style={{ background: "var(--accent)", color: "#000" }}
           >
-            <Upload className="w-4 h-4" />
-            {showUpload ? "Close Upload" : "Import CSV"}
+            <Upload className="w-3.5 h-3.5" />
+            {showUpload ? "Close" : "Import CSV"}
           </button>
         </div>
       </div>
@@ -196,19 +195,17 @@ export default function JournalPage() {
       )}
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {[
-          { label: "Total Trades", value: analytics?.totalTrades || 0, color: "text-foreground" },
-          { label: "Win Rate", value: `${analytics?.winRate.toFixed(1) || 0}%`, color: "text-profit" },
-          { label: "Total P&L", value: `$${analytics?.totalProfit.toFixed(2) || "0.00"}`, color: (analytics?.totalProfit || 0) >= 0 ? "text-profit" : "text-loss" },
-          { label: "Profit Factor", value: analytics?.profitFactor.toFixed(2) || 0, color: "text-profit" },
-          { label: "Avg Win", value: `$${analytics?.avgWin.toFixed(2) || "0.00"}`, color: "text-profit" },
+          { label: "Total Trades", value: analytics?.totalTrades || 0, color: "var(--text-primary)" },
+          { label: "Win Rate", value: `${(analytics?.winRate || 0).toFixed(1)}%`, color: (analytics?.winRate || 0) >= 50 ? "var(--bull)" : "var(--bear)" },
+          { label: "Total P&L", value: `$${(analytics?.totalProfit || 0).toFixed(2)}`, color: (analytics?.totalProfit || 0) >= 0 ? "var(--bull)" : "var(--bear)" },
+          { label: "Profit Factor", value: (analytics?.profitFactor || 0).toFixed(2), color: (analytics?.profitFactor || 0) >= 1 ? "var(--bull)" : "var(--bear)" },
+          { label: "Avg Win", value: `$${(analytics?.avgWin || 0).toFixed(2)}`, color: "var(--bull)" },
         ].map((stat, i) => (
-          <div key={i} className="p-5 bg-card/80 backdrop-blur-md border border-border/50 rounded-2xl shadow-sm hover:shadow-md hover:border-border transition-all group">
-            <div className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors">{stat.label}</div>
-            <div className={`text-2xl font-bold mt-2 ${stat.color} tracking-tight`}>
-              {stat.value}
-            </div>
+          <div key={i} className="p-4 rounded-xl border" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+            <div className="text-[9px] font-bold uppercase tracking-widest mb-2" style={{ color: "var(--text-tertiary)" }}>{stat.label}</div>
+            <div className="text-[22px] font-bold font-mono" style={{ color: stat.color }}>{stat.value}</div>
           </div>
         ))}
       </div>
@@ -222,89 +219,66 @@ export default function JournalPage() {
       )}
 
       {/* Filters */}
-      <div className="flex gap-3 flex-wrap items-center bg-card/60 backdrop-blur-sm p-2 rounded-2xl border border-border/50">
+      <div className="flex gap-3 flex-wrap items-center p-2 rounded-xl" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
         <div className="flex gap-2 items-center pl-2">
-          <Search className="w-4 h-4 text-muted-foreground" />
+          <Search className="w-4 h-4" style={{ color: "var(--text-tertiary)" }} />
           <input
             type="text"
             placeholder="Search symbol..."
             value={searchSymbol}
             onChange={(e) => setSearchSymbol(e.target.value)}
-            className="w-32 lg:w-40 px-3 py-1.5 bg-transparent border-none focus:outline-none focus:ring-0 text-sm"
+            className="w-32 lg:w-40 px-3 py-1.5 bg-transparent border-none focus:outline-none focus:ring-0 text-[12px]"
+            style={{ color: "var(--text-primary)" }}
           />
         </div>
-        <div className="h-6 w-px bg-border mx-2 hidden sm:block" />
+        <div className="h-5 w-px hidden sm:block" style={{ background: "var(--border)" }} />
 
         <div className="flex gap-1">
           {(["all", "today", "week", "month", "year"] as const).map((d) => (
-            <button
-              key={d}
-              onClick={() => setDateFilter(d)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${dateFilter === d
-                ? "bg-primary text-foreground shadow-sm"
-                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                }`}
-            >
+            <button key={d} onClick={() => setDateFilter(d)}
+              className="px-3 py-1 rounded-lg text-[11px] font-bold transition-all"
+              style={{ background: dateFilter === d ? "var(--accent)" : "transparent", color: dateFilter === d ? "#000" : "var(--text-tertiary)" }}>
               {d === "all" ? "All Time" : d.charAt(0).toUpperCase() + d.slice(1)}
             </button>
           ))}
         </div>
 
-        <div className="h-6 w-px bg-border mx-2 hidden lg:block" />
+        <div className="h-5 w-px hidden lg:block" style={{ background: "var(--border)" }} />
         <div className="flex gap-1">
           {(["all", "Long", "Short"] as const).map((dir) => (
-            <button
-              key={dir}
-              onClick={() => setFilterDirection(dir)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${filterDirection === dir
-                ? "bg-primary text-foreground shadow-sm"
-                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                }`}
-            >
+            <button key={dir} onClick={() => setFilterDirection(dir)}
+              className="px-3 py-1 rounded-lg text-[11px] font-bold transition-all"
+              style={{ background: filterDirection === dir ? (dir === "Long" ? "var(--bull)" : dir === "Short" ? "var(--bear)" : "var(--accent)") : "transparent", color: filterDirection === dir ? (dir === "all" ? "#000" : "#fff") : "var(--text-tertiary)" }}>
               {dir === "all" ? "All Dirs" : dir}
             </button>
           ))}
         </div>
 
-        <div className="h-6 w-px bg-border mx-2 hidden xl:block" />
+        <div className="h-5 w-px hidden xl:block" style={{ background: "var(--border)" }} />
         <div className="hidden xl:flex gap-1">
           {(["all", "W", "L", "E"] as const).map((out) => (
-            <button
-              key={out}
-              onClick={() => setFilterOutcome(out)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${filterOutcome === out
-                ? out === "W"
-                  ? "bg-profit text-foreground shadow-sm"
-                  : out === "L"
-                    ? "bg-loss text-foreground shadow-sm"
-                    : "bg-primary text-foreground shadow-sm"
-                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                }`}
-            >
-              {out === "all" ? "All Outcomes" : out === "W" ? "Wins" : out === "L" ? "Losses" : "Break Even"}
+            <button key={out} onClick={() => setFilterOutcome(out)}
+              className="px-3 py-1 rounded-lg text-[11px] font-bold transition-all"
+              style={{ background: filterOutcome === out ? (out === "W" ? "var(--bull)" : out === "L" ? "var(--bear)" : "var(--accent)") : "transparent", color: filterOutcome === out ? (out === "all" ? "#000" : "#fff") : "var(--text-tertiary)" }}>
+              {out === "all" ? "All" : out === "W" ? "Wins" : out === "L" ? "Losses" : "BE"}
             </button>
           ))}
         </div>
 
         <div className="ml-auto flex items-center pr-2 gap-3">
-          <span className="text-xs font-medium text-muted-foreground bg-secondary px-3 py-1 rounded-full hidden md:block">
-            {filteredTrades.length} / {trades.length} trades
+          <span className="text-[11px] font-mono hidden md:block" style={{ color: "var(--text-tertiary)" }}>
+            {filteredTrades.length}/{trades.length}
           </span>
-
-          <div className="flex bg-secondary p-1 rounded-xl">
-            <button
-              onClick={() => setViewMode("list")}
-              className={`p-1.5 rounded-lg transition-all ${viewMode === "list" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-              title="List View"
-            >
-              <List className="w-4 h-4" />
+          <div className="flex p-0.5 rounded-lg gap-0.5" style={{ background: "var(--bg-elevated)" }}>
+            <button onClick={() => setViewMode("list")}
+              className="p-1.5 rounded-md transition-all"
+              style={{ background: viewMode === "list" ? "var(--bg-card)" : "transparent", color: viewMode === "list" ? "var(--text-primary)" : "var(--text-tertiary)" }}>
+              <List className="w-3.5 h-3.5" />
             </button>
-            <button
-              onClick={() => setViewMode("calendar")}
-              className={`p-1.5 rounded-lg transition-all ${viewMode === "calendar" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-              title="Calendar View"
-            >
-              <CalendarIcon className="w-4 h-4" />
+            <button onClick={() => setViewMode("calendar")}
+              className="p-1.5 rounded-md transition-all"
+              style={{ background: viewMode === "calendar" ? "var(--bg-card)" : "transparent", color: viewMode === "calendar" ? "var(--text-primary)" : "var(--text-tertiary)" }}>
+              <CalendarIcon className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
@@ -317,32 +291,15 @@ export default function JournalPage() {
           setSelectedDay({ dateStr, trades });
         }} />
       ) : (
-        <div className="border border-border/50 rounded-2xl overflow-hidden bg-card/50 backdrop-blur-md shadow-lg">
+        <div className="rounded-xl overflow-hidden" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full text-[12px]">
               <thead>
-                <tr className="bg-secondary/50 border-b border-border/50">
-                  <th className="px-5 py-4 text-left text-xs uppercase tracking-wider font-semibold text-muted-foreground">
-                    Date
-                  </th>
-                  <th className="px-5 py-4 text-left text-xs uppercase tracking-wider font-semibold text-muted-foreground">
-                    Symbol
-                  </th>
-                  <th className="px-5 py-4 text-left text-xs uppercase tracking-wider font-semibold text-muted-foreground">
-                    Direction
-                  </th>
-                  <th className="px-5 py-4 text-left text-xs uppercase tracking-wider font-semibold text-muted-foreground">
-                    Entry
-                  </th>
-                  <th className="px-5 py-4 text-left text-xs uppercase tracking-wider font-semibold text-muted-foreground">
-                    Lot Size
-                  </th>
-                  <th className="px-5 py-4 text-right text-xs uppercase tracking-wider font-semibold text-muted-foreground">
-                    P&L
-                  </th>
-                  <th className="px-5 py-4 text-center text-xs uppercase tracking-wider font-semibold text-muted-foreground">
-                    Result
-                  </th>
+                <tr style={{ background: "var(--bg-elevated)", borderBottom: "1px solid var(--border)" }}>
+                  {["Date", "Symbol", "Direction", "Entry", "Lot Size", "P&L", "Result"].map((col, ci) => (
+                    <th key={col} className={`px-5 py-3 text-[9px] uppercase tracking-widest font-bold ${ci === 5 ? "text-right" : ci === 6 ? "text-center" : "text-left"}`}
+                      style={{ color: "var(--text-tertiary)" }}>{col}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -361,61 +318,38 @@ export default function JournalPage() {
                   filteredTrades.map((trade: TradeData) => {
                     const hasJournal = !!localStorage.getItem(`journal_${trade.ticket || trade.id}`);
                     return (
-                      <tr
-                        key={trade.id}
-                        onClick={() => setSelectedTrade(trade)}
-                        className={`border-b border-border/30 hover:bg-secondary/60 cursor-pointer transition-all ${selectedTrade?.id === trade.id ? "bg-primary/5" : ""
-                          }`}
-                      >
-                        <td className="px-5 py-4 text-sm font-mono whitespace-nowrap">
+                      <tr key={trade.id} onClick={() => setSelectedTrade(trade)}
+                        className="cursor-pointer transition-all"
+                        style={{ borderBottom: "1px solid var(--border)", background: selectedTrade?.id === trade.id ? "rgba(0,212,161,0.05)" : "transparent" }}
+                        onMouseEnter={(e) => { if (selectedTrade?.id !== trade.id) (e.currentTarget as HTMLElement).style.background = "var(--bg-elevated)"; }}
+                        onMouseLeave={(e) => { if (selectedTrade?.id !== trade.id) (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+                        <td className="px-5 py-3.5 text-[11px] font-mono whitespace-nowrap" style={{ color: "var(--text-secondary)" }}>
                           {new Date(trade.date).toLocaleDateString()}
-                          <span className="text-muted-foreground ml-2 text-xs">
+                          <span className="ml-2 text-[10px]" style={{ color: "var(--text-tertiary)" }}>
                             {new Date(trade.date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                           </span>
                         </td>
-                        <td className="px-5 py-4 text-sm font-bold flex items-center gap-2">
-                          {trade.pair}
-                          {hasJournal && (
-                            <span title="Has journal entry">
-                              <FileText className="w-3.5 h-3.5 text-primary opacity-70" />
-                            </span>
-                          )}
+                        <td className="px-5 py-3.5 text-[12px] font-bold" style={{ color: "var(--text-primary)" }}>
+                          <span className="flex items-center gap-1.5">
+                            {trade.pair}
+                            {hasJournal && <FileText className="w-3 h-3" style={{ color: "var(--accent)" }} />}
+                          </span>
                         </td>
-                        <td className="px-5 py-4 text-sm">
-                          <span
-                            className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wide flex items-center w-max gap-1 ${trade.direction === "Long"
-                              ? "bg-profit/10 text-profit border border-profit/20"
-                              : "bg-loss/10 text-loss border border-loss/20"
-                              }`}
-                          >
+                        <td className="px-5 py-3.5">
+                          <span className="px-2 py-1 rounded text-[10px] font-bold uppercase flex items-center w-max gap-1"
+                            style={{ background: trade.direction === "Long" ? "rgba(0,200,150,0.1)" : "rgba(255,77,106,0.1)", color: trade.direction === "Long" ? "var(--bull)" : "var(--bear)", border: `1px solid ${trade.direction === "Long" ? "rgba(0,200,150,0.25)" : "rgba(255,77,106,0.25)"}` }}>
                             {trade.direction === "Long" ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
                             {trade.direction}
                           </span>
                         </td>
-                        <td className="px-5 py-4 text-sm font-mono text-muted-foreground">
-                          {trade.entry.toFixed(5)}
+                        <td className="px-5 py-3.5 font-mono" style={{ color: "var(--text-tertiary)", fontSize: 11 }}>{trade.entry.toFixed(5)}</td>
+                        <td className="px-5 py-3.5 font-mono" style={{ color: "var(--text-secondary)", fontSize: 12 }}>{trade.lotSize?.toFixed(2) ?? "-"}</td>
+                        <td className="px-5 py-3.5 text-right font-bold font-mono" style={{ color: trade.profit >= 0 ? "var(--bull)" : "var(--bear)", fontSize: 12 }}>
+                          {trade.profit >= 0 ? "+" : ""}${trade.profit.toFixed(2)}
                         </td>
-                        <td className="px-5 py-4 text-sm font-medium">
-                          {trade.lotSize?.toFixed(2) ?? "-"}
-                        </td>
-                        <td className="px-5 py-4 text-sm text-right font-bold font-mono">
-                          <span
-                            className={
-                              trade.profit >= 0 ? "text-profit drop-shadow-[0_0_8px_rgba(34,197,94,0.3)]" : "text-loss"
-                            }
-                          >
-                            {trade.profit >= 0 ? "+" : ""}${trade.profit.toFixed(2)}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4 text-center">
-                          <span
-                            className={`px-3 py-1.5 rounded-lg text-xs font-extrabold shadow-sm ${trade.outcome === "W"
-                              ? "bg-profit text-foreground border-b-2 border-green-700"
-                              : trade.outcome === "L"
-                                ? "bg-loss text-foreground border-b-2 border-red-700"
-                                : "bg-muted text-muted-foreground border-b-2 border-border/50"
-                              }`}
-                          >
+                        <td className="px-5 py-3.5 text-center">
+                          <span className="px-2.5 py-1 rounded text-[10px] font-bold uppercase"
+                            style={{ background: trade.outcome === "W" ? "rgba(0,200,150,0.15)" : trade.outcome === "L" ? "rgba(255,77,106,0.15)" : "rgba(255,255,255,0.06)", color: trade.outcome === "W" ? "var(--bull)" : trade.outcome === "L" ? "var(--bear)" : "var(--text-tertiary)" }}>
                             {trade.outcome === "W" ? "WIN" : trade.outcome === "L" ? "LOSS" : "BE"}
                           </span>
                         </td>

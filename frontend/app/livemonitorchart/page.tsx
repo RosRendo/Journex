@@ -223,10 +223,10 @@ function LWChart({
       }
 
       const chart = createChart(containerRef.current, {
-        layout: { background: { color: "#0d1117" }, textColor: "#6b7280" },
+        layout: { background: { color: "#0a0a0f" }, textColor: "rgba(255,255,255,0.4)" },
         grid: {
-          vertLines: { color: "rgba(255,255,255,0.04)" },
-          horzLines: { color: "rgba(255,255,255,0.04)" },
+          vertLines: { color: "rgba(255,255,255,0.02)" },
+          horzLines: { color: "rgba(255,255,255,0.02)" },
         },
         crosshair: {
           vertLine: {
@@ -629,241 +629,140 @@ export default function LiveMonitorChart() {
 
   /* ── Render ── */
   return (
-    <div
-      className="flex flex-col gap-3"
-      style={{ height: "calc(100vh - 88px)" }}
-    >
-      {/* Header row */}
-      <div className="flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-4">
-          {/* Title */}
-          <div>
-            <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-              <BarChart3 className="text-amber-400" size={22} />
-              Live Chart Monitor
-            </h1>
-            <p className="text-muted-foreground text-xs mt-0.5">
-              Lightweight Charts™ (TradingView open-source) · All pairs
-            </p>
+    <div className="flex flex-col h-[calc(100vh-80px)] overflow-hidden bg-[--bg-base]">
+      
+      {/* ── TOP HEADER (Asset & Pricing) ── */}
+      <div className="flex-shrink-0 border-b p-4 flex flex-col md:flex-row md:items-center justify-between gap-4" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+        
+        {/* Left: Asset Selection & Quick Stats */}
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-[14px]" style={{ background: `${pair.color}15`, color: pair.color, border: `1px solid ${pair.color}30` }}>
+              {pair.label[0]}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-[20px] font-bold leading-none tracking-tight" style={{ fontFamily: "var(--font-display, Syne, sans-serif)", color: "var(--text-primary)" }}>
+                  {pair.label}
+                </h1>
+                <SourceBadge />
+              </div>
+              <div className="text-[12px] font-medium mt-1" style={{ color: "var(--text-tertiary)" }}>
+                Lightweight Charts™ · {source === "mt5" ? "Live Broker Feed" : "Simulated Data"}
+              </div>
+            </div>
           </div>
 
-          {/* Price card */}
           {displayPrice !== null && (
-            <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-border bg-card">
-              <div>
-                <div className="text-xs text-muted-foreground mb-0.5 font-medium">
-                  {pair.label}
-                </div>
-                <div
-                  className={`text-2xl font-bold font-mono leading-none ${isUp ? "text-emerald-400" : "text-red-400"}`}
-                >
-                  {displayPrice.toFixed(pair.digits)}
-                </div>
-              </div>
+            <div className="h-10 border-l pl-6 flex items-center gap-4" style={{ borderColor: "var(--border)" }}>
+              <span className={`text-[28px] font-bold font-mono tracking-tighter ${isUp ? "text-[--bull]" : "text-[--bear]"}`}>
+                {displayPrice.toFixed(pair.digits)}
+              </span>
               {priceChange !== null && (
-                <div className="flex flex-col items-end gap-0.5">
-                  <div
-                    className={`flex items-center gap-1 text-xs font-semibold ${isUp ? "text-emerald-400" : "text-red-400"}`}
-                  >
-                    {isUp ? (
-                      <TrendingUp size={12} />
-                    ) : (
-                      <TrendingDown size={12} />
-                    )}
-                    {priceChange >= 0 ? "+" : ""}
-                    {priceChange.toFixed(pair.digits)}
+                <div className="flex flex-col">
+                  <div className={`text-[12px] font-bold flex items-center gap-1 ${isUp ? "text-[--bull]" : "text-[--bear]"}`}>
+                    {isUp ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                    {priceChange >= 0 ? "+" : ""}{priceChange.toFixed(pair.digits)}
                   </div>
                   {pricePct !== null && (
-                    <div
-                      className={`text-xs font-medium px-1.5 py-0.5 rounded ${isUp ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400"}`}
-                    >
-                      {pricePct >= 0 ? "+" : ""}
-                      {pricePct.toFixed(3)}%
+                    <div className="text-[10px] font-bold mt-0.5" style={{ color: "var(--text-tertiary)" }}>
+                      {pricePct >= 0 ? "+" : ""}{pricePct.toFixed(2)}%
                     </div>
                   )}
                 </div>
               )}
             </div>
           )}
-
-          {/* H/L */}
-          {dayHigh !== null && (
-            <div className="flex items-center gap-3 text-xs">
-              <div>
-                <div className="text-muted-foreground">H</div>
-                <div className="text-emerald-400 font-mono font-semibold">
-                  {dayHigh.toFixed(pair.digits)}
-                </div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">L</div>
-                <div className="text-red-400 font-mono font-semibold">
-                  {dayLow?.toFixed(pair.digits)}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* Right controls */}
+        {/* Right: Actions & Market Status */}
         <div className="flex items-center gap-4">
-          {/* Trade Execution Panel */}
-          <div className="flex items-center gap-2 bg-card border border-border/60 p-1.5 rounded-xl shadow-sm">
-            <div className="flex items-center gap-1 bg-secondary/40 px-2 py-1.5 rounded-lg border border-border/50">
-              <span className="text-xs font-bold text-muted-foreground mr-1">
-                LOT:
-              </span>
-              <button
-                onClick={() =>
-                  setLotSize((prev) => Math.max(0.01, prev - 0.01))
-                }
-                className="w-5 h-5 flex items-center justify-center rounded bg-card border border-border hover:bg-muted text-xs font-bold"
-              >
-                -
+          <MarketBadge />
+          
+          <div className="flex items-center rounded-lg p-1 border" style={{ background: "var(--bg-elevated)", borderColor: "var(--border)" }}>
+            <div className="flex items-center px-3 border-r" style={{ borderColor: "var(--border)" }}>
+              <span className="text-[10px] font-bold uppercase mr-2" style={{ color: "var(--text-tertiary)" }}>LOT</span>
+              <button onClick={() => setLotSize((p) => Math.max(0.01, p - 0.01))} className="w-6 h-6 flex items-center justify-center rounded hover:bg-[--bg-card] text-[12px] font-bold text-[--text-secondary]">-</button>
+              <input type="number" step="0.01" value={lotSize} onChange={(e) => setLotSize(parseFloat(e.target.value) || 0.01)} className="w-12 bg-transparent text-center text-[13px] font-mono font-bold mx-1 outline-none text-[--text-primary]" />
+              <button onClick={() => setLotSize((p) => p + 0.01)} className="w-6 h-6 flex items-center justify-center rounded hover:bg-[--bg-card] text-[12px] font-bold text-[--text-secondary]">+</button>
+            </div>
+            <div className="flex items-center px-1 gap-1">
+              <button onClick={() => executeTrade("sell")} disabled={isExecuting || source !== "mt5"} className="px-5 py-1.5 rounded text-[12px] font-bold transition-all disabled:opacity-50" style={{ background: "var(--bear)", color: "#fff" }}>
+                SELL
               </button>
-              <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={lotSize}
-                onChange={(e) => setLotSize(parseFloat(e.target.value) || 0.01)}
-                className="w-14 bg-transparent text-center text-sm font-black focus:outline-none"
-              />
-              <button
-                onClick={() => setLotSize((prev) => prev + 0.01)}
-                className="w-5 h-5 flex items-center justify-center rounded bg-card border border-border hover:bg-muted text-xs font-bold"
-              >
-                +
+              <button onClick={() => executeTrade("buy")} disabled={isExecuting || source !== "mt5"} className="px-5 py-1.5 rounded text-[12px] font-bold transition-all disabled:opacity-50" style={{ background: "var(--bull)", color: "#fff" }}>
+                BUY
               </button>
             </div>
-
-            <button
-              onClick={() => executeTrade("sell")}
-              disabled={isExecuting || source !== "mt5"}
-              className="px-4 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-500 font-bold text-sm transition-colors disabled:opacity-40 flex items-center gap-1"
-            >
-              <TrendingDown size={14} /> Sell
-            </button>
-
-            <button
-              onClick={() => executeTrade("buy")}
-              disabled={isExecuting || source !== "mt5"}
-              className="px-4 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-500 font-bold text-sm transition-colors disabled:opacity-40 flex items-center gap-1"
-            >
-              <TrendingUp size={14} /> Buy
-            </button>
           </div>
-
-          <SourceBadge />
-          <MarketBadge />
-          <button
-            onClick={loadData}
-            title="Reload"
-            className="p-2 rounded-lg border border-border bg-card hover:bg-muted text-muted-foreground hover:text-foreground transition-all"
-          >
-            <RefreshCw size={15} />
+          
+          <button onClick={loadData} className="w-9 h-9 rounded-lg border flex items-center justify-center hover:bg-[--bg-elevated] transition-colors" style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>
+            <RefreshCw size={14} />
           </button>
         </div>
       </div>
 
-      {/* MT5 error / demo notice */}
+      {/* ── ERROR BANNER ── */}
       {error && (
-        <div className="flex items-start gap-2 px-3 py-2 rounded-lg border border-amber-500/20 bg-amber-500/5 flex-shrink-0">
-          <AlertCircle
-            size={14}
-            className="text-amber-400 mt-0.5 flex-shrink-0"
-          />
-          <p className="text-xs text-amber-300/80">
-            <span className="font-semibold text-amber-400">
-              MT5 not connected → Demo mode.{" "}
-            </span>
-            {error} · Start{" "}
-            <code className="bg-black/30 px-1 rounded">
-              python mt5_bridge.py
-            </code>{" "}
-            in your project folder to get real data.
-          </p>
+        <div className="px-4 py-2 border-b flex items-center gap-2 text-[12px] font-bold" style={{ background: "rgba(255,160,0,0.1)", borderColor: "rgba(255,160,0,0.2)", color: "var(--warning)" }}>
+          <AlertCircle size={14} />
+          <span>MT5 Disconnected. Using fallback demo simulation. Run `python mt5_bridge.py` for live data.</span>
         </div>
       )}
 
-      {/* Pair selector */}
-      <div className="flex flex-wrap items-center gap-1.5 flex-shrink-0">
-        <div className="flex flex-wrap items-center gap-0.5 bg-card rounded-lg border border-border p-1">
-          {PAIRS.map((p) => (
-            <button
-              key={p.key}
-              onClick={() => setPair(p)}
-              className={pairBtn(p)}
-              style={
-                pair.key === p.key
-                  ? {
-                      backgroundColor: p.color + "22",
-                      color: p.color,
-                      border: `1px solid ${p.color}44`,
-                    }
-                  : {}
-              }
-            >
-              {p.label}
-            </button>
-          ))}
+      {/* ── TOOLBAR (Timeframes, Pairs) ── */}
+      <div className="flex-shrink-0 border-b p-2 px-4 flex flex-wrap items-center justify-between" style={{ background: "var(--bg-base)", borderColor: "var(--border)" }}>
+        <div className="flex items-center gap-6 overflow-x-auto custom-scrollbar pb-1 md:pb-0">
+          {/* Pairs */}
+          <div className="flex items-center gap-1">
+            {PAIRS.map((p) => (
+              <button key={p.key} onClick={() => setPair(p)} className="px-3 py-1.5 rounded text-[11px] font-bold transition-all whitespace-nowrap"
+                style={{
+                  background: pair.key === p.key ? `${p.color}15` : "transparent",
+                  color: pair.key === p.key ? p.color : "var(--text-tertiary)",
+                  border: pair.key === p.key ? `1px solid ${p.color}40` : "1px solid transparent"
+                }}>
+                {p.label}
+              </button>
+            ))}
+          </div>
+          
+          <div className="w-px h-4 bg-[--border]" />
+          
+          {/* Timeframes */}
+          <div className="flex items-center gap-1">
+            {INTERVALS.map((t) => (
+              <button key={t.label} onClick={() => setIv(t)} className="px-3 py-1.5 rounded text-[11px] font-bold transition-all"
+                style={{
+                  background: iv.seconds === t.seconds ? "var(--bg-elevated)" : "transparent",
+                  color: iv.seconds === t.seconds ? "var(--text-primary)" : "var(--text-tertiary)",
+                  border: iv.seconds === t.seconds ? "1px solid var(--border-strong)" : "1px solid transparent"
+                }}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="w-px h-4 bg-[--border]" />
+
+          {/* Chart Types */}
+          <div className="flex items-center gap-1">
+            {CHART_TYPES.map((c) => (
+              <button key={c} onClick={() => setCt(c)} className="px-3 py-1.5 rounded text-[11px] font-bold transition-all"
+                style={{
+                  background: ct === c ? "var(--bg-elevated)" : "transparent",
+                  color: ct === c ? "var(--text-primary)" : "var(--text-tertiary)",
+                  border: ct === c ? "1px solid var(--border-strong)" : "1px solid transparent"
+                }}>
+                {c}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* TF + type row */}
-      <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
-        {/* Timeframe */}
-        <div className="flex items-center gap-0.5 bg-card rounded-lg border border-border p-1">
-          <span className="px-2 text-xs text-muted-foreground">TF:</span>
-          {INTERVALS.map((t) => (
-            <button key={t.label} onClick={() => setIv(t)} className={tfBtn(t)}>
-              {t.label}
-            </button>
-          ))}
-        </div>
-        {/* Chart type */}
-        <div className="flex items-center gap-0.5 bg-card rounded-lg border border-border p-1">
-          <span className="px-2 text-xs text-muted-foreground">Type:</span>
-          {CHART_TYPES.map((c) => (
-            <button key={c} onClick={() => setCt(c)} className={ctBtn(c)}>
-              {c}
-            </button>
-          ))}
-        </div>
-        {/* Stats */}
-        <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
-          <span>
-            <span className="text-foreground font-medium">
-              {candles.length}
-            </span>{" "}
-            candles
-          </span>
-          <span>·</span>
-          <span className="text-violet-400 font-medium">{iv.label}</span>
-          <span>·</span>
-          <span style={{ color: pair.color }} className="font-medium">
-            {pair.label}
-          </span>
-          {source === "mt5" && (
-            <>
-              <span>·</span>
-              <span className="text-emerald-400 font-medium">MT5 Real</span>
-            </>
-          )}
-          {source === "demo" && (
-            <>
-              <span>·</span>
-              <span className="text-amber-400 font-medium">Demo Prices</span>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Chart */}
-      <div
-        className="flex-1 min-h-0 rounded-xl border overflow-hidden"
-        style={{ borderColor: `${pair.color}30`, backgroundColor: "#0d1117" }}
-      >
+      {/* ── FULL SCREEN CHART ── */}
+      <div className="flex-1 relative w-full h-full bg-[--bg-base]">
         <LWChart
           key={`${pair.key}-${iv.seconds}-${ct}`}
           candles={candles}
@@ -871,26 +770,14 @@ export default function LiveMonitorChart() {
           pairColor={pair.color}
           onCrosshairMove={setCrosshair}
         />
-      </div>
 
-      {/* Footer */}
-      <p className="text-center text-xs text-muted-foreground flex-shrink-0">
-        Powered by <span className="text-violet-400">Lightweight Charts™</span>{" "}
-        (TradingView open-source) ·{" "}
-        {source === "mt5" ? (
-          <span className="text-emerald-400">Real MT5 broker data</span>
-        ) : (
-          <span className="text-amber-400">
-            Demo mode — start MT5 bridge for real prices
-          </span>
-        )}
+        {/* Floating Session / Watermark Layer */}
         {!marketOpen && (
-          <span className="text-slate-500">
-            {" "}
-            · Market closed — chart is static until Sunday 22:00 UTC
-          </span>
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 px-6 py-3 rounded-full border border-[--border] bg-[--bg-elevated] text-[13px] font-bold text-[--text-tertiary] flex items-center gap-2 shadow-2xl backdrop-blur-md z-10">
+            <MoonStar size={16} /> Market Closed (Opens Sun 22:00 UTC)
+          </div>
         )}
-      </p>
+      </div>
     </div>
   );
 }

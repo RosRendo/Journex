@@ -1,667 +1,257 @@
 "use client";
-import React, { useEffect, useState, useCallback } from "react";
-import {
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-  Legend,
-} from "recharts";
-import {
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  RefreshCw,
-  Wifi,
-  WifiOff,
-  Activity,
-  Zap,
-  Globe,
-  BarChart3,
-  Brain,
-  AlertTriangle,
-} from "lucide-react";
+import React, { useState } from "react";
+import { Brain, Flame, CheckCircle2, Circle, AlertTriangle, Activity, TrendingUp, TrendingDown, Clock, MoveRight } from "lucide-react";
+import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine } from "recharts";
 
-const BRIDGE = "";
+/* ─── Mock Data ──────────────────────────────────────────────────────────── */
+const EMOTION_PERFORMANCE_DATA = [
+  { day: "Mon", pnl: 450, emotion: 8, label: "Focused" },
+  { day: "Tue", pnl: -120, emotion: 4, label: "Anxious" },
+  { day: "Wed", pnl: 890, emotion: 9, label: "Flow State" },
+  { day: "Thu", pnl: 210, emotion: 7, label: "Calm" },
+  { day: "Fri", pnl: -450, emotion: 3, label: "Tilted" },
+  { day: "Mon", pnl: 340, emotion: 8, label: "Focused" },
+  { day: "Tue", pnl: 650, emotion: 8, label: "Focused" },
+];
 
-/* ─── Types ─────────────────────────────────────────────── */
-interface FGPoint {
-  date: string;
-  value: number;
-  label: string;
-}
-interface FGNow {
-  date: string;
-  value: number;
-  label: string;
-}
-interface CStrength {
-  currency: string;
-  score: number;
-}
-interface NewsSent {
-  symbol: string;
-  bullish: number;
-  bearish: number;
-  neutral: number;
-  total: number;
-}
+const STREAK_DATA = Array.from({ length: 30 }).map((_, i) => ({
+  date: `2024-03-${(i + 1).toString().padStart(2, '0')}`,
+  compliant: Math.random() > 0.3,
+  future: i > 24
+}));
 
-interface SentimentData {
-  fearGreed: FGPoint[];
-  fearGreedNow: FGNow | null;
-  currencyStrength: CStrength[];
-  newsSentiment: NewsSent[];
-}
+const PRE_TRADE_QUESTIONS = [
+  "Am I trading my documented edge/setup?",
+  "Is my risk strictly 1% or less of my capital?",
+  "Am I emotionally neutral and not revenge trading?",
+  "Are there any major upcoming news events (NFP, CPI)?",
+  "Is my Take Profit at a realistic, logical structural level?"
+];
 
-/* ─── Helpers ────────────────────────────────────────────── */
-function fgColor(v: number) {
-  if (v >= 75) return "#22c55e";
-  if (v >= 55) return "#86efac";
-  if (v >= 45) return "#eab308";
-  if (v >= 25) return "#f97316";
-  return "#ef4444";
-}
-function fgLabel(v: number) {
-  if (v >= 75) return "Extreme Greed";
-  if (v >= 55) return "Greed";
-  if (v >= 45) return "Neutral";
-  if (v >= 25) return "Fear";
-  return "Extreme Fear";
-}
+/* ─── UI Components ──────────────────────────────────────────────────────── */
 
-const CURRENCY_COLORS: Record<string, string> = {
-  USD: "#60a5fa",
-  EUR: "#a78bfa",
-  GBP: "#34d399",
-  JPY: "#fbbf24",
-  CHF: "#f87171",
-  AUD: "#38bdf8",
-  NZD: "#818cf8",
-  CAD: "#fb923c",
-};
-
-/* ─── Custom tooltip for F&G chart ─────────────────────── */
-function FGTooltip({ active, payload, label }: any) {
-  if (!active || !payload?.length) return null;
-  const v = payload[0]?.value as number;
-  return (
-    <div className="bg-[#0f0f0f] border border-border rounded-xl p-3 text-xs">
-      <p className="text-muted-foreground mb-1">{label}</p>
-      <p className="font-bold text-lg" style={{ color: fgColor(v) }}>
-        {v}
-      </p>
-      <p style={{ color: fgColor(v) }}>{fgLabel(v)}</p>
-    </div>
-  );
-}
-/* ─── Custom tooltip for news sentiment ─────────────────── */
-function NewsSentTooltip({ active, payload, label }: any) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-[#0f0f0f] border border-border rounded-xl p-3 text-xs space-y-1">
-      <p className="text-muted-foreground font-bold mb-1">{label}</p>
-      {payload.map((p: any) => (
-        <p
-          key={p.name}
-          style={{ color: p.fill }}
-          className="flex items-center gap-2"
-        >
-          <span
-            className="w-2 h-2 rounded-full"
-            style={{ background: p.fill }}
-          />
-          {p.name}: {p.value}%
-        </p>
-      ))}
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════ */
-export default function SentimentPage() {
-  const [data, setData] = useState<SentimentData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [lastPoll, setLastPoll] = useState<string | null>(null);
-  const [bridgeOn, setBridgeOn] = useState(false);
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`${BRIDGE}/api/sentiment`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      if (json.success) {
-        setData(json);
-        setBridgeOn(true);
-        setLastPoll(new Date().toLocaleTimeString());
-        setError(null);
-      } else {
-        throw new Error("API returned failure");
-      }
-    } catch (e: any) {
-      setBridgeOn(false);
-      setError(e.message);
-    }
-    setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-    const id = setInterval(fetchData, 120_000); // refresh every 2 min
-    return () => clearInterval(id);
-  }, [fetchData]);
-
-  const fg = data?.fearGreedNow;
-  const fgValue = fg?.value ?? 0;
-  const fgAngle = (fgValue / 100) * 180 - 90; // gauge needle angle
-
-  /* ─── LOADING / ERROR ──────────────────────────────────── */
-  if (!data && loading)
-    return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4 text-gray-700">
-        <Activity className="w-10 h-10 animate-pulse text-purple-500/30" />
-        <p className="text-sm">Fetching sentiment data…</p>
-        <p className="text-xs text-gray-800">
-          Fear &amp; Greed API · MT5 currency strength · RSS news sentiment
-        </p>
-      </div>
-    );
+function ChecklistModal({ onClose }: { onClose: () => void }) {
+  const [checked, setChecked] = useState<Record<number, boolean>>({});
+  const allChecked = PRE_TRADE_QUESTIONS.every((_, i) => checked[i]);
 
   return (
-    <div className="min-h-screen bg-[#050505] text-slate-300 space-y-6 relative">
-      {/* Ambient glow */}
-      <div className="fixed top-0 left-[20%] w-[60%] h-[250px] bg-violet-900/6 blur-[160px] rounded-full pointer-events-none z-0" />
-
-      {/* ── Header ──────────────────────────────────────── */}
-      <div className="relative z-10 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <Brain className="w-6 h-6 text-violet-400" /> Market Sentiment
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Fear &amp; Greed (alternative.me) · Currency Strength (MT5 live) ·
-            News Sentiment (RSS) · refreshes every 2 min
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div
-            className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border
-            ${bridgeOn ? "border-green-500/30 text-green-400 bg-green-500/10" : "border-red-500/30 text-red-400 bg-red-500/10"}`}
-          >
-            {bridgeOn ? (
-              <Wifi className="w-3 h-3" />
-            ) : (
-              <WifiOff className="w-3 h-3" />
-            )}
-            {bridgeOn ? `Live · ${lastPoll}` : "Bridge offline"}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="w-full max-w-md rounded-2xl border p-6 shadow-2xl bg-[--bg-base]" style={{ borderColor: "var(--border)" }}>
+        
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[--accent]/10 text-[--accent]">
+            <Brain className="w-5 h-5" />
           </div>
-          <button
-            onClick={fetchData}
-            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border border-border hover:border-border/50 text-muted-foreground hover:text-foreground transition"
+          <div>
+            <h2 className="text-[18px] font-bold" style={{ fontFamily: "var(--font-display, Syne, sans-serif)", color: "var(--text-primary)" }}>
+              Pre-Trade Checklist
+            </h2>
+            <p className="text-[12px] text-[--text-tertiary]">Psychology and plan verification</p>
+          </div>
+        </div>
+
+        <div className="space-y-3 mb-8">
+          {PRE_TRADE_QUESTIONS.map((q, i) => {
+            const isChecked = checked[i];
+            return (
+              <label key={i} className="flex items-start gap-3 p-3 rounded-xl border cursor-pointer hover:bg-[--bg-elevated] transition-all group"
+                style={{ 
+                  borderColor: isChecked ? "var(--accent)" : "var(--border)",
+                  background: isChecked ? "rgba(0,212,161,0.05)" : "var(--bg-card)"
+                }}>
+                <button 
+                  type="button"
+                  className="mt-0.5 shrink-0 transition-colors"
+                  onClick={() => setChecked(prev => ({ ...prev, [i]: !prev[i] }))}
+                >
+                  {isChecked ? <CheckCircle2 className="w-5 h-5 text-[--accent]" /> : <Circle className="w-5 h-5 text-[--text-tertiary] group-hover:text-[--text-secondary]" />}
+                </button>
+                <span className="text-[13px] font-medium leading-snug" style={{ color: isChecked ? "var(--text-primary)" : "var(--text-secondary)" }}>
+                  {q}
+                </span>
+              </label>
+            );
+          })}
+        </div>
+
+        <div className="flex gap-3">
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border text-[13px] font-bold hover:bg-[--bg-elevated] transition-colors" style={{ borderColor: "var(--border-strong)", color: "var(--text-secondary)" }}>
+            Cancel
+          </button>
+          <button 
+            disabled={!allChecked}
+            className="flex-1 py-2.5 rounded-xl text-[13px] font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            style={{ background: "var(--accent)", color: "#000" }}
+            onClick={() => {
+              alert("Checklist passed! You are clear to trade.");
+              onClose();
+            }}
           >
-            <RefreshCw
-              className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`}
-            />{" "}
-            Refresh
+            Clear to Trade <MoveRight className="w-4 h-4" />
           </button>
         </div>
+
+      </div>
+    </div>
+  );
+}
+
+/* ─── Page ───────────────────────────────────────────────────────────────── */
+export default function MoodTrackerPage() {
+  const [showChecklist, setShowChecklist] = useState(false);
+
+  return (
+    <div className="space-y-6 max-w-7xl mx-auto pb-20">
+      
+      {showChecklist && <ChecklistModal onClose={() => setShowChecklist(false)} />}
+
+      {/* ── Header ── */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+           <h1 className="text-[32px] font-bold tracking-tight mb-1" style={{ fontFamily: "var(--font-display, Syne, sans-serif)", color: "var(--text-primary)" }}>
+            Mood Tracker
+          </h1>
+          <p className="text-[13px] font-medium" style={{ color: "var(--text-secondary)" }}>
+            Psychology insights, rule compliance, and emotion-driven performance.
+          </p>
+        </div>
+        <button 
+          onClick={() => setShowChecklist(true)}
+          className="px-6 py-2.5 rounded-xl text-[13px] font-bold flex items-center gap-2 shadow-[0_0_15px_rgba(0,212,161,0.2)] hover:shadow-[0_0_25px_rgba(0,212,161,0.4)] transition-all"
+          style={{ background: "var(--accent)", color: "#000" }}
+        >
+          <Brain className="w-4 h-4" /> Start Pre-Trade Checklist
+        </button>
       </div>
 
-      {!bridgeOn && error && (
-        <div className="relative z-10 bg-red-500/5 border border-red-500/20 rounded-xl p-4 text-xs text-red-400 flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 shrink-0" />
-          Bridge offline — run{" "}
-          <code className="bg-background hover:bg-muted text-foreground px-1.5 py-0.5 rounded">
-            python mt5_bridge.py
-          </code>{" "}
-          in{" "}
-          <code className="bg-background hover:bg-muted text-foreground px-1.5 py-0.5 rounded">
-            d:\Forex\dashboardkiller
-          </code>
-        </div>
-      )}
-
-      {/* ── Top stats row ───────────────────────────────── */}
-      <div className="relative z-10 grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          {
-            label: "Fear & Greed",
-            value: fg ? `${fgValue} · ${fgLabel(fgValue)}` : "—",
-            Icon: Brain,
-            color: fg ? fgColor(fgValue) : "#6b7280",
-          },
-          {
-            label: "Strongest",
-            value: data?.currencyStrength?.[0]?.currency ?? "—",
-            Icon: TrendingUp,
-            color: "#22c55e",
-          },
-          {
-            label: "Weakest",
-            value: data?.currencyStrength?.slice(-1)[0]?.currency ?? "—",
-            Icon: TrendingDown,
-            color: "#ef4444",
-          },
-          {
-            label: "News Sources",
-            value: `${data?.newsSentiment?.length ?? 0} pairs tracked`,
-            Icon: Globe,
-            color: "#a78bfa",
-          },
-        ].map((s) => (
-          <div
-            key={s.label}
-            className="bg-[#0b0b0b] border border-border rounded-xl p-4 flex items-center gap-3"
-          >
-            <s.Icon className="w-5 h-5 shrink-0" style={{ color: s.color }} />
-            <div>
-              <p className="text-sm font-bold text-foreground">{s.value}</p>
-              <p className="text-[11px] text-muted-foreground">{s.label}</p>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* ── Left Column: Compliance & Streaks ── */}
+        <div className="space-y-6">
+          
+          {/* Streak Card */}
+          <div className="rounded-2xl border p-6 flex flex-col items-center justify-center relative overflow-hidden text-center" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+            <div className="absolute top-0 right-0 w-32 h-32 bg-[--accent] opacity-10 blur-3xl rounded-full translate-x-1/2 -translate-y-1/2" />
+            <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 border" style={{ background: "rgba(0,212,161,0.1)", borderColor: "rgba(0,212,161,0.2)", color: "var(--accent)" }}>
+              <Flame className="w-8 h-8" />
             </div>
-          </div>
-        ))}
-      </div>
-
-      {/* ── Fear & Greed gauge + 30-day chart ──────────── */}
-      <div className="relative z-10 grid md:grid-cols-[260px_1fr] gap-5">
-        {/* Gauge card */}
-        <div className="bg-[#0b0b0b] border border-border rounded-2xl p-6 flex flex-col items-center justify-center">
-          <p className="text-xs text-gray-600 uppercase tracking-widest mb-4">
-            Fear &amp; Greed Index
-          </p>
-          {/* SVG Gauge */}
-          <svg viewBox="0 0 200 120" className="w-full max-w-[220px]">
-            {/* Background arcs */}
-            {[
-              { color: "#7f1d1d", d: "M 20 100 A 80 80 0 0 1 44 44" },
-              { color: "#92400e", d: "M 44 44 A 80 80 0 0 1 100 20" },
-              { color: "#713f12", d: "M 100 20 A 80 80 0 0 1 156 44" },
-              { color: "#14532d", d: "M 156 44 A 80 80 0 0 1 180 100" },
-            ].map((arc, i) => (
-              <path
-                key={i}
-                d={arc.d}
-                stroke={arc.color}
-                strokeWidth="16"
-                fill="none"
-                strokeLinecap="round"
-                opacity="0.7"
-              />
-            ))}
-            {/* Labels */}
-            <text x="12" y="115" fontSize="8" fill="#6b7280">
-              Extreme Fear
-            </text>
-            <text x="140" y="115" fontSize="8" fill="#6b7280">
-              Extreme Greed
-            </text>
-            {/* Needle */}
-            <g transform={`rotate(${fgAngle}, 100, 100)`}>
-              <line
-                x1="100"
-                y1="100"
-                x2="100"
-                y2="28"
-                stroke={fgColor(fgValue)}
-                strokeWidth="2.5"
-                strokeLinecap="round"
-              />
-              <circle cx="100" cy="100" r="5" fill={fgColor(fgValue)} />
-            </g>
-            {/* Value */}
-            <text
-              x="100"
-              y="95"
-              textAnchor="middle"
-              fontSize="26"
-              fontWeight="bold"
-              fill={fgColor(fgValue)}
-            >
-              {fgValue}
-            </text>
-          </svg>
-          <p
-            className="text-sm font-bold mt-1"
-            style={{ color: fgColor(fgValue) }}
-          >
-            {fgLabel(fgValue)}
-          </p>
-          <p className="text-[11px] text-gray-600 mt-1">Updated {fg?.date}</p>
-          {/* Zone legend */}
-          <div className="mt-4 w-full space-y-1">
-            {[
-              { range: "0–24", label: "Extreme Fear", c: "#ef4444" },
-              { range: "25–44", label: "Fear", c: "#f97316" },
-              { range: "45–55", label: "Neutral", c: "#eab308" },
-              { range: "56–74", label: "Greed", c: "#86efac" },
-              { range: "75–100", label: "Extreme Greed", c: "#22c55e" },
-            ].map((z) => (
-              <div
-                key={z.range}
-                className="flex items-center justify-between text-[10px]"
-              >
-                <div className="flex items-center gap-1.5">
-                  <span
-                    className="w-2 h-2 rounded-full"
-                    style={{ background: z.c }}
-                  />
-                  <span className="text-muted-foreground">{z.label}</span>
-                </div>
-                <span className="text-gray-700 font-mono">{z.range}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* 30-day area chart */}
-        <div className="bg-[#0b0b0b] border border-border rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-sm font-semibold text-foreground">
-                Fear &amp; Greed — 30 Day History
-              </h2>
-              <p className="text-[11px] text-gray-600">
-                source: alternative.me/fng
-              </p>
+            <div className="text-[48px] font-black font-mono leading-none tracking-tighter" style={{ color: "var(--text-primary)" }}>
+              14
             </div>
-            <div className="flex gap-2 text-[10px]">
-              {[
-                ["#ef4444", "Fear"],
-                ["#eab308", "Neutral"],
-                ["#22c55e", "Greed"],
-              ].map(([c, l]) => (
-                <span
-                  key={l}
-                  className="flex items-center gap-1 text-muted-foreground"
-                >
-                  <span
-                    className="w-2 h-2 rounded-full"
-                    style={{ background: c }}
-                  />
-                  {l}
-                </span>
+            <div className="text-[12px] font-bold uppercase tracking-widest mt-2" style={{ color: "var(--text-tertiary)" }}>
+              Day Compliance Streak
+            </div>
+            <p className="text-[12px] leading-relaxed mt-4 px-4" style={{ color: "var(--text-secondary)" }}>
+              You've perfectly followed your trading plan and risk management rules for 14 consecutive trading days.
+            </p>
+          </div>
+
+          {/* Compliance Heatmap */}
+          <div className="rounded-2xl border p-5" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+             <h3 className="text-[13px] font-bold mb-4 flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+              <CheckCircle2 className="w-4 h-4 text-[--accent]" /> 30-Day Rule Compliance
+            </h3>
+            <div className="flex flex-wrap gap-1.5">
+              {STREAK_DATA.map((d, i) => (
+                <div 
+                  key={i}
+                  title={d.date}
+                  className="w-[calc(20%-4.8px)] aspect-square rounded-md border"
+                  style={{
+                    background: d.future ? "transparent" : (d.compliant ? "var(--bull)" : "var(--bear)"),
+                    borderColor: d.future ? "var(--border)" : "transparent",
+                    opacity: d.future ? 0.3 : (d.compliant ? 0.8 : 0.8)
+                  }}
+                />
               ))}
             </div>
           </div>
-          {data?.fearGreed?.length ? (
-            <ResponsiveContainer width="100%" height={240}>
-              <AreaChart
-                data={data.fearGreed}
-                margin={{ top: 4, right: 4, left: -20, bottom: 0 }}
-              >
-                <defs>
-                  <linearGradient id="fgGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1f1f1f" />
-                <XAxis
-                  dataKey="date"
-                  tick={{ fontSize: 9, fill: "#6b7280" }}
-                  tickLine={false}
-                  axisLine={false}
-                  interval={4}
-                />
-                <YAxis
-                  domain={[0, 100]}
-                  tick={{ fontSize: 9, fill: "#6b7280" }}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <Tooltip content={<FGTooltip />} />
-                {/* Fear zone band 0-25 */}
-                <Area
-                  type="monotone"
-                  dataKey="value"
-                  stroke="#8b5cf6"
-                  strokeWidth={2}
-                  fill="url(#fgGrad)"
-                  dot={(props) => {
-                    const v = props.payload?.value as number;
-                    if (v === undefined) return <></>;
-                    return (
-                      <circle
-                        key={props.key}
-                        cx={props.cx}
-                        cy={props.cy}
-                        r={3}
-                        fill={fgColor(v)}
-                        stroke="none"
-                      />
-                    );
-                  }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-[240px] flex items-center justify-center text-gray-700 text-sm">
-              No data
+
+        </div>
+
+        {/* ── Right Column: Emotion vs Performance ── */}
+        <div className="lg:col-span-2 space-y-6">
+          
+          {/* Main Chart */}
+          <div className="rounded-2xl border p-5 h-[415px] flex flex-col" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-[16px] font-bold" style={{ fontFamily: "var(--font-display, Syne, sans-serif)", color: "var(--text-primary)" }}>Emotion vs. Net P&L</h3>
+                <p className="text-[11px] mt-1" style={{ color: "var(--text-tertiary)" }}>Correlation between your psychological state and outcome</p>
+              </div>
+              <div className="flex items-center gap-4 text-[11px] font-bold" style={{ color: "var(--text-secondary)" }}>
+                <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-[--accent]" /> Emotion Score (1-10)</span>
+                <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full" style={{ background: "rgba(255,255,255,0.1)" }} /> Net P&L ($)</span>
+              </div>
             </div>
-          )}
-        </div>
-      </div>
 
-      {/* ── Currency Strength ───────────────────────────── */}
-      <div className="relative z-10 bg-[#0b0b0b] border border-border rounded-2xl p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <Zap className="w-4 h-4 text-yellow-400" /> Currency Strength
-              Meter
-            </h2>
-            <p className="text-[11px] text-gray-600">
-              Derived from live MT5 tick data — spread-weighted directional bias
-            </p>
-          </div>
-        </div>
-        {data?.currencyStrength?.length ? (
-          <div className="space-y-3">
-            {data.currencyStrength.map((c) => {
-              const maxScore = Math.max(
-                ...data.currencyStrength.map((x) => Math.abs(x.score)),
-              );
-              const pct = Math.min(
-                (Math.abs(c.score) / (maxScore || 1)) * 100,
-                100,
-              );
-              const positive = c.score >= 0;
-              const barColor = CURRENCY_COLORS[c.currency] ?? "#6b7280";
-              return (
-                <div key={c.currency} className="flex items-center gap-3">
-                  <span
-                    className="w-10 text-right text-xs font-bold font-mono"
-                    style={{ color: barColor }}
-                  >
-                    {c.currency}
-                  </span>
-                  <div className="flex-1 h-5 bg-background hover:bg-muted text-foreground rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-700"
-                      style={{
-                        width: `${pct}%`,
-                        background: `linear-gradient(90deg, ${barColor}99, ${barColor})`,
-                      }}
-                    />
-                  </div>
-                  <span
-                    className={`w-16 text-xs tabular-nums font-mono text-right ${positive ? "text-green-400" : "text-red-400"}`}
-                  >
-                    {positive ? "+" : ""}
-                    {c.score}
-                  </span>
-                  <span className="text-[10px] text-gray-600 w-14">
-                    {positive ? "▲ Strong" : "▼ Weak"}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="py-8 text-center text-gray-700 text-sm">
-            MT5 not connected — currency strength requires the bridge.
-          </div>
-        )}
-      </div>
+            <div className="flex-1 min-h-0 relative">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={EMOTION_PERFORMANCE_DATA} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                  <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "var(--text-tertiary)" }} dy={10} />
+                  <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "var(--text-tertiary)", fontFamily: "monospace" }} />
+                  <YAxis yAxisId="right" orientation="right" hide domain={[0, 10]} />
+                  <Tooltip 
+                    cursor={{ fill: "rgba(255,255,255,0.02)" }}
+                    content={({ active, payload }) => {
+                       if (!active || !payload?.length) return null;
+                       const data = payload[0].payload;
+                       const isProfit = data.pnl >= 0;
+                       return (
+                         <div className="rounded-xl border p-3 shadow-xl" style={{ background: "var(--bg-elevated)", borderColor: "var(--border)" }}>
+                           <p className="text-[10px] font-bold uppercase tracking-widest text-[--text-tertiary] mb-2">{data.day}</p>
+                           <p className="text-[14px] font-mono font-bold flex items-center gap-1" style={{ color: isProfit ? "var(--bull)" : "var(--bear)" }}>
+                             {isProfit ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                             {data.pnl >= 0 ? "+" : ""}${data.pnl}
+                           </p>
+                           <p className="text-[12px] font-medium mt-1 flex items-center gap-2" style={{ color: "var(--text-secondary)" }}>
+                             <Brain className="w-3.5 h-3.5 text-[--accent]" /> State: <span className="text-[--text-primary] font-bold">{data.label} ({data.emotion}/10)</span>
+                           </p>
+                         </div>
+                       );
+                    }}
+                  />
+                  
+                  {/* P&L Background Bars */}
+                  <Bar yAxisId="left" dataKey="pnl" radius={[4, 4, 4, 4]} barSize={40}>
+                    {EMOTION_PERFORMANCE_DATA.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.pnl >= 0 ? "rgba(0,212,161,0.15)" : "rgba(255,77,106,0.15)"} />
+                    ))}
+                  </Bar>
+                  <ReferenceLine yAxisId="left" y={0} stroke="var(--border)" />
+                  
+                  {/* Emotion Overlay Line mapped to right Axis but drawn as a custom SVG inside Recharts or simply rendered as small floating Badges if we wanted. For simplicity we'll render it as a second Bar with high Z-index or an Area/Line. Actually, I'll just use a Line for emotion! Let's swap the import to include Line */}
+                </BarChart>
+              </ResponsiveContainer>
 
-      {/* ── News Sentiment ──────────────────────────────── */}
-      <div className="relative z-10 bg-[#0b0b0b] border border-border rounded-2xl p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-blue-400" /> News-Based
-              Sentiment by Symbol
-            </h2>
-            <p className="text-[11px] text-gray-600">
-              Bullish / Bearish / Neutral article counts from ForexLive ·
-              FXStreet · MarketWatch · Reuters
-            </p>
-          </div>
-          <div className="flex gap-3 text-[10px] text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-sm bg-green-500" /> Bullish
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-sm bg-red-500" /> Bearish
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-sm bg-muted/80" /> Neutral
-            </span>
-          </div>
-        </div>
-        {data?.newsSentiment?.length ? (
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart
-              data={data.newsSentiment}
-              layout="vertical"
-              margin={{ top: 0, right: 16, left: 40, bottom: 0 }}
-            >
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="#1a1a1a"
-                horizontal={false}
-              />
-              <XAxis
-                type="number"
-                domain={[0, 100]}
-                tick={{ fontSize: 9, fill: "#6b7280" }}
-                tickLine={false}
-                axisLine={false}
-                unit="%"
-              />
-              <YAxis
-                type="category"
-                dataKey="symbol"
-                tick={{ fontSize: 10, fill: "#e2e8f0", fontWeight: 600 }}
-                tickLine={false}
-                axisLine={false}
-                width={48}
-              />
-              <Tooltip
-                content={<NewsSentTooltip />}
-                cursor={{ fill: "#ffffff06" }}
-              />
-              <Bar
-                dataKey="bullish"
-                name="Bullish"
-                stackId="a"
-                fill="#22c55e"
-                radius={[0, 0, 0, 0]}
-              />
-              <Bar
-                dataKey="neutral"
-                name="Neutral"
-                stackId="a"
-                fill="#374151"
-              />
-              <Bar
-                dataKey="bearish"
-                name="Bearish"
-                stackId="a"
-                fill="#ef4444"
-                radius={[0, 4, 4, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        ) : (
-          <div className="py-12 text-center text-gray-700 text-sm">
-            <Activity className="w-6 h-6 mx-auto mb-2 animate-pulse opacity-30" />
-            No news sentiment data yet.
-          </div>
-        )}
-      </div>
+              {/* Absolute positioned Emotion nodes connecting over the bars */}
+               <ResponsiveContainer width="100%" height="100%" className="absolute inset-0 pointer-events-none">
+                  <AreaChart data={EMOTION_PERFORMANCE_DATA} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                    <YAxis hide domain={[0, 10]} />
+                    <Area type="monotone" dataKey="emotion" stroke="var(--accent)" strokeWidth={3} fillOpacity={0} dot={{ stroke: "var(--bg-card)", strokeWidth: 3, fill: "var(--accent)", r: 6 }} />
+                  </AreaChart>
+               </ResponsiveContainer>
 
-      {/* ── Overall market mood row ─────────────────────── */}
-      <div className="relative z-10 grid sm:grid-cols-3 gap-4">
-        {(() => {
-          const ns = data?.newsSentiment ?? [];
-          const totalBullish = ns.reduce((a, x) => a + x.bullish, 0);
-          const totalBearish = ns.reduce((a, x) => a + x.bearish, 0);
-          const totalNeutral = ns.reduce((a, x) => a + x.neutral, 0);
-          const grandTotal = totalBullish + totalBearish + totalNeutral || 1;
-          const bullPct = Math.round((totalBullish / grandTotal) * 100);
-          const bearPct = Math.round((totalBearish / grandTotal) * 100);
-          const neutPct = 100 - bullPct - bearPct;
-          return [
-            {
-              label: "Overall Bullish",
-              pct: bullPct,
-              color: "#22c55e",
-              Icon: TrendingUp,
-            },
-            {
-              label: "Overall Neutral",
-              pct: neutPct,
-              color: "#6b7280",
-              Icon: Minus,
-            },
-            {
-              label: "Overall Bearish",
-              pct: bearPct,
-              color: "#ef4444",
-              Icon: TrendingDown,
-            },
-          ].map((item) => (
-            <div
-              key={item.label}
-              className="bg-[#0b0b0b] border border-border rounded-2xl p-5"
-            >
-              <div className="flex items-center gap-2 mb-3">
-                <item.Icon className="w-4 h-4" style={{ color: item.color }} />
-                <span className="text-xs text-muted-foreground">
-                  {item.label}
-                </span>
-              </div>
-              <p
-                className="text-3xl font-bold tabular-nums"
-                style={{ color: item.color }}
-              >
-                {item.pct}%
-              </p>
-              <div className="mt-3 h-1.5 w-full bg-background hover:bg-muted text-foreground rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-700"
-                  style={{ width: `${item.pct}%`, background: item.color }}
-                />
-              </div>
-              <p className="text-[10px] text-gray-700 mt-2">
-                Based on {ns.length} tracked symbols across 4 RSS feeds
+            </div>
+          </div>
+
+          {/* Warning Banner */}
+          <div className="rounded-2xl border p-5 flex items-start gap-4" style={{ background: "rgba(255,160,0,0.05)", borderColor: "rgba(255,160,0,0.2)" }}>
+            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(255,160,0,0.1)", color: "var(--warning)" }}>
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-[13px] font-bold mb-1" style={{ color: "var(--warning)" }}>AI Pattern Detected: "Revenge Trading" Risk</h4>
+              <p className="text-[12px] leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                You suffered a -450 P&L drawdown on Friday while your emotional state dropped to 3/10 (Tilted). Historically, attempting to recover heavily on Mondays leads to a 68% larger loss. Start with 50% reduced position sizing today.
               </p>
             </div>
-          ));
-        })()}
-      </div>
+          </div>
 
-      {/* Spacer */}
-      <div className="h-4" />
+        </div>
+
+      </div>
     </div>
   );
 }

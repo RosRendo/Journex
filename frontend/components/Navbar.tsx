@@ -1,54 +1,128 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
-  Moon,
-  Sun,
-  Monitor,
-  LogOut,
-  User,
-  Settings,
-  Bell,
-  Plug,
-  X,
-  Flame,
-  Info,
-  TrendingUp,
-  TrendingDown,
-  CreditCard
+  LogOut, User, Settings, Bell, X, Flame, TrendingUp, TrendingDown, CreditCard, ChevronDown, Palette
 } from "lucide-react";
-import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { toast } from "sonner";
+import Link from "next/link";
+import { HEADER_GROUPS } from "@/components/layout/navigation";
+import { useTheme } from "next-themes";
 
+function DualClock() {
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const localTime = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
+  const utcTime = now.toUTCString().slice(17, 22);
+
+  return (
+    <div className="hidden md:flex items-center gap-3 text-[11px] font-mono">
+      <div className="flex flex-col items-end leading-tight">
+        <span className="text-[--accent] font-bold">{localTime}</span>
+        <span className="text-[--text-tertiary]">LOCAL</span>
+      </div>
+      <div className="w-px h-6 bg-[--border]" />
+      <div className="flex flex-col items-end leading-tight">
+        <span className="text-[--text-secondary] font-bold">{utcTime}</span>
+        <span className="text-[--text-tertiary]">UTC</span>
+      </div>
+    </div>
+  );
+}
+
+function HeaderNavDropdown({ group }: { group: typeof HEADER_GROUPS[0] }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+
+  const handleMouseEnter = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    setIsOpen(true);
+  };
+
+  const handleMouseLeave = () => {
+    timeoutRef.current = setTimeout(() => setIsOpen(false), 200);
+  };
+
+  return (
+    <div 
+      className="relative"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold text-[--text-secondary] hover:text-[--text-primary] hover:bg-[--bg-elevated] transition-colors uppercase tracking-wider">
+        {group.label}
+        <ChevronDown className="w-3 h-3 opacity-50" />
+      </button>
+
+      {isOpen && (
+        <div className="absolute top-full left-0 mt-1 w-56 rounded-xl shadow-2xl border py-2 z-50 animate-in fade-in slide-in-from-top-2" style={{ background: "var(--bg-card)", borderColor: "var(--border-strong)" }}>
+          {group.items.map((item) => (
+            <Link
+              key={item.id}
+              href={item.href || "#"}
+              className="flex items-center gap-3 px-4 py-2.5 text-[12px] font-medium text-[--text-secondary] hover:bg-[--bg-elevated] hover:text-[--text-primary] transition-colors"
+              onClick={() => setIsOpen(false)}
+            >
+              <item.icon className="w-4 h-4 text-[--text-tertiary]" />
+              {item.label}
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Navbar() {
-  const { theme, setTheme } = useTheme();
   const { data: session } = useSession();
+  const { theme, setTheme } = useTheme();
   const user = session?.user;
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [showThemeMenu, setShowThemeMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-
-  // Live news state – populated by real RSS poll
   const [newsUnread, setNewsUnread] = useState(0);
   const [newsItems, setNewsItems] = useState<{
     id: string; title: string; time: string;
-    isHot: boolean; impact: 'bullish' | 'bearish' | 'neutral'; symbol: string;
+    isHot: boolean; impact: "bullish" | "bearish" | "neutral"; symbol: string;
   }[]>([]);
 
-  useEffect(() => {
-    setMounted(true);
+  const THEMES = [
+    { id: "dark",     label: "Dark",     swatch: "#0a0a0f",  border: "#00d4a1" },
+    { id: "theme-white",    label: "White",    swatch: "#f4f5f7",  border: "#0070f3" },
+    { id: "theme-midnight", label: "Midnight", swatch: "#0d1117",  border: "#58a6ff" },
+    { id: "theme-rose",     label: "Rose",     swatch: "#16100f",  border: "#fb7185" },
+  ];
 
+  const applyTheme = (id: string) => {
+    // Remove all theme classes first
+    document.documentElement.classList.remove("dark", "theme-white", "theme-midnight", "theme-rose");
+    document.documentElement.classList.add(id);
+    localStorage.setItem("ui-theme", id);
+    setTheme(id === "dark" ? "dark" : "light");
+  };
+
+  const [activeTheme, setActiveThemeState] = useState("dark");
+  useEffect(() => {
+    const saved = localStorage.getItem("ui-theme") || "dark";
+    setActiveThemeState(saved);
+    document.documentElement.classList.remove("dark", "theme-white", "theme-midnight", "theme-rose");
+    document.documentElement.classList.add(saved);
+  }, []);
+
+  useEffect(() => {
     const seenIds = new Set<string>();
     let isFirstFetch = true;
 
     const pollNews = async () => {
       try {
-        const res = await fetch("\/api/news");
+        const res = await fetch("/api/news");
         const data = await res.json();
         if (!data.success || !data.news) return;
 
@@ -62,40 +136,26 @@ export default function Navbar() {
 
         if (newHot.length > 0 && !isFirstFetch) {
           setNewsUnread(prev => prev + newHot.length);
-
           newHot.forEach((item: any) => {
             toast.custom((t) => (
-              <div className="bg-[#121008] border border-orange-500/40 rounded-xl p-4 shadow-[0_0_40px_rgba(249,115,22,0.15)] relative overflow-hidden w-[380px]">
-                <div className="absolute top-0 left-0 w-1 h-full bg-orange-500 shadow-[0_0_15px_rgba(249,115,22,1)]" />
+              <div className="border border-orange-500/40 rounded-xl p-4 shadow-2xl relative overflow-hidden w-[380px]"
+                style={{ background: "#0f0c07" }}>
+                <div className="absolute top-0 left-0 w-1 h-full bg-orange-500" />
                 <div className="flex justify-between items-start mb-2 ml-2">
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1 bg-orange-500/20 text-orange-400 rounded-sm px-1.5 py-0.5 text-[10px] uppercase font-bold tracking-wider">
-                      <Flame className="w-3 h-3 fill-orange-400" /> HOT
-                    </div>
-                    <span className="text-xs text-muted-foreground font-medium">Breaking News</span>
+                  <div className="flex items-center gap-1 bg-orange-500/20 text-orange-400 rounded px-1.5 py-0.5 text-[10px] uppercase font-bold tracking-wider">
+                    <Flame className="w-3 h-3 fill-orange-400" /> HOT
                   </div>
-                  <button onClick={() => toast.dismiss(t)} className="text-muted-foreground hover:text-foreground">
+                  <button onClick={() => toast.dismiss(t)} className="text-[--text-tertiary] hover:text-[--text-primary]">
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
-                <div className="ml-2">
-                  <h2 className="text-sm font-bold text-foreground mb-2 uppercase tracking-wide leading-tight line-clamp-3">
-                    {item.title}
-                  </h2>
-                  <div className="flex gap-2">
-                    <span className="border border-border bg-card text-card-foreground shadow-sm text-foreground/80 rounded-md text-[10px] px-2 py-0.5">
-                      {item.symbol}
-                    </span>
-                  </div>
-                </div>
+                <h2 className="ml-2 text-sm font-bold text-[--text-primary] line-clamp-3 leading-snug">{item.title}</h2>
               </div>
-            ), { duration: 9000, position: 'top-right' });
+            ), { duration: 9000, position: "top-right" });
           });
         }
         isFirstFetch = false;
-      } catch (_) {
-        // Bridge offline – fail silently
-      }
+      } catch (_) {}
     };
 
     pollNews();
@@ -103,209 +163,151 @@ export default function Navbar() {
     return () => clearInterval(interval);
   }, []);
 
-  // Auth user avatar
   const getInitials = (name: string | null) => {
-    if (!name) return "U";
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
+    if (!name) return "T";
+    return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
   };
-
-
 
   const handleLogout = async () => {
     setShowProfileMenu(false);
-    await signOut({ redirect: false }); // clear the session cookie first
-    router.push("/auth");               // then navigate — middleware sees no session
-  };
-
-  const handleProfileClick = () => {
-    setShowProfileMenu(false);
-    router.push("/profile");
-  };
-
-  const handleSettingsClick = () => {
-    setShowProfileMenu(false);
-    router.push("/settings");
+    await signOut({ redirect: false });
+    router.push("/auth");
   };
 
   return (
-    <nav className="sticky top-0 z-40 border-b border-gray-200 dark:border-border bg-white dark:bg-background hover:bg-muted text-foreground shadow-sm">
-      <div className="flex items-center justify-between h-16 px-6 md:px-8">
-        {/* Left: Notifications & Broker Status */}
-        <div className="flex items-center gap-4">
-
-          {/* Notifications Dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => {
-                setShowNotifications(!showNotifications);
-                setNewsUnread(0); // Clear badge on click
-              }}
-              className="relative p-2 text-gray-600 dark:text-muted-foreground hover:text-gray-900 dark:hover:text-foreground transition-colors"
-            >
-              <Bell className="w-5 h-5" />
-              {newsUnread > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-orange-500 rounded-full animate-pulse border-2 border-white dark:border-gray-900"></span>
-              )}
-            </button>
-
-            {showNotifications && (
-              <div className="absolute left-0 mt-2 w-80 bg-white dark:bg-[#0b0b0b] rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] border border-gray-200 dark:border-border py-2 z-50 overflow-hidden">
-                <div className="px-4 py-3 border-b border-gray-200 dark:border-border flex justify-between items-center">
-                  <h3 className="font-bold text-sm text-gray-900 dark:text-foreground flex items-center gap-2">Market Alerts</h3>
-                  <button className="text-xs text-blue-500 hover:text-blue-400" onClick={() => router.push('/news')}>View Dashboard</button>
-                </div>
-                <div className="max-h-[300px] overflow-y-auto">
-                  {newsItems.map(news => (
-                    <div key={news.id} className="px-4 py-3 border-b border-gray-100 dark:border-border/50 hover:bg-gray-50 dark:hover:bg-card border border-border text-card-foreground shadow-sm/30 cursor-pointer text-left transition-colors">
-                      <div className="flex items-center gap-2 mb-1.5 text-[10px] font-bold tracking-wider uppercase">
-                        {news.isHot && <span className="text-orange-500 flex items-center gap-1"><Flame className="w-3 h-3" /> Hot</span>}
-                        <span className="text-muted-foreground">{news.time}</span>
-                      </div>
-                      <p className="text-sm text-gray-800 dark:text-foreground font-medium leading-snug line-clamp-2">{news.title}</p>
-                      <div className="mt-2 flex">
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded border flex items-center gap-1
-                                    ${news.impact === 'bullish' ? 'border-green-500/30 text-green-400 bg-green-500/10' : 'border-red-500/30 text-red-400 bg-red-500/10'}
-                                 `}>
-                          {news.impact === 'bullish' ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                          {news.symbol}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+    <nav
+      className="h-14 flex items-center justify-between px-4 flex-shrink-0 sticky top-0 z-50 border-b"
+      style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
+    >
+      {/* Left: Logo & Header Nav */}
+      <div className="flex items-center gap-8">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-[--accent] flex items-center justify-center">
+            <span className="text-black text-xs font-black">T</span>
           </div>
-
+          <span className="font-display text-[15px] font-bold tracking-wide text-[--text-primary]">
+            TRADEDESK
+          </span>
         </div>
 
-        {/* Right: Actions */}
-        <div className="flex items-center gap-2">
-          {/* Theme Switcher */}
-          <div className="relative">
-            <button
-              onClick={() => setShowThemeMenu(!showThemeMenu)}
-              className="p-2 text-gray-600 dark:text-muted-foreground hover:text-gray-900 dark:hover:text-foreground hover:bg-gray-100 dark:hover:bg-card border border-border text-card-foreground shadow-sm rounded-lg transition-colors flex items-center justify-center min-w-[36px]"
-              aria-label="Toggle theme"
-            >
-              {!mounted ? (
-                <div className="w-5 h-5 opacity-0"></div>
-              ) : theme === "light" ? (
-                <Sun className="w-5 h-5" />
-              ) : theme === "dark" ? (
-                <Moon className="w-5 h-5" />
-              ) : (
-                <Monitor className="w-5 h-5" />
-              )}
-            </button>
-
-            {/* Theme Menu */}
-            {showThemeMenu && (
-              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-card border border-border text-card-foreground shadow-sm rounded-lg shadow-lg border border-gray-200 dark:border-border py-2">
-                {[
-                  { id: "light", label: "Light", icon: Sun },
-                  { id: "dark", label: "Dark", icon: Moon },
-                  { id: "system", label: "System", icon: Monitor },
-                ].map(({ id, label, icon: Icon }) => (
-                  <button
-                    key={id}
-                    onClick={() => {
-                      setTheme(id);
-                      setShowThemeMenu(false);
-                    }}
-                    className={`w-full flex items-center gap-3 px-4 py-2 text-sm transition-colors ${theme === id
-                      ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-                      : "text-gray-700 dark:text-foreground/80 hover:bg-gray-50 dark:hover:bg-muted border border-border/50 text-foreground"
-                      }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    {label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Profile Menu */}
-          <div className="relative">
-            <button
-              onClick={() => setShowProfileMenu(!showProfileMenu)}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-card border border-border text-card-foreground shadow-sm transition-colors"
-            >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-foreground text-sm font-semibold">
-                {getInitials(user?.name || null)}
-              </div>
-              <div className="hidden sm:block">
-                <p className="text-sm font-medium text-gray-900 dark:text-foreground">
-                  {user?.name || "User"}
-                </p>
-                <p className="text-xs text-muted-foreground dark:text-muted-foreground">
-                  {user?.email || "Not logged in"}
-                </p>
-              </div>
-            </button>
-
-            {/* Profile Dropdown */}
-            {showProfileMenu && (
-              <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-card border border-border text-card-foreground shadow-sm rounded-lg shadow-lg border border-gray-200 dark:border-border py-2 z-50">
-                {/* Profile Header */}
-                <div className="px-4 py-3 border-b border-gray-200 dark:border-border">
-                  <p className="text-sm font-semibold text-gray-900 dark:text-foreground">
-                    {user?.name || "User"}
-                  </p>
-                  <p className="text-xs text-muted-foreground dark:text-muted-foreground">
-                    {user?.email || "Not logged in"}
-                  </p>
-                </div>
-
-                {/* Menu Items */}
-                <button
-                  onClick={handleProfileClick}
-                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-foreground/80 hover:bg-gray-50 dark:hover:bg-muted border border-border/50 text-foreground transition-colors"
-                >
-                  <User className="w-4 h-4" />
-                  My Profile
-                </button>
-                <button
-                  onClick={handleSettingsClick}
-                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-foreground/80 hover:bg-gray-50 dark:hover:bg-muted border border-border/50 text-foreground transition-colors"
-                >
-                  <Settings className="w-4 h-4" />
-                  Settings
-                </button>
-                <button
-                  onClick={() => {
-                    setShowProfileMenu(false);
-                    router.push("/subscription");
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-foreground/80 hover:bg-gray-50 dark:hover:bg-muted border border-border/50 text-foreground transition-colors"
-                >
-                  <CreditCard className="w-4 h-4 text-primary" />
-                  Subscription & Billing
-                </button>
-
-                {/* Divider */}
-                <div className="my-2 border-t border-gray-200 dark:border-border"></div>
-
-                {/* Logout */}
-                <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                >
-                  <LogOut className="w-4 h-4" />
-                  Logout
-                </button>
-              </div>
-            )}
-          </div>
+        {/* Dynamic Header Nav Groups */}
+        <div className="hidden lg:flex items-center gap-1">
+          {HEADER_GROUPS.map(group => (
+            <HeaderNavDropdown key={group.id} group={group} />
+          ))}
         </div>
       </div>
 
+      {/* Center: Dual clock */}
+      <DualClock />
+
+      {/* Right: Actions */}
+      <div className="flex items-center gap-2">
+        {/* Notifications */}
+        <div className="relative">
+          <button
+            onClick={() => { setShowNotifications(!showNotifications); setNewsUnread(0); }}
+            className="relative p-2 rounded-lg text-[--text-secondary] hover:text-[--text-primary] hover:bg-[--bg-elevated] transition-colors"
+          >
+            <Bell className="w-[18px] h-[18px]" />
+            {newsUnread > 0 && (
+               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
+            )}
+          </button>
+
+          {showNotifications && (
+            <div
+              className="absolute right-0 mt-2 w-80 rounded-xl shadow-2xl border py-2 z-50 overflow-hidden"
+              style={{ background: "var(--bg-card)", borderColor: "var(--border-strong)" }}
+            >
+              <div className="px-4 py-2.5 border-b flex justify-between items-center" style={{ borderColor: "var(--border)" }}>
+                <h3 className="text-[12px] font-bold text-[--text-primary]">Market Alerts</h3>
+                <button className="text-[11px] text-[--accent] hover:opacity-80" onClick={() => router.push("/news")}>View All</button>
+              </div>
+              <div className="max-h-[280px] overflow-y-auto">
+                {newsItems.length === 0 ? (
+                  <div className="py-8 text-center text-[--text-tertiary] text-xs">No alerts</div>
+                ) : newsItems.map(news => (
+                  <div key={news.id} className="px-4 py-2.5 border-b hover:bg-[--bg-elevated] cursor-pointer transition-colors" style={{ borderColor: "var(--border)" }}>
+                    <div className="flex items-center gap-2 mb-1 text-[10px] font-bold tracking-wider uppercase">
+                      {news.isHot && <span className="text-orange-500 flex items-center gap-1"><Flame className="w-3 h-3" /> Hot</span>}
+                      <span className="text-[--text-tertiary]">{news.time}</span>
+                    </div>
+                    <p className="text-[12px] text-[--text-primary] leading-snug line-clamp-2">{news.title}</p>
+                    <div className="mt-1.5 flex">
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded border flex items-center gap-1 ${news.impact === "bullish" ? "border-[--bull]/30 text-[--bull] bg-[--bull]/10" : "border-[--bear]/30 text-[--bear] bg-[--bear]/10"}`}>
+                        {news.impact === "bullish" ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                        {news.symbol}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Profile */}
+        <div className="relative">
+          <button
+            onClick={() => setShowProfileMenu(!showProfileMenu)}
+            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-[--bg-elevated] transition-colors"
+          >
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[--accent] to-[--info] flex items-center justify-center text-black text-[11px] font-black">
+              {getInitials(user?.name || null)}
+            </div>
+            <span className="hidden sm:block text-[12px] font-medium text-[--text-secondary]">
+              {user?.name?.split(" ")[0] || "Trader"}
+            </span>
+          </button>
+
+          {showProfileMenu && (
+            <div className="absolute right-0 mt-2 w-56 rounded-xl shadow-2xl border py-2 z-50"
+              style={{ background: "var(--bg-card)", borderColor: "var(--border-strong)" }}
+            >
+              {/* Theme switcher */}
+              <div className="px-4 py-3 border-b" style={{ borderColor: "var(--border)" }}>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Palette className="w-3.5 h-3.5" style={{ color: "var(--text-tertiary)" }} />
+                  <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>Theme</span>
+                </div>
+                <div className="flex gap-1.5">
+                  {THEMES.map(t => (
+                    <button key={t.id} onClick={() => { applyTheme(t.id); setActiveThemeState(t.id); }}
+                      title={t.label}
+                      className="w-7 h-7 rounded-lg transition-all hover:scale-110"
+                      style={{
+                        background: t.swatch,
+                        border: activeTheme === t.id ? `2px solid ${t.border}` : "2px solid transparent",
+                        boxShadow: activeTheme === t.id ? `0 0 8px ${t.border}60` : "none"
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="px-4 py-2.5 border-b" style={{ borderColor: "var(--border)" }}>
+                <p className="text-[12px] font-bold text-[--text-primary]">{user?.name || "Trader"}</p>
+                <p className="text-[11px] text-[--text-tertiary]">{user?.email || ""}</p>
+              </div>
+              {[
+                { icon: User, label: "My Profile", fn: () => { setShowProfileMenu(false); router.push("/profile"); } },
+                { icon: Settings, label: "Settings", fn: () => { setShowProfileMenu(false); router.push("/settings"); } },
+                { icon: CreditCard, label: "Subscription", fn: () => { setShowProfileMenu(false); router.push("/subscription"); } },
+              ].map(({ icon: Icon, label, fn }) => (
+                <button key={label} onClick={fn}
+                  className="w-full flex items-center gap-3 px-4 py-2 text-[12px] text-[--text-secondary] hover:bg-[--bg-elevated] hover:text-[--text-primary] transition-colors">
+                  <Icon className="w-4 h-4" />{label}
+                </button>
+              ))}
+              <div className="my-1.5 border-t" style={{ borderColor: "var(--border)" }} />
+              <button onClick={handleLogout}
+                className="w-full flex items-center gap-3 px-4 py-2 text-[12px] text-[--bear] hover:bg-[--bear]/10 transition-colors">
+                <LogOut className="w-4 h-4" />Logout
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
     </nav>
   );
 }

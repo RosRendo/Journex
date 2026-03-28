@@ -9,7 +9,9 @@ import {
   Upload,
   Wifi,
   DollarSign,
-  PieChart,
+  PieChart as PieChartIcon,
+  Sparkles,
+  ArrowRight
 } from "lucide-react";
 import { useCsvTrades } from "@/hooks/useCsvTrades";
 import { calculateMetrics, getStrategyStats } from "@/lib/calculations";
@@ -23,8 +25,14 @@ import {
   BarChart,
   Bar,
   Cell,
+  PieChart,
+  Pie
 } from "recharts";
 import Link from "next/link";
+import { SessionTimeline } from "@/components/ui/SessionTimeline";
+import { CapitalFlow } from "@/components/ui/CapitalFlow";
+import { AIMacroDeskSection } from "@/components/ui/MacroDeskCard";
+import { ConditionMeter } from "@/components/ui/ConditionMeter";
 
 function StatCard({
   label,
@@ -39,33 +47,24 @@ function StatCard({
 }) {
   return (
     <div
-      className={`rounded-lg border p-4 ${variant === "profit"
-        ? "border-profit/20 bg-profit-muted glow-profit"
-        : variant === "loss"
-          ? "border-loss/20 bg-loss-muted glow-loss"
-          : "border-border bg-card"
-        } animate-fade-in`}
+      className="rounded-xl border p-4 animate-fade-up"
+      style={{
+        background: "var(--bg-card)",
+        borderColor: "var(--border)",
+      }}
     >
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[10px] font-bold uppercase tracking-[0.1em]" style={{ color: "var(--text-tertiary)" }}>
           {label}
         </span>
-        <Icon
-          className={`w-4 h-4 ${variant === "profit"
-            ? "text-profit"
-            : variant === "loss"
-              ? "text-loss"
-              : "text-muted-foreground"
-            }`}
-        />
+        <Icon className="w-3.5 h-3.5" style={{ color: "var(--text-tertiary)" }} />
       </div>
       <div
-        className={`text-2xl font-bold font-mono-nums ${variant === "profit"
-          ? "text-profit"
-          : variant === "loss"
-            ? "text-loss"
-            : "text-foreground"
-          }`}
+        className="text-xl font-bold font-mono"
+        style={{
+          color: variant === "profit" ? "var(--bull)" : variant === "loss" ? "var(--bear)" : "var(--text-primary)",
+          fontFamily: "'Syne', sans-serif"
+        }}
       >
         {value}
       </div>
@@ -177,313 +176,150 @@ export default function Dashboard() {
   }, [trades]);
 
   return (
-          <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-            <p className="text-sm text-muted-foreground">
-              {trades.length > 0
-                ? `${trades.length} trades loaded from CSV imports`
-                : "No trades yet – upload a broker CSV to get started"}
-            </p>
-          </div>
-
-          {/* Upload CTA */}
-          <Link
-            href="/journal"
-            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary text-sm font-medium transition-colors"
-          >
-            <Upload className="w-4 h-4" />
-            Import CSV
-          </Link>
+    <div className="space-y-8 animate-fade-in pb-20 max-w-[1600px] mx-auto">
+      
+      {/* ── HEADER / WELCOME ── */}
+      <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight" style={{ fontFamily: "'Syne', sans-serif", color: "var(--accent)" }}>
+            Good afternoon, Trader.
+          </h1>
+          <p className="text-sm mt-1 flex items-center gap-2" style={{ color: "var(--text-secondary)" }}>
+            <Sparkles className="w-4 h-4" style={{ color: "var(--accent)" }} />
+            Your personal trading command center
+          </p>
         </div>
-
-        {/* Error */}
-        {error && (
-          <div className="p-3 bg-loss/10 border border-loss/20 rounded text-loss text-sm">
-            {error}
-          </div>
-        )}
-
-        {/* Loading */}
-        {loading && (
-          <div className="text-sm text-muted-foreground animate-pulse">
-            Loading trades...
-          </div>
-        )}
-
-        {/* Live MT5 Status Widget */}
-        <div className={`p-5 rounded-xl border ${mt5Data?.connected ? "border-green-500/30 bg-green-500/5" : "border-red-500/30 bg-red-500/5"} flex flex-col md:flex-row items-start md:items-center justify-between gap-4`}>
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-full ${mt5Data?.connected ? "bg-green-500/20 text-green-500" : "bg-red-500/20 text-red-500"}`}>
-              <Wifi size={24} className={mt5Data?.connected ? "animate-pulse" : ""} />
-            </div>
-            <div>
-              <h2 className="font-bold text-foreground flex items-center gap-2">
-                Live Broker Connection
-                <span className={`text-[10px] px-2 py-0.5 rounded-full ${mt5Data?.connected ? "bg-green-500 text-foreground" : "bg-gray-500 text-foreground"}`}>
-                  {mt5Data?.connected ? "MT5 CONNECTED" : "OFFLINE"}
-                </span>
-              </h2>
-              <p className="text-sm text-muted-foreground">Real-time data from local MetaTrader 5 Bridge</p>
-            </div>
-          </div>
-
-          {mt5Data?.connected && (
-            <div className="flex gap-6 overflow-x-auto w-full md:w-auto">
-              <div>
-                <div className="text-xs text-muted-foreground font-semibold flex items-center gap-1"><DollarSign size={12} /> Balance</div>
-                <div className="text-lg font-bold font-mono">${mt5Data.balance?.toFixed(2)}</div>
-              </div>
-              <div>
-                <div className="text-xs text-muted-foreground font-semibold flex items-center gap-1"><PieChart size={12} /> Equity</div>
-                <div className="text-lg font-bold font-mono">${mt5Data.equity?.toFixed(2)}</div>
-              </div>
-              <div className="pr-4 md:pr-0">
-                <div className="text-xs text-muted-foreground font-semibold flex items-center gap-1">Live Profit</div>
-                <div className={`text-lg font-bold font-mono ${mt5Data.profit && mt5Data.profit >= 0 ? "text-green-500" : "text-red-500"}`}>
-                  ${mt5Data.profit?.toFixed(2)}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          <StatCard
-            label="Total P&L"
-            value={`$${metrics.totalProfit.toFixed(0)}`}
-            icon={metrics.totalProfit >= 0 ? TrendingUp : TrendingDown}
-            variant={metrics.totalProfit >= 0 ? "profit" : "loss"}
-          />
-          <StatCard
-            label="Win Rate"
-            value={`${metrics.winRate.toFixed(1)}%`}
-            icon={Target}
-            variant={metrics.winRate >= 50 ? "profit" : "loss"}
-          />
-          <StatCard
-            label="Profit Factor"
-            value={
-              metrics.profitFactor === Infinity
-                ? "∞"
-                : metrics.profitFactor.toFixed(2)
-            }
-            icon={BarChart3}
-            variant={metrics.profitFactor >= 1 ? "profit" : "loss"}
-          />
-          <StatCard
-            label="Total Trades"
-            value={String(metrics.totalTrades)}
-            icon={Activity}
-          />
-          <StatCard
-            label="Best Trade"
-            value={`$${metrics.bestTrade.toFixed(0)}`}
-            icon={TrendingUp}
-            variant="profit"
-          />
-          <StatCard
-            label="Worst Trade"
-            value={`$${metrics.worstTrade.toFixed(0)}`}
-            icon={TrendingDown}
-            variant="loss"
-          />
-        </div>
-
-        {/* Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Equity Curve */}
-          <div className="lg:col-span-2 rounded-lg border border-border bg-card p-4">
-            <h3 className="text-sm font-medium text-muted-foreground mb-4">
-              Cumulative P&L Curve
-            </h3>
-            {equityCurve.length > 0 ? (
-              <ResponsiveContainer width="100%" height={280}>
-                <AreaChart data={equityCurve}>
-                  <defs>
-                    <linearGradient id="equityGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop
-                        offset="0%"
-                        stopColor="hsl(210,100%,56%)"
-                        stopOpacity={0.3}
-                      />
-                      <stop
-                        offset="100%"
-                        stopColor="hsl(210,100%,56%)"
-                        stopOpacity={0}
-                      />
-                    </linearGradient>
-                  </defs>
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fontSize: 10, fill: "hsl(215,14%,50%)" }}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 10, fill: "hsl(215,14%,50%)" }}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(v) => `$${v}`}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      background: "hsl(220,18%,12%)",
-                      border: "1px solid hsl(220,14%,18%)",
-                      borderRadius: 8,
-                      fontSize: 12,
-                    }}
-                    labelStyle={{ color: "hsl(215,14%,50%)" }}
-                    formatter={(v: number) => [`$${v.toFixed(2)}`, "P&L"]}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="balance"
-                    stroke="hsl(210,100%,56%)"
-                    strokeWidth={2}
-                    fill="url(#equityGrad)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-[280px] text-muted-foreground text-sm">
-                No trade data yet
-              </div>
-            )}
-          </div>
-
-          {/* Symbol Performance */}
-          <div className="rounded-lg border border-border bg-card p-4">
-            <h3 className="text-sm font-medium text-muted-foreground mb-4">
-              P&L by Symbol
-            </h3>
-            {strategyStats.length > 0 ? (
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={strategyStats} layout="vertical">
-                  <XAxis
-                    type="number"
-                    tick={{ fontSize: 10, fill: "hsl(215,14%,50%)" }}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(v) => `$${v}`}
-                  />
-                  <YAxis
-                    type="category"
-                    dataKey="name"
-                    tick={{ fontSize: 11, fill: "hsl(210,20%,85%)" }}
-                    tickLine={false}
-                    axisLine={false}
-                    width={80}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      background: "hsl(220,18%,12%)",
-                      border: "1px solid hsl(220,14%,18%)",
-                      borderRadius: 8,
-                      fontSize: 12,
-                    }}
-                    formatter={(v: number) => [`$${v.toFixed(2)}`, "P&L"]}
-                  />
-                  <Bar dataKey="pnl" radius={[0, 4, 4, 0]}>
-                    {strategyStats.map((entry, i) => (
-                      <Cell
-                        key={i}
-                        fill={
-                          entry.pnl >= 0 ? "hsl(142,72%,50%)" : "hsl(0,72%,55%)"
-                        }
-                      />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-[280px] text-muted-foreground text-sm">
-                No data yet
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Recent Trades */}
-        <div className="rounded-lg border border-border bg-card">
-          <div className="p-4 border-b border-border">
-            <h3 className="text-sm font-medium text-muted-foreground">
-              Recent Trades
-            </h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-xs text-muted-foreground uppercase tracking-wider">
-                  <th className="text-left p-3">Date</th>
-                  <th className="text-left p-3">Pair</th>
-                  <th className="text-left p-3">Direction</th>
-                  <th className="text-right p-3">Lot</th>
-                  <th className="text-right p-3">P&L</th>
-                  <th className="text-center p-3">Result</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentTrades.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="p-8 text-center text-muted-foreground">
-                      No trades yet.{" "}
-                      <Link href="/journal" className="text-primary hover:underline">
-                        Upload a CSV
-                      </Link>{" "}
-                      to see your trades here.
-                    </td>
-                  </tr>
-                ) : (
-                  recentTrades.map((t) => (
-                    <tr
-                      key={t.id}
-                      className="border-b border-border/50 hover:bg-secondary/30 transition-colors"
-                    >
-                      <td className="p-3 font-mono-nums text-muted-foreground">
-                        {new Date(t.date).toLocaleDateString()}
-                      </td>
-                      <td className="p-3 font-medium">{t.pair}</td>
-                      <td className="p-3">
-                        <span
-                          className={`px-2 py-0.5 rounded text-xs font-medium ${t.direction === "Long"
-                            ? "bg-profit-muted text-profit"
-                            : "bg-loss-muted text-loss"
-                            }`}
-                        >
-                          {t.direction.toUpperCase()}
-                        </span>
-                      </td>
-                      <td className="p-3 text-right font-mono-nums">
-                        {t.lotSize?.toFixed(2) ?? "-"}
-                      </td>
-                      <td
-                        className={`p-3 text-right font-mono-nums font-medium ${t.profit >= 0 ? "text-profit" : "text-loss"}`}
-                      >
-                        {t.profit >= 0 ? "+" : ""}${t.profit.toFixed(2)}
-                      </td>
-                      <td className="p-3 text-center">
-                        <span
-                          className={`px-2 py-0.5 rounded text-xs font-bold ${t.outcome === "W"
-                            ? "bg-profit/10 text-profit"
-                            : t.outcome === "L"
-                              ? "bg-loss/10 text-loss"
-                              : "bg-muted text-muted-foreground"
-                            }`}
-                        >
-                          {t.outcome}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+        
+        <div className="flex-1 w-full xl:w-auto xl:max-w-3xl">
+          <SessionTimeline />
         </div>
       </div>
+
+      {/* ── AI MACRO DESK & FOR YOU ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+         {/* Left Col (AI Macro Cards) - Spans 8 cols */}
+         <div className="lg:col-span-8 flex flex-col gap-4">
+            <AIMacroDeskSection />
+         </div>
+
+         {/* Right Col (For You & Capital Flow) - Spans 4 cols */}
+         <div className="lg:col-span-4 flex flex-col gap-4">
+            {/* For You Briefing */}
+            <div className="bg-[#0c0c0d]/90 border border-white/5 rounded-xl p-5 shadow-2xl backdrop-blur">
+               <div className="flex justify-between items-center mb-4">
+                 <div className="flex items-center gap-2">
+                    <div className="p-1 bg-white/10 rounded"><BarChart3 className="w-4 h-4 text-white"/></div>
+                    <span className="font-bold text-white tracking-wide">For You</span>
+                 </div>
+                 <div className="flex items-center gap-3 text-xs">
+                    <span className="text-gray-500 font-mono">Wed, 11 Mar</span>
+                    <div className="flex items-center gap-1 bg-white/5 rounded-full px-2 py-0.5 border border-white/10">
+                       <span className="text-gray-400">Mood</span> 
+                       <span className="text-red-400 font-bold ml-1 flex items-center gap-1">Cautious <ArrowRight className="w-3 h-3"/></span>
+                    </div>
+                 </div>
+               </div>
+               
+               <h3 className="text-sm font-bold text-white leading-snug mb-3">
+                 Dollar softens into London as Copper drags the metals complex
+               </h3>
+               <p className="text-xs text-gray-400 leading-relaxed font-medium">
+                 The Dollar is seeing some early pressure with a -16 flow score, though Copper is the real outlier this morning, sliding toward a 23rd percentile low (z=-0.42) that signals some underlying nerves. While the London open shows a slight risk appetite for the Dow Jones and Nasdaq 100, our Macro Desk remains cautious.
+               </p>
+               <button className="text-[#00dc82] hover:text-[#00c574] text-xs font-bold mt-2 hover:underline">Read more</button>
+            </div>
+
+            {/* Capital Flow Container */}
+            <div className="flex-1 min-h-[300px]">
+               <CapitalFlow />
+            </div>
+         </div>
+      </div>
+
+      {/* ── MARKET CONDITIONS ── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+         <ConditionMeter type="flow" />
+         <ConditionMeter type="bearing" />
+         <ConditionMeter type="pulse" />
+      </div>
+
+      <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent my-8"></div>
+
+      {/* ── ZONE 3 - ACCOUNT PULSE (From Previous Design) ── */}
+      <div>
+         <div className="flex items-center gap-3 mb-4">
+            <Target className="w-5 h-5 text-gray-400" />
+            <h2 className="text-lg font-semibold text-gray-200">Account Pulse <span className="text-xs text-gray-500 font-normal block">Live execution metrics</span></h2>
+         </div>
+         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+           {/* Legacy account cards ported to new dark aesthetic */}
+           <div className="p-4 bg-[#0c0c0d]/90 border border-white/5 rounded-xl shadow-lg relative overflow-hidden group hover:border-blue-500/30 transition-colors">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 blur-[20px] rounded-full pointer-events-none"></div>
+              <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider relative z-10 flex items-center justify-between">
+                Balance <span className={`w-2 h-2 rounded-full ${mt5Data?.connected ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)] animate-pulse" : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]"}`}></span>
+              </div>
+              <div className="relative z-10 mt-3 text-2xl font-bold font-mono text-white">${mt5Data?.connected && mt5Data?.balance != null ? mt5Data.balance.toFixed(2) : "—"}</div>
+           </div>
+
+           <div className="p-4 bg-[#0c0c0d]/90 border border-white/5 rounded-xl shadow-lg relative overflow-hidden group hover:border-green-500/30 transition-colors">
+               <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider z-10 relative">Floating P&L</div>
+               <div className="mt-3 relative z-10 flex items-baseline gap-2">
+                 {mt5Data?.connected ? (
+                   <>
+                     <span className={`text-2xl font-bold font-mono ${(mt5Data?.profit ?? 0) >= 0 ? 'text-[#00dc82]' : 'text-red-400'}`}>
+                       {(mt5Data?.profit ?? 0) >= 0 ? '+' : ''}${(mt5Data?.profit ?? 0).toFixed(2)}
+                     </span>
+                     {mt5Data?.balance && mt5Data.balance > 0 && (
+                       <span className={`text-[11px] font-mono ${(mt5Data?.profit ?? 0) >= 0 ? 'text-[#00dc82]/70' : 'text-red-400/70'}`}>
+                         {(((mt5Data.profit ?? 0) / mt5Data.balance) * 100).toFixed(2)}%
+                       </span>
+                     )}
+                   </>
+                 ) : (
+                   <span className="text-xl font-bold font-mono text-gray-500">—</span>
+                 )}
+               </div>
+            </div>
+
+           <div className="p-4 bg-[#0c0c0d]/90 border border-white/5 rounded-xl shadow-lg group hover:border-yellow-500/30 transition-colors">
+             <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Margin Level</div>
+             <div className="mt-3 text-2xl font-bold font-mono text-white">
+               {mt5Data?.connected && mt5Data?.margin_level != null
+                 ? `${mt5Data.margin_level.toFixed(1)}%`
+                 : <span className="text-gray-500">—</span>}
+             </div>
+           </div>
+
+           <div className="p-4 bg-[#0c0c0d]/90 border border-white/5 rounded-xl shadow-lg group hover:border-red-500/30 transition-colors">
+             <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Drawdown (Eq-Bal)</div>
+             <div className="mt-3 flex items-center justify-between font-mono">
+               {mt5Data?.connected && mt5Data?.balance && mt5Data?.equity != null ? (
+                 <>
+                   <span className={`text-2xl font-bold ${((mt5Data.balance - mt5Data.equity) / mt5Data.balance * 100) > 3 ? 'text-red-400' : 'text-white'}`}>
+                     {((mt5Data.balance - mt5Data.equity) / mt5Data.balance * 100).toFixed(2)}%
+                   </span>
+                   <span className="text-gray-500 text-xs">/ 10%</span>
+                 </>
+               ) : (
+                 <span className="text-2xl font-bold text-gray-500">—</span>
+               )}
+             </div>
+           </div>
+
+           {/* Small Donut Winrate */}
+           <div className="p-4 bg-[#0c0c0d]/90 border border-white/5 rounded-xl flex items-center gap-4 shadow-lg group hover:border-white/20 transition-colors">
+              <div className="w-14 h-14 relative flex-shrink-0">
+                <ResponsiveContainer width="100%" height="100%">
+                   <PieChart><Pie data={[{name: 'W', value: metrics.winningTrades || 1, fill: '#00dc82'}, {name: 'L', value: metrics.losingTrades || 0, fill: '#ef4444'}]} dataKey="value" startAngle={90} endAngle={-270} innerRadius="70%" outerRadius="100%" stroke="none"/></PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex flex-col">
+                 <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Win Rate</span>
+                 <span className="text-xl font-bold font-mono text-white">{metrics.winRate.toFixed(0)}%</span>
+              </div>
+           </div>
+         </div>
+      </div>
+    </div>
   );
 }

@@ -40,6 +40,7 @@ interface Community {
     id: string;
     name: string;
     description: string;
+    image?: string;
     _count?: { members: number, posts: number };
 }
 
@@ -69,6 +70,8 @@ export default function CommunityPage() {
 
     // New post state
     const [newPostContent, setNewPostContent] = useState("");
+    const [newPostImage, setNewPostImage] = useState("");
+    const [uploadingPostImage, setUploadingPostImage] = useState(false);
     const [editingPostId, setEditingPostId] = useState<string | null>(null);
     const [editContent, setEditContent] = useState("");
     const [isSignal, setIsSignal] = useState(false);
@@ -85,6 +88,8 @@ export default function CommunityPage() {
     const [isCreateCommunityModalOpen, setIsCreateCommunityModalOpen] = useState(false);
     const [newCommunityName, setNewCommunityName] = useState("");
     const [newCommunityDesc, setNewCommunityDesc] = useState("");
+    const [newCommunityImage, setNewCommunityImage] = useState("");
+    const [uploadingCommImage, setUploadingCommImage] = useState(false);
 
     // Commenting state
     const [activeCommentPostId, setActiveCommentPostId] = useState<string | null>(null);
@@ -132,6 +137,32 @@ export default function CommunityPage() {
     useEffect(() => {
         fetchPosts(activeCommunityId);
     }, [activeCommunityId]);
+
+    const uploadImageHandler = async (e: React.ChangeEvent<HTMLInputElement>, setter: (url: string) => void, loadingSetter: (loading: boolean) => void) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        loadingSetter(true);
+        const formData = new FormData();
+        formData.append("image", file);
+
+        try {
+            const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000"}/api/upload`, {
+                method: "POST",
+                body: formData
+            });
+            if (uploadRes.ok) {
+                const data = await uploadRes.json();
+                if (data.success) {
+                    setter(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000"}${data.data.url}`);
+                }
+            }
+        } catch (err) {
+            console.error("Upload failed", err);
+        } finally {
+            loadingSetter(false);
+        }
+    };
 
     const handleAutoStrategyFill = async (strategy: string) => {
         setSignalStrategy(strategy);
@@ -191,6 +222,7 @@ export default function CommunityPage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     content: newPostContent,
+                    image: newPostImage || undefined,
                     communityId: activeCommunityId,
                     ...(isSignal && {
                         pair: signalPair.toUpperCase(),
@@ -220,6 +252,7 @@ export default function CommunityPage() {
 
                 setPosts([created, ...posts]);
                 setNewPostContent("");
+                setNewPostImage("");
                 setIsSignal(false);
                 setSignalEntry("");
                 setSignalTP("");
@@ -283,6 +316,7 @@ export default function CommunityPage() {
                 body: JSON.stringify({ 
                     name: newCommunityName, 
                     description: newCommunityDesc,
+                    image: newCommunityImage || undefined,
                     isPro: isPro,
                     userId: session?.user?.email 
                 }),
@@ -292,6 +326,7 @@ export default function CommunityPage() {
                 setIsCreateCommunityModalOpen(false);
                 setNewCommunityName("");
                 setNewCommunityDesc("");
+                setNewCommunityImage("");
                 fetchCommunities();
                 fetchProfile();
                 setActiveCommunityId(newComm.id);
@@ -477,9 +512,30 @@ export default function CommunityPage() {
 
                                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
                                     <div className="flex items-center gap-2">
-                                        <button className="p-2 text-muted-foreground hover:bg-secondary/80 rounded-full transition-colors">
-                                            <ImageIcon className="w-5 h-5" />
-                                        </button>
+                                        <div className="relative">
+                                            <input 
+                                                type="file" 
+                                                accept="image/*" 
+                                                id="post-image"
+                                                className="hidden" 
+                                                onChange={(e) => uploadImageHandler(e, setNewPostImage, setUploadingPostImage)}
+                                            />
+                                            <label 
+                                                htmlFor="post-image"
+                                                className={`p-2 rounded-full cursor-pointer flex transition-colors ${newPostImage ? 'text-primary bg-primary/20' : 'text-muted-foreground hover:bg-secondary/80'}`}
+                                                title="Attach Image"
+                                            >
+                                                <ImageIcon className={`w-5 h-5 ${uploadingPostImage ? 'animate-pulse' : ''}`} />
+                                            </label>
+                                            {newPostImage && (
+                                                <button 
+                                                    onClick={() => setNewPostImage("")}
+                                                    className="absolute -top-1 -right-1 bg-red-500 rounded-full w-4 h-4 flex items-center justify-center text-[10px] text-white"
+                                                >
+                                                    <X className="w-2 h-2" />
+                                                </button>
+                                            )}
+                                        </div>
                                         <button 
                                             onClick={() => setIsSignal(!isSignal)}
                                             className={`p-2 rounded-full transition-colors ${isSignal ? 'text-primary bg-primary/20' : 'text-muted-foreground hover:bg-secondary/80'}`}
@@ -769,8 +825,14 @@ export default function CommunityPage() {
                                     className={`p-3 rounded-xl border flex flex-col gap-1.5 transition-colors cursor-pointer ${isActive ? 'bg-primary/10 border-primary/40' : 'bg-secondary/20 border-border/50 hover:bg-secondary/60'}`}
                                     onClick={() => setActiveCommunityId(c.id)}
                                 >
+                                    {isActive && c.image && (
+                                        <div className="w-full h-16 rounded-md bg-cover bg-center mb-1" style={{ backgroundImage: `url(${c.image})` }} />
+                                    )}
                                     <div className="flex items-start justify-between gap-2">
-                                        <span className={`font-bold text-sm leading-tight ${isActive ? 'text-primary' : 'text-foreground'}`}>{c.name}</span>
+                                        <div className="flex items-center gap-2">
+                                            {!isActive && c.image && <img src={c.image} alt="Logo" className="w-6 h-6 rounded-md object-cover" />}
+                                            <span className={`font-bold text-sm leading-tight ${isActive ? 'text-primary' : 'text-foreground'}`}>{c.name}</span>
+                                        </div>
                                         {!isMember ? (
                                             <button onClick={(e) => { e.stopPropagation(); joinCommunity(c.id); }} className="shrink-0 text-[10px] bg-primary/20 text-primary border border-primary/30 px-2.5 py-1 rounded-md font-bold hover:bg-primary hover:text-white transition-all">Join</button>
                                         ) : (
@@ -796,6 +858,31 @@ export default function CommunityPage() {
 
                         <div className="space-y-4">
                             <div>
+                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Community Image</label>
+                                <div className="flex items-center gap-3 mt-1">
+                                    <input 
+                                        type="file" 
+                                        accept="image/*" 
+                                        id="comm-image"
+                                        className="hidden" 
+                                        onChange={(e) => uploadImageHandler(e, setNewCommunityImage, setUploadingCommImage)}
+                                    />
+                                    <label 
+                                        htmlFor="comm-image"
+                                        className="w-16 h-16 rounded-xl border-2 border-dashed border-border flex items-center justify-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors flex-shrink-0 relative overflow-hidden"
+                                    >
+                                        {newCommunityImage ? (
+                                            <img src={newCommunityImage} alt="Preview" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <ImageIcon className={`w-5 h-5 text-muted-foreground ${uploadingCommImage ? 'animate-pulse' : ''}`} />
+                                        )}
+                                    </label>
+                                    <div className="flex-1 text-xs text-muted-foreground">
+                                        Optional. Upload a logo or banner to represent your community. Make it stand out!
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
                                 <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Name</label>
                                 <input
                                     type="text"
@@ -819,10 +906,10 @@ export default function CommunityPage() {
                         <div className="flex gap-3 mt-6">
                             <button
                                 onClick={handleCreateCommunity}
-                                disabled={!newCommunityName.trim()}
+                                disabled={!newCommunityName.trim() || uploadingCommImage}
                                 className="flex-1 bg-primary text-primary-foreground font-bold py-2.5 rounded-xl disabled:opacity-50 hover:bg-primary/90 transition-colors"
                             >
-                                Create
+                                {uploadingCommImage ? "Uploading..." : "Create"}
                             </button>
                             <button
                                 onClick={() => setIsCreateCommunityModalOpen(false)}

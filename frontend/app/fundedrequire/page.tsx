@@ -1,167 +1,283 @@
 "use client";
 
-import React, { useState } from "react";
-import { Award } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Award, ShieldCheck, Target, AlertTriangle, Briefcase, Activity, CheckCircle, Flame } from "lucide-react";
 
-const defaultAccountSizes = [5000, 10000, 25000, 50000, 100000];
-const defaultRisk = 0.25;
-const defaultPhase1 = 8;
-const defaultPhase2 = 4;
+// Default fallback account details
+const DEFAULT_ACCOUNT = {
+  id: "WAITING-ACCOUNT",
+  size: 100000,
+  balance: 100000,
+  equity: 100000,
+  daily_start_balance: 100000,
+  max_daily_loss_pct: 5,
+  max_overall_loss_pct: 10,
+  profit_target_pct: 10,
+  days_traded: 0,
+  min_days: 0,
+};
 
-interface Row {
-  accountSize: number;
-  riskAmount: number;
-  tradesPhase1: number;
-  gainPhase1: number;
-  tradesPhase2: number;
-  gainPhase2: number;
-}
+function fmt(num: number) { return `$${num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`; }
+function fmt2(num: number) { return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
 
-function fmt(num: number) {
-  return `$${num.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-}
-function fmt2(num: number) {
-  return `$${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
+export default function PropComplianceDashboard() {
+  const [accountSizesInput, setAccountSizesInput] = useState<string>("10000, 25000, 50000, 100000, 200000");
+  const [risk, setRisk] = useState<string>("0.5");
+  const [phase1Target, setPhase1Target] = useState<string>("8");
+  const [phase2Target, setPhase2Target] = useState<string>("5");
+  const [rows, setRows] = useState<any[] | null>(null);
+  
+  // Live Account State
+  const [acc, setAcc] = useState(DEFAULT_ACCOUNT);
+  const [loading, setLoading] = useState(true);
 
-const PhaseTableCalculator: React.FC = () => {
-  const [accountSizesInput, setAccountSizesInput] = useState<string>(defaultAccountSizes.join(", "));
-  const [risk, setRisk] = useState<string>(defaultRisk.toString());
-  const [phase1Target, setPhase1Target] = useState<string>(defaultPhase1.toString());
-  const [phase2Target, setPhase2Target] = useState<string>(defaultPhase2.toString());
-  const [rows, setRows] = useState<Row[] | null>(null);
-  const [error, setError] = useState<string>("");
+  useEffect(() => {
+    const fetchAccount = async () => {
+      try {
+        const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
+        const res = await fetch(`${bridgeUrl}/api/account`);
+        if (!res.ok) throw new Error("Offline");
+        const data = await res.json();
+        
+        if (data.login) {
+          setAcc({
+            id: `MT5-${data.login}`,
+            size: data.balance > 0 ? (Math.ceil(data.balance / 10000) * 10000) : 100000, // Guessing starting size
+            balance: data.balance,
+            equity: data.equity,
+            daily_start_balance: data.balance, // Simplified without historical midnight snapshot
+            max_daily_loss_pct: 5,
+            max_overall_loss_pct: 10,
+            profit_target_pct: 10,
+            days_traded: 0,
+            min_days: 0
+          });
+        }
+      } catch (e) {
+        // keep default
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchAccount();
+    const t = setInterval(fetchAccount, 5000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Live Calculations
+  const targetProfitAmount = acc.size * (acc.profit_target_pct / 100);
+  const currentProfit = acc.equity - acc.size;
+  const profitProgress = Math.max(0, Math.min(100, (currentProfit / targetProfitAmount) * 100));
+
+  const maxDailyLossAmount = acc.daily_start_balance * (acc.max_daily_loss_pct / 100);
+  const currentDailyLoss = Math.max(0, acc.daily_start_balance - acc.equity);
+  const dailyLossProgress = Math.max(0, Math.min(100, (currentDailyLoss / maxDailyLossAmount) * 100));
+
+  const maxOverallLossAmount = acc.size * (acc.max_overall_loss_pct / 100);
+  const currentOverallLoss = Math.max(0, acc.size - acc.equity);
+  const overallLossProgress = Math.max(0, Math.min(100, (currentOverallLoss / maxOverallLossAmount) * 100));
 
   const calculateTable = () => {
-    const accounts = accountSizesInput
-      .split(",")
-      .map((s) => parseFloat(s.trim()))
-      .filter((n) => !isNaN(n) && n > 0);
+    const accounts = accountSizesInput.split(",").map((s) => parseFloat(s.trim())).filter((n) => !isNaN(n) && n > 0);
     const r = parseFloat(risk) / 100;
     const p1 = parseFloat(phase1Target) / 100;
     const p2 = parseFloat(phase2Target) / 100;
-
-    if (accounts.length === 0) { setError("Enter at least one valid account size."); setRows(null); return; }
-    if (isNaN(r) || r <= 0) { setError("Risk must be a positive number."); setRows(null); return; }
-    if (isNaN(p1) || p1 <= 0) { setError("Phase 1 target must be positive."); setRows(null); return; }
-    if (isNaN(p2) || p2 <= 0) { setError("Phase 2 target must be positive."); setRows(null); return; }
+    if (accounts.length === 0 || isNaN(r) || isNaN(p1) || isNaN(p2)) return;
 
     setRows(accounts.map((account) => ({
-      accountSize: account,
-      riskAmount: account * r,
-      tradesPhase1: Math.floor(p1 / r),
-      gainPhase1: account * p1,
-      tradesPhase2: Math.floor(p2 / r),
-      gainPhase2: account * p2,
+      accountSize: account, riskAmount: account * r, tradesPhase1: Math.floor(p1 / r), gainPhase1: account * p1, tradesPhase2: Math.floor(p2 / r), gainPhase2: account * p2,
     })));
-    setError("");
+  };
+
+  useEffect(() => { calculateTable(); }, []);
+
+  const getProgressColor = (pct: number, isLoss: boolean) => {
+    if (isLoss) {
+      if (pct > 80) return "var(--loss)";
+      if (pct > 50) return "var(--warning)";
+      return "var(--profit)";
+    } else {
+      return "var(--profit)";
+    }
   };
 
   return (
-          <div className="space-y-6">
+    <div className="max-w-[1600px] mx-auto space-y-6 pb-20">
+      
+      {/* ── HEADER ── */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Award className="text-violet-500" size={24} />
-            Funded Account Requirements
+          <h1 className="text-[32px] font-bold tracking-tight mb-1 flex items-center gap-3" style={{ fontFamily: "var(--font-display, Syne, sans-serif)", color: "var(--text-primary)" }}>
+            <ShieldCheck className="w-8 h-8 text-[--accent]" /> Compliance & Prop Firm
           </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Calculate how many winning trades you need to pass each challenge phase
+          <p className="text-[13px] font-medium flex items-center gap-2" style={{ color: "var(--text-secondary)" }}>
+            <Activity className="w-3.5 h-3.5" /> Enforcing risk parameters and challenge targets
           </p>
         </div>
-
-        {/* Inputs */}
-        <div className="rounded-xl border border-border bg-card p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
-              Account Sizes (comma separated)
-            </label>
-            <input
-              type="text"
-              value={accountSizesInput}
-              onChange={(e) => setAccountSizesInput(e.target.value)}
-              className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50"
-              placeholder="e.g. 5000, 10000, 25000"
-            />
+        <div className="flex items-center gap-3">
+          <div className="px-4 py-2 rounded-full border text-[11px] font-bold uppercase tracking-wider flex items-center gap-2" 
+            style={{ background: "rgba(0,212,161,0.1)", borderColor: "rgba(0,212,161,0.3)", color: "var(--profit)" }}>
+            <Award className="w-4 h-4" /> MOCK INSTANCE LINKED
           </div>
+        </div>
+      </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            {[
-              { label: "Risk % per Trade", value: risk, set: setRisk },
-              { label: "Phase 1 Target %", value: phase1Target, set: setPhase1Target },
-              { label: "Phase 2 Target %", value: phase2Target, set: setPhase2Target },
-            ].map(({ label, value, set }) => (
-              <div key={label}>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wide">
-                  {label}
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    value={value}
-                    onChange={(e) => set(e.target.value)}
-                    className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 pr-7"
-                  />
-                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+
+        {/* ── LIVE ACCOUNT MONITOR ── */}
+        <div className="border rounded-2xl flex flex-col overflow-hidden shadow-2xl" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+          <div className="p-6 border-b" style={{ borderColor: "var(--border)", background: "var(--bg-base)" }}>
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h2 className="text-[14px] font-bold uppercase tracking-widest text-[--text-tertiary] mb-1">Active Evaluation</h2>
+                <div className="text-[24px] font-bold text-[--text-primary] flex items-center gap-2 font-mono">
+                  {acc.id} <span className="text-[11px] px-2 py-0.5 rounded border bg-[--bg-elevated]" style={{ borderColor: "var(--border-strong)", color: "var(--text-secondary)" }}>PHASE 1</span>
                 </div>
               </div>
-            ))}
+              <div className="text-right">
+                <p className="text-[10px] uppercase font-bold text-[--text-tertiary] tracking-widest mb-1">Live Equity</p>
+                <p className="text-[28px] font-mono font-bold text-[--profit]">{fmt2(acc.equity)}</p>
+              </div>
+            </div>
           </div>
 
-          <button
-            onClick={calculateTable}
-            className="w-full py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-foreground text-sm font-semibold transition-colors"
-          >
-            Generate Table
-          </button>
+          <div className="p-6 space-y-8 flex-1">
+            
+            {/* Target Profit */}
+            <div>
+              <div className="flex justify-between items-end mb-2">
+                <div>
+                  <h3 className="text-[13px] font-bold flex items-center gap-2 text-[--text-primary]">
+                    <Target className="w-4 h-4 text-[--accent]" /> Profit Target ({acc.profit_target_pct}%)
+                  </h3>
+                </div>
+                <div className="text-right">
+                  <span className="text-[15px] font-mono font-bold text-[--profit]">{fmt(currentProfit)}</span>
+                  <span className="text-[11px] font-mono text-[--text-tertiary]"> / {fmt(targetProfitAmount)}</span>
+                </div>
+              </div>
+              <div className="h-2 w-full bg-[--bg-base] rounded-full overflow-hidden border" style={{ borderColor: "var(--border)" }}>
+                <div className="h-full bg-[--accent] rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(0,212,161,0.5)]" style={{ width: `${profitProgress}%` }} />
+              </div>
+            </div>
+
+            {/* Daily Loss Limit */}
+            <div>
+              <div className="flex justify-between items-end mb-2">
+                <div>
+                  <h3 className="text-[13px] font-bold flex items-center gap-2 text-[--text-primary]">
+                    <Flame className="w-4 h-4 text-[--warning]" /> Daily Loss Limit ({acc.max_daily_loss_pct}%)
+                  </h3>
+                </div>
+                <div className="text-right">
+                  <span className="text-[15px] font-mono font-bold text-[--text-primary]">{fmt(currentDailyLoss)}</span>
+                  <span className="text-[11px] font-mono text-[--text-tertiary]"> / {fmt(maxDailyLossAmount)}</span>
+                </div>
+              </div>
+              <div className="h-2 w-full bg-[--bg-base] rounded-full overflow-hidden border" style={{ borderColor: "var(--border)" }}>
+                <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${dailyLossProgress}%`, background: getProgressColor(dailyLossProgress, true), boxShadow: `0 0 10px ${getProgressColor(dailyLossProgress, true)}` }} />
+              </div>
+              {dailyLossProgress > 80 && <p className="text-[10px] text-[--loss] font-bold uppercase tracking-wider mt-1.5 flex items-center gap-1"><AlertTriangle className="w-3 h-3"/> Critical threshold reached</p>}
+            </div>
+
+            {/* Overall Loss Limit */}
+            <div>
+              <div className="flex justify-between items-end mb-2">
+                <div>
+                  <h3 className="text-[13px] font-bold flex items-center gap-2 text-[--text-primary]">
+                    <AlertTriangle className="w-4 h-4 text-[--loss]" /> Max Drawdown ({acc.max_overall_loss_pct}%)
+                  </h3>
+                </div>
+                <div className="text-right">
+                  <span className="text-[15px] font-mono font-bold text-[--text-primary]">{fmt(currentOverallLoss)}</span>
+                  <span className="text-[11px] font-mono text-[--text-tertiary]"> / {fmt(maxOverallLossAmount)}</span>
+                </div>
+              </div>
+              <div className="h-2 w-full bg-[--bg-base] rounded-full overflow-hidden border" style={{ borderColor: "var(--border)" }}>
+                <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${overallLossProgress}%`, background: getProgressColor(overallLossProgress, true), boxShadow: `0 0 10px ${getProgressColor(overallLossProgress, true)}` }} />
+              </div>
+            </div>
+
+          </div>
+          
+          <div className="p-4 border-t flex items-center justify-between" style={{ borderColor: "var(--border)", background: "var(--bg-base)" }}>
+             <div className="flex items-center gap-2 text-[12px] font-bold text-[--text-secondary]">
+               <CheckCircle className="w-4 h-4 text-[--profit]" /> Min Trading Days: {acc.days_traded} / {acc.min_days} Completed
+             </div>
+             <span className="px-3 py-1 bg-[--profit] text-black text-[10px] font-black uppercase tracking-wider rounded border shadow-[0_0_10px_rgba(0,212,161,0.3)]">IN GOOD STANDING</span>
+          </div>
         </div>
 
-        {error && (
-          <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-red-400 text-sm">
-            {error}
+        {/* ── CHALLENGE REQUIREMENTS MATRIX ── */}
+        <div className="border rounded-2xl flex flex-col overflow-hidden shadow-sm" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+          <div className="p-6 border-b" style={{ borderColor: "var(--border)" }}>
+            <h2 className="text-[18px] font-bold flex items-center gap-2 text-[--text-primary]">
+              <Briefcase className="w-5 h-5 text-[--accent]" /> Challenge Blueprint Matrix
+            </h2>
+            <p className="text-[12px] text-[--text-secondary] mt-1">Calculate strike rate and trade volume requirements for any firm phase.</p>
           </div>
-        )}
 
-        {rows && (
-          <div className="rounded-xl border border-border bg-card overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+          <div className="p-6 space-y-6">
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-[--text-tertiary] mb-1.5">Account Sizes (CSV)</label>
+              <input type="text" value={accountSizesInput} onChange={e => setAccountSizesInput(e.target.value)} className="w-full bg-[--bg-base] border text-[13px] font-mono text-[--text-primary] rounded-xl px-4 py-3 outline-none focus:border-[--accent]" style={{ borderColor: "var(--border)" }} />
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-[--text-tertiary] mb-1.5">Risk per Trade (%)</label>
+                <input type="number" step="0.1" value={risk} onChange={e => setRisk(e.target.value)} className="w-full bg-[--bg-base] border text-[14px] font-bold text-[--text-primary] rounded-xl px-4 py-3 outline-none" style={{ borderColor: "var(--border)" }} />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-[--text-tertiary] mb-1.5">Phase 1 Target (%)</label>
+                <input type="number" step="1" value={phase1Target} onChange={e => setPhase1Target(e.target.value)} className="w-full bg-[--bg-base] border text-[14px] font-bold text-[--text-primary] rounded-xl px-4 py-3 outline-none" style={{ borderColor: "var(--border)" }} />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-[--text-tertiary] mb-1.5">Phase 2 Target (%)</label>
+                <input type="number" step="1" value={phase2Target} onChange={e => setPhase2Target(e.target.value)} className="w-full bg-[--bg-base] border text-[14px] font-bold text-[--text-primary] rounded-xl px-4 py-3 outline-none" style={{ borderColor: "var(--border)" }} />
+              </div>
+            </div>
+
+            <button onClick={calculateTable} className="w-full py-4 rounded-xl font-bold shadow-[0_0_20px_rgba(0,212,161,0.2)] hover:shadow-[0_0_30px_rgba(0,212,161,0.4)] transition-all flex items-center justify-center gap-2" style={{ background: "var(--accent)", color: "#000" }}>
+              Compute Matrix Requirements
+            </button>
+          </div>
+
+          {rows && (
+            <div className="flex-1 border-t bg-[--bg-base] overflow-x-auto custom-scrollbar" style={{ borderColor: "var(--border)" }}>
+              <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-border bg-muted/40">
-                    {["Account Size", "Risk/Win", "Trades (Phase 1)", "Gain (Phase 1)", "Trades (Phase 2)", "Gain (Phase 2)"].map((h) => (
-                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">
-                        {h}
-                      </th>
-                    ))}
+                  <tr className="border-b" style={{ borderColor: "var(--border-strong)" }}>
+                    <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-[--text-tertiary]">Account</th>
+                    <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-[--text-tertiary]">1R Risk</th>
+                    <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-[--text-tertiary] text-center">P1 Trades</th>
+                    <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-[--text-tertiary] text-right">P1 Gain</th>
+                    <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-[--text-tertiary] text-center">P2 Trades</th>
+                    <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-[--text-tertiary] text-right">P2 Gain</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {rows.map((row, i) => (
-                    <tr key={i} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
-                      <td className="px-4 py-2.5 font-bold text-violet-400">{fmt(row.accountSize)}</td>
-                      <td className="px-4 py-2.5 font-mono text-red-400">{fmt2(row.riskAmount)}</td>
-                      <td className="px-4 py-2.5 text-center">
-                        <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-semibold">
-                          {row.tradesPhase1} trades
-                        </span>
+                <tbody className="divide-y" style={{ borderColor: "var(--border)" }}>
+                  {rows.map((r, idx) => (
+                    <tr key={idx} className="hover:bg-[--bg-elevated] transition-colors">
+                      <td className="px-4 py-3 font-mono font-bold text-[13px] text-[--text-primary]">{fmt(r.accountSize)}</td>
+                      <td className="px-4 py-3 font-mono font-bold text-[13px] text-[--text-secondary]">{fmt2(r.riskAmount)}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded border border-[--warning]/30 bg-[--warning]/10 text-[--warning]">{r.tradesPhase1} Wins</span>
                       </td>
-                      <td className="px-4 py-2.5 font-mono text-emerald-400">{fmt(row.gainPhase1)}</td>
-                      <td className="px-4 py-2.5 text-center">
-                        <span className="px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20 text-xs font-semibold">
-                          {row.tradesPhase2} trades
-                        </span>
+                      <td className="px-4 py-3 text-right font-mono font-bold text-[13px] text-[--profit]">{fmt(r.gainPhase1)}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded border border-[--accent]/30 bg-[--accent]/10 text-[--accent]">{r.tradesPhase2} Wins</span>
                       </td>
-                      <td className="px-4 py-2.5 font-mono text-emerald-400">{fmt(row.gainPhase2)}</td>
+                      <td className="px-4 py-3 text-right font-mono font-bold text-[13px] text-[--profit]">{fmt(r.gainPhase2)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
+    </div>
   );
-};
-
-export default PhaseTableCalculator;
+}
