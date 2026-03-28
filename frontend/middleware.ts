@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export default async function middleware(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   // Check if user has a session/token (check for auth cookie)
