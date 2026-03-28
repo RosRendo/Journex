@@ -28,7 +28,7 @@ function CustomButton({ onClick, disabled, variant = 'primary', size = 'default'
 /* ── Market Data Generator ── */
 function generateMarketData(points = 500) {
   let price = 2000.50;
-  const data = [];
+  const data: { time: number; label: string; price: number }[] = [];
   for (let i = 0; i < points; i++) {
     const volatility = Math.random() * 2.5 - 1.2; 
     const trend = Math.sin(i / 20) * 0.5 + Math.cos(i/10) * 0.2;
@@ -229,7 +229,7 @@ export default function GoldTradingSimulator() {
               ))}
               
               {/* Current Price Line */}
-              <ReferenceLine y={currentPrice} stroke="rgba(255,255,255,0.2)" strokeDasharray="5 5" label={{ position: 'right', value: currentPrice.toFixed(2), fill: "#fff", fontSize: 11, fontWeight: "bold", background: "#f59e0b" }} />
+              <ReferenceLine y={currentPrice} stroke="rgba(255,255,255,0.2)" strokeDasharray="5 5" label={{ position: 'right', value: currentPrice.toFixed(2), fill: "#fff", fontSize: 11, fontWeight: "bold" }} />
 
             </AreaChart>
           </ResponsiveContainer>
