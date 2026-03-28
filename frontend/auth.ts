@@ -1,36 +1,49 @@
 import NextAuth from "next-auth";
+import { type NextAuthConfig } from "next-auth";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 
-export const { handlers, signIn, signOut, auth } = NextAuth({
-  providers: [
+// Build providers array conditionally
+const providers: NextAuthConfig["providers"] = [];
+
+// Only add Google if credentials are available
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  providers.push(
     Google({
-      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     }),
-    Credentials({
-      name: "credentials",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(credentials) {
-        // ── Mock Lifetime User ──────────────────────────────────────
-        // Accept any non-empty email + password combo.
-        // All credential logins are treated as a lifetime-plan user.
-        // Replace with a real DB lookup before going live.
-        if (credentials?.email && credentials?.password) {
-          return {
-            id: "mock-lifetime-user",
-            name: "Ros Rendo",
-            email: credentials.email as string,
-            image: null,
-          };
-        }
-        return null;
-      },
-    }),
-  ],
+  );
+}
+
+// Always add credentials provider
+providers.push(
+  Credentials({
+    name: "credentials",
+    credentials: {
+      email: { label: "Email", type: "email" },
+      password: { label: "Password", type: "password" },
+    },
+    async authorize(credentials) {
+      // ── Mock Lifetime User ──────────────────────────────────────
+      // Accept any non-empty email + password combo.
+      // All credential logins are treated as a lifetime-plan user.
+      // Replace with a real DB lookup before going live.
+      if (credentials?.email && credentials?.password) {
+        return {
+          id: "mock-lifetime-user",
+          name: "Ros Rendo",
+          email: credentials.email as string,
+          image: null,
+        };
+      }
+      return null;
+    },
+  }),
+);
+
+export const { handlers, signIn, signOut, auth } = NextAuth({
+  providers,
   session: { strategy: "jwt" },
   pages: { signIn: "/auth" },
   callbacks: {
@@ -65,8 +78,5 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
   },
   secret:
-    process.env.NEXTAUTH_SECRET ||
-    (process.env.NODE_ENV === "production"
-      ? undefined
-      : "fallback-dev-secret-for-dev-only"),
+    process.env.NEXTAUTH_SECRET || "dev-fallback-secret-change-in-production",
 });

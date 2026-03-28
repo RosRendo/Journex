@@ -5,11 +5,21 @@ import { auth } from "@/auth";
 // Ensure this runs in a Node.js environment
 export const runtime = "nodejs";
 
-// Initialize Stripe with your secret key
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error("STRIPE_SECRET_KEY environment variable is not set");
+// Lazy initialize Stripe to avoid crashing on missing env vars
+let stripe: Stripe | null = null;
+
+function getStripe() {
+  if (!stripe) {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) {
+      throw new Error(
+        "STRIPE_SECRET_KEY not configured. Set it in your environment variables.",
+      );
+    }
+    stripe = new Stripe(key);
+  }
+  return stripe;
 }
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 // Map plan names to Stripe Price IDs (set these in .env.local)
 const PRICE_MAP: Record<string, string> = {
@@ -57,7 +67,8 @@ export async function POST(req: NextRequest) {
         : "http://localhost:3000");
 
     // Build checkout session
-    const checkoutSession = await stripe.checkout.sessions.create({
+    const stripeClient = getStripe();
+    const checkoutSession = await stripeClient.checkout.sessions.create({
       mode,
       payment_method_types: ["card"],
       customer_email: userEmail,

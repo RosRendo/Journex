@@ -4,22 +4,41 @@ import Stripe from "stripe";
 // Ensure this runs in a Node.js environment
 export const runtime = "nodejs";
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error("STRIPE_SECRET_KEY environment variable is not set");
+// Lazy initialize to avoid crashing
+let stripe: Stripe | null = null;
+
+function getStripe() {
+  if (!stripe) {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) {
+      throw new Error("STRIPE_SECRET_KEY not configured");
+    }
+    stripe = new Stripe(key);
+  }
+  return stripe;
 }
-if (!process.env.STRIPE_WEBHOOK_SECRET) {
-  throw new Error("STRIPE_WEBHOOK_SECRET environment variable is not set");
-}
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
   const signature = req.headers.get("stripe-signature") ?? "";
 
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    console.error("[stripe/webhook] STRIPE_WEBHOOK_SECRET not configured");
+    return NextResponse.json(
+      { error: "Webhook not configured" },
+      { status: 500 },
+    );
+  }
+
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+    const stripeClient = getStripe();
+    event = stripeClient.webhooks.constructEvent(
+      body,
+      signature,
+      webhookSecret,
+    );
   } catch (err: any) {
     console.error(
       "[stripe/webhook] Signature verification failed:",
