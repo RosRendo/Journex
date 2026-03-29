@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  reactStrictMode: true,
+  typescript: {
+    ignoreBuildErrors: false,
+  },
   async headers() {
     return [
       {
@@ -13,11 +17,23 @@ const nextConfig: NextConfig = {
               "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://s3.tradingview.com https://www.tradingview.com",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
-              "img-src 'self' data: blob: https://www.tradingview.com https://s3.tradingview.com",
-              "connect-src 'self' https://www.tradingview.com https://s3.tradingview.com ws://localhost:* wss://localhost:* http://localhost:* ws: wss: https:",
+              "img-src 'self' data: blob: https:",
+              "connect-src 'self' https: ws: wss:",
               "frame-src 'self' https://www.tradingview.com https://s3.tradingview.com",
               "worker-src 'self' blob:",
             ].join("; "),
+          },
+          {
+            key: "X-Frame-Options",
+            value: "SAMEORIGIN",
+          },
+          {
+            key: "X-Content-Type-Options",
+            value: "nosniff",
+          },
+          {
+            key: "X-XSS-Protection",
+            value: "1; mode=block",
           },
         ],
       },

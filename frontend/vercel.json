@@ -1,0 +1,28 @@
+{
+  "buildCommand": "npm run build",
+  "installCommand": "npm ci",
+  "framework": "nextjs",
+  "outputDirectory": ".next",
+  "public": false,
+  "env": {
+    "NEXTAUTH_URL": {
+      "description": "Your frontend URL on Vercel (e.g., https://dashboardkiller.vercel.app). MUST match Vercel deployment URL."
+    },
+    "NEXTAUTH_SECRET": {
+      "description": "Generated secret - run 'openssl rand -base64 32' to generate"
+    },
+    "NEXT_PUBLIC_API_URL": {
+      "description": "Backend URL (e.g., https://api.yourdomain.com or your Vercel backend deployment)"
+    },
+    "NEXT_PUBLIC_BACKEND_URL": {
+      "description": "Same as NEXT_PUBLIC_API_URL"
+    },
+    "NEXT_PUBLIC_BRIDGE_URL": {
+      "description": "MT5 Python bridge URL or backend bridge proxy"
+    }
+  },
+  "regions": ["sfo1"],
+  "git": {
+    "deploymentEnabled": true
+  }
+}
