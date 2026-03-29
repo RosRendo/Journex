@@ -1,8 +1,5 @@
 {
-  "buildCommand": "npm run build",
-  "installCommand": "npm ci",
   "framework": "nextjs",
-  "outputDirectory": ".next",
   "public": false,
   "regions": ["sfo1"],
   "git": {
