@@ -92,7 +92,11 @@ export function useCsvTrades(accountId?: number, autoRefreshMs: number = 0) {
       setError(null);
 
       const url = `${API_BASE}/api/history`;
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: {
+          "ngrok-skip-browser-warning": "true"
+        }
+      });
 
       if (!response.ok) {
         throw new Error(`Failed to fetch MT5 history (${response.status})`);

@@ -43,8 +43,12 @@ function generateMarketData(points = 500) {
 }
 
 export default function GoldTradingSimulator() {
+  const [mounted, setMounted] = useState(false);
   const [data] = useState(() => generateMarketData(600));
-  
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   // Playback State
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(1); // 1x, 5x, 10x
@@ -132,6 +136,8 @@ export default function GoldTradingSimulator() {
   }, 0);
 
   const equity = balance + floatingPnL;
+
+  if (!mounted) return <div className="flex flex-col h-[calc(100vh-80px)] bg-[--bg-base]" />;
 
   return (
     <div className="flex flex-col h-[calc(100vh-80px)] overflow-hidden bg-[--bg-base]">

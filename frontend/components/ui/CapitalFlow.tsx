@@ -11,7 +11,11 @@ export function CapitalFlow() {
   useEffect(() => {
     const fetchFlow = async () => {
       try {
-        const res = await fetch(`${BRIDGE}/api/capital-flow`);
+        const res = await fetch(`${BRIDGE}/api/capital-flow`, {
+          headers: {
+            "ngrok-skip-browser-warning": "true"
+          }
+        });
         const json = await res.json();
         if (json.success && json.flows) {
           setAssets(json.flows);
