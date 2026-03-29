@@ -12,6 +12,7 @@ import csvRoutes from "./routes/csvRoutes";
 import calendarRoutes from "./routes/calendarRoutes";
 import brokerRoutes from "./routes/brokerRoutes";
 import communityRoutes from "./routes/communityRoutes";
+import polarRoutes from "./routes/polarRoutes";
 import { errorHandler } from "./middleware/errorHandler";
 
 dotenv.config();
@@ -37,6 +38,7 @@ app.use("/api/csv", csvRoutes);
 app.use("/api/calendar", calendarRoutes);
 app.use("/api/broker", brokerRoutes);
 app.use("/api/community", communityRoutes);
+app.use("/api/polar", polarRoutes);
 
 // --- MT5 BRIDGE PROXY SYSTEM (Production vs Local) ---
 // If TRADE_MODE = 'cloud', we would route this to MetaApi REST endpoints.
@@ -48,11 +50,17 @@ app.use(
   "/bridge",
   (req, res, next) => {
     if (tradeMode === "cloud") {
-      // In a real production Option 2 environment, you would use the 
+      // In a real production Option 2 environment, you would use the
       // MetaApi JS SDK here to forward the req.body securely.
       // For now, we simulate what the cloud routing would look like.
-      console.log(`[CLOUD PROXY] Routing to MetaApi... (Not implemented in local test mode)`);
-      return res.status(501).json({ error: "Cloud MetaApi integration requires production credentials." });
+      console.log(
+        `[CLOUD PROXY] Routing to MetaApi... (Not implemented in local test mode)`,
+      );
+      return res
+        .status(501)
+        .json({
+          error: "Cloud MetaApi integration requires production credentials.",
+        });
     }
     next();
   },
@@ -61,8 +69,8 @@ app.use(
     changeOrigin: true,
     pathRewrite: {
       "^/bridge": "", // strip /bridge off the URL
-    }
-  })
+    },
+  }),
 );
 
 // Note: Bot/risk/backtesting services removed (were Docker-based, MT5-dependent)

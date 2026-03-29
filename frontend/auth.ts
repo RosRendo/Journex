@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import { type NextAuthConfig } from "next-auth";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
+import { authConfig } from "./auth.config";
 
 // Build providers array conditionally
 const providers: NextAuthConfig["providers"] = [];
@@ -43,9 +44,8 @@ providers.push(
 );
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  ...authConfig,
   providers,
-  session: { strategy: "jwt" },
-  pages: { signIn: "/auth" },
   callbacks: {
     async jwt({ token, user, account }) {
       if (user) {

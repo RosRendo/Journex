@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@stripe/stripe-js": "^8.8.0",
+    "@polar-sh/sdk": "^0.22.0",
     "@supabase/supabase-js": "^2.86.0",
     "axios": "^1.10.0",
     "chart": "^0.1.2",
@@ -32,7 +32,6 @@
     "react-dom": "^19.0.0",
     "recharts": "^3.1.0",
     "sonner": "^2.0.7",
-    "stripe": "^20.4.0",
     "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {

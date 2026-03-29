@@ -105,10 +105,10 @@ export default function SubscriptionPage() {
     try {
       const backendUrl =
         process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
-      const res = await fetch(`${backendUrl}/api/stripe/checkout`, {
+      const res = await fetch(`${backendUrl}/api/polar/checkout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan }),
+        body: JSON.stringify({ plan, email: session.user.email }),
       });
 
       const data = await res.json();
@@ -123,7 +123,7 @@ export default function SubscriptionPage() {
         return;
       }
 
-      // Redirect to Stripe's hosted checkout page
+      // Redirect to Polar's hosted checkout page
       window.location.href = data.url;
     } catch (err) {
       setError("Network error — could not connect to payment gateway.");
@@ -242,7 +242,7 @@ export default function SubscriptionPage() {
                 {loading === plan.id ? (
                   <span className="flex items-center gap-2">
                     <span className="animate-spin w-5 h-5 border-2 border-current border-t-transparent rounded-full" />
-                    Redirecting to Stripe…
+                    Redirecting to Polar…
                   </span>
                 ) : (
                   <span className="flex items-center gap-2">
@@ -257,7 +257,7 @@ export default function SubscriptionPage() {
                 <div className="mt-4 flex flex-col items-center gap-1.5 text-[11px] font-semibold text-muted-foreground">
                   <div className="flex items-center gap-1.5">
                     <ShieldCheck className="w-3.5 h-3.5 text-green-500" />
-                    256-bit SSL Secure Checkout via Stripe
+                    Secure Checkout via Polar
                   </div>
                   <div className="flex items-center gap-1.5">
                     <CreditCard className="w-3.5 h-3.5 text-blue-500" />

@@ -45,14 +45,25 @@ model Trade {
 }
 
 model Account {
-  id            Int     @id @default(autoincrement())
-  brokerName    String  @map("broker_name") @db.VarChar(100)
-  accountNumber String  @map("account_number") @db.VarChar(50)
-  apiKey        String? @map("api_key") @db.Text
-  apiSecret     String? @map("api_secret") @db.Text
-  balance       Decimal? @db.Decimal(15, 2)
-  equity        Decimal? @db.Decimal(15, 2)
-  lastUpdated   DateTime? @map("last_updated")
+  id               Int      @id @default(autoincrement())
+  brokerName       String   @map("broker_name") @db.VarChar(100)
+  accountNumber    String   @map("account_number") @db.VarChar(50)
+  apiKey           String?  @map("api_key") @db.Text
+  apiSecret        String?  @map("api_secret") @db.Text
+  
+  // MT5 specific Connection details
+  mt5Password      String?  @map("mt5_password") @db.Text
+  mt5Server        String?  @map("mt5_server") @db.VarChar(100)
+  
+  // Account Stats
+  balance          Decimal? @db.Decimal(15, 2)
+  equity           Decimal? @db.Decimal(15, 2)
+  lastUpdated      DateTime? @map("last_updated")
+  
+  // Trade Copier Settings
+  isMaster         Boolean  @default(false) @map("is_master")
+  copierEnabled    Boolean  @default(false) @map("copier_enabled")
+  copierMultiplier Decimal  @default(1.0) @map("copier_multiplier") @db.Decimal(5, 2)
 
   @@map("accounts")
 }
@@ -171,6 +182,7 @@ model Community {
   id          String   @id @default(uuid())
   name        String   @unique @db.VarChar(100)
   description String?  @db.Text
+  image       String?  @db.Text
   createdAt   DateTime @default(now()) @map("created_at")
 
   creatorId   String   @map("creator_id")

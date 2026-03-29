@@ -12,6 +12,7 @@ import json
 import math
 import os
 import time
+import uuid
 import aiohttp
 import requests
 import feedparser
@@ -238,18 +239,22 @@ async def discord_webhook_text(webhook_url: str, content: str):
                 text = await resp.text()
                 print(f"[discord] Webhook text failed {resp.status}: {text[:200]}")
 
-async def telegram_send(bot_token: str, chat_id: str, text: str, parse_mode: str = "HTML"):
+async def telegram_send(bot_token: str, chat_id: str, text: str, parse_mode: str = "HTML", message_thread_id: str = None):
     """Send a message via Telegram Bot API."""
     if not bot_token or not chat_id:
         return
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": text[:4096],
+        "parse_mode": parse_mode,
+        "disable_web_page_preview": True,
+    }
+    if message_thread_id:
+        payload["message_thread_id"] = int(message_thread_id)
+
     async with aiohttp.ClientSession() as session:
-        async with session.post(url, json={
-            "chat_id": chat_id,
-            "text": text[:4096],
-            "parse_mode": parse_mode,
-            "disable_web_page_preview": True,
-        }) as resp:
+        async with session.post(url, json=payload) as resp:
             if resp.status != 200:
                 body = await resp.text()
                 print(f"[telegram] Send failed {resp.status}: {body[:200]}")
@@ -760,11 +765,222 @@ def _compute_rsi(prices: list, period: int = 14) -> float:
     rs = avg_gain / avg_loss
     return round(100 - (100 / (1 + rs)), 1)
 
+@app.get("/api/capital-flow")
+def get_capital_flow():
+    """Compute daily percentage change for major assets to show capital rotation"""
+    global connected
+    if not connected or mt5.terminal_info() is None:
+        init_mt5()
+    if not connected:
+        return {"success": False, "flows": [], "error": "MT5 not connected"}
+        
+    # Standard basket of major assets
+    basket = {
+        "UKOIL": "UKOIL", "DXY": "DXY", "US10Y": "US10Y", "US02Y": "US02Y",
+        "VIX": "VIX", "USDJPY": "USDJPY", "GBPUSD": "GBPUSD", "XAUUSD": "XAUUSD",
+        "US100": "US100", "EURUSD": "EURUSD", "US30": "US30", "COPPER": "COPPER"
+    }
+    
+    flows = []
+    for label, sym in basket.items():
+        try:
+            # Try to get D1 candles to find the open price
+            rates = mt5.copy_rates_from_pos(sym, mt5.TIMEFRAME_D1, 0, 2)
+            if rates is None or len(rates) == 0:
+                # If symbol not found, provide a graceful fallback 0.00
+                flows.append({"label": label, "value": 0.00})
+                continue
+                
+            current = rates[-1]["close"]
+            open_price = rates[-1]["open"]
+            if open_price == 0:
+                flows.append({"label": label, "value": 0.00})
+                continue
+                
+            change_pct = ((current - open_price) / open_price) * 100
+            flows.append({"label": label, "value": round(change_pct, 2)})
+        except Exception:
+            flows.append({"label": label, "value": 0.00})
+            
+    # Sort by value descending to show flow from top to bottom
+    flows.sort(key=lambda x: x["value"], reverse=True)
+    return {"success": True, "flows": flows}
+
+_TF_MAP = {
+    "M1": mt5.TIMEFRAME_M1 if mt5 else 1,
+    "M5": mt5.TIMEFRAME_M5 if mt5 else 5,
+    "M15": mt5.TIMEFRAME_M15 if mt5 else 15,
+    "M30": mt5.TIMEFRAME_M30 if mt5 else 30,
+    "H1": mt5.TIMEFRAME_H1 if mt5 else 16385,
+    "H4": mt5.TIMEFRAME_H4 if mt5 else 16388,
+    "D1": mt5.TIMEFRAME_D1 if mt5 else 16408,
+    "W1": mt5.TIMEFRAME_W1 if mt5 else 32769,
+}
+
+@app.get("/api/historical-candles")
+def get_historical_candles(symbol: str, timeframe: str = "H1", count: int = 60):
+    """Return historical OHLCV candles for a given symbol from MT5."""
+    global connected
+    if not connected or mt5.terminal_info() is None:
+        init_mt5()
+    if not connected:
+        return {"success": False, "data": [], "error": "MT5 not connected"}
+
+    tf = _TF_MAP.get(timeframe.upper(), mt5.TIMEFRAME_H1 if mt5 else 16385)
+    resolved = ensure_symbol(symbol)
+
+    try:
+        rates = mt5.copy_rates_from_pos(resolved, tf, 0, count)
+        if rates is None or len(rates) == 0:
+            # try original symbol if resolved alias failed
+            rates = mt5.copy_rates_from_pos(symbol, tf, 0, count)
+        if rates is None or len(rates) == 0:
+            return {"success": False, "data": [], "error": f"No candle data for {symbol} ({timeframe})"}
+
+        data = [
+            {
+                "time": int(r["time"]),
+                "open": float(r["open"]),
+                "high": float(r["high"]),
+                "low": float(r["low"]),
+                "close": float(r["close"]),
+                "volume": int(r["tick_volume"]),
+            }
+            for r in rates
+        ]
+        return {"success": True, "symbol": resolved, "timeframe": timeframe, "data": data}
+    except Exception as e:
+        return {"success": False, "data": [], "error": str(e)}
+
+@app.get("/api/ai-analysis")
+def get_ai_analysis(symbol: str, ai_key: str = None, provider: str = "openai"):
+    """Compute AI Condition Meters (Flow, Bearing, Pulse) from real MT5 indicators"""
+    global connected
+    if not connected or mt5.terminal_info() is None:
+        init_mt5()
+    if not connected:
+        return {"success": False, "error": "MT5 not connected"}
+        
+    try:
+        # Get H1 candles for analysis
+        rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_H1, 0, 100)
+        if rates is None or len(rates) < 50:
+            raise ValueError("Not enough tick data")
+            
+        closes = [r["close"] for r in rates]
+        highs = [r["high"] for r in rates]
+        lows = [r["low"] for r in rates]
+        volumes = [r["tick_volume"] for r in rates]
+        
+        current = closes[-1]
+        
+        # 1. Pulse (Volatility/ATR logic)
+        trs = [highs[i] - lows[i] for i in range(1, len(closes))]
+        atr = sum(trs[-14:]) / 14 if len(trs) >= 14 else 0
+        avg_atr = sum(trs) / len(trs) if len(trs) > 0 else 0
+        
+        if atr > avg_atr * 1.5:
+            pulse = {"label": "Wild", "score": 90, "color": "var(--loss)", "bullets": ["High ATR expansion detected", "Wider stops required", "Expect slippage"]}
+        elif atr < avg_atr * 0.5:
+            pulse = {"label": "Quiet", "score": 15, "color": "var(--text-tertiary)", "bullets": ["ATR below historical norms", "Tight consolidation", "Breakout pending"]}
+        else:
+            pulse = {"label": "Tradable", "score": 55, "color": "var(--bull)", "bullets": ["ATR within normal range", "Standard risk-reward ratios apply", "Normal stop sizing"]}
+
+        # 2. Flow (Volume/Participation logic)
+        vol_avg = sum(volumes[-20:]) / 20 if len(volumes) >= 20 else 1
+        vol_now = volumes[-1]
+        
+        if vol_now > vol_avg * 2:
+            flow = {"label": "Crowded", "score": 85, "color": "var(--loss)", "bullets": ["Extreme volume spike", "Watch for exhaustion patterns", "Retail participation high"]}
+        elif vol_now < vol_avg * 0.5:
+            flow = {"label": "Thin", "score": 20, "color": "var(--text-tertiary)", "bullets": ["Low liquidity conditions", "Fills may be erratic", "Institutional absence"]}
+        else:
+            flow = {"label": "Healthy", "score": 50, "color": "var(--accent)", "bullets": ["Volume within expected block", "Fills executing near quotes", "Good structure"]}
+
+        # 3. Bearing (Trend/RSI logic)
+        ema20 = _compute_ema(closes[-20:], 20)
+        ema50 = _compute_ema(closes[-50:], 50)
+        rsi = _compute_rsi(closes)
+        
+        if ema20 > ema50:
+            if rsi > 70:
+                bearing = {"label": "Overextended Up", "score": 85, "color": "var(--bear)", "bullets": ["Golden cross remains intact", "RSI indicates overbought", "Pullback probability high"]}
+            elif rsi > 50:
+                bearing = {"label": "Bullish Trend", "score": 75, "color": "var(--bull)", "bullets": ["Clear upward momentum", "Moving averages aligned", "Buy dips favored"]}
+            else:
+                bearing = {"label": "Choppy Up", "score": 60, "color": "var(--accent)", "bullets": ["Upward bias but weak RSI", "Indecision in price action", "Wait for cleaner impulse"]}
+        else:
+            if rsi < 30:
+                bearing = {"label": "Overextended Down", "score": 15, "color": "var(--bull)", "bullets": ["Death cross intact", "RSI indicates oversold", "Relief bounce likely"]}
+            elif rsi < 50:
+                bearing = {"label": "Bearish Trend", "score": 25, "color": "var(--bear)", "bullets": ["Clear downward momentum", "Moving averages pressuring", "Sell rallies favored"]}
+            else:
+                bearing = {"label": "Choppy Down", "score": 40, "color": "var(--warning)", "bullets": ["Downward drift but choppy", "RSI contradicts trend", "Exercise caution"]}
+
+        if ai_key:
+            try:
+                import json
+                import urllib.request
+                prompt = (
+                    f"Act as an institutional macro trader analyzing {symbol}. Write exactly 3 short, punchy bullet points for each gauge (Pulse=Volatility, Flow=Liquidity/Volume, Bearing=Trend/Momentum). "
+                    "Use institutional terminology. Return pure JSON: {\"pulse\": [\"...\",\"...\",\"...\"], \"flow\": [\"...\"...], \"bearing\": [\"...\"...]}. "
+                    f"Data: Pulse={pulse['label']}({pulse['score']}), Flow={flow['label']}({flow['score']}), Bearing={bearing['label']}({bearing['score']})."
+                )
+                if provider == "gemini":
+                    req_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={ai_key}"
+                    payload = {"contents": [{"parts": [{"text": prompt}]}]}
+                    headers = {"Content-Type": "application/json"}
+                elif provider == "claude":
+                    req_url = "https://api.anthropic.com/v1/messages"
+                    payload = {"model": "claude-3-haiku-20240307", "messages": [{"role": "user", "content": prompt}], "max_tokens": 1024}
+                    headers = {"x-api-key": ai_key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"}
+                else:
+                    req_url = "https://api.openai.com/v1/chat/completions"
+                    payload = {"model": "gpt-3.5-turbo", "messages": [{"role": "user", "content": prompt}], "temperature": 0.4}
+                    headers = {"Authorization": f"Bearer {ai_key}", "Content-Type": "application/json"}
+
+                req = urllib.request.Request(
+                    req_url,
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers=headers,
+                    method="POST"
+                )
+                with urllib.request.urlopen(req, timeout=15) as response:
+                    if response.status == 200:
+                        resp_data = json.loads(response.read().decode("utf-8"))
+                        
+                        if provider == "gemini":
+                            content = resp_data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
+                        elif provider == "claude":
+                            content = resp_data.get("content", [{}])[0].get("text", "").strip()
+                        else:
+                            content = resp_data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+                            
+                        if content.startswith("```json"): content = content[7:-3].strip()
+                        if content.endswith("```"): content = content[:-3].strip()
+                        ai_dict = json.loads(content)
+                        if "pulse" in ai_dict and len(ai_dict["pulse"]) > 0: pulse["bullets"] = ai_dict["pulse"]
+                        if "flow" in ai_dict and len(ai_dict["flow"]) > 0: flow["bullets"] = ai_dict["flow"]
+                        if "bearing" in ai_dict and len(ai_dict["bearing"]) > 0: bearing["bullets"] = ai_dict["bearing"]
+            except Exception as e:
+                print("AI API LLM Request Error in ai-analysis:", e)
+
+        return {
+            "success": True, 
+            "analysis": {
+                "pulse": pulse,
+                "flow": flow,
+                "bearing": bearing
+            }
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
 SIGNAL_SYMBOLS = ["EURUSD", "GBPJPY", "XAUUSD", "USDJPY", "GBPUSD"]
 TF_SIGNAL = mt5.TIMEFRAME_H4 if mt5 else 16408
 
 @app.get("/api/technicals")
-def get_technicals():
+def get_technicals(ai_key: str = None, provider: str = "openai"):
     """Compute real-time technical signals from live MT5 candle data."""
     global connected
     if not connected or mt5.terminal_info() is None:
@@ -775,9 +991,16 @@ def get_technicals():
     signals = []
     for sym in SIGNAL_SYMBOLS:
         try:
-            rates = mt5.copy_rates_from_pos(sym, TF_SIGNAL, 0, 60)
+            # Resolve broker-specific symbol name (e.g. XAUUSDm, EURUSDm)
+            resolved = ensure_symbol(sym)
+            rates = mt5.copy_rates_from_pos(resolved, TF_SIGNAL, 0, 60)
             if rates is None or len(rates) < 20:
-                continue
+                # Try falling back to the original symbol
+                rates = mt5.copy_rates_from_pos(sym, TF_SIGNAL, 0, 60)
+                if rates is None or len(rates) < 20:
+                    print(f"[technicals] No data for {sym} / {resolved} — skipping")
+                    continue
+                resolved = sym  # fallback worked
             closes = [r["close"] for r in rates]
             current = closes[-1]
             ema20  = _compute_ema(closes[-20:], 20)
@@ -817,6 +1040,66 @@ def get_technicals():
         except Exception as ex:
             print(f"[technicals] {sym} error: {ex}")
             continue
+
+    if ai_key and len(signals) > 0:
+        try:
+            import json
+            import urllib.request
+            
+            # Construct a prompt for the LLM
+            data_summary = [{s["pair"]: f"Dir:{s['signal']}, RSI:{s['rsi']:.1f}, EMA20:{s['ema20']}, EMA50:{s['ema50']}"} for s in signals]
+            prompt = (
+                "Act as an institutional macro trader. Write a very concise, 1-2 sentence market analysis for each of these pairs based on the data. "
+                "Be highly analytical, use terms like 'liquidity', 'consolidation', 'breakout', 'support/resistance'. "
+                "Return pure JSON in this exact format, with the pair as key and the analysis as value: {\"EUR/USD\": \"...\", \"XAU/USD\": \"...\"}. "
+                f"Data: {json.dumps(data_summary)}"
+            )
+            
+            if provider == "gemini":
+                req_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={ai_key}"
+                payload = {"contents": [{"parts": [{"text": prompt}]}]}
+                headers = {"Content-Type": "application/json"}
+            elif provider == "claude":
+                req_url = "https://api.anthropic.com/v1/messages"
+                payload = {"model": "claude-3-haiku-20240307", "messages": [{"role": "user", "content": prompt}], "max_tokens": 1024}
+                headers = {"x-api-key": ai_key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"}
+            else:
+                req_url = "https://api.openai.com/v1/chat/completions"
+                payload = {"model": "gpt-3.5-turbo", "messages": [{"role": "user", "content": prompt}], "temperature": 0.4}
+                headers = {"Authorization": f"Bearer {ai_key}", "Content-Type": "application/json"}
+
+            req = urllib.request.Request(
+                req_url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers=headers,
+                method="POST"
+            )
+            
+            with urllib.request.urlopen(req, timeout=15) as response:
+                if response.status == 200:
+                    resp_data = json.loads(response.read().decode("utf-8"))
+                    
+                    if provider == "gemini":
+                        content = resp_data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
+                    elif provider == "claude":
+                        content = resp_data.get("content", [{}])[0].get("text", "").strip()
+                    else:
+                        content = resp_data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+                    
+                    # Clean up the markdown strictly if present
+                    if content.startswith("```json"):
+                        content = content[7:-3].strip()
+                    if content.endswith("```"):
+                        content = content[:-3].strip()
+                        
+                    ai_analysis_dict = json.loads(content)
+                    
+                    # Overwrite algorithmic reason with AI generated reason
+                    for s in signals:
+                        if s["pair"] in ai_analysis_dict:
+                            s["reason"] = ai_analysis_dict[s["pair"]]
+        except Exception as e:
+            print("AI API LLM Request Error:", e)
 
     return {"success": True, "signals": signals}
 
@@ -967,7 +1250,11 @@ def replay_create(req: ReplayCreate):
     if not connected:
         return {"success": False, "error": "MT5 not connected"}
     tf = TIMEFRAME_MAP.get(req.timeframe.upper(), mt5.TIMEFRAME_H1)
-    symbol = req.symbol.upper()
+    
+    # Try the symbol as-is, then common broker suffix variations
+    base = req.symbol.rstrip("mMiI.")
+    candidates = [req.symbol, base, base + "m", base + "M", req.symbol.upper()]
+    candidates = list(dict.fromkeys(candidates))  # deduplicate
 
     # Build date range
     try:
@@ -984,14 +1271,28 @@ def replay_create(req: ReplayCreate):
         date_from = datetime(2024, 1, 1)
         date_to = datetime.now()
 
-    rates = mt5.copy_rates_range(symbol, tf, date_from, date_to)
+    rates = None
+    symbol = req.symbol
+    for sym in candidates:
+        try:
+            mt5.symbol_select(sym, True)
+        except Exception:
+            pass
+        r = mt5.copy_rates_range(sym, tf, date_from, date_to)
+        if r is not None and len(r) > 0:
+            rates = r
+            symbol = sym
+            print(f"[backtest] Loaded {len(r)} candles for {sym} {req.timeframe}")
+            break
+
     if rates is None or len(rates) == 0:
-        return {"success": False, "error": f"No candles for {symbol} {req.timeframe} in range"}
+        tried = ", ".join(candidates)
+        return {"success": False, "error": f"No candles found for {req.timeframe} between {req.start_date[:10]} and {req.end_date[:10]}. Tried: [{tried}]. Ensure the symbol is visible in MT5 Market Watch and the date range has historical data."}
 
     candles = []
     for r in rates:
         candles.append({
-            "time":   datetime.utcfromtimestamp(r["time"]).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "time":   int(r["time"]),   # Unix timestamp (number) — lightweight-charts compatible
             "open":   float(r["open"]),
             "high":   float(r["high"]),
             "low":    float(r["low"]),
@@ -1147,7 +1448,7 @@ def get_bots():
 @app.post("/api/bots")
 def create_bot(bot: BotCreate):
     new_bot = {
-        "id": str(uuid4())[:8],
+        "id": str(uuid.uuid4())[:8],
         "name": bot.name,
         "broker": bot.broker,
         "apiKey": "LOCAL_MT5",
@@ -1742,6 +2043,35 @@ def get_history():
     trades.sort(key=lambda x: x["date"], reverse=True)
     return {"data": trades}
 
+def __send_execution_alert(symbol: str, action: str, lot_size: float, price: float, sl: float=0, tp: float=0):
+    import threading
+    def _send_bg():
+        direction = "Long" if action.lower() == "buy" else "Short"
+        discord_msg = f"⚡ **TRADE EXECUTED** ⚡\n**Pair**: {symbol}\n**Direction**: {direction}\n**Lot Size**: {lot_size}\n**Entry**: {price}"
+        if sl > 0: discord_msg += f"\n**SL**: {sl}"
+        if tp > 0: discord_msg += f"\n**TP**: {tp}"
+        
+        webhook = _alert_config.get("discord_alerts_webhook", "")
+        if webhook:
+            try: requests.post(webhook, json={"content": discord_msg}, timeout=3)
+            except Exception as e: print("Discord alert err:", e)
+
+        tg_msg = f"⚡ <b>TRADE EXECUTED</b> ⚡\n<b>Pair</b>: {symbol}\n<b>Direction</b>: {direction}\n<b>Lot Size</b>: {lot_size}\n<b>Entry</b>: {price}"
+        if sl > 0: tg_msg += f"\n<b>SL</b>: {sl}"
+        if tp > 0: tg_msg += f"\n<b>TP</b>: {tp}"
+
+        bot_token = _alert_config.get("telegram_bot_token", "")
+        chat_id = _alert_config.get("telegram_chat_alerts", "") or _alert_config.get("telegram_chat_id", "")
+        thread_id = _alert_config.get("telegram_thread_alerts", "")
+        if bot_token and chat_id:
+            url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+            payload = {"chat_id": chat_id, "text": tg_msg, "parse_mode": "HTML"}
+            if thread_id: payload["message_thread_id"] = int(thread_id)
+            try: requests.post(url, json=payload, timeout=3)
+            except Exception as e: print("TG alert err:", e)
+    
+    threading.Thread(target=_send_bg).start()
+
 @app.post("/api/execute-trade")
 def execute_trade(data: dict):
     """
@@ -1787,6 +2117,8 @@ def execute_trade(data: dict):
     result = mt5.order_send(request)
     if result.retcode != mt5.TRADE_RETCODE_DONE:
         return {"success": False, "error": f"Order failed, retcode={result.retcode}"}
+
+    entry_price = result.price if result.price > 0 else price
 
     direction = "Long" if action == "buy" else "Short"
     return {
@@ -1873,6 +2205,9 @@ def execute_signal(data: dict):
     if result.retcode != mt5.TRADE_RETCODE_DONE:
         return {"success": False, "error": f"Order failed, retcode={result.retcode} ({mt5.last_error()})"}
 
+    entry_price = result.price if result.price > 0 else price
+    __send_execution_alert(working_symbol, action, lot_size, entry_price, sl, tp)
+
     return {
         "success": True, 
         "message": f"Automatically risked 1% on {lot_size} lot {action} for {working_symbol}",
@@ -1898,12 +2233,17 @@ async def discord_news_loop():
                 resp = requests.get("http://localhost:5003/api/news", timeout=10)
                 data = resp.json()
                 if data.get("success") and data.get("news"):
-                    hot = [n for n in data["news"] if n.get("isHot") and n["id"] not in _discord_seen_news_ids]
-                    for item in hot[:5]:  # max 5 per cycle to avoid spam
+                    # Post high AND medium impact news (not just isHot) to keep channel active
+                    new_items = [
+                        n for n in data["news"]
+                        if n["id"] not in _discord_seen_news_ids
+                        and n.get("impact") in ("high", "medium")
+                    ]
+                    for item in new_items[:5]:  # max 5 per cycle to avoid spam
                         _discord_seen_news_ids.add(item["id"])
                         color_map = {"bullish": 0x22c55e, "bearish": 0xef4444, "neutral": 0x6b7280}
                         embed = {
-                            "title": f"🔥 {item['title'][:200]}",
+                            "title": f"📰 {item['title'][:200]}",
                             "description": item.get("summary", "")[:300] or "—",
                             "color": color_map.get(item.get("sentiment", "neutral"), 0x6b7280),
                             "fields": [
@@ -1915,17 +2255,23 @@ async def discord_news_loop():
                             "footer": {"text": f"TradeKiller News • {item.get('time', '')}"},
                             "url": item.get("link", ""),
                         }
-                        await discord_webhook_embed(news_webhook, [embed])
-                        # Also send to Telegram news
+                        if news_webhook:
+                            await discord_webhook_embed(news_webhook, [embed])
+                        # Also send to Telegram news (Mode A or Mode B)
                         tg_tok = _alert_config.get("telegram_bot_token", "")
-                        tg_cid = _alert_config.get("telegram_news_chat_id", "")
+                        tg_cid = (
+                            _alert_config.get("telegram_chat_news", "") or  # Mode A
+                            _alert_config.get("telegram_chat_id", "")       # Mode B group
+                        )
+                        tg_thread = _alert_config.get("telegram_thread_news", "")
                         if tg_tok and tg_cid:
                             tg_text = (
-                                f"🔥 <b>{item['title'][:200]}</b>\n"
+                                f"📰 <b>{item['title'][:200]}</b>\n"
                                 f"{item.get('summary','')[:300]}\n"
-                                f"Symbol: {item.get('symbol','—')} | Impact: {item.get('impact','—')}"
+                                f"Symbol: {item.get('symbol','—')} | Impact: {item.get('impact','—')} | {item.get('source','')}"
                             )
-                            await telegram_send(tg_tok, tg_cid, tg_text)
+                            await telegram_send(tg_tok, tg_cid, tg_text,
+                                                message_thread_id=tg_thread if tg_thread else None)
                         await asyncio.sleep(1.5)  # small delay between posts
         except Exception as e:
             print(f"[discord] News loop error: {e}")
@@ -2042,14 +2388,437 @@ async def discord_calendar_loop():
         await asyncio.sleep(3600)  # re-post full calendar every hour
 
 
+# ─── BACKTESTING ENGINE ────────────────────────────────────────────────────────
+import uuid
+
+_active_replay_sessions = {}
+
+class ReplayCreateReq(BaseModel):
+    symbol: str
+    timeframe: str
+    start_date: str
+    end_date: str
+    initial_balance: float
+
+class ReplayTradeReq(BaseModel):
+    direction: str
+    entry: float
+    sl: float
+    tp: float
+    lot_size: float
+
+class ReplayJumpReq(BaseModel):
+    date: str
+
+_TIMEFRAME_MAP = {
+    "M1": mt5.TIMEFRAME_M1, "M5": mt5.TIMEFRAME_M5, "M15": mt5.TIMEFRAME_M15,
+    "M30": mt5.TIMEFRAME_M30, "H1": mt5.TIMEFRAME_H1, "H4": mt5.TIMEFRAME_H4,
+    "D1": mt5.TIMEFRAME_D1
+}
+
+def _calculate_pnl(pos: dict, current_price: float) -> float:
+    # Very simplified un-leveraged pip calc just for replay UI proxy
+    # For actual MT5 fidelity we'd use OrderCalcProfit but this is offline replay
+    diff = current_price - pos['entry']
+    if pos['direction'] == "SELL":
+        diff = -diff
+    # approx $10 per pip on standard lot for XXXUSD
+    return diff * 100000 * pos['lot_size']
+
+def _eval_positions(session: dict, candle: dict):
+    # Evaluate Stop Loss / Take Profit against High/Low
+    closed = []
+    prices_hit = [candle['low'], candle['high'], candle['open'], candle['close']]
+    
+    for pos in session['open_positions'][:]:
+        # Simple hit detection
+        hit_sl = pos['sl'] > 0 and ((pos['direction'] == 'BUY' and candle['low'] <= pos['sl']) or (pos['direction'] == 'SELL' and candle['high'] >= pos['sl']))
+        hit_tp = pos['tp'] > 0 and ((pos['direction'] == 'BUY' and candle['high'] >= pos['tp']) or (pos['direction'] == 'SELL' and candle['low'] <= pos['tp']))
+        
+        close_price = None
+        if hit_sl: close_price = pos['sl']
+        elif hit_tp: close_price = pos['tp']
+        
+        if close_price is not None:
+            pnl = _calculate_pnl(pos, close_price)
+            session['equity'] += pnl
+            session['statistics']['total_trades'] += 1
+            if pnl > 0: session['statistics']['wins'] += 1
+            else: session['statistics']['losses'] += 1
+            session['statistics']['total_pnl'] += pnl
+            
+            # Recalc stats
+            wr = session['statistics']['wins'] / session['statistics']['total_trades'] * 100 if session['statistics']['total_trades'] > 0 else 0
+            session['statistics']['win_rate'] = wr
+            session['open_positions'].remove(pos)
+            
+    # Update max drawdown
+    peak = max(session.get('_peak_equity', session['initial_balance']), session['equity'])
+    session['_peak_equity'] = peak
+    dd = (peak - session['equity']) / peak * 100 if peak > 0 else 0
+    if dd > session['statistics']['max_drawdown']:
+        session['statistics']['max_drawdown'] = dd
+
+@app.post("/api/replay/create")
+def create_replay(req: ReplayCreateReq):
+    global connected
+    if not connected or mt5.terminal_info() is None:
+        init_mt5()
+        if not connected:
+            return {"success": False, "error": "MT5 Not Connected"}
+            
+    # Resolve the actual working symbol on this broker (handles aliases + market watch)
+    resolved_symbol = ensure_symbol(req.symbol)
+    
+    # Also try common broker suffixes if the resolved symbol returns no data
+    symbol_candidates = [resolved_symbol, req.symbol,
+                         req.symbol.rstrip("mMiI."),        # strip suffix -> XAUUSD
+                         req.symbol.rstrip("mMiI.") + "m",  # add m -> XAUUSDm
+                         req.symbol.rstrip("mMiI.") + "M"]  # add M -> XAUUSDM
+    symbol_candidates = list(dict.fromkeys(symbol_candidates))  # deduplicate, preserve order
+
+    tf = _TIMEFRAME_MAP.get(req.timeframe, mt5.TIMEFRAME_H1)
+    
+    try:
+        dt_start = datetime.fromisoformat(req.start_date.replace("Z", ""))
+        dt_end   = datetime.fromisoformat(req.end_date.replace("Z", ""))
+    except Exception as e:
+        return {"success": False, "error": f"Date parsing err: {e}"}
+
+    rates = None
+    used_symbol = req.symbol
+    for sym in symbol_candidates:
+        try:
+            mt5.symbol_select(sym, True)  # make sure it's in Market Watch
+        except Exception:
+            pass
+        r = mt5.copy_rates_range(sym, tf, dt_start, dt_end)
+        if r is not None and len(r) > 0:
+            rates = r
+            used_symbol = sym
+            print(f"[backtest] Loaded {len(r)} candles for {sym} {req.timeframe} from {dt_start} to {dt_end}")
+            break
+
+    if rates is None or len(rates) == 0:
+        tried = ", ".join(symbol_candidates)
+        return {"success": False, "error": f"No candles found in MT5 for {req.timeframe} between {req.start_date[:10]} and {req.end_date[:10]}. Tried symbols: [{tried}]. Make sure the symbol is visible in MT5 Market Watch and the date range has history."}
+        
+    candles = []
+    for r in rates:
+        candles.append({
+            "time": int(r['time']),
+            "open": float(r['open']),
+            "high": float(r['high']),
+            "low": float(r['low']),
+            "close": float(r['close']),
+            "volume": float(r['tick_volume'])
+        })
+        
+    session_id = str(uuid.uuid4())
+    _active_replay_sessions[session_id] = {
+        "session_id": session_id,
+        "symbol": req.symbol,
+        "timeframe": req.timeframe,
+        "candles": candles,
+        "current_index": 0,
+        "initial_balance": req.initial_balance,
+        "equity": req.initial_balance,
+        "open_positions": [],
+        "statistics": {
+            "total_trades": 0, "wins": 0, "losses": 0, "win_rate": 0.0,
+            "total_pnl": 0.0, "average_r": 0.0, "expectancy": 0.0, "max_drawdown": 0.0,
+            "current_balance": req.initial_balance, "equity": req.initial_balance
+        }
+    }
+    
+    return {
+        "success": True, 
+        "session_id": session_id,
+        "symbol": req.symbol,
+        "timeframe": req.timeframe,
+        "total_candles": len(candles),
+        "candles": candles
+    }
+
+@app.get("/api/replay/{session_id}/status")
+def replay_status(session_id: str):
+    sess = _active_replay_sessions.get(session_id)
+    if not sess: return {"success": False, "error": "Session missing"}
+    
+    idx = sess['current_index']
+    current_candle = sess['candles'][idx] if 0 <= idx < len(sess['candles']) else None
+    
+    # live PNL calc
+    live_pnl = 0
+    if current_candle:
+        for pos in sess['open_positions']:
+            live_pnl += _calculate_pnl(pos, current_candle['close'])
+            
+    sess['statistics']['equity'] = sess['equity'] + live_pnl
+    sess['statistics']['current_balance'] = sess['equity']
+
+    return {
+        "success": True,
+        "current_candle": current_candle,
+        "progress": {
+            "current_index": idx,
+            "total_candles": len(sess['candles']),
+            "progress_percent": (idx / len(sess['candles'])) * 100 if len(sess['candles'])>0 else 0
+        },
+        "statistics": sess['statistics'],
+        "open_positions": sess['open_positions']
+    }
+
+@app.post("/api/replay/{session_id}/next")
+def replay_next(session_id: str):
+    sess = _active_replay_sessions.get(session_id)
+    if not sess: return {"success": False, "error": "Session missing"}
+    
+    if sess['current_index'] < len(sess['candles']) - 1:
+        sess['current_index'] += 1
+        current_candle = sess['candles'][sess['current_index']]
+        # physics eval
+        _eval_positions(sess, current_candle)
+        
+    return replay_status(session_id)
+
+@app.post("/api/replay/{session_id}/previous")
+def replay_previous(session_id: str):
+    sess = _active_replay_sessions.get(session_id)
+    if not sess: return {"success": False, "error": "Session missing"}
+    
+    if sess['current_index'] > 0:
+        sess['current_index'] -= 1
+        
+    return replay_status(session_id)
+
+@app.post("/api/replay/{session_id}/jump")
+def replay_jump(session_id: str, req: ReplayJumpReq):
+    sess = _active_replay_sessions.get(session_id)
+    if not sess: return {"success": False, "error": "Session missing"}
+    
+    try:
+        dt_target = datetime.fromisoformat(req.date.replace("Z", "")).timestamp()
+    except:
+        return {"success": False, "error": "Invalid Date"}
+        
+    # find closest index
+    closest_idx = 0
+    for i, c in enumerate(sess['candles']):
+        if c['time'] >= dt_target:
+            closest_idx = i
+            break
+            
+    sess['current_index'] = closest_idx
+    return replay_status(session_id)
+
+@app.post("/api/replay/{session_id}/trade")
+def replay_trade(session_id: str, req: ReplayTradeReq):
+    sess = _active_replay_sessions.get(session_id)
+    if not sess: return {"success": False, "error": "Session missing"}
+    
+    idx = sess['current_index']
+    if idx >= len(sess['candles']): return {"success": False, "error": "End of data"}
+    
+    pos = {
+        "id": str(uuid.uuid4())[:8],
+        "symbol": sess['symbol'],
+        "direction": req.direction,
+        "entry": req.entry if req.entry > 0 else sess['candles'][idx]['close'],
+        "sl": req.sl,
+        "tp": req.tp,
+        "lot_size": req.lot_size
+    }
+    
+    sess['open_positions'].append(pos)
+    return replay_status(session_id)
+
+
+# ─── Live Data Integrations (News & Calendar) ────────────────────────────────
+
+@app.get("/api/calendar")
+async def get_calendar():
+    """Fetch live economic calendar events from ForexFactory JSON API"""
+    try:
+        import requests
+        import time
+        from datetime import datetime
+        resp = requests.get("https://nfs.faireconomy.media/ff_calendar_thisweek.json", timeout=10)
+        resp.raise_for_status()
+        raw_events = resp.json()
+        
+        events = []
+        now = time.time()
+        for e in raw_events:
+            try:
+                dt = datetime.fromisoformat(e.get("date", ""))
+                # Filter out events older than 24h
+                if dt.timestamp() < now - 24*3600:
+                    continue
+                
+                imp_raw = str(e.get("impact", "")).lower()
+                if "high" in imp_raw: impact = "high"
+                elif "medium" in imp_raw: impact = "medium"
+                else: impact = "low"
+                
+                events.append({
+                    "time": dt.strftime("%I:%M %p"),
+                    "date_str": dt.strftime("%b %d"),
+                    "event": e.get("title", "Unknown Event"),
+                    "currency": e.get("country", "USD").upper(),
+                    "forecast": e.get("forecast", ""),
+                    "previous": e.get("previous", ""),
+                    "actual": e.get("actual", None), 
+                    "impact": impact,
+                    "timestamp": dt.timestamp()
+                })
+            except Exception:
+                pass
+                
+        events.sort(key=lambda x: x["timestamp"])
+        return {"success": True, "events": events[:30]}
+    except Exception as ex:
+        print(f"[calendar] Fetch error: {ex}")
+        return {"success": False, "events": [], "error": str(ex)}
+
+@app.get("/api/news")
+async def get_news(ai_key: str = None, provider: str = "openai"):
+    """Fetch live forex market news via RSS, with optional AI sentiment injection"""
+    try:
+        import feedparser
+        import uuid
+        import urllib.request
+        import json
+        
+        feed = feedparser.parse("https://feeds.forexlive.com/")
+        news_items = []
+        for entry in feed.entries[:12]:
+            title_lower = getattr(entry, 'title', '').lower()
+            is_hot = any(k in title_lower for k in ["fed", "cpi", "nfp", "boe", "ecb", "powell", "war", "crisis"])
+            impact = "high" if is_hot else "medium"
+            symbol = "USD"
+            if "eur" in title_lower: symbol = "EUR"
+            elif "gbp" in title_lower: symbol = "GBP"
+            elif "jpy" in title_lower: symbol = "JPY"
+            elif "gold" in title_lower or "xau" in title_lower: symbol = "XAU"
+            
+            sentiment = "neutral"
+            if any(w in title_lower for w in ["soar", "surge", "jump", "rally", "high", "gain"]): sentiment = "bullish"
+            elif any(w in title_lower for w in ["drop", "fall", "plunge", "low", "lose", "cut"]): sentiment = "bearish"
+                
+            news_items.append({
+                "id": str(uuid.uuid4())[:8],
+                "title": getattr(entry, 'title', ''),
+                "summary": getattr(entry, "summary", "")[:120] + "...",
+                "time": getattr(entry, "published", ""),
+                "isHot": is_hot,
+                "impact": impact,
+                "sentiment": sentiment,
+                "symbol": symbol,
+                "source": "ForexLive",
+                "link": getattr(entry, "link", "")
+            })
+            
+        # Optional AI Processing to enhance sentiment tags accurately
+        if ai_key and len(news_items) > 0:
+            prompt = "Analyze these forex news headlines. Return pure JSON array of objects. Format: [{'sentiment': 'bullish'|'bearish'|'neutral', 'symbol': 'USD'|'EUR'|'XAU'...}]. Order must exactly match input.\nHeadlines:\n"
+            for n in news_items: prompt += f"- {n['title']}\n"
+                
+            try:
+                resp_text = None
+                if provider == "gemini":
+                    req_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={ai_key}"
+                    payload = {"contents": [{"parts": [{"text": prompt}]}]}
+                    headers = {"Content-Type": "application/json"}
+                    req = urllib.request.Request(req_url, data=json.dumps(payload).encode(), headers=headers, method="POST")
+                    with urllib.request.urlopen(req, timeout=8) as r:
+                         body = json.loads(r.read().decode())
+                         resp_text = body["candidates"][0]["content"]["parts"][0]["text"]
+                elif provider == "claude":
+                    req_url = "https://api.anthropic.com/v1/messages"
+                    payload = {"model": "claude-3-haiku-20240307", "messages": [{"role": "user", "content": prompt}], "max_tokens": 1024}
+                    headers = {"x-api-key": ai_key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"}
+                    req = urllib.request.Request(req_url, data=json.dumps(payload).encode(), headers=headers, method="POST")
+                    with urllib.request.urlopen(req, timeout=8) as r:
+                         body = json.loads(r.read().decode())
+                         resp_text = body["content"][0]["text"]
+                else:
+                    req_url = "https://api.openai.com/v1/chat/completions"
+                    payload = {"model": "gpt-3.5-turbo", "messages": [{"role": "user", "content": prompt}], "temperature": 0.2}
+                    headers = {"Authorization": f"Bearer {ai_key}", "Content-Type": "application/json"}
+                    req = urllib.request.Request(req_url, data=json.dumps(payload).encode(), headers=headers, method="POST")
+                    with urllib.request.urlopen(req, timeout=8) as r:
+                         body = json.loads(r.read().decode())
+                         resp_text = body["choices"][0]["message"]["content"]
+                
+                if resp_text:
+                    jstart = resp_text.find("[")
+                    jend = resp_text.rfind("]")
+                    if jstart != -1 and jend != -1:
+                        ai_res = json.loads(resp_text[jstart:jend+1])
+                        for i, ai_val in enumerate(ai_res):
+                            if i < len(news_items):
+                                s = str(ai_val.get("sentiment", "")).lower()
+                                if s in ["bullish", "bearish", "neutral"]:
+                                    news_items[i]["sentiment"] = s
+                                sym = str(ai_val.get("symbol", "")).upper()
+                                if len(sym) >= 3:
+                                    news_items[i]["symbol"] = sym[:3]
+            except Exception as e:
+                print("[news] AI parsing failed, ignoring enhancements:", e)
+
+        return {"success": True, "news": news_items}
+    except Exception as ex:
+        print(f"[news] Fetch error: {ex}")
+        return {"success": False, "news": [], "error": str(ex)}
+
+
 # ─── Lifespan (replaces deprecated on_event) ─────────────────────────────────
+
+async def trade_monitor_loop():
+    await asyncio.sleep(5)
+    known_tickets = set()
+    first_run = True
+    print("[trade_monitor] Monitoring external trades...")
+    while True:
+        try:
+            if not connected:
+                await asyncio.sleep(5)
+                continue
+                
+            positions = mt5.positions_get()
+            if positions is None:
+                await asyncio.sleep(2)
+                continue
+                
+            current_tickets = set(p.ticket for p in positions)
+            
+            if first_run:
+                known_tickets = current_tickets
+                first_run = False
+            else:
+                new_tickets = current_tickets - known_tickets
+                if new_tickets:
+                    for tkt in new_tickets:
+                        pos = next((p for p in positions if p.ticket == tkt), None)
+                        if pos:
+                            action = "Buy" if pos.type == 0 else "Sell"
+                            __send_execution_alert(pos.symbol, action, pos.volume, pos.price_open, pos.sl, pos.tp)
+                
+                known_tickets = current_tickets
+                
+        except Exception as e:
+            print("[trade_monitor] Error:", e)
+        
+        await asyncio.sleep(2)
 
 @asynccontextmanager
 async def lifespan(app):
     # Startup
     asyncio.create_task(discord_news_loop())
     asyncio.create_task(discord_calendar_loop())
-    print("[bridge] Background tasks started (Discord news + calendar)")
+    asyncio.create_task(trade_monitor_loop())
+    print("[bridge] Background tasks started (Discord, Telegram & Trade Monitor)")
     yield
     # Shutdown — nothing special needed
 

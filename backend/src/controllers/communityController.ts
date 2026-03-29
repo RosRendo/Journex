@@ -253,7 +253,7 @@ export const createCommunity = async (req: Request, res: Response) => {
         const profile = await db.userProfile.findUnique({ where: { userId: uid } });
         if (!profile) return res.status(404).json({ error: "Profile not found" });
 
-        const { name, description, isPro } = req.body;
+        const { name, description, isPro, image } = req.body;
 
         if (!isPro && uid !== "demo-user-1") {
             return res.status(403).json({ error: "Only Pro users can create communities." });
@@ -263,6 +263,7 @@ export const createCommunity = async (req: Request, res: Response) => {
             data: {
                 name,
                 description,
+                image,
                 creatorId: profile.id,
                 members: { connect: { id: profile.id } }
             },
@@ -272,6 +273,36 @@ export const createCommunity = async (req: Request, res: Response) => {
         });
 
         res.json(community);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const updateCommunity = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const uid = String((req as any).user?.id || req.body.userId || "demo-user-1");
+        const profile = await db.userProfile.findUnique({ where: { userId: uid } });
+        if (!profile) return res.status(404).json({ error: "Profile not found" });
+
+        const community = await db.community.findUnique({ where: { id } });
+        if (!community) return res.status(404).json({ error: "Community not found" });
+
+        if (community.creatorId !== profile.id && uid !== "rousrendo@gmail.com") {
+            return res.status(403).json({ error: "Unauthorized: Only the creator can edit this community." });
+        }
+
+        const { name, description, image } = req.body;
+
+        const updated = await db.community.update({
+            where: { id },
+            data: { name, description, image },
+            include: {
+                _count: { select: { members: true, posts: true } }
+            }
+        });
+
+        res.json(updated);
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
