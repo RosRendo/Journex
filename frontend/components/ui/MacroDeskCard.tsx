@@ -169,7 +169,7 @@ export function AIMacroDeskSection() {
         const aiKey = localStorage.getItem("ai_key");
         const aiProvider = localStorage.getItem("ai_provider") || "openai";
         const url = `${BRIDGE}/api/technicals${aiKey ? `?ai_key=${aiKey}&provider=${aiProvider}` : ""}`;
-        const res = await fetch(url);
+        const res = await fetch(url, { headers: { "ngrok-skip-browser-warning": "true" } });
         const json = await res.json();
         
         if (json.success && json.signals) {

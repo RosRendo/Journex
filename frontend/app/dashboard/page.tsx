@@ -87,13 +87,13 @@ export default function Dashboard() {
     // Poll the MT5 Python bridge /health endpoint
     const fetchMT5 = async () => {
       try {
-        const res = await fetch(`${BRIDGE_URL}/health`);
+        const res = await fetch(`${BRIDGE_URL}/health`, { headers: { "ngrok-skip-browser-warning": "true" } });
         if (res.ok) {
           const data = await res.json();
           // /health gives us connected + balance, try /api/account for full stats
           if (data.connected) {
             try {
-              const accRes = await fetch(`${BRIDGE_URL}/api/account`);
+              const accRes = await fetch(`${BRIDGE_URL}/api/account`, { headers: { "ngrok-skip-browser-warning": "true" } });
               if (accRes.ok) {
                 const acc = await accRes.json();
                 setMt5Data({
@@ -251,7 +251,7 @@ export default function Dashboard() {
             <Target className="w-5 h-5 text-gray-400" />
             <h2 className="text-lg font-semibold text-gray-200">Account Pulse <span className="text-xs text-gray-500 font-normal block">Live execution metrics</span></h2>
          </div>
-         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
            {/* Legacy account cards ported to new dark aesthetic */}
            <div className="p-4 bg-[#0c0c0d]/90 border border-white/5 rounded-xl shadow-lg relative overflow-hidden group hover:border-blue-500/30 transition-colors">
               <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 blur-[20px] rounded-full pointer-events-none"></div>

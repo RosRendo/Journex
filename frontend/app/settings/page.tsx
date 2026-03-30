@@ -44,13 +44,13 @@ export default function EnvironmentSettings() {
     // 1. Test bridge health
     try {
       setDiagResults({ bridge: "pending" });
-      const r = await fetch(`${bridge}/health`, { signal: AbortSignal.timeout(4000) });
+      const r = await fetch(`${bridge}/health`, { headers: { "ngrok-skip-browser-warning": "true" },  signal: AbortSignal.timeout(4000) });
       const d = await r.json();
       next.bridge = d.status === "running" ? "ok" : "fail";
       next.mt5 = d.connected ? "ok" : "fail";
       if (d.connected) {
         try {
-          const ar = await fetch(`${bridge}/api/account`);
+          const ar = await fetch(`${bridge}/api/account`, { headers: { "ngrok-skip-browser-warning": "true" } });
           const acc = await ar.json();
           if (acc.success) {
             next.account = `Login #${acc.login} · ${acc.currency ?? "USD"}`;
@@ -68,9 +68,8 @@ export default function EnvironmentSettings() {
       next.aiTest = "skipped";
     } else {
       try {
-        const r2 = await fetch(
-          `${bridge}/api/ai-analysis?symbol=XAUUSD&ai_key=${encodeURIComponent(apiKey)}&provider=${provider}`,
-          { signal: AbortSignal.timeout(15000) }
+        const r2 = await fetch(`${bridge}/api/ai-analysis?symbol=XAUUSD&ai_key=${encodeURIComponent(apiKey)}&provider=${provider}`,
+          { headers: { "ngrok-skip-browser-warning": "true" }, signal: AbortSignal.timeout(15000) }
         );
         const d2 = await r2.json();
         next.aiTest = d2.success ? "ok" : "fail";
@@ -200,7 +199,7 @@ export default function EnvironmentSettings() {
                 <div className="space-y-8 max-w-lg">
                   <div>
                     <label className="block text-[10px] uppercase font-bold tracking-widest text-[--text-tertiary] mb-3">Master UI Theme</label>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {["Deep Space (Default)", "Cyberpunk Neon", "Midnight Ash", "Polar White (Locked)"].map(t => (
                         <div key={t} onClick={() => !t.includes("Locked") && setTheme(t)} className={`border rounded-xl p-4 cursor-pointer transition-all ${theme === t ? "border-[--accent] bg-[--accent]/5" : "hover:bg-[--bg-elevated]"}`} style={{ borderColor: theme === t ? "var(--accent)" : "var(--border)", opacity: t.includes("Locked") ? 0.4 : 1 }}>
                           <div className="w-4 h-4 rounded-full mb-3 shadow-inner" style={{ background: t.includes("Space") ? "#050505" : t.includes("Ash") ? "#1a1a1a" : t.includes("White") ? "#ffffff" : "#0f0814", border: "1px solid var(--border-strong)" }} />

@@ -59,7 +59,7 @@ export default function MacroDeskPage() {
 
   const fetchNews = async () => {
     try {
-      const res = await fetch(`${BRIDGE}/api/news`);
+      const res = await fetch(`${BRIDGE}/api/news`, { headers: { "ngrok-skip-browser-warning": "true" } });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data.success && Array.isArray(data.news) && data.news.length > 0) {
@@ -88,7 +88,7 @@ export default function MacroDeskPage() {
 
   const fetchSignals = async () => {
     try {
-      const res = await fetch(`${BRIDGE}/api/technicals`);
+      const res = await fetch(`${BRIDGE}/api/technicals`, { headers: { "ngrok-skip-browser-warning": "true" } });
       const data = await res.json();
       if (data.success && data.signals) setSignals(data.signals);
     } catch (_) {}
@@ -96,7 +96,7 @@ export default function MacroDeskPage() {
 
   const fetchCalendar = async () => {
     try {
-      const res = await fetch(`${BRIDGE}/api/calendar`);
+      const res = await fetch(`${BRIDGE}/api/calendar`, { headers: { "ngrok-skip-browser-warning": "true" } });
       const data = await res.json();
       if (data.success) setCalEvents(data.events);
     } catch (_) {}

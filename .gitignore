@@ -53,3 +53,6 @@ backend/node_modules/.prisma/
 
 # ─── Testing ────────────────────────────────────────────────────────────────────
 coverage/
+
+.vercel
+.env*.local

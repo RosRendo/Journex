@@ -69,8 +69,8 @@ async function drawChart(
     countAfter = 40;
   }
 
-  const res = await fetch(
-    `${BRIDGE}/api/historical-candles?symbol=${encodeURIComponent(firstTrade.pair)}&target_time=${minTs}&timeframe=${timeframe}&count_before=${countBefore}&count_after=${countAfter}`,
+  const res = await fetch(`${BRIDGE}/api/historical-candles?symbol=${encodeURIComponent(firstTrade.pair)}&target_time=${minTs}&timeframe=${timeframe}&count_before=${countBefore}&count_after=${countAfter}`,
+    { headers: { "ngrok-skip-browser-warning": "true" } }
   );
   const data = await res.json();
 

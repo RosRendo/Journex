@@ -25,7 +25,7 @@ export function RightSidebar() {
     if (!isOpen || activeTab !== "positions") return;
     try {
       const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
-      const res = await fetch(`${bridgeUrl}/api/positions`);
+      const res = await fetch(`${bridgeUrl}/api/positions`, { headers: { "ngrok-skip-browser-warning": "true" } });
       if (!res.ok) throw new Error("Bridge offline");
       const data = await res.json();
       

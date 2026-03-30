@@ -35,7 +35,7 @@ export default function PropComplianceDashboard() {
     const fetchAccount = async () => {
       try {
         const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
-        const res = await fetch(`${bridgeUrl}/api/account`);
+        const res = await fetch(`${bridgeUrl}/api/account`, { headers: { "ngrok-skip-browser-warning": "true" } });
         if (!res.ok) throw new Error("Offline");
         const data = await res.json();
         

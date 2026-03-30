@@ -147,7 +147,7 @@ export default function CommunityPage() {
         formData.append("image", file);
 
         try {
-            const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000"}/api/upload`, {
+            const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000"}/api/upload`, { headers: { "ngrok-skip-browser-warning": "true" }, 
                 method: "POST",
                 body: formData
             });
@@ -184,7 +184,7 @@ export default function CommunityPage() {
         try {
             setPriceLoading(true);
             const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
-            const res = await fetch(`${bridgeUrl}/api/symbol-price?symbol=${signalPair.toUpperCase()}`);
+            const res = await fetch(`${bridgeUrl}/api/symbol-price?symbol=${signalPair.toUpperCase()}`, { headers: { "ngrok-skip-browser-warning": "true" } });
             if (!res.ok) throw new Error("Bridge not reachable");
             const data = await res.json();
             if (!data.success) throw new Error(data.error || "Price fetch failed");
@@ -424,10 +424,10 @@ export default function CommunityPage() {
     };
 
     return (
-        <div className="flex flex-col lg:flex-row gap-6 max-h-[calc(100vh-6rem)] relative overflow-hidden">
+        <div className="flex flex-col lg:flex-row gap-6 lg:max-h-[calc(100vh-6rem)] relative overflow-hidden lg:overflow-visible">
 
             {/* ─── MAIN FEED ─── */}
-            <div className="flex-1 flex flex-col min-w-0 max-h-full">
+            <div className="flex-1 flex flex-col min-w-0 lg:max-h-full">
                 {/* Header */}
                 <div className="mb-6 flex items-center justify-between">
                     <div>

@@ -51,7 +51,7 @@ const XAUUSDMonitor: React.FC = () => {
   const fetchRESTData = useCallback(async () => {
     try {
       if (!isMonitoring) return;
-      const response = await fetch(`${serverUrl}/api/live-data`);
+      const response = await fetch(`${serverUrl}/api/live-data`, { headers: { "ngrok-skip-browser-warning": "true" } });
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const result = await response.json();
       if (result.success && result.data) { setConnectionStatus("connected"); updatePriceDisplay(result.data); }
