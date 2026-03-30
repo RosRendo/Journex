@@ -54,7 +54,7 @@ interface Candle {
 type DataSource = "mt5" | "demo" | "loading";
 
 /* ─── Constants ──────────────────────────────────────────────────────────── */
-const MT5_API = "";
+const MT5_API = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
 
 const PAIRS = [
   {
@@ -373,6 +373,10 @@ export default function LiveMonitorChart() {
   const [lotSize, setLotSize] = useState<number>(0.01);
   const [isExecuting, setIsExecuting] = useState(false);
 
+  // Real data state for Scorer
+  const [technicals, setTechnicals] = useState<any>(null);
+  const [calculations, setCalculations] = useState<any>(null);
+
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Re-check market status every minute
@@ -381,6 +385,32 @@ export default function LiveMonitorChart() {
     const moId = setInterval(() => setMarketOpen(isMarketOpen()), 60_000);
     return () => clearInterval(moId);
   }, []);
+
+  // Poll for Scorer intelligence data
+  useEffect(() => {
+    if (!marketOpen || source !== "mt5") return;
+    const fetchRealData = async () => {
+      try {
+        const [techRes, calcRes] = await Promise.all([
+          fetch(`${MT5_API}/api/technicals`, { headers: { "ngrok-skip-browser-warning": "true" } }),
+          fetch(`${MT5_API}/api/calculations`, { headers: { "ngrok-skip-browser-warning": "true" } })
+        ]);
+        const techData = await techRes.json();
+        const calcData = await calcRes.json();
+        if (techData.success) {
+           const match = techData.signals.find((s: any) => s.symbol.replace("m", "") === pair.key);
+           if (match) setTechnicals(match);
+        }
+        if (calcData.calculations) {
+           const match = calcData.calculations.find((c: any) => c.symbol.replace("m", "") === pair.key);
+           if (match) setCalculations(match);
+        }
+      } catch (e) {}
+    }
+    fetchRealData();
+    const id = setInterval(fetchRealData, 5000);
+    return () => clearInterval(id);
+  }, [pair.key, marketOpen, source]);
 
   /* ── Fetch: try MT5 → fall back to demo ── */
   const loadData = useCallback(async () => {
@@ -771,10 +801,10 @@ export default function LiveMonitorChart() {
       </div>
 
       {/* ── SPLIT LAYOUT: CHART + RIGHT PANEL ── */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-col lg:flex-row flex-1 overflow-y-auto lg:overflow-hidden">
         
-        {/* ── CHART PANEL (65%) ── */}
-        <div className="w-full lg:w-[65%] relative h-full bg-[--bg-base] border-r" style={{ borderColor: "var(--border)" }}>
+        {/* ── CHART PANEL (65% on desktop, fixed 450px on mobile) ── */}
+        <div className="w-full lg:w-[65%] relative h-[450px] lg:h-full bg-[--bg-base] border-b lg:border-b-0 lg:border-r flex-shrink-0" style={{ borderColor: "var(--border)" }}>
           <LWChart
             key={`${pair.key}-${iv.seconds}-${ct}`}
             candles={candles}
@@ -791,8 +821,8 @@ export default function LiveMonitorChart() {
           )}
         </div>
 
-        {/* ── INTELLIGENCE PANEL (35%) ── */}
-        <div className="hidden lg:flex flex-col w-[35%] h-full bg-[var(--bg-card)] border-l" style={{ borderColor: "var(--border)" }}>
+        {/* ── INTELLIGENCE PANEL (35% on desktop) ── */}
+        <div className="flex flex-col w-full lg:w-[35%] lg:h-full bg-[var(--bg-card)] border-l-0 lg:border-l flex-shrink-0 lg:flex-shrink" style={{ borderColor: "var(--border)" }}>
           
           {/* Panel Tabs */}
           <div className="flex items-center gap-1 p-2 border-b overflow-x-auto custom-scrollbar" style={{ borderColor: "var(--border)", background: "var(--bg-base)" }}>
@@ -820,20 +850,20 @@ export default function LiveMonitorChart() {
           </div>
 
           {/* Panel Content Scroll Area */}
-          <div className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-4 pb-12">
+          <div className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-4 pb-12 min-h-[400px]">
             
             {activePanel === "setup" && (
               <>
                 <SetupScorer
-                  currentRSI={45}          // Mocked indicator
-                  currentATR={0.0012}      // Mocked indicator
-                  avgATR={0.0010}          // Mocked indicator
-                  currentSpread={12}       // Mocked indicator
-                  avgSpread={11}           // Mocked indicator
-                  rrRatio={2.1}            // Mocked indicator (derived from ticket / user inputs)
-                  nextNewsMinutes={145}    // Mocked news clear (will update via real calendar polling)
+                  currentRSI={technicals?.rsi ?? 50}
+                  currentATR={calculations?.atr ?? 0.0012}
+                  avgATR={calculations?.atr ?? 0.0010}
+                  currentSpread={calculations?.spread ?? 15}
+                  avgSpread={12}
+                  rrRatio={2.5}
+                  nextNewsMinutes={145}
                   livePrice={displayPrice}
-                  sma50={displayPrice ? displayPrice * 0.999 : null} // Mocking uptrend
+                  sma50={technicals?.ema50 ?? (displayPrice ? displayPrice * 0.99 : null)}
                   tradeDirection="buy"
                 />
                 <NewsCountdown pair={pair.key} />
