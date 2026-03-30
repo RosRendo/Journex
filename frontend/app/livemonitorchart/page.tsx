@@ -16,7 +16,15 @@ import {
   FlaskConical,
   AlertCircle,
   MoonStar,
+  Target,
+  ActivitySquare,
+  History,
 } from "lucide-react";
+
+import { SetupScorer } from "@/components/ui/SetupScorer";
+import { NewsCountdown } from "@/components/ui/NewsCountdown";
+import { CorrelationMatrix } from "@/components/ui/CorrelationMatrix";
+import { SessionWinRate } from "@/components/ui/SessionWinRate";
 
 /* ─── Market hours helper ────────────────────────────────────────────────── */
 // Forex market is open Sunday 22:00 UTC → Friday 22:00 UTC.
@@ -357,6 +365,9 @@ export default function LiveMonitorChart() {
   const [crosshair, setCrosshair] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [marketOpen, setMarketOpen] = useState<boolean>(isMarketOpen());
+
+  // Panel state
+  const [activePanel, setActivePanel] = useState<"setup" | "correlation" | "sessions">("setup");
 
   // Execution states
   const [lotSize, setLotSize] = useState<number>(0.01);
@@ -759,22 +770,98 @@ export default function LiveMonitorChart() {
         </div>
       </div>
 
-      {/* ── FULL SCREEN CHART ── */}
-      <div className="flex-1 relative w-full h-full bg-[--bg-base]">
-        <LWChart
-          key={`${pair.key}-${iv.seconds}-${ct}`}
-          candles={candles}
-          chartType={ct}
-          pairColor={pair.color}
-          onCrosshairMove={setCrosshair}
-        />
+      {/* ── SPLIT LAYOUT: CHART + RIGHT PANEL ── */}
+      <div className="flex flex-1 overflow-hidden">
+        
+        {/* ── CHART PANEL (65%) ── */}
+        <div className="w-full lg:w-[65%] relative h-full bg-[--bg-base] border-r" style={{ borderColor: "var(--border)" }}>
+          <LWChart
+            key={`${pair.key}-${iv.seconds}-${ct}`}
+            candles={candles}
+            chartType={ct}
+            pairColor={pair.color}
+            onCrosshairMove={setCrosshair}
+          />
 
-        {/* Floating Session / Watermark Layer */}
-        {!marketOpen && (
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 px-6 py-3 rounded-full border border-[--border] bg-[--bg-elevated] text-[13px] font-bold text-[--text-tertiary] flex items-center gap-2 shadow-2xl backdrop-blur-md z-10">
-            <MoonStar size={16} /> Market Closed (Opens Sun 22:00 UTC)
+          {/* Floating Session / Watermark Layer */}
+          {!marketOpen && (
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 px-6 py-3 rounded-full border border-[--border] bg-[--bg-elevated] text-[13px] font-bold text-[--text-tertiary] flex items-center gap-2 shadow-2xl backdrop-blur-md z-10">
+              <MoonStar size={16} /> Market Closed (Opens Sun 22:00 UTC)
+            </div>
+          )}
+        </div>
+
+        {/* ── INTELLIGENCE PANEL (35%) ── */}
+        <div className="hidden lg:flex flex-col w-[35%] h-full bg-[var(--bg-card)] border-l" style={{ borderColor: "var(--border)" }}>
+          
+          {/* Panel Tabs */}
+          <div className="flex items-center gap-1 p-2 border-b overflow-x-auto custom-scrollbar" style={{ borderColor: "var(--border)", background: "var(--bg-base)" }}>
+            <button
+              onClick={() => setActivePanel("setup")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${activePanel === "setup" ? "bg-[--bg-card] shadow-sm text-[--text-primary]" : "text-[--text-tertiary] hover:bg-[--bg-elevated]"}`}
+              style={{ border: activePanel === "setup" ? "1px solid var(--border)" : "1px solid transparent" }}
+            >
+              <Target size={14} /> Setup Scorer
+            </button>
+            <button
+              onClick={() => setActivePanel("correlation")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${activePanel === "correlation" ? "bg-[--bg-card] shadow-sm text-[--text-primary]" : "text-[--text-tertiary] hover:bg-[--bg-elevated]"}`}
+              style={{ border: activePanel === "correlation" ? "1px solid var(--border)" : "1px solid transparent" }}
+            >
+              <ActivitySquare size={14} /> Matrix
+            </button>
+            <button
+              onClick={() => setActivePanel("sessions")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${activePanel === "sessions" ? "bg-[--bg-card] shadow-sm text-[--text-primary]" : "text-[--text-tertiary] hover:bg-[--bg-elevated]"}`}
+              style={{ border: activePanel === "sessions" ? "1px solid var(--border)" : "1px solid transparent" }}
+            >
+              <History size={14} /> Win Rate
+            </button>
           </div>
-        )}
+
+          {/* Panel Content Scroll Area */}
+          <div className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-4 pb-12">
+            
+            {activePanel === "setup" && (
+              <>
+                <SetupScorer
+                  currentRSI={45}          // Mocked indicator
+                  currentATR={0.0012}      // Mocked indicator
+                  avgATR={0.0010}          // Mocked indicator
+                  currentSpread={12}       // Mocked indicator
+                  avgSpread={11}           // Mocked indicator
+                  rrRatio={2.1}            // Mocked indicator (derived from ticket / user inputs)
+                  nextNewsMinutes={145}    // Mocked news clear (will update via real calendar polling)
+                  livePrice={displayPrice}
+                  sma50={displayPrice ? displayPrice * 0.999 : null} // Mocking uptrend
+                  tradeDirection="buy"
+                />
+                <NewsCountdown pair={pair.key} />
+              </>
+            )}
+
+            {activePanel === "correlation" && (
+              <>
+                <div className="mb-2">
+                  <h3 className="text-[13px] font-bold" style={{ color: "var(--text-primary)" }}>Risk Mapping</h3>
+                  <p className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>Major pairs correlation matrix.</p>
+                </div>
+                <CorrelationMatrix openPositions={[{ pair: pair.key, direction: "buy" }]} />
+              </>
+            )}
+
+            {activePanel === "sessions" && (
+              <>
+                <div className="mb-2">
+                  <h3 className="text-[13px] font-bold" style={{ color: "var(--text-primary)" }}>Historical Performance</h3>
+                  <p className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>Your journal win-rate per session.</p>
+                </div>
+                <SessionWinRate pairFilter={pair.key} />
+              </>
+            )}
+
+          </div>
+        </div>
       </div>
     </div>
   );
