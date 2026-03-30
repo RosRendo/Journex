@@ -11,6 +11,11 @@ import {
 import { toast } from "sonner";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
+import { NewsImpactHeader } from "@/components/ui/NewsImpactHeader";
+import { EventPlaybook } from "@/components/ui/EventPlaybook";
+import { BiasSupportCard } from "@/components/ui/BiasSupportCard";
+import { LiveWireNewsItem } from "@/components/ui/LiveWireNewsItem";
+
 const BRIDGE = process.env.NEXT_PUBLIC_BRIDGE_URL ?? "http://localhost:5003";
 
 /* ── Types ── */
@@ -42,6 +47,8 @@ export default function MacroDeskPage() {
   const [fearGreed, setFearGreed] = useState(42); // 0-100 Mock
   const isFirstFetch = useRef(true);
   const seenIds = useRef(new Set<string>());
+
+  const [selectedDeepDive, setSelectedDeepDive] = useState<NewsItem | CalEvent | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -186,23 +193,20 @@ export default function MacroDeskPage() {
 
           <div className="space-y-3 h-[700px] overflow-y-auto pr-2 custom-scrollbar">
             {news.map(n => (
-              <div key={n.id} className="p-4 rounded-xl border transition-colors hover:bg-[--bg-elevated] cursor-pointer" 
-                   style={{ background: n.isHot ? "rgba(245,158,11,0.03)" : "var(--bg-card)", borderColor: n.isHot ? "rgba(245,158,11,0.3)" : "var(--border)" }}>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    {n.isHot && <span className="bg-[--warning] text-black text-[9px] font-black px-1.5 py-0.5 rounded shadow-[0_0_10px_rgba(245,158,11,0.5)]"><Flame className="w-3 h-3 inline"/> HOT</span>}
-                    <span className="text-[11px] font-bold uppercase text-[--text-secondary] bg-[--bg-base] px-2 py-0.5 border border-[--border] rounded">{n.source}</span>
-                    <span className="text-[11px] font-mono text-[--text-tertiary]">{n.time}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    {n.sentiment === 'bullish' && <span className="text-[10px] uppercase font-bold text-[--profit] flex items-center"><TrendingUp className="w-3 h-3 mr-0.5"/> Bull</span>}
-                    {n.sentiment === 'bearish' && <span className="text-[10px] uppercase font-bold text-[--loss] flex items-center"><TrendingDown className="w-3 h-3 mr-0.5"/> Bear</span>}
-                    {n.sentiment === 'neutral' && <span className="text-[10px] uppercase font-bold text-[--text-tertiary] flex items-center"><Minus className="w-3 h-3 mr-0.5"/> Neu</span>}
-                  </div>
-                </div>
-                <h4 className="text-[14px] font-bold text-[--text-primary] leading-snug mb-1">{n.title}</h4>
-                {n.summary && <p className="text-[12px] text-[--text-secondary] line-clamp-2 leading-relaxed">{n.summary}</p>}
-              </div>
+              <LiveWireNewsItem 
+                key={n.id}
+                id={n.id}
+                title={n.title}
+                source={n.source}
+                time={n.time}
+                summary={n.summary}
+                isHot={n.isHot}
+                sentiment={n.sentiment}
+                tags={n.title.toUpperCase().includes("FED") ? ["Fed", "US Data"] : ["Macro", n.symbol || "XAUUSD"]}
+                heatScore={n.isHot ? Math.floor(Math.random() * 4) + 6 : 0} // mock heat score 6-9
+                selected={!!(selectedDeepDive && 'id' in selectedDeepDive && selectedDeepDive.id === n.id)}
+                onClick={() => setSelectedDeepDive(n)}
+              />
             ))}
             {news.length === 0 && !loading && (
               <div className="py-20 text-center text-[--text-tertiary] border border-[--border] border-dashed rounded-xl">
@@ -212,51 +216,110 @@ export default function MacroDeskPage() {
           </div>
         </div>
 
-        {/* RIGHT COL: CALENDAR & SIGNALS */}
+        {/* RIGHT COL: CALENDAR & SIGNALS OR DEEP DIVE */}
         <div className="space-y-6">
           
-          {/* Calendar Widget */}
-          <div className="rounded-2xl border p-5 flex flex-col h-[340px]" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
-             <div className="flex items-center justify-between mb-4 pb-2 border-b" style={{ borderColor: "var(--border)" }}>
-                <h3 className="text-[14px] font-bold text-[--text-primary] flex items-center gap-2"><Calendar className="w-4 h-4 text-[#3b82f6]"/> Economic Calendar</h3>
-             </div>
-             <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3">
-               {calEvents.slice(0, 15).map((e, i) => (
-                 <div key={i} className="flex gap-3 items-center">
-                   <div className="w-12 text-[11px] font-mono text-[--text-tertiary] text-right shrink-0">{e.time}</div>
-                   <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${e.impact === 'high' ? 'bg-[--loss] shadow-[0_0_5px_rgba(255,77,106,0.8)]' : e.impact === 'medium' ? 'bg-[--warning]' : 'bg-[--text-tertiary]'}`} />
-                   <div className="flex-1 min-w-0">
-                     <div className="text-[12px] font-bold text-[--text-primary] truncate">{e.event}</div>
-                     <div className="text-[10px] font-bold text-[--text-secondary] uppercase">{e.currency} • Est: {e.forecast || '-'}</div>
-                   </div>
-                 </div>
-               ))}
-             </div>
-          </div>
-
-          {/* MT5 Signals Widget */}
-          <div className="rounded-2xl border p-5 flex flex-col h-[340px]" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
-             <div className="flex items-center justify-between mb-4 pb-2 border-b" style={{ borderColor: "var(--border)" }}>
-                <h3 className="text-[14px] font-bold text-[--text-primary] flex items-center gap-2"><Target className="w-4 h-4 text-[--accent]"/> Flow Alignment</h3>
-             </div>
-             <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3">
-               {signals.length === 0 ? (
-                 <div className="text-[12px] text-[--text-tertiary] text-center mt-10">No clear H4 alignments detected.</div>
+          {selectedDeepDive ? (
+            <div className="space-y-6 animate-in slide-in-from-right-4 fade-in duration-300">
+               <div className="flex items-center justify-between">
+                 <h3 className="text-[14px] font-bold text-[--text-tertiary] uppercase tracking-widest">Intelligence Deep Dive</h3>
+                 <button onClick={() => setSelectedDeepDive(null)} className="text-[11px] font-bold text-[--text-secondary] hover:text-[--text-primary] bg-[--bg-elevated] px-3 py-1.5 rounded-full border border-[--border]">Close ✕</button>
+               </div>
+               
+               {"id" in selectedDeepDive ? (
+                 // News Event Deep Dive
+                 <>
+                   <NewsImpactHeader 
+                     headline={selectedDeepDive.title}
+                     higherTimeframe={selectedDeepDive.sentiment === 'bullish' ? 'Bullish' : selectedDeepDive.sentiment === 'bearish' ? 'Bearish' : 'Neutral'}
+                     intraday={selectedDeepDive.sentiment === 'bullish' ? 'Slightly Bullish' : selectedDeepDive.sentiment === 'bearish' ? 'Slightly Bearish' : 'Ranging'}
+                   />
+                   <BiasSupportCard 
+                     bias={selectedDeepDive.sentiment === 'bullish' ? 'Bullish' : selectedDeepDive.sentiment === 'bearish' ? 'Bearish' : 'Neutral'}
+                     bullets={[
+                       `${selectedDeepDive.sentiment === 'bullish' ? 'Positive' : 'Negative'} macroeconomic drivers confirmed`,
+                       "Central bank forward guidance remains clear",
+                       "Institutional positioning aligned with structural trend",
+                       "Recent data points support algorithmic continuation"
+                     ]}
+                   />
+                 </>
                ) : (
-                 signals.map((s, i) => (
-                   <div key={i} className="p-3 rounded-lg border bg-[--bg-base]" style={{ borderColor: "var(--border)" }}>
-                     <div className="flex justify-between items-center mb-1">
-                       <span className="font-bold font-mono text-[13px] text-[--text-primary]">{s.pair}</span>
-                       <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${s.signal === 'buy' ? 'bg-[--bull] text-black' : s.signal === 'sell' ? 'bg-[--bear] text-white' : 'bg-[--bg-elevated] text-[--text-tertiary]'}`}>
-                         {s.signal} {s.signal !== 'neutral' && `${s.strength}%`}
-                       </span>
-                     </div>
-                     <div className="text-[11px] text-[--text-secondary]">{s.reason}</div>
-                   </div>
-                 ))
+                 // Calendar Event Deep Dive
+                 <>
+                   <EventPlaybook 
+                     title={selectedDeepDive.event}
+                     countryCode={selectedDeepDive.currency.slice(0, 2) === "USD" ? "US" : selectedDeepDive.currency.slice(0, 2) === "EUR" ? "EU" : selectedDeepDive.currency.slice(0, 2) === "GBP" ? "UK" : selectedDeepDive.currency.slice(0, 2) === "JPY" ? "JP" : "US"}
+                     timeFormatted={selectedDeepDive.time}
+                     impactLevel={selectedDeepDive.impact}
+                     countdown="in about 10 hours"
+                     bullets={[
+                       "Shapes near-term central bank rate decisions",
+                       "Signals underlying labor / inflation cooling trend",
+                       "Historically volatile for related pairs and yields",
+                       "Risk of sharp liquidity deterioration on release"
+                     ]}
+                     impactedCurrency={selectedDeepDive.currency}
+                     scenarios={[
+                       { label: "Above", type: "above", threshold1: {name: "MAX", value: 150}, threshold2: {name: "ACT", value: 80}, impact1: "Very Bullish", impact2: "Bullish" },
+                       { label: "On forecast", type: "on", threshold1: {name: "BANK", value: 50}, threshold2: {name: "FCST", value: 50}, impact1: "Ranging", impact2: "Ranging" },
+                       { label: "Below", type: "below", threshold1: {name: "ACT", value: 20}, threshold2: {name: "MIN", value: -20}, impact1: "Bearish", impact2: "Very Bearish" }
+                     ]}
+                     aiFootnote={`Stronger data (>50) supports ${selectedDeepDive.currency} bullish via hawkish recalibration. Watch broader context during press conference.`}
+                   />
+                 </>
                )}
-             </div>
-          </div>
+            </div>
+          ) : (
+            <>
+              {/* Calendar Widget (Default View) */}
+              <div className="rounded-2xl border p-5 flex flex-col h-[340px]" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+                 <div className="flex items-center justify-between mb-4 pb-2 border-b" style={{ borderColor: "var(--border)" }}>
+                    <h3 className="text-[14px] font-bold text-[--text-primary] flex items-center gap-2"><Calendar className="w-4 h-4 text-[#3b82f6]"/> Economic Calendar</h3>
+                 </div>
+                 <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3">
+                   {calEvents.slice(0, 15).map((e, i) => (
+                     <div 
+                       key={i} 
+                       className="flex gap-3 items-center p-2 rounded-lg cursor-pointer hover:bg-[--bg-elevated] transition-colors border border-transparent hover:border-[--border]"
+                       onClick={() => setSelectedDeepDive(e)}
+                     >
+                       <div className="w-12 text-[11px] font-mono text-[--text-tertiary] text-right shrink-0">{e.time}</div>
+                       <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${e.impact === 'high' ? 'bg-[--loss] shadow-[0_0_5px_rgba(255,77,106,0.8)]' : e.impact === 'medium' ? 'bg-[--warning]' : 'bg-[--text-tertiary]'}`} />
+                       <div className="flex-1 min-w-0">
+                         <div className="text-[12px] font-bold text-[--text-primary] truncate">{e.event}</div>
+                         <div className="text-[10px] font-bold text-[--text-secondary] uppercase">{e.currency} • Est: {e.forecast || '-'}</div>
+                       </div>
+                     </div>
+                   ))}
+                 </div>
+              </div>
+
+              {/* MT5 Signals Widget (Default View) */}
+              <div className="rounded-2xl border p-5 flex flex-col h-[340px]" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+                 <div className="flex items-center justify-between mb-4 pb-2 border-b" style={{ borderColor: "var(--border)" }}>
+                    <h3 className="text-[14px] font-bold text-[--text-primary] flex items-center gap-2"><Target className="w-4 h-4 text-[--accent]"/> Flow Alignment</h3>
+                 </div>
+                 <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3">
+                   {signals.length === 0 ? (
+                     <div className="text-[12px] text-[--text-tertiary] text-center mt-10">No clear H4 alignments detected.</div>
+                   ) : (
+                     signals.map((s, i) => (
+                       <div key={i} className="p-3 rounded-lg border bg-[--bg-base]" style={{ borderColor: "var(--border)" }}>
+                         <div className="flex justify-between items-center mb-1">
+                           <span className="font-bold font-mono text-[13px] text-[--text-primary]">{s.pair}</span>
+                           <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${s.signal === 'buy' ? 'bg-[--bull] text-black' : s.signal === 'sell' ? 'bg-[--bear] text-white' : 'bg-[--bg-elevated] text-[--text-tertiary]'}`}>
+                             {s.signal} {s.signal !== 'neutral' && `${s.strength}%`}
+                           </span>
+                         </div>
+                         <div className="text-[11px] text-[--text-secondary]">{s.reason}</div>
+                       </div>
+                     ))
+                   )}
+                 </div>
+              </div>
+            </>
+          )}
 
         </div>
 

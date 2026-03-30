@@ -301,9 +301,15 @@ def set_alert_config(req: AlertConfigModel):
 async def test_alert(type: str = "news"):
     """Send a test notification to verify webhook/bot setup."""
     is_cal = type == "calendar"
-    webhook = _alert_config.get("discord_calendar_webhook" if is_cal else "discord_news_webhook", "")
+    chan_key = "calendar" if is_cal else "news"
+    webhook = _alert_config.get(f"discord_{chan_key}_webhook", "")
     tg_token = _alert_config.get("telegram_bot_token", "")
-    tg_chat = _alert_config.get("telegram_cal_chat_id" if is_cal else "telegram_news_chat_id", "")
+    # Resolve Telegram target: Mode A (dedicated channel) or Mode B (group + thread)
+    tg_chat = (
+        _alert_config.get(f"telegram_chat_{chan_key}", "") or
+        _alert_config.get("telegram_chat_id", "")
+    )
+    tg_thread = _alert_config.get(f"telegram_thread_{chan_key}", "")
 
     sent = []
     embed = {
@@ -316,7 +322,9 @@ async def test_alert(type: str = "news"):
         await discord_webhook_embed(webhook, [embed])
         sent.append("discord")
     if tg_token and tg_chat:
-        await telegram_send(tg_token, tg_chat, f"✅ TradeKiller Alert Test\n{'📅 Calendar' if is_cal else '📰 News'} notifications are working!")
+        await telegram_send(tg_token, tg_chat,
+            f"✅ TradeKiller Alert Test\n{'📅 Calendar' if is_cal else '📰 News'} notifications are working!",
+            message_thread_id=tg_thread if tg_thread else None)
         sent.append("telegram")
     if not sent:
         return {"success": False, "error": "No webhook/token configured for this alert type"}
@@ -2316,6 +2324,54 @@ def _fetch_calendar_events() -> list:
         return []
 
 
+@app.post("/api/calendar/post-now")
+async def calendar_post_now():
+    """Force-post today's economic calendar to Discord + Telegram immediately."""
+    cal_webhook = _alert_config.get("discord_calendar_webhook", "")
+    tg_tok = _alert_config.get("telegram_bot_token", "")
+    tg_cid = (
+        _alert_config.get("telegram_chat_calendar", "") or
+        _alert_config.get("telegram_chat_id", "")
+    )
+    tg_thread = _alert_config.get("telegram_thread_calendar", "")
+
+    events = _fetch_calendar_events()
+    if not events:
+        return {"success": False, "error": "No events found for today"}
+
+    today = datetime.now().date()
+    bullet_lines = []
+    for ev in events:
+        icon = "🔴" if ev["impact"] == "high" else "🟡"
+        actual_str = f" → **{ev['actual']}**" if ev.get("actual") else ""
+        bullet_lines.append(
+            f"{icon} `{ev['time']}` **{ev['currency']}** {ev['event']} "
+            f"(Fcst: {ev['forecast']} | Prev: {ev['previous']}){actual_str}"
+        )
+
+    sent = []
+    if cal_webhook:
+        embed = {
+            "title": f"📅 Forex Economic Calendar — {today.strftime('%A, %d %B %Y')}",
+            "description": "\n".join(bullet_lines[:20])[:4000],
+            "color": 0x6366f1,
+            "footer": {"text": "TradeKiller Calendar • Source: ForexFactory"},
+        }
+        await discord_webhook_embed(cal_webhook, [embed])
+        sent.append("discord")
+
+    if tg_tok and tg_cid:
+        lines = [f"📅 <b>Forex Calendar — {today.strftime('%A, %d %B %Y')}</b>"]
+        for ev in events[:20]:
+            icon = "🔴" if ev["impact"] == "high" else "🟡"
+            lines.append(f"{icon} {ev['time']} <b>{ev['currency']}</b> {ev['event']} (Fcst: {ev['forecast']} | Prev: {ev['previous']})")
+        await telegram_send(tg_tok, tg_cid, "\n".join(lines),
+                            message_thread_id=tg_thread if tg_thread else None)
+        sent.append("telegram")
+
+    return {"success": True, "sent_to": sent, "events": len(events)}
+
+
 async def discord_calendar_loop():
     """Post today's forex calendar to Discord on startup, then every 1 hour for new events."""
     await asyncio.sleep(15)  # wait for server fully up
@@ -2349,15 +2405,20 @@ async def discord_calendar_loop():
                         "footer": {"text": "TradeKiller Calendar • Source: ForexFactory"},
                     }
                     await discord_webhook_embed(cal_webhook, [embed])
-                    # Also post to Telegram calendar
+                    # Also post to Telegram calendar (Mode A or Mode B)
                     tg_tok = _alert_config.get("telegram_bot_token", "")
-                    tg_cid = _alert_config.get("telegram_cal_chat_id", "")
+                    tg_cid = (
+                        _alert_config.get("telegram_chat_calendar", "") or  # Mode A: dedicated channel
+                        _alert_config.get("telegram_chat_id", "")            # Mode B: group w/ topics
+                    )
+                    tg_thread = _alert_config.get("telegram_thread_calendar", "")
                     if tg_tok and tg_cid:
                         lines = [f"📅 <b>Forex Calendar — {today.strftime('%A, %d %B %Y')}</b>"]
                         for ev in events[:15]:
                             icon = "🔴" if ev["impact"] == "high" else "🟡"
                             lines.append(f"{icon} {ev['time']} <b>{ev['currency']}</b> {ev['event']} (Fcst: {ev['forecast']} | Prev: {ev['previous']})")
-                        await telegram_send(tg_tok, tg_cid, "\n".join(lines))
+                        await telegram_send(tg_tok, tg_cid, "\n".join(lines),
+                                            message_thread_id=tg_thread if tg_thread else None)
                     posted_today = True
                     last_post_date = today
                     print(f"[discord] Calendar posted: {len(events)} events")
@@ -2376,11 +2437,17 @@ async def discord_calendar_loop():
                             f"(Forecast: **{ev['forecast']}**, Previous: {ev['previous']})"
                         )
                         await discord_webhook_text(cal_webhook, alert)
-                        # Telegram 15-min ping
+                        # Telegram 15-min ping (Mode A or Mode B)
                         tg_tok = _alert_config.get("telegram_bot_token", "")
-                        tg_cid = _alert_config.get("telegram_cal_chat_id", "")
+                        tg_cid = (
+                            _alert_config.get("telegram_chat_calendar", "") or
+                            _alert_config.get("telegram_chat_id", "")
+                        )
+                        tg_thread = _alert_config.get("telegram_thread_calendar", "")
                         if tg_tok and tg_cid:
-                            await telegram_send(tg_tok, tg_cid, alert.replace("**", "").replace("`", ""))
+                            await telegram_send(tg_tok, tg_cid,
+                                                alert.replace("**", "").replace("`", ""),
+                                                message_thread_id=tg_thread if tg_thread else None)
 
         except Exception as e:
             print(f"[discord] Calendar loop error: {e}")
