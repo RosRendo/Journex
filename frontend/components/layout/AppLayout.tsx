@@ -104,8 +104,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
           </SubscriptionGate>
         </main>
 
-        {/* Right Sidebar - Hidden on mobile, visible on huge screens contextually */}
-        <div className="hidden xl:flex flex-shrink-0">
+        {/* Right Sidebar */}
+        <div className="flex-shrink-0 z-40">
           <RightSidebar />
         </div>
       </div>

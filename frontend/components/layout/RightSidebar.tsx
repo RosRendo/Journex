@@ -15,27 +15,27 @@ interface Position {
 
 export function RightSidebar() {
   const [activeTab, setActiveTab] = useState<"positions" | "alerts" | "news">("positions");
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
   
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchPositions = useCallback(async () => {
-    if (!isOpen || activeTab !== "positions") return;
+    if (activeTab !== "positions") return;
     try {
       const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
       const res = await fetch(`${bridgeUrl}/api/positions`, { headers: { "ngrok-skip-browser-warning": "true" } });
       if (!res.ok) throw new Error("Bridge offline");
       const data = await res.json();
       
-      const mapped: Position[] = (data.data || []).map((p: any) => ({
+      const mapped: Position[] = (data.positions || []).map((p: any) => ({
         ticket: p.ticket,
         pair: p.symbol,
         side: p.type === 0 ? "BUY" : "SELL",
         entry: p.price_open,
         pl: p.profit,
-        plPct: (p.profit / 1000) * 100 // Approximation since we don't have balance context here easily
+        plPct: (p.profit / 1000) * 100
       }));
       setPositions(mapped.sort((a,b) => b.pl - a.pl));
       setError(null);
@@ -44,7 +44,7 @@ export function RightSidebar() {
     } finally {
       setLoading(false);
     }
-  }, [isOpen, activeTab]);
+  }, [activeTab]);
 
   useEffect(() => {
     fetchPositions();
@@ -52,19 +52,32 @@ export function RightSidebar() {
     return () => clearInterval(interval);
   }, [fetchPositions]);
 
-  if (!isOpen) {
-    return (
-      <button 
-        onClick={() => setIsOpen(true)}
-        className="fixed right-0 top-1/2 -translate-y-1/2 bg-[--bg-card] border-l border-y border-[--border] p-2 rounded-l-xl text-[--text-secondary] hover:text-[--text-primary]"
-      >
-        <TrendingUp className="w-5 h-5" />
-      </button>
-    );
-  }
-
   return (
-    <div className="w-[300px] h-full flex flex-col bg-[--bg-card] border-l border-[--border] flex-shrink-0">
+    <>
+      {/* Mobile Toggle Button (Visible when closed on mobile) */}
+      {!isOpen && (
+        <button 
+          onClick={() => setIsOpen(true)}
+          className="fixed right-0 top-1/2 -translate-y-1/2 bg-[--bg-card] border-l border-y border-[--border] p-2 rounded-l-xl text-[--text-secondary] hover:text-[--text-primary] z-50 shadow-xl xl:hidden"
+        >
+          <TrendingUp className="w-5 h-5" />
+        </button>
+      )}
+
+      {/* Mobile Backdrop */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 z-40 xl:hidden backdrop-blur-sm transition-opacity"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
+      {/* Sidebar Panel - Always visible inline on xl; conditionally visible fixed on mobile */}
+      <div className={`
+        ${isOpen ? "fixed animate-in slide-in-from-right" : "hidden"} 
+        xl:flex xl:relative xl:w-[300px] xl:animate-none
+        w-[280px] h-full flex flex-col right-0 top-0 bottom-0 bg-[--bg-card] border-l border-[--border] flex-shrink-0 z-50 shadow-2xl xl:shadow-none
+      `}>
       
       {/* Header */}
       <div className="h-14 flex items-center justify-between px-4 border-b border-[--border] flex-shrink-0">
@@ -174,5 +187,6 @@ export function RightSidebar() {
 
       </div>
     </div>
+    </>
   );
 }
