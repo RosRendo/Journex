@@ -113,7 +113,7 @@ export default function Accounts() {
 
   const fetchDbAccounts = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/accounts`);
+      const res = await fetch(`${API_URL}/api/accounts`, { headers: { "ngrok-skip-browser-warning": "true" } });
       if (res.ok) {
         const json = await res.json();
         const dbAccs = json.data || [];
@@ -137,7 +137,7 @@ export default function Accounts() {
     const fetchPulse = async () => {
       try {
         setPulseLoading(true);
-        const accRes = await fetch(`${BRIDGE_URL}/api/account`);
+        const accRes = await fetch(`${BRIDGE_URL}/api/account`, { headers: { "ngrok-skip-browser-warning": "true" } });
         if (accRes.ok) {
           const acc = await accRes.json();
           if (acc.success && acc.account) {
@@ -248,7 +248,7 @@ export default function Accounts() {
 
   const removeMt5Account = async (id: number) => {
     try {
-      await fetch(`${API_URL}/api/accounts/${id}`, { method: "DELETE" });
+      await fetch(`${API_URL}/api/accounts/${id}`, { headers: { "ngrok-skip-browser-warning": "true" },  method: "DELETE" });
       if (masterAccount === id) setMasterAccount(null);
       await fetchDbAccounts();
     } catch(e) {}

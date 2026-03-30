@@ -38,7 +38,7 @@ export default function ProfilePage() {
 
     const fetchProfile = async () => {
         try {
-            const res = await fetch(`${API}/profile`);
+            const res = await fetch(`${API}/profile`, { headers: { "ngrok-skip-browser-warning": "true" } });
             if (res.ok) {
                 const data = await res.json();
                 setProfile(data);
@@ -50,7 +50,7 @@ export default function ProfilePage() {
 
     const fetchMyPosts = async () => {
         try {
-            const res = await fetch(`${API}/posts`);
+            const res = await fetch(`${API}/posts`, { headers: { "ngrok-skip-browser-warning": "true" } });
             if (res.ok) {
                 const all = await res.json();
                 // show all for now — later filter by authorId once auth is wired
@@ -73,7 +73,7 @@ export default function ProfilePage() {
         formData.append("image", file);
 
         try {
-            const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000"}/api/upload`, {
+            const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000"}/api/upload`, { headers: { "ngrok-skip-browser-warning": "true" }, 
                 method: "POST",
                 body: formData
             });

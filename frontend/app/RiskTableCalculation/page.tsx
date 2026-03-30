@@ -69,7 +69,7 @@ export default function ForexRiskDashboard() {
 
   const fetchMT5Balance = useCallback(async () => {
     try {
-      const response = await fetchWithRetry(`${MT5_API}/health`, {}, 2, 500);
+      const response = await fetchWithRetry(`${MT5_API}/health`, { headers: { "ngrok-skip-browser-warning": "true" }, }, 2, 500);
       const accountData = await response.json();
       if (accountData.balance) {
         setData((prev) => ({ ...prev, balance: accountData.balance }));
@@ -84,9 +84,8 @@ export default function ForexRiskDashboard() {
       if (showSpinner) setIsRefreshing(true);
       try {
         const qs = `?risk_percent=${riskPercent}&rr_ratio=${rrRatio}&atr_sl_multiplier=${atrMultiplier}`;
-        const response = await fetchWithRetry(
-          `${MT5_API}/api/calculations${qs}`,
-          {},
+        const response = await fetchWithRetry(`${MT5_API}/api/calculations${qs}`,
+          { headers: { "ngrok-skip-browser-warning": "true" }, },
           2,
           500,
         );
@@ -128,7 +127,7 @@ export default function ForexRiskDashboard() {
   const startCalculator = async () => {
     setIsLoading(true);
     try {
-      await fetch(`${MT5_API}/api/start`, { method: "POST" });
+      await fetch(`${MT5_API}/api/start`, { headers: { "ngrok-skip-browser-warning": "true" },  method: "POST" });
       setData((prev) => ({ ...prev, is_running: true }));
       await fetchData();
     } catch {
@@ -142,7 +141,7 @@ export default function ForexRiskDashboard() {
   const stopCalculator = async () => {
     setIsLoading(true);
     try {
-      await fetch(`${MT5_API}/api/stop`, { method: "POST" });
+      await fetch(`${MT5_API}/api/stop`, { headers: { "ngrok-skip-browser-warning": "true" },  method: "POST" });
       setData((prev) => ({ ...prev, is_running: false }));
     } catch {
       alert("Error stopping calculator");

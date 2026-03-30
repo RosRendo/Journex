@@ -93,7 +93,7 @@ export default function BacktestingPage() {
     if (!session || replayBusyRef.current) return;
     replayBusyRef.current = true;
     try {
-      const response = await fetch(`${BACKTEST_API_URL}/replay/${session.session_id}/next`, { method: "POST" });
+      const response = await fetch(`${BACKTEST_API_URL}/replay/${session.session_id}/next`, { headers: { "ngrok-skip-browser-warning": "true" },  method: "POST" });
       const data = await response.json();
       if (data.success && data.progress !== undefined) {
         setProgress(data.progress); setCurrentIndex(data.progress.current_index);
@@ -131,7 +131,7 @@ export default function BacktestingPage() {
 
   const loadStatus = async (sessionId: string) => {
     try {
-      const response = await fetch(`${BACKTEST_API_URL}/replay/${sessionId}/status`);
+      const response = await fetch(`${BACKTEST_API_URL}/replay/${sessionId}/status`, { headers: { "ngrok-skip-browser-warning": "true" } });
       const data = await response.json();
       if (data.success) {
         setCurrentCandle(data.current_candle); setProgress(data.progress); setCurrentIndex(data.progress?.current_index ?? 0);
@@ -143,7 +143,7 @@ export default function BacktestingPage() {
   const previousCandle = async () => {
     if (!session) return;
     try {
-      const response = await fetch(`${BACKTEST_API_URL}/replay/${session.session_id}/previous`, { method: "POST" });
+      const response = await fetch(`${BACKTEST_API_URL}/replay/${session.session_id}/previous`, { headers: { "ngrok-skip-browser-warning": "true" },  method: "POST" });
       const data = await response.json();
       if (data.success && data.progress) {
         setProgress(data.progress); setCurrentIndex(data.progress.current_index); setCurrentCandle(data.candle);

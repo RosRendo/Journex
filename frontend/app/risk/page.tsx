@@ -65,7 +65,7 @@ export default function RiskPage() {
   };
 
   useEffect(() => {
-    fetch(`${BRIDGE}/api/calculations`, { signal: AbortSignal.timeout(3000) })
+    fetch(`${BRIDGE}/api/calculations`, { headers: { "ngrok-skip-browser-warning": "true" },  signal: AbortSignal.timeout(3000) })
       .then((r) => r.json())
       .then((data) => {
         if (data.error) { setMt5Connected(false); return; }
@@ -81,7 +81,7 @@ export default function RiskPage() {
     if (mt5Connected === false) return;
     setFetchingPrice(true);
     try {
-      const res = await fetch(`${BRIDGE}/api/symbol-price?symbol=${symbol}`);
+      const res = await fetch(`${BRIDGE}/api/symbol-price?symbol=${symbol}`, { headers: { "ngrok-skip-browser-warning": "true" } });
       const data = await res.json();
       if (data.success) setLivePrice(data);
     } catch { } finally { setFetchingPrice(false); }
@@ -195,7 +195,7 @@ export default function RiskPage() {
                   </label>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <FieldInput label="Account Balance" value={balance} onChange={(v) => handleChange("balance", v)} suffix="$" />
                   <FieldInput label="Risk %" value={riskPercent} onChange={(v) => handleChange("riskPercent", v)} suffix="%" />
                   <FieldInput label="SL Range (Pips)" value={stopLossPips} onChange={(v) => handleChange("stopLossPips", v)} suffix="pips" />
@@ -216,7 +216,7 @@ export default function RiskPage() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {/* Symbol */}
                   <div>
                     <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: "var(--text-tertiary)" }}>Symbol</label>
@@ -248,8 +248,7 @@ export default function RiskPage() {
                   </div>
                 </div>
 
-                {/* SL / TP */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <FieldInput label="Stop Loss Price" value={sl} onChange={(v) => { if (autoRrEnabled) setAutoRrEnabled(false); handleChange("sl", v); }} highlighted="bear" />
                   <FieldInput label="Take Profit Price" value={tp} onChange={(v) => { if (autoRrEnabled) setAutoRrEnabled(false); handleChange("tp", v); }} highlighted="bull" />
                 </div>
@@ -302,8 +301,8 @@ export default function RiskPage() {
         </>
       ) : (
         /* Risk Table Tab */
-        <div className="rounded-xl border overflow-hidden" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
-          <table className="w-full text-[12px]">
+        <div className="rounded-xl border overflow-x-auto scrollbar-none" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+          <table className="w-full text-[12px] min-w-[500px]">
             <thead>
               <tr style={{ background: "var(--bg-elevated)", borderBottom: "1px solid var(--border)" }}>
                 {["Risk %", "Risk $", "Lots", "1:1 Target", "1:2 Target", "1:3 Target"].map((col) => (

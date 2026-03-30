@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import {
-  LogOut, User, Settings, Bell, X, Flame, TrendingUp, TrendingDown, CreditCard, ChevronDown, Palette
+  LogOut, User, Settings, Bell, X, Flame, TrendingUp, TrendingDown, CreditCard, ChevronDown, Palette, Menu
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
@@ -80,7 +80,7 @@ function HeaderNavDropdown({ group }: { group: typeof HEADER_GROUPS[0] }) {
   );
 }
 
-export default function Navbar() {
+export default function Navbar({ onMenuToggle }: { onMenuToggle?: () => void }) {
   const { data: session } = useSession();
   const { theme, setTheme } = useTheme();
   const user = session?.user;
@@ -180,8 +180,16 @@ export default function Navbar() {
       style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
     >
       {/* Left: Logo & Header Nav */}
-      <div className="flex items-center gap-8">
+      <div className="flex items-center gap-4 lg:gap-8">
         <div className="flex items-center gap-2">
+          {onMenuToggle && (
+            <button
+              onClick={onMenuToggle}
+              className="lg:hidden p-1.5 -ml-2 rounded-lg text-[--text-secondary] hover:text-[--text-primary] hover:bg-[--bg-elevated] transition-colors"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+          )}
           <div className="w-7 h-7 rounded-lg bg-[--accent] flex items-center justify-center">
             <span className="text-black text-xs font-black">T</span>
           </div>

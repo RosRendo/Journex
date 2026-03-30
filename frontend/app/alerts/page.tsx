@@ -47,7 +47,7 @@ export default function AlertSettingsPage() {
   const [testing, setTesting] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`${BRIDGE}/api/alert-config`)
+    fetch(`${BRIDGE}/api/alert-config`, { headers: { "ngrok-skip-browser-warning": "true" } })
       .then((r) => r.json())
       .then((data) => {
         setConfig((prev) => ({ ...prev, ...data }));
@@ -76,7 +76,7 @@ export default function AlertSettingsPage() {
   const test = async (type: "news" | "calendar") => {
     setTesting(type);
     try {
-      const res = await fetch(`${BRIDGE}/api/alert-config/test?type=${type}`, {
+      const res = await fetch(`${BRIDGE}/api/alert-config/test?type=${type}`, { headers: { "ngrok-skip-browser-warning": "true" }, 
         method: "POST",
       });
       const data = await res.json();

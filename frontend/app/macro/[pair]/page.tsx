@@ -230,7 +230,7 @@ function useMT5ChartData(pair: string, timeframe: string) {
         setLoading(true);
         const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
         // Fetch last 60 candles
-        const res = await fetch(`${bridgeUrl}/api/historical-candles?symbol=${pair}&timeframe=${tfMap[timeframe] || "D1"}&count=60`);
+        const res = await fetch(`${bridgeUrl}/api/historical-candles?symbol=${pair}&timeframe=${tfMap[timeframe] || "D1"}&count=60`, { headers: { "ngrok-skip-browser-warning": "true" } });
         if (!res.ok) throw new Error("Offline");
         const json = await res.json();
         
@@ -270,8 +270,8 @@ function useRelativeStrength(pair: string) {
         const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
         // Fetch pair and a basket proxy (US30 or SPX500 if available)
         const [pairRes, basketRes] = await Promise.all([
-          fetch(`${bridgeUrl}/api/historical-candles?symbol=${pair}&timeframe=H1&count=48`),
-          fetch(`${bridgeUrl}/api/historical-candles?symbol=US30&timeframe=H1&count=48`) // Simple 1-asset proxy for now
+          fetch(`${bridgeUrl}/api/historical-candles?symbol=${pair}&timeframe=H1&count=48`, { headers: { "ngrok-skip-browser-warning": "true" } }),
+          fetch(`${bridgeUrl}/api/historical-candles?symbol=US30&timeframe=H1&count=48`, { headers: { "ngrok-skip-browser-warning": "true" } }) // Simple 1-asset proxy for now
         ]);
         
         let pData: any[] = [], bData: any[] = [];
@@ -323,7 +323,7 @@ function useAiAnalysis(pair: string) {
         const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
         const aiKey = typeof window !== "undefined" ? localStorage.getItem("ai_key") : null;
         const aiProvider = typeof window !== "undefined" ? localStorage.getItem("ai_provider") || "openai" : "openai";
-        const res = await fetch(`${bridgeUrl}/api/ai-analysis?symbol=${pair}${aiKey ? `&ai_key=${aiKey}&provider=${aiProvider}` : ""}`);
+        const res = await fetch(`${bridgeUrl}/api/ai-analysis?symbol=${pair}${aiKey ? `&ai_key=${aiKey}&provider=${aiProvider}` : ""}`, { headers: { "ngrok-skip-browser-warning": "true" } });
         if (!res.ok) throw new Error("Offline");
         const json = await res.json();
         if (json.success && json.analysis) {

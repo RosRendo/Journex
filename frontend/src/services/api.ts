@@ -41,7 +41,7 @@ class ApiService {
         if (value !== undefined) queryParams.append(key, String(value));
       });
     }
-    const response = await fetch(`${BACKEND_URL}/api/trades?${queryParams}`);
+    const response = await fetch(`${BACKEND_URL}/api/trades?${queryParams}`, { headers: { "ngrok-skip-browser-warning": "true" } });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return response.json();
   }
@@ -69,7 +69,7 @@ class ApiService {
   }
 
   async deleteTrade(id: number): Promise<void> {
-    const response = await fetch(`${BACKEND_URL}/api/trades/${id}`, {
+    const response = await fetch(`${BACKEND_URL}/api/trades/${id}`, { headers: { "ngrok-skip-browser-warning": "true" }, 
       method: "DELETE",
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -78,7 +78,7 @@ class ApiService {
   async uploadImage(file: File): Promise<string> {
     const formData = new FormData();
     formData.append("image", file);
-    const response = await fetch(`${BACKEND_URL}/api/upload`, {
+    const response = await fetch(`${BACKEND_URL}/api/upload`, { headers: { "ngrok-skip-browser-warning": "true" }, 
       method: "POST",
       body: formData,
     });
@@ -89,13 +89,13 @@ class ApiService {
 
   // MT5 Bridge API
   async getBridgeAccountInfo(): Promise<AccountInfo> {
-    const response = await fetch(`${BRIDGE_URL}/account`);
+    const response = await fetch(`${BRIDGE_URL}/account`, { headers: { "ngrok-skip-browser-warning": "true" } });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return response.json();
   }
 
   async getBridgeTrades(hours: number = 24): Promise<any[]> {
-    const response = await fetch(`${BRIDGE_URL}/trades?hours=${hours}`);
+    const response = await fetch(`${BRIDGE_URL}/trades?hours=${hours}`, { headers: { "ngrok-skip-browser-warning": "true" } });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const result = await response.json();
     return result.trades || [];
@@ -103,13 +103,13 @@ class ApiService {
 
   // XAUUSD Bot API
   async getBotStatus(): Promise<any> {
-    const response = await fetch(`${BACKEND_URL}/api/status`);
+    const response = await fetch(`${BACKEND_URL}/api/status`, { headers: { "ngrok-skip-browser-warning": "true" } });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return response.json();
   }
 
   async getBotAccount(): Promise<any> {
-    const response = await fetch(`${BACKEND_URL}/api/account`);
+    const response = await fetch(`${BACKEND_URL}/api/account`, { headers: { "ngrok-skip-browser-warning": "true" } });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return response.json();
   }

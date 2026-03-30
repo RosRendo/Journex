@@ -65,8 +65,10 @@ export function SessionTimeline() {
   const utcTimeStr = `${String(utcH).padStart(2, "0")}:${String(utcM).padStart(2, "0")}`;
 
   return (
-    <div className="rounded-xl border p-4" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
-      {/* Row 1: Session Pills */}
+    <div className="rounded-xl border flex flex-col overflow-hidden" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+      <div className="overflow-x-auto scrollbar-none w-full">
+        <div className="min-w-[650px] p-4">
+          {/* Row 1: Session Pills */}
       <div className="flex flex-wrap gap-4 mb-4">
         {SESSIONS.map((s) => {
           const { isOpen, isPreMarket, countdown } = getSessionStatus(s.open, s.close, utcH, utcM);
@@ -173,6 +175,8 @@ export function SessionTimeline() {
             {String(h).padStart(2, "0")}:00
           </span>
         ))}
+      </div>
+        </div>
       </div>
     </div>
   );

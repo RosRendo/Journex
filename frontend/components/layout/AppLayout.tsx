@@ -43,7 +43,13 @@ function StatusBar() {
 
 export default function AppLayout({ children }: AppLayoutProps) {
   const pathname = usePathname();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   useAutoMT5Connect();
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
 
   const isStandalonePage =
     pathname === "/" ||
@@ -62,16 +68,33 @@ export default function AppLayout({ children }: AppLayoutProps) {
   return (
     <div className="flex flex-col h-screen overflow-hidden" style={{ background: "var(--bg-base)", color: "var(--text-primary)" }}>
       {/* Top Bar */}
-      <Navbar />
+      <Navbar onMenuToggle={() => setIsMobileMenuOpen(true)} />
 
       {/* Body */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left Sidebar */}
-        <PrimarySidebar />
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Desktop Sidebar */}
+        <div className="hidden lg:flex flex-shrink-0">
+          <PrimarySidebar />
+        </div>
+
+        {/* Mobile Sidebar Overlay */}
+        {isMobileMenuOpen && (
+          <div className="fixed inset-0 z-50 lg:hidden flex">
+            {/* Backdrop */}
+            <div 
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
+              onClick={() => setIsMobileMenuOpen(false)}
+            />
+            {/* Drawer */}
+            <div className="relative w-[240px] h-full shadow-2xl animate-in slide-in-from-left duration-200">
+              <PrimarySidebar />
+            </div>
+          </div>
+        )}
 
         {/* Main Content */}
         <main
-          className="flex-1 overflow-y-auto p-5"
+          className="flex-1 overflow-y-auto p-3 sm:p-5"
           style={{ background: "var(--bg-base)" }}
         >
           <SubscriptionGate>
@@ -81,12 +104,16 @@ export default function AppLayout({ children }: AppLayoutProps) {
           </SubscriptionGate>
         </main>
 
-        {/* Right Sidebar */}
-        <RightSidebar />
+        {/* Right Sidebar - Hidden on mobile, visible on huge screens contextually */}
+        <div className="hidden xl:flex flex-shrink-0">
+          <RightSidebar />
+        </div>
       </div>
 
       {/* Bottom Status Bar */}
-      <StatusBar />
+      <div className="overflow-x-auto scrollbar-none">
+        <StatusBar />
+      </div>
     </div>
   );
 }

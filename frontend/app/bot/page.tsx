@@ -77,7 +77,7 @@ function BotSettingsTab() {
 
   const fetchBots = async () => {
     try {
-      const res = await fetch(`${BRIDGE}/api/bots`);
+      const res = await fetch(`${BRIDGE}/api/bots`, { headers: { "ngrok-skip-browser-warning": "true" } });
       const data = await res.json();
       if (data.success) setBots(data.bots);
     } catch (e) { console.error("Could not fetch bots"); }
@@ -108,7 +108,7 @@ function BotSettingsTab() {
 
   const toggleBot = async (id: string) => {
     try {
-      await fetch(`${BRIDGE}/api/bots/${id}/toggle`, { method: "POST" });
+      await fetch(`${BRIDGE}/api/bots/${id}/toggle`, { headers: { "ngrok-skip-browser-warning": "true" },  method: "POST" });
       fetchBots();
     } catch (e) { console.error(e); }
   };
@@ -116,7 +116,7 @@ function BotSettingsTab() {
   const deleteBot = async (id: string) => {
     if (!confirm("Are you sure you want to delete this bot?")) return;
     try {
-       await fetch(`${BRIDGE}/api/bots/${id}`, { method: "DELETE" });
+       await fetch(`${BRIDGE}/api/bots/${id}`, { headers: { "ngrok-skip-browser-warning": "true" },  method: "DELETE" });
        fetchBots();
     } catch (e) { console.error(e); }
   };

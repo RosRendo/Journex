@@ -377,9 +377,8 @@ export default function LiveMonitorChart() {
     setError(null);
 
     try {
-      const res = await fetch(
-        `${MT5_API}/api/candles?symbol=${pair.key}&timeframe=${iv.mt5}&count=${iv.bars}`,
-        { signal: AbortSignal.timeout(3000) },
+      const res = await fetch(`${MT5_API}/api/candles?symbol=${pair.key}&timeframe=${iv.mt5}&count=${iv.bars}`,
+        { headers: { "ngrok-skip-browser-warning": "true" },  signal: AbortSignal.timeout(3000) },
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
@@ -436,9 +435,8 @@ export default function LiveMonitorChart() {
       if (source === "mt5") {
         try {
           // Poll for the last 2 candles to seamlessly update or append the active forming candle
-          const res = await fetch(
-            `${MT5_API}/api/candles?symbol=${pair.key}&timeframe=${iv.mt5}&count=2`,
-            { signal: AbortSignal.timeout(2000) },
+          const res = await fetch(`${MT5_API}/api/candles?symbol=${pair.key}&timeframe=${iv.mt5}&count=2`,
+            { headers: { "ngrok-skip-browser-warning": "true" },  signal: AbortSignal.timeout(2000) },
           );
           if (!res.ok) return;
           const json = await res.json();

@@ -214,7 +214,7 @@ export function useBrokerAccounts() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`${API_BASE}/api/broker/accounts`);
+      const response = await fetch(`${API_BASE}/api/broker/accounts`, { headers: { "ngrok-skip-browser-warning": "true" } });
 
       if (!response.ok) {
         throw new Error("Failed to fetch accounts");
