@@ -21,6 +21,9 @@ export function RightSidebar() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [news, setNews] = useState<any[]>([]);
+  const [newsLoading, setNewsLoading] = useState(false);
+
   const fetchPositions = useCallback(async () => {
     if (activeTab !== "positions") return;
     try {
@@ -46,11 +49,32 @@ export function RightSidebar() {
     }
   }, [activeTab]);
 
+  const fetchNews = useCallback(async () => {
+    if (activeTab !== "news") return;
+    setNewsLoading(true);
+    try {
+      const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
+      const res = await fetch(`${bridgeUrl}/api/news`, { headers: { "ngrok-skip-browser-warning": "true" } });
+      const data = await res.json();
+      if (data.success && data.news) {
+        setNews(data.news);
+      }
+    } catch (err: any) {
+      console.error(err);
+    } finally {
+      setNewsLoading(false);
+    }
+  }, [activeTab]);
+
   useEffect(() => {
     fetchPositions();
     const interval = setInterval(fetchPositions, 5000);
     return () => clearInterval(interval);
   }, [fetchPositions]);
+
+  useEffect(() => {
+    fetchNews();
+  }, [fetchNews]);
 
   return (
     <>
@@ -67,7 +91,7 @@ export function RightSidebar() {
       {/* Mobile Backdrop */}
       {isOpen && (
         <div 
-          className="fixed inset-0 bg-black/60 z-40 xl:hidden backdrop-blur-sm transition-opacity"
+          className="fixed inset-0 bg-transparent z-40 xl:hidden"
           onClick={() => setIsOpen(false)}
         />
       )}
@@ -142,7 +166,7 @@ export function RightSidebar() {
                     </div>
                     <div className="text-right">
                       <span className={`text-[12px] font-mono font-bold ${pos.pl >= 0 ? "text-[--profit]" : "text-[--loss]"}`}>
-                        {pos.pl >= 0 ? "+" : ""}${Math.abs(pos.pl).toFixed(2)}
+                        {pos.pl >= 0 ? "+" : "-"}${Math.abs(pos.pl).toFixed(2)}
                       </span>
                     </div>
                   </div>
@@ -179,9 +203,35 @@ export function RightSidebar() {
 
         {/* News View */}
         {activeTab === "news" && (
-          <div className="flex flex-col items-center justify-center p-8 text-center h-full opacity-50">
-            <Newspaper className="w-8 h-8 text-[--text-tertiary] mb-3" />
-            <p className="text-[12px] text-[--text-secondary] font-medium">Catching up with world events...</p>
+          <div className="space-y-4">
+            {newsLoading && news.length === 0 ? (
+              <div className="flex flex-col items-center justify-center p-8 text-center h-full opacity-50">
+                <RefreshCcw className="w-5 h-5 mx-auto mb-2 animate-spin text-[--text-tertiary]" />
+                <span className="text-[11px] text-[--text-secondary]">Fetching live news...</span>
+              </div>
+            ) : news.length === 0 ? (
+              <div className="flex flex-col items-center justify-center p-8 text-center h-full opacity-50">
+                <Newspaper className="w-8 h-8 text-[--text-tertiary] mb-3" />
+                <p className="text-[12px] text-[--text-secondary] font-medium">No recent news found.</p>
+              </div>
+            ) : (
+              news.map(item => (
+                <a key={item.id} href={item.link} target="_blank" rel="noreferrer" className="block border border-[--border] rounded-xl p-4 bg-[--bg-base] hover:border-[--accent] transition-colors group">
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="text-[10px] uppercase font-bold text-[--text-tertiary]">{item.source} • {item.time}</span>
+                    {item.isHot && <span className="bg-orange-500/20 text-orange-400 text-[9px] font-black uppercase px-1.5 py-0.5 rounded">HOT</span>}
+                  </div>
+                  <h3 className="text-[12px] font-bold text-[--text-primary] leading-snug line-clamp-3 mb-2 group-hover:text-[--accent] transition-colors">
+                    {item.title}
+                  </h3>
+                  <div className="flex items-center justify-between">
+                    <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${item.impact === "bullish" ? "bg-[--bull]/10 text-[--bull]" : item.impact === "bearish" ? "bg-[--bear]/10 text-[--bear]" : "bg-[--text-tertiary]/10 text-[--text-secondary]"}`}>
+                      {item.symbol} {item.impact}
+                    </span>
+                  </div>
+                </a>
+              ))
+            )}
           </div>
         )}
 

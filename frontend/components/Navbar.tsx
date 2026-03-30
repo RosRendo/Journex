@@ -122,7 +122,8 @@ export default function Navbar({ onMenuToggle }: { onMenuToggle?: () => void }) 
 
     const pollNews = async () => {
       try {
-        const res = await fetch("/api/news");
+        const BRIDGE = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
+        const res = await fetch(`${BRIDGE}/api/news`, { headers: { "ngrok-skip-browser-warning": "true" } });
         const data = await res.json();
         if (!data.success || !data.news) return;
 
@@ -137,6 +138,15 @@ export default function Navbar({ onMenuToggle }: { onMenuToggle?: () => void }) 
         if (newHot.length > 0 && !isFirstFetch) {
           setNewsUnread(prev => prev + newHot.length);
           newHot.forEach((item: any) => {
+            fetch(`${BRIDGE}/api/notify`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                message: `🔴 **HOT NEWS:** ${item.title}\nSymbol: ${item.symbol} | Impact: ${item.impact}`,
+                channel: "news"
+              })
+            }).catch(() => {});
+            
             toast.custom((t) => (
               <div className="border border-orange-500/40 rounded-xl p-4 shadow-2xl relative overflow-hidden w-[380px]"
                 style={{ background: "#0f0c07" }}>
