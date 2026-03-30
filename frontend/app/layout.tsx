@@ -2,6 +2,7 @@ import "./ssr-shim";
 import "@/app/globals.css";
 import { Providers } from "./providers";
 import AppLayout from "@/components/layout/AppLayout";
+import { TrialBanner } from "@/components/ui/TrialBanner";
 import { Syne, DM_Sans, JetBrains_Mono } from "next/font/google";
 
 export const dynamic = "force-dynamic";
@@ -26,9 +27,9 @@ export default function RootLayout({
       <body style={{ background: "var(--bg-base)", color: "var(--text-primary)" }}>
         <Providers>
           <AppLayout>{children}</AppLayout>
+          <TrialBanner />
         </Providers>
       </body>
     </html>
   );
 }
-

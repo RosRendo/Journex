@@ -14,10 +14,13 @@ export const authConfig: NextAuthConfig = {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
       const pathname = nextUrl.pathname;
+      const user = auth?.user as any;
 
       const isAuthPage = pathname.startsWith("/auth");
       const isPublicPage =
-        isAuthPage || pathname.startsWith("/subscription") || pathname === "/";
+        isAuthPage ||
+        pathname.startsWith("/subscription") ||
+        pathname === "/";
 
       if (isAuthPage) {
         // Redirect logged-in users away from auth pages
@@ -28,12 +31,18 @@ export const authConfig: NextAuthConfig = {
 
       if (isPublicPage) return true;
 
-      // Protect all other routes
+      // Protect all other routes — require login
       if (!isLoggedIn) {
         const from = pathname + (nextUrl.search ?? "");
         return Response.redirect(
           new URL(`/auth?callbackUrl=${encodeURIComponent(from)}`, nextUrl),
         );
+      }
+
+      // ── Trial Gate ──────────────────────────────────────────
+      // If trial has expired AND user is not a paid subscriber, bounce them.
+      if (user?.isTrialExpired && !user?.isPro) {
+        return Response.redirect(new URL("/subscription", nextUrl));
       }
 
       return true;

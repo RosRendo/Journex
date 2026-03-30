@@ -51,13 +51,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (user) {
         token.id = user.id;
         token.email = user.email;
+        // Stamp createdAt once on first sign-in
+        if (!token.createdAt) {
+          token.createdAt = Date.now();
+        }
 
         // Google OAuth users: check if this is YOUR email for lifetime
         if (account?.provider === "google") {
           const adminEmails = ["rousrendo@gmail.com"];
           token.isPro = adminEmails.includes(user.email ?? "");
           token.plan = token.isPro ? "lifetime" : "free";
-          token.trialEndsAt = null;
+          token.trialEndsAt = token.isPro ? null : (token.createdAt as number) + 7 * 24 * 60 * 60 * 1000;
         } else {
           // Credentials provider → always lifetime mock
           token.isPro = true;
@@ -73,6 +77,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         (session.user as any).isPro = token.isPro;
         (session.user as any).plan = token.plan;
         (session.user as any).trialEndsAt = token.trialEndsAt;
+        (session.user as any).createdAt = token.createdAt;
+        // Compute trial expiry for easy consumption by client components
+        const trialEnd = token.trialEndsAt as number | null;
+        (session.user as any).isTrialExpired =
+          trialEnd !== null && Date.now() > trialEnd;
+        (session.user as any).trialDaysLeft = trialEnd
+          ? Math.max(0, Math.ceil((trialEnd - Date.now()) / (1000 * 60 * 60 * 24)))
+          : null;
       }
       return session;
     },
