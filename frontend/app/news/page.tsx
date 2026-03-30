@@ -45,6 +45,7 @@ export default function MacroDeskPage() {
   
   const [alertsOn, setAlertsOn] = useState(false);
   const [fearGreed, setFearGreed] = useState(42); // 0-100 Mock
+  const [navDate, setNavDate] = useState(new Date());
   const isFirstFetch = useRef(true);
   const seenIds = useRef(new Set<string>());
 
@@ -119,6 +120,14 @@ export default function MacroDeskPage() {
 
   const fgColor = fearGreed < 25 ? "var(--loss)" : fearGreed < 45 ? "var(--warning)" : fearGreed < 75 ? "var(--text-primary)" : "var(--profit)";
   const fgLabel = fearGreed < 25 ? "Extreme Fear" : fearGreed < 45 ? "Fear" : fearGreed < 75 ? "Neutral" : fearGreed < 90 ? "Greed" : "Extreme Greed";
+
+  const currentNavDayStart = new Date(navDate.getFullYear(), navDate.getMonth(), navDate.getDate()).getTime();
+  const currentNavDayEnd = currentNavDayStart + 86400000;
+  
+  const filteredEvents = calEvents.filter((e: any) => {
+    const et = e.timestamp * 1000;
+    return et >= currentNavDayStart && et < currentNavDayEnd;
+  });
 
   return (
     <div className="max-w-[1600px] mx-auto space-y-6 pb-20">
@@ -275,23 +284,36 @@ export default function MacroDeskPage() {
               {/* Calendar Widget (Default View) */}
               <div className="rounded-2xl border p-5 flex flex-col h-[340px]" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
                  <div className="flex items-center justify-between mb-4 pb-2 border-b" style={{ borderColor: "var(--border)" }}>
-                    <h3 className="text-[14px] font-bold text-[--text-primary] flex items-center gap-2"><Calendar className="w-4 h-4 text-[#3b82f6]"/> Economic Calendar</h3>
+                    <h3 className="text-[14px] font-bold text-[--text-primary] flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-[#3b82f6]"/> Economic Calendar
+                    </h3>
+                    <div className="flex items-center gap-1 bg-[--bg-base] rounded-full p-1 border" style={{ borderColor: "var(--border)" }}>
+                      <button onClick={() => setNavDate(new Date(navDate.getTime() - 86400000))} className="px-2 py-0.5 rounded text-[10px] text-[--text-tertiary] hover:text-[--text-primary] transition-colors">◀</button>
+                      <span className="text-[10px] font-bold uppercase w-16 text-center" style={{ color: "var(--text-secondary)" }}>
+                        {navDate.getDate() === new Date().getDate() && navDate.getMonth() === new Date().getMonth() ? "Today" : navDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      </span>
+                      <button onClick={() => setNavDate(new Date(navDate.getTime() + 86400000))} className="px-2 py-0.5 rounded text-[10px] text-[--text-tertiary] hover:text-[--text-primary] transition-colors">▶</button>
+                    </div>
                  </div>
                  <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3">
-                   {calEvents.slice(0, 15).map((e, i) => (
-                     <div 
-                       key={i} 
-                       className="flex gap-3 items-center p-2 rounded-lg cursor-pointer hover:bg-[--bg-elevated] transition-colors border border-transparent hover:border-[--border]"
-                       onClick={() => setSelectedDeepDive(e)}
-                     >
-                       <div className="w-12 text-[11px] font-mono text-[--text-tertiary] text-right shrink-0">{e.time}</div>
-                       <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${e.impact === 'high' ? 'bg-[--loss] shadow-[0_0_5px_rgba(255,77,106,0.8)]' : e.impact === 'medium' ? 'bg-[--warning]' : 'bg-[--text-tertiary]'}`} />
-                       <div className="flex-1 min-w-0">
-                         <div className="text-[12px] font-bold text-[--text-primary] truncate">{e.event}</div>
-                         <div className="text-[10px] font-bold text-[--text-secondary] uppercase">{e.currency} • Est: {e.forecast || '-'}</div>
+                   {filteredEvents.length === 0 ? (
+                     <div className="text-[12px] text-[--text-tertiary] text-center mt-10 italic">No events scheduled.</div>
+                   ) : (
+                     filteredEvents.map((e, i) => (
+                       <div 
+                         key={i} 
+                         className="flex gap-3 items-center p-2 rounded-lg cursor-pointer hover:bg-[--bg-elevated] transition-colors border border-transparent hover:border-[--border]"
+                         onClick={() => setSelectedDeepDive(e)}
+                       >
+                         <div className="w-12 text-[11px] font-mono text-[--text-tertiary] text-right shrink-0">{e.time}</div>
+                         <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${e.impact === 'high' ? 'bg-[--loss] shadow-[0_0_5px_rgba(255,77,106,0.8)]' : e.impact === 'medium' ? 'bg-[--warning]' : 'bg-[--text-tertiary]'}`} />
+                         <div className="flex-1 min-w-0">
+                           <div className="text-[12px] font-bold text-[--text-primary] truncate">{e.event}</div>
+                           <div className="text-[10px] font-bold text-[--text-secondary] uppercase">{e.currency} • Est: {e.forecast || '-'}</div>
+                         </div>
                        </div>
-                     </div>
-                   ))}
+                     ))
+                   )}
                  </div>
               </div>
 

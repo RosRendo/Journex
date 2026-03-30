@@ -32,6 +32,8 @@ export const SIDEBAR_GROUPS: NavGroup[] = [
       { id: "community", label: "Community", href: "/community", icon: Users },
       { id: "strategies", label: "Strategies", href: "/strategies", icon: Library },
       { id: "alerts", label: "Alerts", href: "/notificationandmonitor", icon: Bell },
+      { id: "livemonitor", label: "Live Monitor", href: "/livemonitorchart", icon: Activity },
+      { id: "news", label: "Macro Desk", href: "/news", icon: Newspaper },
       { id: "settings", label: "Settings", href: "/settings", icon: Settings },
     ],
   }
