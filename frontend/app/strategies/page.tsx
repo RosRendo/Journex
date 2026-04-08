@@ -60,13 +60,13 @@ export default function Strategies() {
   }, [trades]);
 
   const directionStats = useMemo(() => {
-    const long = { trades: 0, wins: 0, pnl: 0, sumWin: 0, sumLoss: 0 };
-    const short = { trades: 0, wins: 0, pnl: 0, sumWin: 0, sumLoss: 0 };
+    const long = { trades: 0, wins: 0, losses: 0, pnl: 0, sumWin: 0, sumLoss: 0 };
+    const short = { trades: 0, wins: 0, losses: 0, pnl: 0, sumWin: 0, sumLoss: 0 };
     trades.forEach(t => {
       const s = t.direction === "Long" ? long : short;
       s.trades++;
       s.pnl += t.profit;
-      if (t.profit > 0) { s.wins++; s.sumWin += t.profit; } else { s.sumLoss += Math.abs(t.profit); }
+      if (t.profit > 0) { s.wins++; s.sumWin += t.profit; } else { s.losses++; s.sumLoss += Math.abs(t.profit); }
     });
     return {
       long: { ...long, winRate: long.trades > 0 ? (long.wins / long.trades) * 100 : 0, pf: long.sumLoss > 0 ? long.sumWin / long.sumLoss : 0 },
