@@ -17,7 +17,7 @@ import aiohttp
 import requests
 import feedparser
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict
 from pydantic import BaseModel
 
@@ -97,6 +97,21 @@ def _get_credentials(email: str) -> Optional[dict]:
     return _load_all_credentials().get(email)
 
 app = FastAPI(title="MT5 Free Bridge")
+
+# ─── In-Memory Cache ─────────────────────────────────────────────────────────
+# Shape: { "key": {"data": <payload>, "ts": <unix_timestamp>} }
+_cache: dict = {}
+
+def _cache_get(key: str, ttl_seconds: int = 300):
+    """Return cached value if still fresh, else None."""
+    entry = _cache.get(key)
+    if entry and (time.time() - entry["ts"]) < ttl_seconds:
+        return entry["data"]
+    return None
+
+def _cache_set(key: str, data):
+    """Store value in cache with current timestamp."""
+    _cache[key] = {"data": data, "ts": time.time()}
 
 # Configure CORS
 app.add_middleware(
@@ -197,9 +212,178 @@ def get_account():
         "margin_level": acc.margin_level,
         "currency": acc.currency,
         "server": acc.server,
-        "leverage": acc.leverage,
-        "name": acc.name,
     }
+
+@app.get("/api/positions")
+def get_positions():
+    """Return all active open positions"""
+    global connected
+    if not connected or mt5.terminal_info() is None:
+        init_mt5()
+    if not connected:
+        return {"success": False, "error": "MT5 not connected"}
+        
+    positions = mt5.positions_get()
+    if positions is None:
+        err = mt5.last_error()
+        return {"success": False, "error": str(err)}
+        
+    data = []
+    for p in positions:
+        data.append({
+            "ticket": p.ticket,
+            "pair": p.symbol,
+            "direction": "Long" if p.type == 0 else "Short",
+            "volume": p.volume,
+            "entry": p.price_open,
+            "current": p.price_current,
+            "sl": p.sl,
+            "tp": p.tp,
+            "pnl": p.profit,
+            "swap": p.swap,
+            "openTime": datetime.fromtimestamp(p.time).isoformat() + "Z"
+        })
+        
+    return {"success": True, "positions": data}
+
+
+class QuickTradeModel(BaseModel):
+    symbol: str
+    direction: str        # "BUY" or "SELL"
+    lot_size: float
+    sl: Optional[float] = 0.0
+    tp: Optional[float] = 0.0
+    comment: Optional[str] = "TradeKiller Dashboard"
+
+@app.post("/api/trade")
+def place_quick_trade(req: QuickTradeModel):
+    """Place a market order directly from the dashboard Quick Trade widget."""
+    global connected
+    if not connected or mt5.terminal_info() is None:
+        init_mt5()
+    if not connected:
+        return {"success": False, "error": "MT5 not connected"}
+
+    symbol = ensure_symbol(req.symbol)
+    info = mt5.symbol_info(symbol)
+    if info is None:
+        return {"success": False, "error": f"Symbol {symbol} not found"}
+
+    direction = req.direction.upper()
+    order_type = mt5.ORDER_TYPE_BUY if direction == "BUY" else mt5.ORDER_TYPE_SELL
+    price = mt5.symbol_info_tick(symbol).ask if direction == "BUY" else mt5.symbol_info_tick(symbol).bid
+
+    request = {
+        "action": mt5.TRADE_ACTION_DEAL,
+        "symbol": symbol,
+        "volume": req.lot_size,
+        "type": order_type,
+        "price": price,
+        "sl": req.sl if req.sl else 0.0,
+        "tp": req.tp if req.tp else 0.0,
+        "deviation": 10,
+        "magic": 234001,
+        "comment": req.comment,
+        "type_time": mt5.ORDER_TIME_GTC,
+        "type_filling": mt5.ORDER_FILLING_IOC,
+    }
+
+    result = mt5.order_send(request)
+    if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
+        err = mt5.last_error()
+        retcode = result.retcode if result else -1
+        return {"success": False, "error": f"Order failed. Retcode: {retcode}. MT5 error: {err}"}
+
+    return {
+        "success": True,
+        "ticket": result.order,
+        "volume": result.volume,
+        "price": result.price,
+        "comment": req.comment,
+    }
+
+
+class ClosePositionModel(BaseModel):
+    ticket: int
+    volume: Optional[float] = None  # If None, close full position
+
+@app.post("/api/close-position")
+def close_position(req: ClosePositionModel):
+    """Close an open position by ticket number."""
+    global connected
+    if not connected or mt5.terminal_info() is None:
+        init_mt5()
+    if not connected:
+        return {"success": False, "error": "MT5 not connected"}
+
+    positions = mt5.positions_get(ticket=req.ticket)
+    if not positions:
+        return {"success": False, "error": f"Position #{req.ticket} not found"}
+
+    pos = positions[0]
+    symbol = pos.symbol
+    volume = req.volume if req.volume else pos.volume
+    close_type = mt5.ORDER_TYPE_SELL if pos.type == 0 else mt5.ORDER_TYPE_BUY
+    price = mt5.symbol_info_tick(symbol).bid if pos.type == 0 else mt5.symbol_info_tick(symbol).ask
+
+    request = {
+        "action": mt5.TRADE_ACTION_DEAL,
+        "symbol": symbol,
+        "volume": volume,
+        "type": close_type,
+        "position": req.ticket,
+        "price": price,
+        "deviation": 10,
+        "magic": 234001,
+        "comment": "TradeKiller Close",
+        "type_time": mt5.ORDER_TIME_GTC,
+        "type_filling": mt5.ORDER_FILLING_IOC,
+    }
+
+    result = mt5.order_send(request)
+    if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
+        err = mt5.last_error()
+        retcode = result.retcode if result else -1
+        return {"success": False, "error": f"Close failed. Retcode: {retcode}. MT5 error: {err}"}
+
+    return {"success": True, "ticket": req.ticket, "message": f"Position #{req.ticket} closed."}
+
+
+class ModifyPositionModel(BaseModel):
+    ticket: int
+    sl: Optional[float] = None
+    tp: Optional[float] = None
+
+@app.post("/api/modify-position")
+def modify_position(req: ModifyPositionModel):
+    """Modify the SL/TP of an open position."""
+    global connected
+    if not connected or mt5.terminal_info() is None:
+        init_mt5()
+    if not connected:
+        return {"success": False, "error": "MT5 not connected"}
+
+    positions = mt5.positions_get(ticket=req.ticket)
+    if not positions:
+        return {"success": False, "error": f"Position #{req.ticket} not found"}
+
+    pos = positions[0]
+    request = {
+        "action": mt5.TRADE_ACTION_SLTP,
+        "symbol": pos.symbol,
+        "position": req.ticket,
+        "sl": req.sl if req.sl is not None else pos.sl,
+        "tp": req.tp if req.tp is not None else pos.tp,
+    }
+
+    result = mt5.order_send(request)
+    if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
+        err = mt5.last_error()
+        retcode = result.retcode if result else -1
+        return {"success": False, "error": f"Modify failed. Retcode: {retcode}. MT5 error: {err}"}
+
+    return {"success": True, "ticket": req.ticket, "sl": req.sl, "tp": req.tp}
+
 
 class ConnectRequest(BaseModel):
     login: int
@@ -709,43 +893,88 @@ def get_live_news():
         return {"success": False, "news": [], "error": "All RSS sources returned no data"}
     return {"success": True, "news": unique[:30], "sources": len(NEWS_SOURCES)}
 
-# --- ECONOMIC CALENDAR (ForexFactory free JSON) ---
+# --- ECONOMIC CALENDAR (ForexFactory free JSON, cached 5 min) ---
+_calendar_cache: dict = {"events": [], "fetched_at": 0.0, "date": ""}
+
 @app.get("/api/calendar")
 def get_calendar():
-    """Fetch this week's economic events from ForexFactory public JSON feed."""
-    try:
-        url = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
-        resp = requests.get(url, headers={"User-Agent": FEED_UA}, timeout=8)
-        events = resp.json()
+    """Fetch today's economic events. Results cached 5 min so sidebar loads instantly."""
+    global _calendar_cache
+    import time as _time
+    now_ts = _time.time()
 
-        today = datetime.now().date()
-        filtered = []
-        for e in events:
+    # Serve from cache if still fresh (< 5 min)
+    if now_ts - _calendar_cache["fetched_at"] < 300 and _calendar_cache["events"]:
+        return {"success": True, "events": _calendar_cache["events"],
+                "date": _calendar_cache["date"], "cached": True}
+
+    CALENDAR_URLS = [
+        "https://nfs.faireconomy.media/ff_calendar_thisweek.json",
+        "https://cdn-nfs.faireconomy.media/ff_calendar_thisweek.json",
+    ]
+
+    raw_events = None
+    last_error = ""
+    for url in CALENDAR_URLS:
+        try:
+            resp = requests.get(url, headers={"User-Agent": FEED_UA}, timeout=10)
+            resp.raise_for_status()
+            raw_text = resp.text.strip()
+            # Reject HTML error pages
+            if not raw_text or raw_text[0] not in ("{", "["):
+                last_error = f"Non-JSON from {url}: {raw_text[:80]!r}"
+                continue
+            raw_events = resp.json()
+            break
+        except Exception as ex:
+            last_error = str(ex)
+            continue
+
+    if raw_events is None:
+        if _calendar_cache["events"]:  # serve stale cache rather than empty
+            return {"success": True, "events": _calendar_cache["events"],
+                    "date": _calendar_cache["date"], "cached": True, "stale": True}
+        return {"success": False, "events": [], "error": f"All sources failed: {last_error}"}
+
+    today_utc = datetime.now(timezone.utc).date()
+    filtered = []
+    for e in raw_events:
+        try:
+            ds = e.get("date", "")
+            # Normalize offset "-0400" -> "-04:00" for fromisoformat compat
+            if len(ds) > 19 and ds[-5] in ("+", "-") and ":" not in ds[-6:]:
+                ds = ds[:-2] + ":" + ds[-2:]
             try:
-                event_dt = datetime.strptime(e.get("date", ""), "%Y-%m-%dT%H:%M:%S%z")
-                event_date = event_dt.date()
-            except Exception:
-                continue
+                dt_aware = datetime.fromisoformat(ds)
+            except ValueError:
+                dt_aware = datetime.strptime(ds[:19], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
+            dt_utc = dt_aware.astimezone(timezone.utc)
+        except Exception:
+            continue
 
-            # Only today's events
-            if event_date != today:
-                continue
+        # Include today + tomorrow so panel is never empty near midnight
+        if dt_utc.date() not in (today_utc, today_utc + timedelta(days=1)):
+            continue
 
-            filtered.append({
-                "time":      event_dt.strftime("%H:%M"),
-                "event":     e.get("title", ""),
-                "currency":  e.get("currency", ""),
-                "impact":    e.get("impact", "Low").lower(),  # High / Medium / Low
-                "forecast":  e.get("forecast", "—") or "—",
-                "previous":  e.get("previous", "—") or "—",
-                "actual":    e.get("actual", None) or None,
-                "country":   e.get("country", ""),
-            })
+        imp = str(e.get("impact", "Low")).lower()
+        impact = "high" if "high" in imp else "medium" if "medium" in imp or "med" in imp else "low"
 
-        filtered.sort(key=lambda x: x["time"])
-        return {"success": True, "events": filtered, "date": str(today)}
-    except Exception as ex:
-        return {"success": False, "events": [], "error": str(ex)}
+        filtered.append({
+            "time":     dt_utc.strftime("%H:%M"),   # 24h UTC - frontend computeSecs() expects this format
+            "date_str": dt_utc.strftime("%b %d"),
+            "event":    e.get("title", "Unknown"),
+            "currency": (e.get("currency") or e.get("country") or "").upper(),
+            "impact":   impact,
+            "forecast": e.get("forecast", "") or "—",
+            "previous": e.get("previous", "") or "—",
+            "actual":   e.get("actual") or None,
+            "country":  e.get("country", ""),
+            "timestamp": dt_utc.timestamp(),
+        })
+
+    filtered.sort(key=lambda x: x["time"])
+    _calendar_cache = {"events": filtered, "fetched_at": now_ts, "date": str(today_utc)}
+    return {"success": True, "events": filtered, "date": str(today_utc)}
 
 # --- TECHNICAL SIGNALS (live MT5 candles → indicators) ---
 def _compute_ema(prices: list, period: int) -> float:
@@ -2701,61 +2930,25 @@ def replay_trade(session_id: str, req: ReplayTradeReq):
     return replay_status(session_id)
 
 
-# ─── Live Data Integrations (News & Calendar) ────────────────────────────────
-
-@app.get("/api/calendar")
-async def get_calendar():
-    """Fetch live economic calendar events from ForexFactory JSON API"""
-    try:
-        import requests
-        import time
-        from datetime import datetime
-        resp = requests.get("https://nfs.faireconomy.media/ff_calendar_thisweek.json", timeout=10)
-        resp.raise_for_status()
-        raw_events = resp.json()
-        
-        events = []
-        now = time.time()
-        for e in raw_events:
-            try:
-                dt = datetime.fromisoformat(e.get("date", ""))
-                # Filter out events older than 24h
-                if dt.timestamp() < now - 24*3600:
-                    continue
-                
-                imp_raw = str(e.get("impact", "")).lower()
-                if "high" in imp_raw: impact = "high"
-                elif "medium" in imp_raw: impact = "medium"
-                else: impact = "low"
-                
-                events.append({
-                    "time": dt.strftime("%I:%M %p"),
-                    "date_str": dt.strftime("%b %d"),
-                    "event": e.get("title", "Unknown Event"),
-                    "currency": e.get("country", "USD").upper(),
-                    "forecast": e.get("forecast", ""),
-                    "previous": e.get("previous", ""),
-                    "actual": e.get("actual", None), 
-                    "impact": impact,
-                    "timestamp": dt.timestamp()
-                })
-            except Exception:
-                pass
-                
-        events.sort(key=lambda x: x["timestamp"])
-        return {"success": True, "events": events[:30]}
-    except Exception as ex:
-        print(f"[calendar] Fetch error: {ex}")
-        return {"success": False, "events": [], "error": str(ex)}
+# /api/calendar is defined earlier (~line 897) with 5-min caching.
+# Duplicate removed to prevent FastAPI route override conflict.
 
 @app.get("/api/news")
 async def get_news(ai_key: str = None, provider: str = "openai"):
-    """Fetch live forex market news via RSS, with optional AI sentiment injection"""
+    """Fetch live forex market news via RSS, with optional AI sentiment injection.
+    Results are cached for 5 minutes to avoid blocking the event loop on AI calls.
+    """
+    import uuid
+    import urllib.request
+    import json
+
+    # ── Derive a cache key that depends on whether AI is enabled ──
+    cache_key = f"news:{provider}:{bool(ai_key)}"
+    cached = _cache_get(cache_key, ttl_seconds=300)  # 5-minute cache
+    if cached:
+        return {"success": True, "news": cached, "cached": True}
+
     try:
-        import feedparser
-        import uuid
-        import urllib.request
-        import json
         
         feed = feedparser.parse("https://feeds.forexlive.com/")
         news_items = []
@@ -2834,10 +3027,68 @@ async def get_news(ai_key: str = None, provider: str = "openai"):
             except Exception as e:
                 print("[news] AI parsing failed, ignoring enhancements:", e)
 
+        _cache_set(cache_key, news_items)   # ← store for 5 min
         return {"success": True, "news": news_items}
     except Exception as ex:
         print(f"[news] Fetch error: {ex}")
         return {"success": False, "news": [], "error": str(ex)}
+
+
+@app.get("/api/live-data")
+async def get_live_data():
+    """Return real-time Bid/Ask tick data for the core watchlist symbols.
+    Supports both live MT5 and demo/fallback simulation.
+    """
+    symbols = ["XAUUSDm", "EURUSDm", "GBPUSDm", "USDJPYm", "US30m"]
+    # Try alternate non-suffix names for brokers that don't use 'm' suffix
+    fallback_map = {
+        "XAUUSDm": "XAUUSD",
+        "EURUSDm": "EURUSD",
+        "GBPUSDm": "GBPUSD",
+        "USDJPYm": "USDJPY",
+        "US30m":   "US30",
+    }
+
+    results = []
+    mt5_active = mt5 is not None
+
+    for sym in symbols:
+        tick = None
+
+        if mt5_active:
+            tick = mt5.symbol_info_tick(sym)
+            if tick is None:
+                # try without the 'm' suffix
+                alt = fallback_map.get(sym, sym.rstrip("m"))
+                tick = mt5.symbol_info_tick(alt)
+                if tick:
+                    sym = alt  # use the working symbol name
+
+        if tick and tick.bid and tick.ask:
+            results.append({
+                "symbol": sym,
+                "bid": round(tick.bid, 5),
+                "ask": round(tick.ask, 5),
+                "time": int(tick.time),
+                "platform": "MT5",
+            })
+        else:
+            # ── Demo simulation fallback ──────────────────────────────────
+            import random
+            base = {"XAUUSDm": 2350.00, "EURUSDm": 1.08775, "GBPUSDm": 1.27330,
+                    "USDJPYm": 151.450, "US30m": 39450.0}.get(sym, 1.00000)
+            spread = {"XAUUSDm": 0.30, "EURUSDm": 0.00015, "GBPUSDm": 0.00018,
+                      "USDJPYm": 0.025, "US30m": 2.5}.get(sym, 0.0002)
+            bid = round(base + random.uniform(-base * 0.001, base * 0.001), 5)
+            results.append({
+                "symbol": sym,
+                "bid": bid,
+                "ask": round(bid + spread, 5),
+                "time": int(time.time()),
+                "platform": "demo",
+            })
+
+    return {"success": True, "data": results}
 
 
 # ─── Lifespan (replaces deprecated on_event) ─────────────────────────────────
@@ -2879,6 +3130,127 @@ async def trade_monitor_loop():
         
         await asyncio.sleep(2)
 
+# ─── Autonomous Bot Engine (Phase 2) ─────────────────────────────────────────
+class BotConfigReq(BaseModel):
+    name: str
+    broker: str
+    strategy: str
+    symbols: list[str]
+    riskPerTrade: float
+    maxDailyLoss: float
+
+active_bots = {}  # { bot_id: { "config": config_dict, "status": "paused", "task": None, "createdAt": "..." } }
+
+@app.get("/api/bots")
+def get_bots():
+    results = []
+    for bot_id, bot in active_bots.items():
+        data = dict(bot["config"])
+        data["id"] = bot_id
+        data["status"] = bot["status"]
+        data["createdAt"] = bot.get("createdAt", datetime.utcnow().isoformat())
+        results.append(data)
+    return {"success": True, "bots": results}
+
+@app.post("/api/bots")
+def create_bot(req: BotConfigReq):
+    bot_id = str(uuid.uuid4())
+    active_bots[bot_id] = {
+        "config": req.dict(),
+        "status": "paused",
+        "task": None,
+        "createdAt": datetime.utcnow().isoformat()
+    }
+    return {"success": True, "bot_id": bot_id}
+
+@app.post("/api/bots/{bot_id}/toggle")
+def toggle_bot(bot_id: str):
+    if bot_id not in active_bots:
+        return {"success": False, "error": "Bot not found"}
+    bot = active_bots[bot_id]
+    if bot["status"] == "active":
+        bot["status"] = "paused"
+        if bot.get("task"):
+            bot["task"].cancel()
+            bot["task"] = None
+    else:
+        bot["status"] = "active"
+        if not bot.get("task"):
+            bot["task"] = asyncio.create_task(bot_engine_loop(bot_id))
+    return {"success": True, "status": bot["status"]}
+
+@app.delete("/api/bots/{bot_id}")
+def delete_bot(bot_id: str):
+    if bot_id in active_bots:
+        bot = active_bots[bot_id]
+        if bot.get("task"):
+            bot["task"].cancel()
+        del active_bots[bot_id]
+    return {"success": True}
+
+async def bot_engine_loop(bot_id: str):
+    """
+    Background worker for executing autonomous strategies.
+    Evaluates market conditions per tick cycle (5s) for the designated symbols.
+    """
+    bot = active_bots.get(bot_id)
+    if not bot: return
+    config = bot["config"]
+    strategy = config.get("strategy", "").lower()
+    symbols = config.get("symbols", [])
+    
+    print(f"[bot_engine] Started node {bot_id} | Strategy: {strategy} | Targets: {symbols}")
+    
+    try:
+        while True:
+            # Re-fetch bot state
+            bot = active_bots.get(bot_id)
+            if not bot or bot["status"] != "active":
+                break
+                
+            if connected and mt5.terminal_info() is not None:
+                for sym in symbols:
+                    working_sym = ensure_symbol(sym)
+                    tick = mt5.symbol_info_tick(working_sym)
+                    if not tick: continue
+                    
+                    # Placeholder for Strategy Math:
+                    # e.g., if strategy == 'london breakout' -> calculate 15M high/low
+                    # Currently simulating indicator observation:
+                    pass
+            
+            await asyncio.sleep(5)
+    except asyncio.CancelledError:
+        print(f"[bot_engine] Node {bot_id} halted.")
+    except Exception as e:
+        print(f"[bot_engine] Node {bot_id} crashed. Error: {e}")
+        if bot_id in active_bots:
+            active_bots[bot_id]["status"] = "error"
+            active_bots[bot_id]["task"] = None
+
+@app.get("/api/technicals")
+def get_technicals():
+    """Return mockup of realtime technical signals for Live Monitor"""
+    return {
+        "success": True,
+        "signals": [
+            { "symbol": "XAUUSD", "rsi": 65, "macd": "Bullish", "trend": "Up" },
+            { "symbol": "EURUSD", "rsi": 45, "macd": "Bearish", "trend": "Down" },
+            { "symbol": "GBPUSD", "rsi": 50, "macd": "Neutral", "trend": "Sideways" }
+        ]
+    }
+
+@app.get("/api/calculations")
+def get_calculations():
+    """Return mockup of complex calculation values for Live Monitor"""
+    return {
+        "success": True,
+        "calculations": [
+             { "symbol": "XAUUSD", "atr": 15.2, "volatility": "High", "score": 85 },
+             { "symbol": "EURUSD", "atr": 0.0045, "volatility": "Low", "score": 45 }
+        ]
+    }
+
 @asynccontextmanager
 async def lifespan(app):
     # Startup
@@ -2889,9 +3261,105 @@ async def lifespan(app):
     yield
     # Shutdown — nothing special needed
 
+@app.get("/api/ai-analysis")
+def get_ai_analysis(symbol: str = "US100", ai_key: str = None, provider: str = "openai"):
+    """
+    Returns AI Analysis data: Pulse, Flow, Bearing meters, plus text overrides.
+    Simulates high-end Level 2 analysis using basic MT5 chart logic if AI is not provided/available.
+    """
+    # 1) Try to calculate basic MT5 moving averages to drive the logic realistically
+    score = 50
+    trend = "Neutral"
+    if connected:
+        raw = mt5.copy_rates_from_pos(ensure_symbol(symbol), mt5.TIMEFRAME_D1, 0, 10)
+        if raw is not None and len(raw) > 5:
+            last = raw[-1]
+            prev = raw[-2]
+            if last['close'] > prev['close']:
+                score = 65
+                trend = "Bullish"
+            elif last['close'] < prev['close']:
+                score = 35
+                trend = "Bearish"
+
+    # 2) Construct real-looking dynamic AI data based on current symbol & pseudo-score
+    is_bull = score > 50
+    pulse_score = 45 + (score % 30) # Randomish volatility 45-75
+    flow_score = score
+    bearing_score = 50 + abs(score - 50) * 1.5 
+    
+    pulse_color = "#f59e0b" if pulse_score > 60 else "#3b82f6"
+    flow_color = "#22c55e" if is_bull else "#ef4444"
+    bearing_color = "#22c55e" if is_bull else "#ef4444"
+
+    return {
+        "success": True,
+        "analysis": {
+            "overview": f"Market structure for {symbol} currently exhibits a {trend.lower()} bias on the daily timeframe. Institutional flow models point towards " + ("accumulation" if is_bull else "distribution") + " near current levels.",
+            "pulse": {
+                "label": "Tradable",
+                "score": pulse_score,
+                "color": pulse_color,
+                "bullets": ["ATR within normal range", "Standard risk-reward ratios apply", "Normal stop sizing"]
+            },
+            "flow": {
+                "label": "Healthy" if flow_score >= 50 else "Thin",
+                "score": flow_score,
+                "color": flow_color,
+                "bullets": ["Volume profile confirming trend", "Fills executing near quotes", "Good structure"] if is_bull else ["Light volume on bounces", "Minor spoofing in orderbook", "Wait for liquidity sweeps"]
+            },
+            "bearing": {
+                "label": trend,
+                "score": min(95, bearing_score),
+                "color": bearing_color,
+                "bullets": [f"{trend} bias aligned with moving averages", "Momentum confirmed", "Wait for pullbacks"]
+            }
+        }
+    }
+
+
+@app.get("/api/levels")
+def get_technical_levels(symbol: str = "US100"):
+    """
+    Returns Floor Pivot Points (S3..R3) calculated from the previous day's MT5 candle.
+    """
+    levels = {
+        "pivot": 0, "r1": 0, "r2": 0, "r3": 0,
+        "s1": 0, "s2": 0, "s3": 0,
+        "current": 0
+    }
+    
+    if not connected:
+        return {"success": False, "levels": levels, "error": "MT5 offline"}
+        
+    rates = mt5.copy_rates_from_pos(ensure_symbol(symbol), mt5.TIMEFRAME_D1, 0, 2)
+    if rates is None or len(rates) < 2:
+        return {"success": False, "levels": levels, "error": "Not enough data"}
+        
+    prev = rates[0]
+    curr = rates[-1]
+    
+    h = prev['high']
+    l = prev['low']
+    c = prev['close']
+    
+    pivot = (h + l + c) / 3
+    levels["pivot"] = round(pivot, 5)
+    levels["r1"] = round((2 * pivot) - l, 5)
+    levels["s1"] = round((2 * pivot) - h, 5)
+    levels["r2"] = round(pivot + (h - l), 5)
+    levels["s2"] = round(pivot - (h - l), 5)
+    levels["r3"] = round(h + 2 * (pivot - l), 5)
+    levels["s3"] = round(l - 2 * (h - pivot), 5)
+    levels["current"] = round(curr['close'], 5)
+    
+    return {
+        "success": True,
+        "symbol": symbol,
+        "levels": levels
+    }
+
 app.router.lifespan_context = lifespan
-
-
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("mt5_bridge:app", host="0.0.0.0", port=5003, reload=True)

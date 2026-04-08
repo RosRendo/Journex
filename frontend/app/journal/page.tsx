@@ -20,6 +20,8 @@ import {
   Calendar as CalendarIcon,
   ChevronLeft,
   Camera,
+  Download,
+  ChevronRight,
 } from "lucide-react";
 import { useJournalData } from "@/hooks/useJournalData";
 import JournalCalendar from "@/components/JournalCalendar";
@@ -67,6 +69,8 @@ export default function JournalPage() {
   const [selectedTrade, setSelectedTrade] = useState<TradeData | null>(null);
   const [selectedDay, setSelectedDay] = useState<{ dateStr: string; trades: TradeData[] } | null>(null);
   const [showScreenshotModal, setShowScreenshotModal] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
 
   // For the side panel
   const tradeIdToUse = selectedTrade ? (selectedTrade.ticket || selectedTrade.id) : (selectedDay ? `day_${selectedDay.dateStr}` : undefined);
@@ -147,6 +151,38 @@ export default function JournalPage() {
     saveEntry({ strategy: current.join(", ") });
   };
 
+  const exportCSV = () => {
+    if (!trades.length) return;
+    const headers = ["Date", "Symbol", "Direction", "Entry", "Lot Size", "P&L", "Outcome"];
+    const rows = filteredTrades.map(t => [
+      `"${new Date(t.date).toLocaleString()}"`,
+      t.pair,
+      t.direction,
+      t.entry.toFixed(5),
+      t.lotSize?.toFixed(2) ?? "0",
+      t.profit.toFixed(2),
+      t.outcome
+    ]);
+    const csvContent = [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `tradekiller_export_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredTrades.length / itemsPerPage);
+  const paginatedTrades = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredTrades.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredTrades, currentPage]);
+  
+  // Reset pagination if filters change
+  useEffect(() => { setCurrentPage(1); }, [filteredTrades]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -183,6 +219,14 @@ export default function JournalPage() {
           >
             <Upload className="w-3.5 h-3.5" />
             {showUpload ? "Close" : "Import CSV"}
+          </button>
+          <button
+            onClick={exportCSV}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-[12px] font-bold transition-all text-white hover:opacity-90"
+            style={{ background: "var(--bear)" }}
+          >
+            <Download className="w-3.5 h-3.5" />
+            Export CSV
           </button>
         </div>
       </div>
@@ -315,7 +359,7 @@ export default function JournalPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredTrades.map((trade: TradeData) => {
+                  paginatedTrades.map((trade: TradeData) => {
                     const hasJournal = !!localStorage.getItem(`journal_${trade.ticket || trade.id}`);
                     return (
                       <tr key={trade.id} onClick={() => setSelectedTrade(trade)}
@@ -360,6 +404,26 @@ export default function JournalPage() {
               </tbody>
             </table>
           </div>
+          
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between p-4 border-t" style={{ borderColor: "var(--border)", background: "var(--bg-elevated)" }}>
+              <span className="text-[11px] font-bold text-[--text-tertiary]">
+                Showing {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredTrades.length)} of {filteredTrades.length} trades
+              </span>
+              <div className="flex gap-2">
+                 <button onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} disabled={currentPage === 1} className="px-3 py-1.5 rounded bg-[--bg-card] border border-[--border] text-[11px] font-bold disabled:opacity-50 hover:bg-[--accent]/10 text-[--text-secondary] flex items-center gap-1">
+                    <ChevronLeft className="w-3.5 h-3.5" /> Prev
+                 </button>
+                 <span className="px-3 py-1.5 flex items-center text-[12px] font-bold text-[--text-primary] font-mono">
+                    {currentPage} / {totalPages}
+                 </span>
+                 <button onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} disabled={currentPage === totalPages} className="px-3 py-1.5 rounded bg-[--bg-card] border border-[--border] text-[11px] font-bold disabled:opacity-50 hover:bg-[--accent]/10 text-[--text-secondary] flex items-center gap-1">
+                    Next <ChevronRight className="w-3.5 h-3.5" />
+                 </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -532,6 +596,80 @@ export default function JournalPage() {
                   rows={5}
                   className="w-full bg-secondary/30 border border-border/50 rounded-xl p-4 text-sm focus:ring-2 focus:ring-primary/50 outline-none transition-all resize-none font-medium leading-relaxed"
                 />
+              </div>
+
+              {/* Emotion & Plan Compliance Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 font-semibold text-lg border-b border-border/50 pb-2">
+                  <span>🧠</span> Mind State &amp; Discipline
+                </div>
+
+                {/* Emotion Selector */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--text-tertiary)" }}>Emotional State</label>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { label: "😌 Calm", value: "Calm", active: "rgba(34,197,94,0.15)", border: "rgba(34,197,94,0.4)", text: "#22c55e" },
+                      { label: "💪 Confident", value: "Confident", active: "rgba(59,130,246,0.15)", border: "rgba(59,130,246,0.4)", text: "#3b82f6" },
+                      { label: "😰 Anxious", value: "Anxious", active: "rgba(234,179,8,0.15)", border: "rgba(234,179,8,0.4)", text: "#eab308" },
+                      { label: "😱 Panicked", value: "Panicked", active: "rgba(239,68,68,0.15)", border: "rgba(239,68,68,0.4)", text: "#ef4444" },
+                      { label: "🤑 Greedy", value: "Greedy", active: "rgba(249,115,22,0.15)", border: "rgba(249,115,22,0.4)", text: "#f97316" },
+                      { label: "🔥 Revenge", value: "Revenge", active: "rgba(220,38,38,0.2)", border: "rgba(220,38,38,0.5)", text: "#dc2626" },
+                    ].map((em) => (
+                      <button
+                        key={em.value}
+                        onClick={() => saveEntry({ emotion: entry.emotion === em.value ? undefined : em.value })}
+                        className="px-3 py-1.5 rounded-full text-xs font-bold transition-all"
+                        style={{
+                          background: entry.emotion === em.value ? em.active : "transparent",
+                          border: `1px solid ${entry.emotion === em.value ? em.border : "var(--border)"}`,
+                          color: entry.emotion === em.value ? em.text : "var(--text-tertiary)",
+                        }}
+                      >
+                        {em.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Followed Plan */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--text-tertiary)" }}>Did you follow your plan?</label>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => saveEntry({ followedPlan: true, planDeviationReason: "" })}
+                      className="flex-1 py-2 rounded-xl text-sm font-bold transition-all"
+                      style={{
+                        background: entry.followedPlan === true ? "rgba(34,197,94,0.2)" : "transparent",
+                        border: `1px solid ${entry.followedPlan === true ? "rgba(34,197,94,0.5)" : "var(--border)"}`,
+                        color: entry.followedPlan === true ? "#22c55e" : "var(--text-tertiary)",
+                      }}
+                    >
+                      ✓ Yes
+                    </button>
+                    <button
+                      onClick={() => saveEntry({ followedPlan: false })}
+                      className="flex-1 py-2 rounded-xl text-sm font-bold transition-all"
+                      style={{
+                        background: entry.followedPlan === false ? "rgba(239,68,68,0.2)" : "transparent",
+                        border: `1px solid ${entry.followedPlan === false ? "rgba(239,68,68,0.5)" : "var(--border)"}`,
+                        color: entry.followedPlan === false ? "#ef4444" : "var(--text-tertiary)",
+                      }}
+                    >
+                      ✗ No — I deviated
+                    </button>
+                  </div>
+                  {entry.followedPlan === false && (
+                    <textarea
+                      placeholder="Why did you deviate? Be honest — this data will save you money later."
+                      value={entry.planDeviationReason || ""}
+                      onChange={(e) => saveEntry({ planDeviationReason: e.target.value })}
+                      rows={3}
+                      className="w-full rounded-xl p-3 text-sm resize-none focus:outline-none transition-all"
+                      style={{ background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.2)", color: "var(--text-primary)" }}
+                    />
+                  )}
+                </div>
               </div>
 
               {/* Pictures / Screenshots */}

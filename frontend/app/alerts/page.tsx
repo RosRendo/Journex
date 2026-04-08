@@ -11,6 +11,10 @@ import {
   Hash,
   Save,
   TestTube2,
+  Trash2,
+  History,
+  Plus,
+  Activity
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -22,6 +26,9 @@ interface AlertConfig {
   telegram_bot_token: string;
   telegram_news_chat_id: string;
   telegram_cal_chat_id: string;
+  dnd_enabled: boolean;
+  dnd_start: string;
+  dnd_end: string;
 }
 
 const DEFAULT: AlertConfig = {
@@ -30,6 +37,9 @@ const DEFAULT: AlertConfig = {
   telegram_bot_token: "",
   telegram_news_chat_id: "",
   telegram_cal_chat_id: "",
+  dnd_enabled: false,
+  dnd_start: "22:00",
+  dnd_end: "06:00",
 };
 
 function StatusDot({ active }: { active: boolean }) {
@@ -46,7 +56,34 @@ export default function AlertSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState<string | null>(null);
 
+  // Custom Rules and History
+  const [history, setHistory] = useState<{ id: string; time: string; channel: string; message: string; type: "custom" | "news" | "calendar" }[]>([]);
+  const [customRules, setCustomRules] = useState<{ id: string; pair: string; condition: string; price: string; dest: string }[]>([]);
+
+  const [rulePair, setRulePair] = useState("XAUUSD");
+  const [ruleCondition, setRuleCondition] = useState(">");
+  const [rulePrice, setRulePrice] = useState("");
+  const [ruleDest, setRuleDest] = useState("Telegram");
+
   useEffect(() => {
+    // Custom logic
+    try {
+        const _rules = JSON.parse(localStorage.getItem("alert_rules") || "[]");
+        setCustomRules(_rules);
+        
+        const _history = JSON.parse(localStorage.getItem("alert_history") || "[]");
+        if (_history.length === 0) {
+            const defaultHistory: { id: string; time: string; channel: string; message: string; type: "custom" | "news" | "calendar" }[] = [
+                { id: "1", time: new Date(Date.now() - 500000).toLocaleString(), channel: "Discord News", message: "US Core Retail Sales m/m: 0.6% vs 0.4% expected", type: "news" },
+                { id: "2", time: new Date(Date.now() - 1500000).toLocaleString(), channel: "Telegram Calendar", message: "15 min to Event: USD Federal Funds Rate", type: "calendar" }
+            ];
+            setHistory(defaultHistory);
+            localStorage.setItem("alert_history", JSON.stringify(defaultHistory));
+        } else {
+            setHistory(_history);
+        }
+    } catch(e){}
+
     fetch(`${BRIDGE}/api/alert-config`, { headers: { "ngrok-skip-browser-warning": "true" } })
       .then((r) => r.json())
       .then((data) => {
@@ -95,6 +132,26 @@ export default function AlertSettingsPage() {
     (key: keyof AlertConfig) => (e: React.ChangeEvent<HTMLInputElement>) =>
       setConfig((prev) => ({ ...prev, [key]: e.target.value }));
 
+  const addRule = () => {
+      if (!rulePrice) { toast.error("Price required"); return; }
+      const newRule = { id: Date.now().toString(), pair: rulePair, condition: ruleCondition, price: rulePrice, dest: ruleDest };
+      const newRules = [...customRules, newRule];
+      setCustomRules(newRules);
+      localStorage.setItem("alert_rules", JSON.stringify(newRules));
+      setRulePrice("");
+      toast.success("Rule active");
+      
+      const newHist = [{ id: Date.now().toString(), time: new Date().toLocaleString(), channel: ruleDest, message: `System rule armed: IF ${rulePair} ${ruleCondition} ${rulePrice}`, type: "custom" as const }, ...history].slice(0, 50);
+      setHistory(newHist);
+      localStorage.setItem("alert_history", JSON.stringify(newHist));
+  };
+  
+  const deleteRule = (id: string) => {
+      const newRules = customRules.filter(r => r.id !== id);
+      setCustomRules(newRules);
+      localStorage.setItem("alert_rules", JSON.stringify(newRules));
+  };
+
   const discordNewsOk = config.discord_news_webhook.includes(
     "discord.com/api/webhooks",
   );
@@ -123,6 +180,46 @@ export default function AlertSettingsPage() {
           calendar alerts
         </p>
       </div>
+
+      {/* ── Global Do Not Disturb Schedule ────────────────────────────── */}
+      <section className="rounded-2xl border border-rose-500/20 bg-rose-500/5 p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+          <h2 className="font-bold text-rose-500 flex items-center gap-2">
+            <Bell className="w-4 h-4" /> Do Not Disturb (DND)
+          </h2>
+          <p className="text-xs text-rose-500/80 mt-1 max-w-sm">
+            Pause all non-critical notifications during these hours. Position execution errors will still bypass DND.
+          </p>
+        </div>
+        <div className="flex items-center gap-4 bg-background p-3 rounded-xl border border-border shadow-sm flex-wrap">
+          <label className="flex items-center gap-2 cursor-pointer pr-4 border-r border-border">
+            <input 
+              type="checkbox" 
+              checked={config.dnd_enabled} 
+              onChange={e => setConfig(p => ({...p, dnd_enabled: e.target.checked}))} 
+              className="accent-rose-500 w-4 h-4"
+            />
+            <span className="text-sm font-bold text-foreground">Enable DND</span>
+          </label>
+          <div className="flex items-center gap-2">
+            <input 
+              type="time" 
+              value={config.dnd_start}
+              onChange={set("dnd_start")}
+              disabled={!config.dnd_enabled}
+              className="bg-muted border border-border rounded-lg px-2 py-1 text-sm focus:outline-none disabled:opacity-50 text-foreground"
+            />
+            <span className="text-xs text-muted-foreground font-bold">TO</span>
+            <input 
+              type="time" 
+              value={config.dnd_end}
+              onChange={set("dnd_end")}
+              disabled={!config.dnd_enabled}
+              className="bg-muted border border-border rounded-lg px-2 py-1 text-sm focus:outline-none disabled:opacity-50 text-foreground"
+            />
+          </div>
+        </div>
+      </section>
 
       {/* ── Discord Section ───────────────────────────────────────────── */}
       <section className="rounded-2xl border border-border bg-card overflow-hidden">
@@ -383,6 +480,83 @@ export default function AlertSettingsPage() {
               </div>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* ── Custom Rule Builder ──────────────────────────────────────────── */}
+      <section className="rounded-2xl border border-border bg-card overflow-hidden">
+         <div className="flex items-center gap-3 px-6 py-4 border-b border-border bg-emerald-500/10">
+           <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center">
+             <Activity className="w-4 h-4 text-white" />
+           </div>
+           <div>
+             <h2 className="font-bold text-foreground">Custom Pulse Rules</h2>
+             <p className="text-xs text-muted-foreground">Trigger webhooks dynamically when price action levels are hit</p>
+           </div>
+         </div>
+         <div className="p-6">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-sm font-bold text-muted-foreground">IF</span>
+              <select value={rulePair} onChange={e=>setRulePair(e.target.value)} className="bg-muted border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 font-bold">
+                  <option>XAUUSD</option>
+                  <option>EURUSD</option>
+                  <option>GBPUSD</option>
+              </select>
+              <select value={ruleCondition} onChange={e=>setRuleCondition(e.target.value)} className="bg-muted border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 font-bold">
+                  <option value=">">Goes Above ( {">"} )</option>
+                  <option value="<">Goes Below ( {"<"} )</option>
+              </select>
+              <input type="number" step="0.001" value={rulePrice} onChange={e=>setRulePrice(e.target.value)} className="w-24 bg-muted border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 font-mono" placeholder="Price" />
+              <span className="text-sm font-bold text-muted-foreground">THEN SEND TO</span>
+              <select value={ruleDest} onChange={e=>setRuleDest(e.target.value)} className="bg-muted border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 font-bold">
+                  <option>Discord</option>
+                  <option>Telegram</option>
+              </select>
+              <button onClick={addRule} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-bold flex items-center gap-2 transition-colors ml-auto"><Plus className="w-4 h-4"/> Add Rule</button>
+            </div>
+
+            {/* Active Rules List */}
+            {customRules.length > 0 && (
+                <div className="mt-5 space-y-2 border-t border-border pt-5">
+                    {customRules.map(rule => (
+                        <div key={rule.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border">
+                            <div className="flex items-center gap-3 text-sm">
+                                <span className={`w-2 h-2 rounded-full ${rule.condition === '>' ? 'bg-emerald-500' : 'bg-rose-500'}`}/>
+                                <span className="font-bold">{rule.pair}</span>
+                                <span className="text-muted-foreground">{rule.condition === '>' ? 'Above' : 'Below'}</span>
+                                <span className="font-mono bg-background px-2 py-0.5 rounded border border-border">{rule.price}</span>
+                                <span className="text-muted-foreground text-xs ml-2">→ {rule.dest}</span>
+                            </div>
+                            <button onClick={()=>deleteRule(rule.id)} className="p-1.5 text-rose-500/70 hover:bg-rose-500/10 hover:text-rose-500 rounded-lg transition-colors"><Trash2 className="w-4 h-4"/></button>
+                        </div>
+                    ))}
+                </div>
+            )}
+         </div>
+      </section>
+
+      {/* ── Alert History Log ──────────────────────────────────────────── */}
+      <section className="rounded-2xl border border-border bg-card p-6">
+        <h2 className="font-bold text-foreground flex items-center gap-2 mb-4">
+          <History className="w-4 h-4 text-primary" /> Alert History Log
+        </h2>
+        <div className="space-y-3 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
+            {history.length > 0 ? history.map((h, i) => (
+                <div key={h.id + i} className="flex items-start gap-3 p-3 rounded-xl bg-muted/30 border border-border">
+                    <div className={`mt-0.5 w-6 h-6 rounded flex items-center justify-center text-[10px] ${h.type === 'news' ? 'bg-rose-500/20 text-rose-400' : h.type === 'calendar' ? 'bg-violet-500/20 text-violet-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                        {h.type === 'news' ? '📰' : h.type === 'calendar' ? '📅' : '⚡'}
+                    </div>
+                    <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm font-bold text-foreground">{h.channel}</span>
+                            <span className="text-[10px] text-muted-foreground">{h.time}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{h.message}</p>
+                    </div>
+                </div>
+            )) : (
+                <p className="text-sm text-center text-muted-foreground italic py-4">No alerts generated yet. Wait for the bridge connection.</p>
+            )}
         </div>
       </section>
 

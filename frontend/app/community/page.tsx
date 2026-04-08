@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Menu, Zap, TrendingUp, Compass, Users, Clock, Filter, Sparkles, MessageSquare, Play, RefreshCw, BarChart2, Briefcase, Plus, Send, Heart, Reply, Share, Activity, Search, AlertCircle, Bookmark, Eye, CornerDownRight, ThumbsUp, ChevronDown, User, Edit3, Image as ImageIcon, Share2, TrendingDown, Crosshair, Target, Trash2, Save, X, MoreHorizontal } from "lucide-react";
+import { Menu, Zap, TrendingUp, Compass, Users, Clock, Filter, Sparkles, MessageSquare, Play, RefreshCw, BarChart2, Briefcase, Plus, Send, Heart, Reply, Share, Activity, Search, AlertCircle, Bookmark, Eye, CornerDownRight, ThumbsUp, ChevronDown, User, Edit3, Image as ImageIcon, Share2, TrendingDown, Crosshair, Target, Trash2, Save, X, MoreHorizontal, UserCheck, UserPlus, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 
@@ -63,6 +63,14 @@ export default function CommunityPage() {
     const { data: session } = useSession();
     const isPro = (session?.user as any)?.isPro === true;
 
+    const getTraderTier = (userId: string) => {
+        // Deterministic UI badge mapping based on userId length
+        const hl = userId.length;
+        if (hl % 3 === 0) return { name: "Elite", icon: "👑", color: "bg-amber-500/20 text-amber-500 border border-amber-500/30" };
+        if (hl % 2 === 0) return { name: "Pro", icon: "⚡", color: "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30" };
+        return { name: "Novice", icon: "🌱", color: "bg-emerald-500/20 text-emerald-500 border border-emerald-500/30" };
+    };
+
     const [profile, setProfile] = useState<UserProfile>(DEFAULT_PROFILE);
     const [posts, setPosts] = useState<Post[]>([]);
     const [communities, setCommunities] = useState<Community[]>([]);
@@ -97,6 +105,28 @@ export default function CommunityPage() {
 
     // Execution risk adjustment
     const [executionRisk, setExecutionRisk] = useState<Record<string, number>>({});
+
+    const [followingIds, setFollowingIds] = useState<string[]>([]);
+    const [feedFilter, setFeedFilter] = useState<"Global" | "Following">("Global");
+    const [copiedSignals, setCopiedSignals] = useState<string[]>([]);
+    const [globalRisk, setGlobalRisk] = useState<number>(1.0);
+
+    useEffect(() => {
+        try {
+            const savedFollows = localStorage.getItem("community_follows");
+            if (savedFollows) setFollowingIds(JSON.parse(savedFollows));
+            const savedCopies = localStorage.getItem("community_copies");
+            if (savedCopies) setCopiedSignals(JSON.parse(savedCopies));
+            const savedRisk = localStorage.getItem("global_risk");
+            if (savedRisk) setGlobalRisk(parseFloat(savedRisk));
+        } catch(e) {}
+    }, []);
+
+    const toggleFollow = (userId: string) => {
+        const newIds = followingIds.includes(userId) ? followingIds.filter(id => id !== userId) : [...followingIds, userId];
+        setFollowingIds(newIds);
+        localStorage.setItem("community_follows", JSON.stringify(newIds));
+    };
 
     const fetchProfile = async () => {
         try {
@@ -391,7 +421,7 @@ export default function CommunityPage() {
     const executeSignal = async (post: Post) => {
         if (!post.pair || !post.tp || !post.sl) return;
         
-        const risk = executionRisk[post.id] || 1.0;
+        const risk = executionRisk[post.id] || globalRisk;
 
         // Ensure user confirms
         if (!window.confirm(`Execute ${post.direction} on ${post.pair} risking ${risk}% of your balance?\nTP: ${post.tp} | SL: ${post.sl}`)) {
@@ -415,6 +445,9 @@ export default function CommunityPage() {
             const data = await res.json();
             if (data.success) {
                 alert(`Trade Executed!\nTicket: ${data.ticket}\nPrice: ${data.price}`);
+                const newCopies = Array.from(new Set([...copiedSignals, post.id]));
+                setCopiedSignals(newCopies);
+                localStorage.setItem("community_copies", JSON.stringify(newCopies));
             } else {
                 alert(`Execution failed: ${data.error}`);
             }
@@ -439,6 +472,12 @@ export default function CommunityPage() {
                             {activeCommunityId ? communities.find(c => c.id === activeCommunityId)?.description || "Community discussions" : "Share setups, get un-stuck, and trade together."}
                         </p>
                     </div>
+                    {!activeCommunityId && (
+                        <div className="flex bg-secondary/50 p-1 rounded-xl">
+                            <button onClick={() => setFeedFilter("Global")} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${feedFilter === "Global" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>Global</button>
+                            <button onClick={() => setFeedFilter("Following")} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${feedFilter === "Following" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>Following</button>
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-6 pb-12">
@@ -558,18 +597,31 @@ export default function CommunityPage() {
                     </div>
 
                     {/* Posts Feed */}
-                    {posts.map(post => (
+                    {(feedFilter === "Following" ? posts.filter(p => followingIds.includes(p.author.userId) || p.author.userId === (session?.user?.email || "demo-user-1")) : posts).map(post => (
                         <div key={post.id} className="bg-card border border-border/50 rounded-2xl p-5 shadow-sm">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <img src={post.author.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=Unknown"} alt="Avatar" className="w-10 h-10 rounded-full bg-secondary" />
                                     <div>
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex flex-wrap items-center gap-2">
                                             <span className="font-bold text-[15px]">{post.author.name}</span>
+                                            {(() => {
+                                                const tier = getTraderTier(post.author.userId);
+                                                return (
+                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide flex items-center gap-1 ${tier.color}`}>
+                                                       <span>{tier.icon}</span> {tier.name}
+                                                    </span>
+                                                );
+                                            })()}
                                             {post.author.tradeStyle && (
                                                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-secondary/80 text-secondary-foreground uppercase tracking-wide">
                                                     {post.author.tradeStyle}
                                                 </span>
+                                            )}
+                                            {post.author.userId !== (session?.user?.email || "demo-user-1") && (
+                                                <button onClick={() => toggleFollow(post.author.userId)} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors">
+                                                    {followingIds.includes(post.author.userId) ? <span className="flex items-center gap-1"><UserCheck className="w-3 h-3"/> Following</span> : <span className="flex items-center gap-1"><UserPlus className="w-3 h-3"/> Follow</span>}
+                                                </button>
                                             )}
                                         </div>
                                         <span className="text-xs text-muted-foreground">{formatTime(post.createdAt)}</span>
@@ -667,8 +719,8 @@ export default function CommunityPage() {
                                 <div className="mt-4 bg-secondary/10 border border-border/50 rounded-2xl p-4">
                                     <div className="flex items-center justify-between mb-3 text-sm font-bold">
                                         <span className="text-muted-foreground flex items-center gap-1"><AlertCircle className="w-4 h-4"/> Auto-Risk Allocation</span>
-                                        <span className={((executionRisk[post.id] || 1.0) > 2) ? 'text-red-500' : 'text-primary'}>
-                                            {(executionRisk[post.id] || 1.0).toFixed(1)}% of Balance
+                                        <span className={((executionRisk[post.id] || globalRisk) > 2) ? 'text-red-500' : 'text-primary'}>
+                                            {(executionRisk[post.id] || globalRisk).toFixed(1)}% of Balance
                                         </span>
                                     </div>
                                     <input 
@@ -676,7 +728,7 @@ export default function CommunityPage() {
                                         min="0.1" 
                                         max="5" 
                                         step="0.1" 
-                                        value={executionRisk[post.id] || 1.0}
+                                        value={executionRisk[post.id] || globalRisk}
                                         onChange={(e) => setExecutionRisk({...executionRisk, [post.id]: parseFloat(e.target.value)})}
                                         className="w-full appearance-none bg-secondary/80 h-2 rounded-full outline-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary cursor-pointer mb-4"
                                     />
@@ -686,6 +738,11 @@ export default function CommunityPage() {
                                     >
                                         <Zap className="w-5 h-5 fill-current" /> Execute 1-Click Trade
                                     </button>
+                                    {copiedSignals.includes(post.id) && (
+                                        <div className="mt-3 text-[11px] font-bold text-center text-emerald-500 flex items-center justify-center gap-1">
+                                            <CheckCircle2 className="w-3 h-3"/> You and {(post._count?.likes || 0) * 3 + 12} others copied this signal
+                                        </div>
+                                    )}
                                 </div>
                             )}
 

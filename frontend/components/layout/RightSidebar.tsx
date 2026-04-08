@@ -25,7 +25,6 @@ export function RightSidebar() {
   const [newsLoading, setNewsLoading] = useState(false);
 
   const fetchPositions = useCallback(async () => {
-    if (activeTab !== "positions") return;
     try {
       const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
       const res = await fetch(`${bridgeUrl}/api/positions`, { headers: { "ngrok-skip-browser-warning": "true" } });
@@ -50,8 +49,8 @@ export function RightSidebar() {
   }, [activeTab]);
 
   const fetchNews = useCallback(async () => {
-    if (activeTab !== "news") return;
-    setNewsLoading(true);
+    // Only show loading state if we haven't fetched any news yet
+    if (news.length === 0) setNewsLoading(true);
     try {
       const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
       const res = await fetch(`${bridgeUrl}/api/news`, { headers: { "ngrok-skip-browser-warning": "true" } });
@@ -74,6 +73,8 @@ export function RightSidebar() {
 
   useEffect(() => {
     fetchNews();
+    const newsInterval = setInterval(fetchNews, 60000); // Polling news every minute in background
+    return () => clearInterval(newsInterval);
   }, [fetchNews]);
 
   return (

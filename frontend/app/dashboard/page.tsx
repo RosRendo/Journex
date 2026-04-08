@@ -11,7 +11,8 @@ import {
   DollarSign,
   PieChart as PieChartIcon,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  Globe
 } from "lucide-react";
 import { useCsvTrades } from "@/hooks/useCsvTrades";
 import { calculateMetrics, getStrategyStats } from "@/lib/calculations";
@@ -33,6 +34,20 @@ import { SessionTimeline } from "@/components/ui/SessionTimeline";
 import { CapitalFlow } from "@/components/ui/CapitalFlow";
 import { AIMacroDeskSection } from "@/components/ui/MacroDeskCard";
 import { ConditionMeter } from "@/components/ui/ConditionMeter";
+import DisciplineScoreWidget from "@/components/ui/DisciplineScoreWidget";
+import { RecentTradesTable } from "@/components/dashboard/widgets/RecentTradesTable";
+import { EquityCurveChart } from "@/components/dashboard/widgets/EquityCurveChart";
+import { StrategyPerformance } from "@/components/dashboard/widgets/StrategyPerformance";
+import { OpenPositionsList } from "@/components/dashboard/widgets/OpenPositionsList";
+import { EconomicNewsTicker } from "@/components/dashboard/widgets/EconomicNewsTicker";
+import { DailyRiskWidget } from "@/components/dashboard/widgets/DailyRiskWidget";
+import { QuickTradeEntry } from "@/components/dashboard/widgets/QuickTradeEntry";
+import { AlertsWidget } from "@/components/dashboard/widgets/AlertsWidget";
+import { PerformanceSummaryWidget } from "@/components/dashboard/widgets/PerformanceSummaryWidget";
+import { DrawdownVisualization } from "@/components/dashboard/widgets/DrawdownVisualization";
+import { MonthlyPerformanceGrid } from "@/components/dashboard/widgets/MonthlyPerformanceGrid";
+import { SessionPerformanceGrid } from "@/components/dashboard/widgets/SessionPerformanceGrid";
+import { usePositions } from "@/hooks/usePositions";
 
 function StatCard({
   label,
@@ -74,6 +89,7 @@ function StatCard({
 
 export default function Dashboard() {
   const { trades, analytics, loading, error } = useCsvTrades();
+  const { positions, loading: rootPosLoading } = usePositions();
   const [mt5Data, setMt5Data] = useState<{
     connected?: boolean;
     balance?: number;
@@ -202,8 +218,10 @@ export default function Dashboard() {
             <AIMacroDeskSection />
          </div>
 
-         {/* Right Col (For You & Capital Flow) - Spans 4 cols */}
+         {/* Right Col (For You & Capital Flow & Discipline) - Spans 4 cols */}
          <div className="lg:col-span-4 flex flex-col gap-4">
+            {/* Discipline Score Widget */}
+            <DisciplineScoreWidget trades={trades} />
             {/* For You Briefing */}
             <div className="bg-[#0c0c0d]/90 border border-white/5 rounded-xl p-5 shadow-2xl backdrop-blur">
                <div className="flex justify-between items-center mb-4">
@@ -318,6 +336,97 @@ export default function Dashboard() {
                  <span className="text-xl font-bold font-mono text-white">{metrics.winRate.toFixed(0)}%</span>
               </div>
            </div>
+         </div>
+      </div>
+
+      <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent my-8"></div>
+
+      {/* ── SECTION 5.5: PERFORMANCE SUMMARY ── */}
+      <div className="mb-6">
+        <PerformanceSummaryWidget trades={trades} />
+      </div>
+
+      {/* ── SECTION 6: TRADING ACTIVITY ── */}
+      <div className="mb-8 w-full max-w-full">
+        <RecentTradesTable trades={recentTrades} loading={loading} />
+      </div>
+
+      {/* ── SECTION 7: PERFORMANCE ANALYTICS ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-6">
+         {/* Left Col (Equity Curve) - Spans 6 cols */}
+         <div className="lg:col-span-6 h-[400px]">
+            <EquityCurveChart data={equityCurve} loading={loading} />
+         </div>
+
+         {/* Right Col (Strategy Performance) - Spans 6 cols */}
+         <div className="lg:col-span-6 h-[400px]">
+            <StrategyPerformance data={strategyStats} loading={loading} />
+         </div>
+      </div>
+
+      {/* ── SECTION 7.5: DRAWDOWN + SESSION BREAKDOWN ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-8">
+         {/* Drawdown Underwater Plot - Spans 5 cols */}
+         <div className="lg:col-span-5 h-[320px]">
+            <DrawdownVisualization trades={trades} />
+         </div>
+
+         {/* Session Performance Grid - Spans 7 cols */}
+         <div className="lg:col-span-7">
+            <SessionPerformanceGrid trades={trades} />
+         </div>
+      </div>
+
+      {/* ── SECTION 7.8: MONTHLY P&L GRID ── */}
+      <div className="pb-8">
+        <MonthlyPerformanceGrid trades={trades} />
+      </div>
+
+      <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent my-8"></div>
+
+      {/* ── SECTION 8: MARKET & POSITIONS ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-8">
+         {/* Open Positions List - Spans 7 cols */}
+         <div className="lg:col-span-7 h-[450px]">
+            <OpenPositionsList positions={positions} loading={rootPosLoading} />
+         </div>
+
+         {/* Economic News Ticker - Spans 5 cols */}
+         <div className="lg:col-span-5 h-[450px]">
+            <EconomicNewsTicker />
+         </div>
+      </div>
+
+      <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent my-8"></div>
+
+      {/* ── SECTION 9: RISK + QUICK TRADE ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-8">
+         {/* Daily Risk Widget - Spans 4 cols */}
+         <div className="lg:col-span-4 h-[560px]">
+            <DailyRiskWidget
+              trades={trades}
+              balance={mt5Data?.balance}
+              equity={mt5Data?.equity}
+              maxDailyDrawdownPct={5}
+              maxTotalDrawdownPct={10}
+            />
+         </div>
+
+         {/* Quick Trade Entry - Spans 4 cols */}
+         <div className="lg:col-span-4 h-[560px]">
+            <QuickTradeEntry />
+         </div>
+
+         {/* Alerts Widget - Spans 4 cols */}
+         <div className="lg:col-span-4 h-[560px]">
+            <AlertsWidget
+              trades={trades}
+              positions={positions}
+              mt5Connected={mt5Data?.connected}
+              balance={mt5Data?.balance}
+              equity={mt5Data?.equity}
+              maxDailyDrawdownPct={5}
+            />
          </div>
       </div>
     </div>

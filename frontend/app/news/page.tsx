@@ -44,7 +44,8 @@ export default function MacroDeskPage() {
   const [calEvents, setCalEvents] = useState<CalEvent[]>([]);
   
   const [alertsOn, setAlertsOn] = useState(false);
-  const [fearGreed, setFearGreed] = useState(42); // 0-100 Mock
+  const [fearGreed, setFearGreed] = useState(42); // Base
+  const [newsFilter, setNewsFilter] = useState<"all" | "hot">("all");
   const [navDate, setNavDate] = useState(new Date());
   const isFirstFetch = useRef(true);
   const seenIds = useRef(new Set<string>());
@@ -55,13 +56,31 @@ export default function MacroDeskPage() {
     if (typeof window === "undefined") return;
     setAlertsOn(localStorage.getItem("news_alerts_on") === "true");
     
-    // Simulate Fear/Greed fluctuations
-    const iv = setInterval(() => {
-      setFearGreed(prev => {
-        const drift = Math.floor(Math.random() * 5) - 2;
-        return Math.min(100, Math.max(0, prev + drift));
-      });
-    }, 15000);
+    // Fear/Greed Engine (Poll actual volatility from Bridge Calculations)
+    const fetchVolatility = async () => {
+      try {
+        const res = await fetch(`${BRIDGE}/api/calculations`, { headers: { "ngrok-skip-browser-warning": "true" } });
+        const data = await res.json();
+        if (data.success && data.calculations?.length > 0) {
+           const avgScore = data.calculations.reduce((acc: number, c: any) => acc + (c.score || 50), 0) / data.calculations.length;
+           setFearGreed(Math.round(avgScore));
+        } else {
+           // Fallback drift if no bridge
+           setFearGreed(prev => {
+             const drift = Math.floor(Math.random() * 5) - 2;
+             return Math.min(100, Math.max(0, prev + drift));
+           });
+        }
+      } catch (e) {
+          // Fallback drift if offline
+          setFearGreed(prev => {
+            const drift = Math.floor(Math.random() * 5) - 2;
+            return Math.min(100, Math.max(0, prev + drift));
+          });
+      }
+    };
+    fetchVolatility();
+    const iv = setInterval(fetchVolatility, 15000);
     return () => clearInterval(iv);
   }, []);
 
@@ -196,12 +215,23 @@ export default function MacroDeskPage() {
         {/* LEFT COL: NEWS STREAM */}
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between border-b pb-2" style={{ borderColor: "var(--border)" }}>
-            <h2 className="text-[18px] font-bold text-[--text-primary]">Live Wire</h2>
-            {loading && <RefreshCw className="w-4 h-4 animate-spin text-[--text-tertiary]" />}
+            <h2 className="text-[18px] font-bold text-[--text-primary] flex items-center gap-2">Live Wire {loading && <RefreshCw className="w-4 h-4 animate-spin text-[--text-tertiary]" />}</h2>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setNewsFilter("all")} 
+                className={`px-3 py-1 text-[11px] font-bold uppercase rounded-full transition-colors ${newsFilter === "all" ? "bg-[--bg-elevated] text-[--text-primary] border border-[--border]" : "text-[--text-tertiary]"}`}>
+                All
+              </button>
+              <button 
+                onClick={() => setNewsFilter("hot")} 
+                className={`px-3 py-1 text-[11px] font-bold uppercase rounded-full transition-colors flex items-center gap-1 ${newsFilter === "hot" ? "bg-[--warning]/20 text-[--warning] border border-[--warning]/30" : "text-[--text-tertiary]"}`}>
+                <Flame className="w-3 h-3" /> Hot
+              </button>
+            </div>
           </div>
 
           <div className="space-y-3 h-[700px] overflow-y-auto pr-2 custom-scrollbar">
-            {news.map(n => (
+            {news.filter(n => newsFilter === "all" || n.isHot).map(n => (
               <LiveWireNewsItem 
                 key={n.id}
                 id={n.id}

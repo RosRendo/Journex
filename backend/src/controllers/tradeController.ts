@@ -23,6 +23,10 @@ export const createTrade = async (req: Request, res: Response, next: NextFunctio
         direction: tradeData.direction || 'Unknown',
         profit: tradeData.profit || 0,
         lotSize: tradeData.lotSize || null,
+        emotion: tradeData.emotion || null,
+        followedPlan: tradeData.followedPlan !== undefined ? tradeData.followedPlan : null,
+        planDeviationReason: tradeData.planDeviationReason || null,
+        checklistPassed: tradeData.checklistPassed !== undefined ? tradeData.checklistPassed : null,
       },
     });
 
@@ -134,6 +138,10 @@ export const updateTrade = async (req: Request, res: Response, next: NextFunctio
         ...(tradeData.direction !== undefined && { direction: tradeData.direction }),
         ...(tradeData.profit !== undefined && { profit: tradeData.profit }),
         ...(tradeData.lotSize !== undefined && { lotSize: tradeData.lotSize }),
+        ...(tradeData.emotion !== undefined && { emotion: tradeData.emotion }),
+        ...(tradeData.followedPlan !== undefined && { followedPlan: tradeData.followedPlan }),
+        ...(tradeData.planDeviationReason !== undefined && { planDeviationReason: tradeData.planDeviationReason }),
+        ...(tradeData.checklistPassed !== undefined && { checklistPassed: tradeData.checklistPassed }),
       },
     });
 

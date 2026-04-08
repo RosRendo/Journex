@@ -1,11 +1,13 @@
 "use client";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
-  Play, Pause, SkipBack, SkipForward, X, Plus, Minus, Trash2, Type, SlidersHorizontal, BarChart2, Briefcase, TrendingUp, TrendingDown, Target, ShieldAlert, Activity, LayoutTemplate
+  Play, Pause, SkipBack, SkipForward, X, Plus, Minus, Trash2, Type, SlidersHorizontal, BarChart2, Briefcase, TrendingUp, TrendingDown, Target, ShieldAlert, Activity, LayoutTemplate, Save, Database, History
 } from "lucide-react";
 import {
-  createChart, IChartApi, ISeriesApi, Time, IPriceLine
+  createChart, IChartApi, ISeriesApi, Time, IPriceLine, LineStyle
 } from "lightweight-charts";
+import { useSession } from "next-auth/react";
+import { ProLock } from "@/components/ui/ProLock";
 
 const BRIDGE_URL = typeof window !== "undefined"
   ? (window.location.hostname === "localhost" ? "http://localhost:5003" : (process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003"))
@@ -13,6 +15,7 @@ const BRIDGE_URL = typeof window !== "undefined"
 const BACKTEST_API_URL = `${BRIDGE_URL}/api`;
 
 interface Candle { time: number; open: number; high: number; low: number; close: number; volume: number; }
+interface SavedSessionItem { id: string; symbol: string; timeframe: string; date: string; candles: Candle[]; }
 interface ReplaySession { session_id: string; symbol: string; timeframe: string; total_candles: number; candles?: Candle[]; }
 interface Statistics { total_trades: number; wins: number; losses: number; win_rate: number; total_pnl: number; average_r: number; expectancy: number; max_drawdown: number; current_balance: number; equity: number; }
 interface OpenPosition { id: string; symbol: string; direction: "BUY" | "SELL"; entry: number; sl: number; tp: number; lot_size: number; current_pnl?: number; }
@@ -31,12 +34,16 @@ export default function BacktestingPage() {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candlestickSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const rsiSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
   const priceLinesRef = useRef<IPriceLine[]>([]);
   const trendLinesRef = useRef<{ id: string; series: ISeriesApi<"Line"> }[]>([]);
   const replayBusyRef = useRef(false);
   const playingRef = useRef(false);
+  const { data: authSession } = useSession();
+  const isPro = (authSession?.user as any)?.isPro === true;
 
   const [session, setSession] = useState<ReplaySession | null>(null);
+  const [savedSessions, setSavedSessions] = useState<SavedSessionItem[]>([]);
   const [allCandles, setAllCandles] = useState<Candle[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentCandle, setCurrentCandle] = useState<Candle | null>(null);
@@ -46,8 +53,16 @@ export default function BacktestingPage() {
   const [statistics, setStatistics] = useState<Statistics | null>(null);
   const [openPositions, setOpenPositions] = useState<OpenPosition[]>([]);
   const [drawTool, setDrawTool] = useState<DrawTool>("none");
+  const [showRSI, setShowRSI] = useState(false);
   const [trendPoint1, setTrendPoint1] = useState<{ time: Time; value: number; } | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("backtest_sessions");
+      if (saved) setSavedSessions(JSON.parse(saved));
+    } catch(e){}
+  }, []);
 
   const [formData, setFormData] = useState({
     symbol: "XAUUSDm", timeframe: "H1",
@@ -80,14 +95,54 @@ export default function BacktestingPage() {
       }
     };
     window.addEventListener("resize", handleResize);
-    return () => { window.removeEventListener("resize", handleResize); chart.remove(); chartRef.current = null; candlestickSeriesRef.current = null; };
+    return () => { window.removeEventListener("resize", handleResize); chart.remove(); chartRef.current = null; candlestickSeriesRef.current = null; rsiSeriesRef.current = null; };
   }, []);
 
   useEffect(() => {
     if (!candlestickSeriesRef.current || !allCandles.length || currentIndex < 0 || currentIndex >= allCandles.length) return;
     const slice = allCandles.slice(0, currentIndex + 1).map((c) => ({ time: c.time as unknown as Time, open: c.open, high: c.high, low: c.low, close: c.close }));
     candlestickSeriesRef.current.setData(slice);
-  }, [allCandles, currentIndex]);
+
+    if (showRSI && chartRef.current) {
+      if (!rsiSeriesRef.current) {
+        rsiSeriesRef.current = chartRef.current.addLineSeries({
+            color: '#8b5cf6', lineWidth: 2,
+            priceScaleId: 'rsi-scale',
+        });
+        chartRef.current.priceScale('rsi-scale').applyOptions({
+            scaleMargins: { top: 0.8, bottom: 0 },
+        });
+        // Add RSI 30/70 boundary lines
+        rsiSeriesRef.current.createPriceLine({ price: 70, color: '#ff4d6a', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: false });
+        rsiSeriesRef.current.createPriceLine({ price: 30, color: '#00d4a1', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: false });
+      }
+      // Calculate RSI
+      const rsiData: { time: Time; value: number }[] = [];
+      let gains = 0, losses = 0;
+      const period = 14;
+      for (let i = 1; i < slice.length; i++) {
+          const change = slice[i].close - slice[i-1].close;
+          if (i <= period) {
+              if (change > 0) gains += change; else losses -= change;
+              if (i === period) {
+                  let avgG = gains/period; let avgL = losses/period;
+                  rsiData.push({ time: slice[i].time, value: 100 - (100 / (1 + avgG / (avgL||1))) });
+              }
+          } else {
+              const gain = change > 0 ? change : 0;
+              const loss = change < 0 ? -change : 0;
+              const prevG = ((gains/period) * (period-1) + gain) / period;
+              const prevL = ((losses/period) * (period-1) + loss) / period;
+              gains = prevG * period; losses = prevL * period;
+              rsiData.push({ time: slice[i].time, value: 100 - (100 / (1 + prevG / (prevL||1))) });
+          }
+      }
+      rsiSeriesRef.current.setData(rsiData);
+    } else if (!showRSI && rsiSeriesRef.current && chartRef.current) {
+      chartRef.current.removeSeries(rsiSeriesRef.current);
+      rsiSeriesRef.current = null;
+    }
+  }, [allCandles, currentIndex, showRSI]);
 
   const nextCandle = useCallback(async () => {
     if (!session || replayBusyRef.current) return;
@@ -138,6 +193,26 @@ export default function BacktestingPage() {
         setStatistics(data.statistics ?? null); setOpenPositions(data.open_positions ?? []);
       }
     } catch (e) { console.error("Load status error:", e); }
+  };
+
+  const saveCurrentSession = () => {
+    if (!session || !allCandles.length) return;
+    try {
+        const item: Omit<SavedSessionItem, 'id'> & { id: string } = {
+            id: session.session_id, symbol: session.symbol, timeframe: session.timeframe, 
+            date: new Date().toLocaleDateString(), candles: allCandles 
+        };
+        const newSaved = [...savedSessions.filter(s => s.id !== session.session_id), item];
+        localStorage.setItem("backtest_sessions", JSON.stringify(newSaved));
+        setSavedSessions(newSaved);
+        alert("Session correctly saved locally!");
+    } catch(e) { alert("Error saving session"); }
+  };
+
+  const loadSavedSession = async (item: SavedSessionItem) => {
+    setSession({ session_id: item.id, symbol: item.symbol, timeframe: item.timeframe, total_candles: item.candles.length, candles: item.candles });
+    setAllCandles(item.candles);
+    await loadStatus(item.id);
   };
 
   const previousCandle = async () => {
@@ -231,19 +306,28 @@ export default function BacktestingPage() {
           
           {/* Drawing Tools */}
           {session && (
-            <div className="backdrop-blur-md border rounded-xl flex items-center p-1.5 shadow-2xl pointer-events-auto" style={{ background: "rgba(10,10,15,0.8)", borderColor: "var(--border-strong)" }}>
-              <button onClick={() => { setDrawTool("none"); setTrendPoint1(null); }} className={`p-2 rounded-lg transition-colors ${drawTool === "none" ? "bg-[--text-primary] text-[--bg-base]" : "text-[--text-secondary] hover:bg-[--bg-elevated]"}`}>
-                <LayoutTemplate size={16} />
-              </button>
-              <button onClick={() => { setDrawTool("horizontal"); addHorizontalLine(); }} className={`p-2 rounded-lg transition-colors ${drawTool === "horizontal" ? "bg-[--accent] text-black" : "text-[--text-secondary] hover:bg-[--bg-elevated]"}`}>
-                <SlidersHorizontal size={16} />
-              </button>
-              <button onClick={() => setDrawTool("trend")} className={`p-2 rounded-lg transition-colors ${drawTool === "trend" ? "bg-[--accent] text-black" : "text-[--text-secondary] hover:bg-[--bg-elevated]"}`}>
-                <Type size={16} />
-              </button>
-              <div className="w-[1px] h-6 mx-2" style={{ background: "var(--border)" }} />
-              <button onClick={clearDrawings} className="p-2 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors">
-                <Trash2 size={16} />
+            <div className="flex gap-2 pointer-events-auto">
+              <div className="backdrop-blur-md border rounded-xl flex items-center p-1.5 shadow-2xl" style={{ background: "rgba(10,10,15,0.8)", borderColor: "var(--border-strong)" }}>
+                <button onClick={() => { setDrawTool("none"); setTrendPoint1(null); }} className={`p-2 rounded-lg transition-colors ${drawTool === "none" ? "bg-[--text-primary] text-[--bg-base]" : "text-[--text-secondary] hover:bg-[--bg-elevated]"}`}>
+                  <LayoutTemplate size={16} />
+                </button>
+                <button onClick={() => { setDrawTool("horizontal"); addHorizontalLine(); }} className={`p-2 rounded-lg transition-colors ${drawTool === "horizontal" ? "bg-[--accent] text-black" : "text-[--text-secondary] hover:bg-[--bg-elevated]"}`}>
+                  <SlidersHorizontal size={16} />
+                </button>
+                <button onClick={() => setDrawTool("trend")} className={`p-2 rounded-lg transition-colors ${drawTool === "trend" ? "bg-[--accent] text-black" : "text-[--text-secondary] hover:bg-[--bg-elevated]"}`}>
+                  <Type size={16} />
+                </button>
+                <div className="w-[1px] h-6 mx-2" style={{ background: "var(--border)" }} />
+                <button onClick={() => setShowRSI(!showRSI)} className={`p-2 rounded-lg transition-colors font-bold text-xs px-3 ${showRSI ? "bg-purple-500/20 text-purple-400" : "text-[--text-secondary] hover:bg-[--bg-elevated]"}`}>
+                  RSI
+                </button>
+                <button onClick={clearDrawings} className="p-2 ml-1 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors">
+                  <Trash2 size={16} />
+                </button>
+              </div>
+              
+              <button onClick={saveCurrentSession} className="backdrop-blur-md border rounded-xl p-3 flex items-center justify-center shadow-2xl hover:bg-[--bg-elevated] text-[--text-primary] transition-all" style={{ background: "rgba(10,10,15,0.8)", borderColor: "var(--border-strong)" }}>
+                <Save size={16} />
               </button>
             </div>
           )}
@@ -255,7 +339,9 @@ export default function BacktestingPage() {
           
           {/* Empty State Overlay */}
           {!session && (
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-20">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-20 flex-col gap-6">
+              
+              {/* Main New Session Box */}
               <div className="rounded-3xl p-8 max-w-2xl w-full shadow-2xl flex flex-col gap-6" style={{ background: "var(--bg-card)", border: "1px solid var(--border-strong)" }}>
                 
                 <div className="text-center">
@@ -308,6 +394,46 @@ export default function BacktestingPage() {
                   <Play className="w-5 h-5" /> Launch Simulation Engine
                 </button>
               </div>
+              
+              {/* Saved Sessions Box */}
+              {savedSessions.length > 0 && (
+                  <div className="rounded-2xl p-6 max-w-2xl w-full shadow-2xl border" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+                      <h3 className="font-bold text-[14px] uppercase tracking-wider text-[--text-primary] mb-3 flex items-center gap-2">
+                          <History size={16} className="text-blue-500"/> Saved Replay Sessions
+                      </h3>
+                      <div className="flex flex-wrap gap-2 max-h-[150px] overflow-y-auto custom-scrollbar">
+                          {savedSessions.map(s => (
+                              <button key={s.id} onClick={() => loadSavedSession(s)} className="bg-[--bg-base] border text-left rounded-xl p-3 hover:border-blue-500/50 transition-colors flex items-center justify-between gap-4" style={{ borderColor: "var(--border)" }}>
+                                  <div>
+                                      <p className="font-bold text-[13px] text-[--text-primary]">{s.symbol} • {s.timeframe}</p>
+                                      <p className="text-[10px] text-[--text-tertiary] mt-0.5">Saved: {s.date} • {s.candles.length} bars</p>
+                                  </div>
+                                  <div className="w-6 h-6 rounded bg-blue-500/20 text-blue-400 flex items-center justify-center"><Play size={12} className="ml-0.5 fill-current"/></div>
+                              </button>
+                          ))}
+                      </div>
+                  </div>
+              )}
+              
+              {/* Pro Feature: Monte Carlo Settings */}
+              <ProLock featureName="Advanced Monte Carlo Simulations">
+                  <div className="rounded-3xl p-6 max-w-2xl w-full shadow-2xl border relative overflow-hidden" style={{ background: "var(--bg-card)", borderColor: "var(--border-strong)" }}>
+                      <h3 className="font-bold text-[14px] uppercase tracking-wider text-[--text-primary] mb-3 flex items-center gap-2">
+                           <BarChart2 size={16} className="text-[--accent]"/> Advanced Monte Carlo Parameters
+                      </h3>
+                      <div className="grid grid-cols-2 gap-4">
+                         <div className="p-3 bg-[--bg-base] border rounded-xl" style={{ borderColor: "var(--border)" }}>
+                            <p className="text-[10px] uppercase font-bold text-[--text-tertiary] tracking-widest mb-1.5">Permutations</p>
+                            <p className="text-[13px] font-mono font-bold text-[--text-primary]">10,000</p>
+                         </div>
+                         <div className="p-3 bg-[--bg-base] border rounded-xl" style={{ borderColor: "var(--border)" }}>
+                            <p className="text-[10px] uppercase font-bold text-[--text-tertiary] tracking-widest mb-1.5">Confidence Level</p>
+                            <p className="text-[13px] font-mono font-bold text-[--text-primary]">95%</p>
+                         </div>
+                      </div>
+                  </div>
+              </ProLock>
+
             </div>
           )}
         </div>

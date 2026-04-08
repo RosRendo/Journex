@@ -5,7 +5,7 @@ import type { TradeData } from "@/hooks/useCsvTrades";
 import { useMemo } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
-  PieChart, Pie, AreaChart, Area,
+  PieChart, Pie, AreaChart, Area, ScatterChart, Scatter, ZAxis
 } from "recharts";
 import Link from "next/link";
 
@@ -37,10 +37,39 @@ export default function Analytics() {
     { name: "B/E", value: trades.filter((t: TradeData) => t.profit === 0).length },
   ].filter((d) => d.value > 0), [trades]);
 
-  const cumPnl = useMemo(() => {
+  const { cumPnl, drawdownData } = useMemo(() => {
     let cum = 0;
-    return [...trades].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-      .slice(-60).map((t: TradeData) => { cum += t.profit; return { date: new Date(t.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }), cumPnl: Math.round(cum * 100) / 100 }; });
+    let hwm = 0;
+    const cpArr: { date: string; cumPnl: number }[] = [];
+    const ddArr: { date: string; drawdown: number; maxDrawdown: number }[] = [];
+    
+    [...trades].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .slice(-60).forEach((t: TradeData) => { 
+        cum += t.profit; 
+        if (cum > hwm) hwm = cum;
+        const dd = cum - hwm;
+        const dateStr = new Date(t.date).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        cpArr.push({ date: dateStr, cumPnl: Math.round(cum * 100) / 100 });
+        ddArr.push({ date: dateStr, drawdown: Math.round(dd * 100) / 100, maxDrawdown: 0 });
+      });
+      
+    // Calculate global Max DD for the set
+    let absoluteMaxDd = 0;
+    ddArr.forEach(d => { if (d.drawdown < absoluteMaxDd) absoluteMaxDd = d.drawdown; });
+    ddArr.forEach(d => { d.maxDrawdown = absoluteMaxDd; });
+      
+    return { cumPnl: cpArr, drawdownData: ddArr };
+  }, [trades]);
+
+  const sharpeRatio = useMemo(() => {
+    if (trades.length < 2) return 0;
+    const profits = trades.map((t: TradeData) => t.profit);
+    const mean = profits.reduce((a, b) => a + b, 0) / profits.length;
+    const variance = profits.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (profits.length - 1);
+    const stdev = Math.sqrt(variance);
+    // Multiply by sqrt(100) as a rough annualization factor for active traders, or just display raw.
+    // We'll multiply by sqrt(100) to give a more standard 1.x-3.x look
+    return stdev === 0 ? 0 : (mean / stdev) * Math.sqrt(100);
   }, [trades]);
 
   const dailyPnl = useMemo(() => {
@@ -74,6 +103,49 @@ export default function Analytics() {
       shorts: { count: shorts.length, wins: shorts.filter((t) => t.profit > 0).length, pnl: shorts.reduce((s, t) => s + t.profit, 0) },
     };
   }, [trades]);
+
+  const timeOfDayData = useMemo(() => {
+    const hours = Array.from({ length: 24 }, (_, i) => ({ hour: `${i.toString().padStart(2, "0")}:00`, pnl: 0, count: 0 }));
+    trades.forEach((t: TradeData) => {
+      const d = new Date(t.openTime || t.date);
+      if(!isNaN(d.getTime())) {
+        const h = d.getHours();
+        hours[h].pnl += t.profit;
+        hours[h].count++;
+      }
+    });
+    return hours.map(h => ({ ...h, pnl: Math.round(h.pnl * 100) / 100 }));
+  }, [trades]);
+
+  const durationData = useMemo(() => {
+    return trades
+      .filter((t: TradeData) => t.openTime && t.openTime.length > 5)
+      .map((t: TradeData) => {
+        const start = new Date(t.openTime!).getTime();
+        const end = new Date(t.date).getTime();
+        const mins = Math.max(1, Math.round((end - start) / 60000));
+        return { mins, profit: t.profit, pair: t.pair, id: t.id };
+      })
+      .filter((x) => x.mins < 10000 && !isNaN(x.mins) && !isNaN(x.profit));
+  }, [trades]);
+
+  const maxStreaks = useMemo(() => {
+    let maxWins = 0, maxLosses = 0;
+    let currWins = 0, currLosses = 0;
+    [...trades].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).forEach((t: TradeData) => {
+      if (t.profit > 0) { currWins++; currLosses = 0; if (currWins > maxWins) maxWins = currWins; }
+      else if (t.profit < 0) { currLosses++; currWins = 0; if (currLosses > maxLosses) maxLosses = currLosses; }
+      else { currWins = 0; currLosses = 0; }
+    });
+    return { maxWins, maxLosses };
+  }, [trades]);
+
+  const expectancy = useMemo(() => {
+    if(!analytics) return 0;
+    const wr = analytics.winRate / 100;
+    const lr = 1 - wr;
+    return (wr * analytics.avgWin) + (lr * analytics.avgLoss);
+  }, [analytics]);
 
   if (loading) {
     return (
@@ -114,18 +186,20 @@ export default function Analytics() {
       </div>
 
       {/* Top KPI strip */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
         {[
           { label: "Win Rate", value: `${(analytics?.winRate || 0).toFixed(1)}%`, color: (analytics?.winRate || 0) >= 50 ? "var(--bull)" : "var(--bear)" },
+          { label: "Sharpe Ratio", value: `${sharpeRatio.toFixed(2)}`, color: sharpeRatio >= 1 ? "var(--bull)" : "var(--bear)" },
           { label: "Profit Factor", value: `${(analytics?.profitFactor || 0).toFixed(2)}`, color: (analytics?.profitFactor || 0) >= 1 ? "var(--bull)" : "var(--bear)" },
           { label: "Total Trades", value: `${analytics?.totalTrades || 0}`, color: "var(--text-primary)" },
           { label: "Avg Win", value: `$${(analytics?.avgWin || 0).toFixed(2)}`, color: "var(--bull)" },
           { label: "Avg Loss", value: `-$${Math.abs(analytics?.avgLoss || 0).toFixed(2)}`, color: "var(--bear)" },
+          { label: "Expectancy", value: `$${expectancy.toFixed(2)}`, color: expectancy >= 0 ? "var(--bull)" : "var(--bear)" },
           { label: "Net P&L", value: `$${((analytics?.totalProfit || 0)).toFixed(2)}`, color: (analytics?.totalProfit || 0) >= 0 ? "var(--bull)" : "var(--bear)" },
         ].map((kpi) => (
-          <div key={kpi.label} className="rounded-xl border p-3" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+          <div key={kpi.label} className="rounded-xl border p-3 flex flex-col justify-center" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
             <div className="text-[9px] font-bold uppercase tracking-widest mb-1.5" style={{ color: "var(--text-tertiary)" }}>{kpi.label}</div>
-            <div className="text-[18px] font-bold font-mono" style={{ color: kpi.color }}>{kpi.value}</div>
+            <div className="text-[18px] font-bold font-mono whitespace-nowrap" style={{ color: kpi.color }}>{kpi.value}</div>
           </div>
         ))}
       </div>
@@ -135,7 +209,7 @@ export default function Analytics() {
         <div className="lg:col-span-2">
           <SectionCard title="Equity Curve (Cumulative P&L)">
             <ResponsiveContainer width="100%" height={220}>
-              <AreaChart data={cumPnl}>
+              <AreaChart data={cumPnl} syncId="analyticsCharts">
                 <defs>
                   <linearGradient id="equityGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#00c896" stopOpacity={0.3} />
@@ -146,6 +220,23 @@ export default function Analytics() {
                 <YAxis tick={{ fontSize: 10, fill: "#555568" }} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v}`} />
                 <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [`$${v.toFixed(2)}`, "Equity"]} />
                 <Area type="monotone" dataKey="cumPnl" stroke="#00c896" strokeWidth={2} fill="url(#equityGrad)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </SectionCard>
+          <div className="mt-4" />
+          <SectionCard title="Drawdown Curve">
+            <ResponsiveContainer width="100%" height={160}>
+              <AreaChart data={drawdownData} syncId="analyticsCharts">
+                <defs>
+                  <linearGradient id="ddGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#ff4d6a" stopOpacity={0.4} />
+                    <stop offset="100%" stopColor="#ff4d6a" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="date" hide />
+                <YAxis reversed={true} tick={{ fontSize: 10, fill: "#555568" }} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v}`} />
+                <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [`$${v.toFixed(2)}`, "Drawdown"]} />
+                <Area type="monotone" dataKey="drawdown" stroke="#ff4d6a" strokeWidth={2} fill="url(#ddGrad)" />
               </AreaChart>
             </ResponsiveContainer>
           </SectionCard>
@@ -183,6 +274,17 @@ export default function Analytics() {
                     <span style={{ color: d.stat.pnl >= 0 ? "var(--bull)" : "var(--bear)" }}>${d.stat.pnl.toFixed(2)}</span>
                   </div>
                 ))}
+              </div>
+              <div className="mt-4 pt-4 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
+                <div className="text-[9px] font-bold uppercase tracking-widest mb-2" style={{ color: "var(--text-tertiary)" }}>Consecutive Streaks</div>
+                <div className="flex justify-between text-[12px]">
+                  <span style={{ color: "var(--text-secondary)" }}>Max Wins In A Row</span>
+                  <span style={{ color: "var(--bull)", fontWeight: "bold" }}>{maxStreaks.maxWins}</span>
+                </div>
+                <div className="flex justify-between text-[12px]">
+                  <span style={{ color: "var(--text-secondary)" }}>Max Losses In A Row</span>
+                  <span style={{ color: "var(--bear)", fontWeight: "bold" }}>{maxStreaks.maxLosses}</span>
+                </div>
               </div>
             </>
           )}
@@ -239,6 +341,47 @@ export default function Analytics() {
               );
             })}
           </div>
+        </SectionCard>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <SectionCard title="Performance by Hour of Day">
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={timeOfDayData}>
+              <XAxis dataKey="hour" tick={{ fontSize: 9, fill: "#555568" }} tickLine={false} axisLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: "#555568" }} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v}`} />
+              <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [`$${v.toFixed(2)}`, "P&L"]} />
+              <Bar dataKey="pnl" radius={[2, 2, 0, 0]}>
+                {timeOfDayData.map((d, i) => <Cell key={i} fill={d.pnl >= 0 ? "#00c896" : "#ff4d6a"} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </SectionCard>
+
+        <SectionCard title="Trade Duration vs Profit">
+          {durationData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={250}>
+              <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                <XAxis type="number" dataKey="mins" name="Duration" unit="m" tick={{ fontSize: 10, fill: "#555568" }} tickLine={false} axisLine={false} />
+                <YAxis type="number" dataKey="profit" name="P&L" unit="$" tick={{ fontSize: 10, fill: "#555568" }} tickLine={false} axisLine={false} />
+                <ZAxis type="number" range={[40, 40]} />
+                <Tooltip 
+                  {...TOOLTIP_STYLE} 
+                  cursor={{ strokeDasharray: '3 3' }} 
+                  formatter={(value: number, name: string) => [name === 'P&L' ? `$${value}` : `${value}m`, name]} 
+                />
+                <Scatter name="Trades" data={durationData}>
+                  {durationData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.profit >= 0 ? "#00c896" : "#ff4d6a"} fillOpacity={0.6} />
+                  ))}
+                </Scatter>
+              </ScatterChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[250px] text-[12px] opacity-60">
+              No Open Time data available in this execution format
+            </div>
+          )}
         </SectionCard>
       </div>
     </div>

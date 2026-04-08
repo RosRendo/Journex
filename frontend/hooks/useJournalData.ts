@@ -4,6 +4,10 @@ export interface JournalEntry {
     strategy: string;
     reason: string;
     images: string[]; // Base64 images
+    emotion?: string; // "Calm" | "Confident" | "Anxious" | "Panicked" | "Greedy" | "Revenge"
+    followedPlan?: boolean;
+    planDeviationReason?: string;
+    checklistPassed?: boolean;
 }
 
 export function useJournalData(tradeId: string | number | undefined) {
@@ -11,6 +15,10 @@ export function useJournalData(tradeId: string | number | undefined) {
         strategy: "",
         reason: "",
         images: [],
+        emotion: undefined,
+        followedPlan: undefined,
+        planDeviationReason: "",
+        checklistPassed: undefined,
     });
 
     // Load from localStorage on mount or when tradeId changes
@@ -24,7 +32,7 @@ export function useJournalData(tradeId: string | number | undefined) {
                 console.error("Failed to parse journal entry", err);
             }
         } else {
-            setEntry({ strategy: "", reason: "", images: [] });
+            setEntry({ strategy: "", reason: "", images: [], emotion: undefined, followedPlan: undefined, planDeviationReason: "", checklistPassed: undefined });
         }
     }, [tradeId]);
 

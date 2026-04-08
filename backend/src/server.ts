@@ -13,6 +13,8 @@ import calendarRoutes from "./routes/calendarRoutes";
 import brokerRoutes from "./routes/brokerRoutes";
 import communityRoutes from "./routes/communityRoutes";
 import polarRoutes from "./routes/polarRoutes";
+import checklistRoutes from "./routes/checklistRoutes";
+import tradingPlanRoutes from "./routes/tradingPlanRoutes";
 import { errorHandler } from "./middleware/errorHandler";
 
 dotenv.config();
@@ -24,11 +26,11 @@ const PORT = process.env.PORT || 5000;
 app.use(helmet());
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: true, // Allow any origin for local dev
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  }),
+    allowedHeaders: ["Content-Type", "Authorization", "ngrok-skip-browser-warning"],
+  })
 );
 app.use(compression());
 app.use(express.json());
@@ -46,6 +48,8 @@ app.use("/api/calendar", calendarRoutes);
 app.use("/api/broker", brokerRoutes);
 app.use("/api/community", communityRoutes);
 app.use("/api/polar", polarRoutes);
+app.use("/api/checklist", checklistRoutes);
+app.use("/api/trading-plan", tradingPlanRoutes);
 
 // --- MT5 BRIDGE PROXY SYSTEM (Production vs Local) ---
 // If TRADE_MODE = 'cloud', we would route this to MetaApi REST endpoints.

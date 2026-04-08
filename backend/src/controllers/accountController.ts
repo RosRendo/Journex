@@ -50,3 +50,13 @@ export const updateAccount = async (req: Request, res: Response, next: NextFunct
     next(error);
   }
 };
+
+export const deleteAccount = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    await prisma.account.delete({ where: { id: parseInt(id) } });
+    res.json({ success: true, message: 'Account deleted' });
+  } catch (error) {
+    next(error);
+  }
+};

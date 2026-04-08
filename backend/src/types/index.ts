@@ -13,6 +13,10 @@ export interface TradeInput {
   direction?: string;
   profit?: number;
   lotSize?: number;
+  emotion?: string;
+  followedPlan?: boolean;
+  planDeviationReason?: string;
+  checklistPassed?: boolean;
 }
 
 export interface AccountInput {
@@ -20,6 +24,13 @@ export interface AccountInput {
   accountNumber: string;
   apiKey?: string;
   apiSecret?: string;
+  mt5Password?: string;
+  mt5Server?: string;
+  isMaster?: boolean;
+  copierEnabled?: boolean;
+  copierMultiplier?: number;
+  balance?: number;
+  equity?: number;
 }
 
 export interface CalendarDay {

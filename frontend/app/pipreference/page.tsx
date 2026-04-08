@@ -55,47 +55,50 @@ const ForexPipMovement = () => {
 
   return (
           <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <TrendingUp className="text-emerald-500" size={24} />
-            PIP Movement Reference Table
+        <div className="mb-8">
+          <h1 className="text-3xl font-extrabold text-foreground flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+              <TrendingUp className="text-emerald-400" size={24} />
+            </div>
+            PIP Movement Reference 
           </h1>
-          <p className="text-muted-foreground text-sm mt-1">
+          <p className="text-muted-foreground text-sm mt-2 ml-1">
             Average pip movements per timeframe to set realistic TP/SL targets
           </p>
         </div>
 
         {/* Controls */}
         <div className="grid md:grid-cols-2 gap-4">
-          <div className="rounded-xl border border-border bg-card p-4">
-            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Trading Session</label>
+          <div className="rounded-2xl border border-white/5 bg-black/40 backdrop-blur-md p-5 shadow-xl">
+            <label className="block text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3">Trading Session</label>
             <select
               value={selectedSession}
               onChange={(e) => setSelectedSession(e.target.value)}
-              className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+              className="w-full rounded-xl border border-white/10 bg-transparent px-4 py-3 text-foreground text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500/50 appearance-none cursor-pointer"
             >
-              <option value="high">High Volume (London/NY Overlap)</option>
-              <option value="low">Low Volume (Asian Session)</option>
+              <option value="high" className="bg-[#111118]">High Volume (London/NY Overlap)</option>
+              <option value="low" className="bg-[#111118]">Low Volume (Asian Session)</option>
             </select>
           </div>
-          <div className="rounded-xl border border-border bg-card p-4">
-            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Filter by Style</label>
+          <div className="rounded-2xl border border-white/5 bg-black/40 backdrop-blur-md p-5 shadow-xl">
+            <label className="block text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3">Filter by Style</label>
             <select
               value={selectedStyle}
               onChange={(e) => setSelectedStyle(e.target.value)}
-              className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+              className="w-full rounded-xl border border-white/10 bg-transparent px-4 py-3 text-foreground text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500/50 appearance-none cursor-pointer"
             >
-              <option value="all">All Timeframes</option>
-              <option value="scalping">Scalping (1m, 5m)</option>
-              <option value="day">Day Trading (5m-1h)</option>
-              <option value="swing">Swing (1h, 4h)</option>
+              <option value="all" className="bg-[#111118]">All Timeframes</option>
+              <option value="scalping" className="bg-[#111118]">Scalping (1m, 5m)</option>
+              <option value="day" className="bg-[#111118]">Day Trading (5m-1h)</option>
+              <option value="swing" className="bg-[#111118]">Swing (1h, 4h)</option>
             </select>
           </div>
         </div>
 
         {/* Main Table */}
-        <div className="rounded-xl border border-border bg-card overflow-hidden">
-          <div className="overflow-x-auto">
+        <div className="rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.03] to-transparent backdrop-blur-xl overflow-hidden shadow-2xl relative">
+          <div className="absolute inset-0 bg-emerald-500/5 mix-blend-overlay pointer-events-none" />
+          <div className="overflow-x-auto relative z-10">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40">
@@ -107,49 +110,55 @@ const ForexPipMovement = () => {
               </thead>
               <tbody>
                 {pairs.map((pair, idx) => (
-                  <tr key={pair} className={`border-b border-border/50 hover:bg-muted/20 transition-colors ${idx % 2 === 0 ? "" : "bg-muted/10"}`}>
-                    <td className="px-4 py-2.5 font-bold text-emerald-400">{pair}</td>
-                    {(selectedStyle === "all" || selectedStyle === "scalping") && (<><td className="px-4 py-2 text-center text-foreground font-mono text-xs">{data[pair as keyof typeof data]["1m"]}</td><td className="px-4 py-2 text-center text-foreground font-mono text-xs">{data[pair as keyof typeof data]["5m"]}</td></>)}
-                    {(selectedStyle === "all" || selectedStyle === "day") && (<><td className="px-4 py-2 text-center text-foreground font-mono text-xs">{data[pair as keyof typeof data]["15m"]}</td><td className="px-4 py-2 text-center text-foreground font-mono text-xs">{data[pair as keyof typeof data]["30m"]}</td><td className="px-4 py-2 text-center text-foreground font-mono text-xs">{data[pair as keyof typeof data]["1h"]}</td></>)}
-                    {(selectedStyle === "all" || selectedStyle === "swing") && (<td className="px-4 py-2 text-center text-foreground font-mono text-xs">{data[pair as keyof typeof data]["4h"]}</td>)}
+                  <tr key={pair} className={`border-b border-white/5 hover:bg-white/5 transition-colors ${idx % 2 === 0 ? "bg-black/20" : "bg-transparent"}`}>
+                    <td className="px-5 py-4 font-extrabold text-foreground tracking-wider">{pair}</td>
+                    {(selectedStyle === "all" || selectedStyle === "scalping") && (<><td className="px-4 py-4 text-center font-mono font-medium text-red-100">{data[pair as keyof typeof data]["1m"]}</td><td className="px-4 py-4 text-center font-mono font-medium text-red-200">{data[pair as keyof typeof data]["5m"]}</td></>)}
+                    {(selectedStyle === "all" || selectedStyle === "day") && (<><td className="px-4 py-4 text-center font-mono font-medium text-amber-100">{data[pair as keyof typeof data]["15m"]}</td><td className="px-4 py-4 text-center font-mono font-medium text-amber-200">{data[pair as keyof typeof data]["30m"]}</td><td className="px-4 py-4 text-center font-mono font-bold text-amber-300">{data[pair as keyof typeof data]["1h"]}</td></>)}
+                    {(selectedStyle === "all" || selectedStyle === "swing") && (<td className="px-4 py-4 text-center font-mono font-bold text-emerald-300">{data[pair as keyof typeof data]["4h"]}</td>)}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <div className="px-4 py-2 text-xs text-muted-foreground border-t border-border bg-muted/20">
-            Values shown in pips. XAUUSD values represent pip-equivalent movements.
+          <div className="px-5 py-3 text-[11px] uppercase tracking-widest font-bold text-muted-foreground border-t border-white/10 bg-black/40">
+            Values shown in relative pips. XAUUSD values represent pip-equivalent movements.
           </div>
         </div>
 
         {/* Style Cards */}
-        <div className="grid md:grid-cols-3 gap-4">
+        <div className="grid md:grid-cols-3 gap-6">
           {Object.entries(tradingStyles).map(([key, style]) => (
-            <div key={key} className="rounded-xl border border-border bg-card p-4">
-              <h3 className={`text-base font-bold mb-3 capitalize ${styleColors[key as keyof typeof styleColors]}`}>{key} Trading</h3>
-              <div className="space-y-1.5 text-xs text-muted-foreground">
-                <p><span className="text-foreground font-medium">Timeframes:</span> {style.timeframes.join(", ")}</p>
-                <p><span className="text-foreground font-medium">Typical TP:</span> {style.typical_tp}</p>
-                <p><span className="text-foreground font-medium">Typical SL:</span> {style.typical_sl}</p>
-                <p><span className="text-foreground font-medium">R:R:</span> {style.rr_ratio}</p>
-                <p><span className="text-foreground font-medium">Trades/Day:</span> {style.trades_per_day}</p>
-                <p><span className="text-foreground font-medium">Best Session:</span> {style.best_session}</p>
+            <div key={key} className="rounded-3xl border border-white/5 bg-black/40 backdrop-blur-md p-6 shadow-xl relative overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-br from-white/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <h3 className={`text-lg font-black mb-4 uppercase tracking-widest ${styleColors[key as keyof typeof styleColors]}`}>{key} Trading</h3>
+              <div className="space-y-2 text-sm text-muted-foreground relative z-10">
+                <p className="flex justify-between border-b border-white/5 pb-2"><span className="font-semibold text-foreground/70">Timeframes</span> <span className="font-mono text-foreground">{style.timeframes.join(", ")}</span></p>
+                <p className="flex justify-between border-b border-white/5 pb-2 pt-1"><span className="font-semibold text-foreground/70">Typical TP</span> <span className="font-mono text-foreground">{style.typical_tp}</span></p>
+                <p className="flex justify-between border-b border-white/5 pb-2 pt-1"><span className="font-semibold text-foreground/70">Typical SL</span> <span className="font-mono text-foreground">{style.typical_sl}</span></p>
+                <p className="flex justify-between border-b border-white/5 pb-2 pt-1"><span className="font-semibold text-foreground/70">Target R:R</span> <span className="font-mono text-foreground">{style.rr_ratio}</span></p>
+                <p className="flex justify-between border-b border-white/5 pb-2 pt-1"><span className="font-semibold text-foreground/70">Trades/Day</span> <span className="font-mono text-foreground">{style.trades_per_day}</span></p>
+                <p className="flex justify-between pt-1"><span className="font-semibold text-foreground/70">Best Session</span> <span className="font-mono text-right max-w-[120px] text-foreground">{style.best_session}</span></p>
               </div>
             </div>
           ))}
         </div>
 
         {/* Insights */}
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid md:grid-cols-2 gap-6 mt-8">
           {insights.map(({ icon: Icon, color, bg, title, items }) => (
-            <div key={title} className={`rounded-xl border p-4 ${bg}`}>
-              <div className="flex items-center gap-2 mb-3">
-                <Icon size={16} className={color} />
-                <h4 className="text-sm font-semibold text-foreground">{title}</h4>
+            <div key={title} className={`rounded-3xl border p-6 backdrop-blur-md shadow-xl ${bg}`}>
+              <div className="flex items-center gap-3 mb-4 pb-4 border-b border-white/10">
+                <div className={`p-2 rounded-xl bg-black/40 ${color}`}>
+                  <Icon size={20} />
+                </div>
+                <h4 className="text-base font-bold text-foreground">{title}</h4>
               </div>
-              <ul className="space-y-1 text-xs text-muted-foreground">
+              <ul className="space-y-2.5 text-sm font-medium text-foreground/80 leading-relaxed">
                 {items.map((item) => (
-                  <li key={item}>• {item}</li>
+                  <li key={item} className="flex gap-2">
+                    <span className="text-muted-foreground select-none">•</span>
+                    <span>{item}</span>
+                  </li>
                 ))}
               </ul>
             </div>

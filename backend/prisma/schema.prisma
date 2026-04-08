@@ -36,12 +36,52 @@ model Trade {
   csvImportId    Int?     @map("csv_import_id")
   csvImport      CsvImport? @relation(fields: [csvImportId], references: [id], onDelete: SetNull)
   
+  // New Fields for Trading Discipline & Journal Enhancement
+  emotion        String?  @db.VarChar(50) // "Calm", "Confident", "Anxious", "Panicked", "Greedy", "Revenge"
+  followedPlan   Boolean? @map("followed_plan")
+  planDeviationReason String? @map("plan_deviation_reason") @db.Text
+  checklistPassed Boolean? @map("checklist_passed")
+
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
   profitLoss     ProfitLoss?
 
   @@map("trades")
+}
+
+model ChecklistTemplate {
+  id                Int      @id @default(autoincrement())
+  userId            String   @unique @map("user_id") // Optional link to auth if multi-tenant
+  questions         Json     // Array of { id, text }
+  blockingQuestions Json     @map("blocking_questions") // Array of IDs that block trade
+  passThreshold     Int      @default(100) @map("pass_threshold")
+  overrideAllowed   Boolean  @default(false) @map("override_allowed")
+
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("checklist_templates")
+}
+
+model TradingPlan {
+  id             Int      @id @default(autoincrement())
+  userId         String   @unique @map("user_id")
+  market         String   @db.VarChar(50)
+  pairs          Json     // Array of strings
+  timeframe      String   @db.VarChar(50)
+  strategyType   String   @map("strategy_type") @db.VarChar(50)
+  session        String   @db.VarChar(50)
+  accountSize    Decimal  @map("account_size") @db.Decimal(15, 2)
+  riskPerTrade   Decimal  @map("risk_per_trade") @db.Decimal(5, 2)
+  dailyLossLimit Decimal  @map("daily_loss_limit") @db.Decimal(5, 2)
+  goal           String   @db.Text
+  planSections   Json     @map("plan_sections") // Generated sections
+
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("trading_plans")
 }
 
 model Account {

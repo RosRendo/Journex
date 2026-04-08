@@ -18,7 +18,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob: https:",
-              "connect-src 'self' https: ws: wss:",
+              "connect-src 'self' https: ws: wss: http://localhost:5003 http://localhost:5000 http://0.0.0.0:5003",
               "frame-src 'self' https://www.tradingview.com https://s3.tradingview.com",
               "worker-src 'self' blob:",
             ].join("; "),

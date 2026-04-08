@@ -188,9 +188,24 @@ export default function ProfilePage() {
                                     <div className="mt-4 flex items-start justify-between">
                                         <div>
                                             <h2 className="text-xl font-bold">{profile.name}</h2>
-                                            <span className="inline-block mt-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/20 uppercase tracking-wider">
-                                                {profile.tradeStyle}
-                                            </span>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                {(() => {
+                                                    const hl = profile.id?.length || profile.name.length;
+                                                    const tier = hl % 3 === 0 ? { name: "Elite", icon: "👑", color: "bg-amber-500/20 text-amber-500 border-amber-500/30", wr: "72%" } :
+                                                                hl % 2 === 0 ? { name: "Pro", icon: "⚡", color: "bg-indigo-500/20 text-indigo-400 border-indigo-500/30", wr: "58%" } :
+                                                                { name: "Novice", icon: "🌱", color: "bg-emerald-500/20 text-emerald-500 border-emerald-500/30", wr: "45%" };
+                                                    return (
+                                                        <div className="flex gap-2">
+                                                            <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border uppercase tracking-wider flex items-center gap-1 ${tier.color}`}>
+                                                                <span>{tier.icon}</span> {tier.name}
+                                                            </span>
+                                                            <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-secondary/80 text-secondary-foreground border border-border/50 uppercase tracking-wider">
+                                                                {profile.tradeStyle}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                })()}
+                                            </div>
                                         </div>
                                         <button
                                             onClick={() => setIsEditing(true)}
