@@ -1,1 +1,11 @@
-{}
+tunnel: dashboardkiller
+credentials-file: C:\Users\Ros Rendo\.cloudflared\8dc037e9-d349-484f-a5f0-5586b705732d.json
+
+ingress:
+  - hostname: api.dashboardkiller.online
+    service: http://localhost:5000
+
+  - hostname: python.dashboardkiller.online
+    service: http://localhost:5003
+
+  - service: http_status:404
