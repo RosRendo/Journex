@@ -22,9 +22,7 @@ import {
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-
-const BRIDGE =
-  process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003/bridge";
+import { useBridgeUrl } from "@/hooks/useBridgeUrl";
 
 function AccountCard({
   account,
@@ -138,6 +136,9 @@ export default function Accounts() {
   const [activeTab, setActiveTab] = useState<"mt5" | "csv">("mt5");
   const [viewMode, setViewMode] = useState<"grid" | "list">("list"); // Added List View Support
 
+  // Dynamic bridge URL (fetched at runtime — no Vercel redeploy needed when tunnel URL changes)
+  const { bridgeUrl: BRIDGE } = useBridgeUrl();
+
   // MT5 state
   const [mt5Accounts, setMt5Accounts] = useState<any[]>([]);
   const [isAddingMode, setIsAddingMode] = useState(false);
@@ -200,12 +201,11 @@ export default function Accounts() {
 
   // Poll MT5 bridge for live account Pulse
   useEffect(() => {
-    const BRIDGE_URL =
-      process.env.NEXT_PUBLIC_BRIDGE_URL ?? "http://localhost:5003";
+    if (!BRIDGE) return; // wait until dynamic URL is resolved
     const fetchPulse = async () => {
       try {
         setPulseLoading(true);
-        const accRes = await fetch(`${BRIDGE_URL}/api/account`, {
+        const accRes = await fetch(`${BRIDGE}/api/account`, {
           headers: { "ngrok-skip-browser-warning": "true" },
         });
         if (accRes.ok) {
@@ -233,7 +233,7 @@ export default function Accounts() {
     fetchPulse();
     const interval = setInterval(fetchPulse, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [BRIDGE]); // re-run whenever bridge URL resolves
 
   const handleSaveMt5Account = async (e: React.FormEvent) => {
     e.preventDefault();

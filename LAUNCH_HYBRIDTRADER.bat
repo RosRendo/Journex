@@ -8,25 +8,24 @@ color 0A
 :: ============================================================
 set PROJECT_DIR=D:\Forex\dashboardkiller
 set PYTHON_CMD=python
-set NGROK_PORT=5003
+set MT5_PORT=5003
+set BACKEND_PORT=5000
 set VERCEL_PROJECT_DIR=D:\Forex\dashboardkiller
-set VERCEL_ENV_KEY=NEXT_PUBLIC_BRIDGE_URL
 set VERCEL_DASHBOARD=https://dashboard-nine-flax-74.vercel.app
 set TV_CHART_URL=https://www.tradingview.com/chart/5DDPGPZP/?symbol=OANDA%%3AXAUUSD
 :: ============================================================
 
 echo.
 echo  =====================================================
-echo   TRADING DASHBOARD LAUNCHER
+echo   TRADING DASHBOARD LAUNCHER v2.0
 echo  =====================================================
 echo.
 
 :: ----------------------------------------------------------
 :: STEP 1: Open TradingView Desktop App (left, snapped)
 :: ----------------------------------------------------------
-echo [1/7] Launching TradingView app (left side)...
+echo [1/9] Launching TradingView app (left side)...
 
-:: Handle Custom Shortcut
 powershell -Command ^
   "$tvShortcut = 'C:\Users\Ros Rendo\OneDrive\Desktop\TradingView.lnk'; " ^
   "if (Test-Path $tvShortcut) { Start-Process $tvShortcut; Start-Sleep -Seconds 4 } " ^
@@ -35,132 +34,143 @@ powershell -Command ^
   "if (-not $proc) { " ^
     "Write-Host '   [WARN] App missing. Launching Firefox fallback...'; " ^
     "Start-Process 'firefox.exe' '--new-window https://www.tradingview.com/chart/5DDPGPZP/?symbol=OANDA%%3AXAUUSD'; " ^
-    "Start-Sleep -Seconds 3; " ^
-    "$proc = Get-Process firefox | Where-Object {$_.MainWindowTitle -like '*TradingView*'} | Select-Object -First 1; " ^
-  "} " ^
-  "if ($proc) { " ^
-    "Add-Type -AssemblyName System.Windows.Forms; " ^
-    "$sw = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width; " ^
-    "$sh = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height; " ^
-    "$hw = [int]($sw / 2); " ^
-    "Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class W1 { [DllImport(\"user32.dll\")] public static extern bool MoveWindow(IntPtr h, int X, int Y, int w, int h2, bool r); [DllImport(\"user32.dll\")] public static extern bool ShowWindow(IntPtr h, int n); }' -ErrorAction SilentlyContinue; " ^
-    "[W1]::ShowWindow($proc.MainWindowHandle, 3); " ^
-    "Start-Sleep -Milliseconds 300; " ^
-    "[W1]::ShowWindow($proc.MainWindowHandle, 1); " ^
-    "Start-Sleep -Milliseconds 300; " ^
-    "[W1]::MoveWindow($proc.MainWindowHandle, 0, 0, $hw, $sh, $true); " ^
-  "}"
+  "} "
+powershell -ExecutionPolicy Bypass -Command "Add-Type -AssemblyName System.Windows.Forms; $sw=[System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width;$sh=[System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height; .\Arrange-Windows.ps1 -targetClass 'TradingView' -targetTitle 'TradingView' -leftX 0 -topY 0 -width ($sw/2) -height $sh"
 echo    Done.
 
 :: ----------------------------------------------------------
 :: STEP 2: Open Firefox with TradingView chart (right, snapped)
 :: ----------------------------------------------------------
-echo [2/7] Opening Firefox with chart URL (right side)...
+echo [2/9] Opening Firefox with chart URL (right side)...
 start "" "firefox.exe" "%TV_CHART_URL%"
 timeout /t 3 /nobreak >nul
-powershell -Command ^
-  "$proc = Get-Process firefox | Select-Object -First 1; " ^
-  "if ($proc) { " ^
-    "Add-Type -AssemblyName System.Windows.Forms; " ^
-    "$sw = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width; " ^
-    "$sh = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height; " ^
-    "$hw = [int]($sw / 2); " ^
-    "Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class W2 { [DllImport(\"user32.dll\")] public static extern bool MoveWindow(IntPtr h, int X, int Y, int w, int h2, bool r); [DllImport(\"user32.dll\")] public static extern bool ShowWindow(IntPtr h, int n); }' -ErrorAction SilentlyContinue; " ^
-    "[W2]::ShowWindow($proc.MainWindowHandle, 3); " ^
-    "Start-Sleep -Milliseconds 300; " ^
-    "[W2]::ShowWindow($proc.MainWindowHandle, 1); " ^
-    "Start-Sleep -Milliseconds 300; " ^
-    "[W2]::MoveWindow($proc.MainWindowHandle, $hw, 0, $hw, $sh, $true); " ^
-  "}"
+powershell -ExecutionPolicy Bypass -Command "Add-Type -AssemblyName System.Windows.Forms; $sw=[System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width;$sh=[System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height; .\Arrange-Windows.ps1 -targetClass 'firefox' -targetTitle 'Firefox' -leftX ($sw/2) -topY 0 -width ($sw/2) -height $sh"
 echo    Done.
 
 :: ----------------------------------------------------------
-:: STEP 3: Start mt5_bridge.py in a new terminal window
+:: STEP 3: Start Docker Backend + Database
 :: ----------------------------------------------------------
-echo [3/7] Starting mt5_bridge.py...
+echo [3/9] Starting Docker Backend (port %BACKEND_PORT%) + PostgreSQL...
+cd /d "%PROJECT_DIR%"
+docker-compose up -d
+if errorlevel 1 (
+    echo    [WARN] Docker failed. Is Docker Desktop running?
+    echo    Please open Docker Desktop and press any key to retry...
+    pause
+    docker-compose up -d
+)
+echo    Docker containers started.
+timeout /t 5 /nobreak >nul
+
+:: Wait for backend to be healthy
+echo    Waiting for backend to be ready...
+for /L %%i in (1,1,10) do (
+    powershell -NoProfile -Command "try { $r = Invoke-RestMethod 'http://localhost:5000/health' -TimeoutSec 3 -ErrorAction Stop; Write-Host '   [OK] Backend healthy: ' + $r.status } catch { Write-Host '   ... waiting...' }"
+    timeout /t 2 /nobreak >nul
+)
+
+:: ----------------------------------------------------------
+:: STEP 4: Start MT5 Bridge (Python, port 5003)
+:: ----------------------------------------------------------
+echo [4/9] Starting MT5 Bridge (port %MT5_PORT%)...
 if not exist "%PROJECT_DIR%" (
     echo    ERROR: Project folder not found: %PROJECT_DIR%
-    echo    Please edit PROJECT_DIR at the top of this script.
     pause
     exit /b 1
 )
 start "MT5 Bridge" cmd /k "cd /d "%PROJECT_DIR%" && %PYTHON_CMD% mt5_bridge.py"
 echo    Started in new window.
-timeout /t 3 /nobreak >nul
+timeout /t 4 /nobreak >nul
 
 :: ----------------------------------------------------------
-:: STEP 4: Start ngrok tunnel
+:: STEP 5 & 6: Start ONE ngrok agent for BOTH tunnels
 :: ----------------------------------------------------------
-echo [4/7] Starting ngrok on port %NGROK_PORT%...
-start "ngrok" cmd /k "ngrok http %NGROK_PORT%"
-echo    Waiting for ngrok to initialize...
+set NGROK_CFG=%PROJECT_DIR%\ngrok-tunnels.yml
+start "ngrok-All" cmd /k "ngrok start --all --config=%NGROK_CFG% --log=stdout"
+echo    Waiting for ngrok tunnels to initialize...
 timeout /t 6 /nobreak >nul
 
-:: ----------------------------------------------------------
-:: STEP 5: Auto-extract ngrok public URL via local API
-:: ----------------------------------------------------------
-echo [5/7] Waiting for Ngrok tunnel...
-set NGROK_URL=
+:: Extract URLs from ngrok API (port 4040)
+set BRIDGE_URL=
+set API_URL=
 
-:: Loop up to 15 times (30 seconds) until Ngrok assigns an HTTPS URL
 for /L %%i in (1,1,15) do (
-    if "!NGROK_URL!"=="" (
+    if "!BRIDGE_URL!"=="" (
         timeout /t 2 /nobreak >nul
-        for /f "usebackq tokens=*" %%A in (`powershell -NoProfile -Command "try { $r = Invoke-RestMethod 'http://localhost:4040/api/tunnels' -ErrorAction Stop; $t = $r.tunnels | Where-Object { $_.proto -eq 'https' } | Select-Object -First 1; if ($t) { $t.public_url } } catch {}"`) do (
-            set "NGROK_URL=%%A"
+        for /f "usebackq tokens=*" %%A in (`powershell -NoProfile -Command "try { $r = Invoke-RestMethod 'http://localhost:4040/api/tunnels' -ErrorAction Stop; $t = $r.tunnels | Where-Object { $_.name -eq 'mt5-bridge' -and $_.proto -eq 'https' } | Select-Object -First 1; if ($t) { $t.public_url } } catch {}"`) do (
+            set "BRIDGE_URL=%%A"
+        )
+    )
+    if "!API_URL!"=="" (
+        for /f "usebackq tokens=*" %%A in (`powershell -NoProfile -Command "try { $r = Invoke-RestMethod 'http://localhost:4040/api/tunnels' -ErrorAction Stop; $t = $r.tunnels | Where-Object { $_.name -eq 'backend-api' -and $_.proto -eq 'https' } | Select-Object -First 1; if ($t) { $t.public_url } } catch {}"`) do (
+            set "API_URL=%%A"
         )
     )
 )
 
-if "%NGROK_URL%"=="" (
-    echo    [ERROR] Could not auto-detect Ngrok URL. Is Ngrok stuck?
-    set /p NGROK_URL=   Paste ngrok HTTPS URL manually: 
+if "%BRIDGE_URL%"=="" (
+    echo    [ERROR] Could not auto-detect MT5 ngrok URL.
+    set /p BRIDGE_URL=   Paste MT5 ngrok HTTPS URL manually: 
+)
+if "%API_URL%"=="" (
+    echo    [ERROR] Could not auto-detect Backend ngrok URL.
+    set /p API_URL=   Paste Backend ngrok HTTPS URL manually: 
 )
 
-echo    [OK] Detected URL: %NGROK_URL%
-echo %NGROK_URL% | clip
-echo    (Copied to clipboard!)
+echo    [OK] MT5 Bridge URL: %BRIDGE_URL%
+echo    [OK] Backend API URL: %API_URL%
 
 :: ----------------------------------------------------------
-:: STEP 6: Update Vercel environment variable
+:: STEP 7: Update BOTH Vercel environment variables
 :: ----------------------------------------------------------
-echo [6/7] Updating Vercel env: %VERCEL_ENV_KEY%...
+echo [7/9] Updating Vercel environment variables...
 cd /d "%VERCEL_PROJECT_DIR%"
 
-:: Remove existing env var
-echo    Removing old env var...
-call vercel env rm %VERCEL_ENV_KEY% production --yes 2>nul
-echo    Old env var removed (or did not exist).
+:: Update NEXT_PUBLIC_BRIDGE_URL (MT5 port 5003)
+echo    Setting NEXT_PUBLIC_BRIDGE_URL = %BRIDGE_URL%
+call vercel env rm NEXT_PUBLIC_BRIDGE_URL production --yes 2>nul
+set TMPFILE1=%TEMP%\bridge_url_tmp.txt
+echo %BRIDGE_URL%> "%TMPFILE1%"
+call vercel env add NEXT_PUBLIC_BRIDGE_URL production < "%TMPFILE1%"
+del "%TMPFILE1%" 2>nul
 
-:: Write the ngrok URL to a temp file, then feed it as stdin to vercel env add
-:: This avoids the interactive prompt bug that closes the terminal
-echo    Adding new env var: %NGROK_URL%
-set TMPFILE=%TEMP%\ngrok_url_tmp.txt
-echo %NGROK_URL%> "%TMPFILE%"
-call vercel env add %VERCEL_ENV_KEY% production < "%TMPFILE%"
-del "%TMPFILE%" 2>nul
-echo    Env var added.
+:: Update NEXT_PUBLIC_API_URL (Backend port 5000)
+echo    Setting NEXT_PUBLIC_API_URL = %API_URL%
+call vercel env rm NEXT_PUBLIC_API_URL production --yes 2>nul
+set TMPFILE2=%TEMP%\api_url_tmp.txt
+echo %API_URL%> "%TMPFILE2%"
+call vercel env add NEXT_PUBLIC_API_URL production < "%TMPFILE2%"
+del "%TMPFILE2%" 2>nul
 
-:: Deploy to production
-echo    Deploying to Vercel production...
+echo    Both env vars updated.
+
+:: ----------------------------------------------------------
+:: STEP 8: Deploy to Vercel Production
+:: ----------------------------------------------------------
+echo [8/9] Deploying to Vercel production...
 call vercel --prod --yes
 echo    Vercel deploy triggered.
 
 :: ----------------------------------------------------------
-:: STEP 7: Open the live dashboard
+:: STEP 9: Open the live dashboard
 :: ----------------------------------------------------------
-:: ----------------------------------------------------------
-echo [7/7] Opening dashboard: %VERCEL_DASHBOARD%...
-timeout /t 8 /nobreak >nul
+echo [9/9] Opening dashboard: %VERCEL_DASHBOARD%...
+timeout /t 10 /nobreak >nul
 start "" "chrome.exe" "%VERCEL_DASHBOARD%"
+start "" "firefox.exe" "%VERCEL_DASHBOARD%"
 
 :: ----------------------------------------------------------
 :: Done!
 :: ----------------------------------------------------------
 echo.
 echo  =====================================================
-echo   ALL DONE! Your trading setup is live.
-echo   ngrok URL: %NGROK_URL%
+echo   ALL DONE! Your trading setup is LIVE.
+echo.
+echo   MT5 Bridge:  %BRIDGE_URL%
+echo   Backend API: %API_URL%
+echo   Dashboard:   %VERCEL_DASHBOARD%
 echo  =====================================================
 echo.
+echo   URLs copied: MT5=%BRIDGE_URL%
+echo %BRIDGE_URL% | clip
 pause
