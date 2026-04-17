@@ -6,6 +6,8 @@
  *       Vercel redeploy. This hook fetches from /api/bridge-status instead,
  *       which reads the SERVER-SIDE BRIDGE_URL env var on Railway — so you
  *       only update Railway's env var and restart Railway. No Vercel redeploy.
+ *
+ * UPDATE: Support for per-user custom bridge URLs via localStorage!
  */
 "use client";
 import { useState, useEffect } from "react";
@@ -19,12 +21,24 @@ export function useBridgeUrl() {
   const [loading, setLoading] = useState(!_cachedBridgeUrl);
 
   useEffect(() => {
+    // 1. Check if the user has set a custom bridge URL in their browser
+    if (typeof window !== "undefined") {
+      const customUrl = localStorage.getItem("bridge_url");
+      if (customUrl) {
+        _cachedBridgeUrl = customUrl;
+        setBridgeUrl(customUrl);
+        setLoading(false);
+        return;
+      }
+    }
+
     if (_cachedBridgeUrl) {
       setBridgeUrl(_cachedBridgeUrl);
       setLoading(false);
       return;
     }
 
+    // 2. Otherwise fetch the global one from backend
     fetch("/api/bridge-status")
       .then((r) => r.json())
       .then((data) => {

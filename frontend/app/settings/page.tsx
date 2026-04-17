@@ -89,11 +89,16 @@ export default function EnvironmentSettings() {
     if (savedAi) setAiKey(savedAi);
     const savedProv = localStorage.getItem("ai_provider");
     if (savedProv) setAiProvider(savedProv);
+    const savedBridge = localStorage.getItem("bridge_url");
+    if (savedBridge) setBridgeUrl(savedBridge);
   }, []);
 
   const handleSave = () => {
     localStorage.setItem("ai_key", aiKey);
     localStorage.setItem("ai_provider", aiProvider);
+    if (bridgeUrl) {
+      localStorage.setItem("bridge_url", bridgeUrl);
+    }
     // Optionally trigger a toast here
   };
 

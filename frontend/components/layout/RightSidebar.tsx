@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { TrendingUp, Bell, Newspaper, Minimize2, PanelRightClose, RefreshCcw } from "lucide-react";
+import { useBridgeUrl } from "@/hooks/useBridgeUrl";
 
 interface Position {
   ticket: string;
@@ -14,6 +15,7 @@ interface Position {
 
 
 export function RightSidebar() {
+  const { bridgeUrl } = useBridgeUrl();
   const [activeTab, setActiveTab] = useState<"positions" | "alerts" | "news">("positions");
   const [isOpen, setIsOpen] = useState(false);
   
@@ -25,20 +27,23 @@ export function RightSidebar() {
   const [newsLoading, setNewsLoading] = useState(false);
 
   const fetchPositions = useCallback(async () => {
+    if (!bridgeUrl) return;
     try {
-      const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
       const res = await fetch(`${bridgeUrl}/api/positions`, { headers: { "ngrok-skip-browser-warning": "true" } });
       if (!res.ok) throw new Error("Bridge offline");
       const data = await res.json();
       
-      const mapped: Position[] = (data.positions || []).map((p: any) => ({
-        ticket: p.ticket,
-        pair: p.symbol,
-        side: p.type === 0 ? "BUY" : "SELL",
-        entry: p.price_open,
-        pl: p.profit,
-        plPct: (p.profit / 1000) * 100
-      }));
+      const mapped: Position[] = (data.positions || []).map((p: any) => {
+        const pl = typeof p.profit === "number" && !isNaN(p.profit) ? p.profit : 0;
+        return {
+          ticket: String(p.ticket ?? ""),
+          pair: p.symbol ?? "N/A",
+          side: p.type === 0 ? "BUY" : "SELL",
+          entry: typeof p.price_open === "number" ? p.price_open : 0,
+          pl,
+          plPct: (pl / 1000) * 100,
+        };
+      });
       setPositions(mapped.sort((a,b) => b.pl - a.pl));
       setError(null);
     } catch (err: any) {
@@ -46,13 +51,13 @@ export function RightSidebar() {
     } finally {
       setLoading(false);
     }
-  }, [activeTab]);
+  }, [activeTab, bridgeUrl]);
 
   const fetchNews = useCallback(async () => {
     // Only show loading state if we haven't fetched any news yet
     if (news.length === 0) setNewsLoading(true);
+    if (!bridgeUrl) return;
     try {
-      const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
       const res = await fetch(`${bridgeUrl}/api/news`, { headers: { "ngrok-skip-browser-warning": "true" } });
       const data = await res.json();
       if (data.success && data.news) {
@@ -63,7 +68,7 @@ export function RightSidebar() {
     } finally {
       setNewsLoading(false);
     }
-  }, [activeTab]);
+  }, [activeTab, bridgeUrl]);
 
   useEffect(() => {
     fetchPositions();
