@@ -775,33 +775,6 @@ def send_notification(req: NotifyMessage):
     return {"success": success, "channel": channel, "telegram_mode": active_mode, "errors": errors}
 
 
-@app.get("/api/positions")
-def get_positions():
-    if not connected:
-        return {"success": False, "error": "MT5 not connected"}
-    
-    positions = mt5.positions_get()
-    if positions is None:
-        return {"success": True, "positions": []}
-        
-    pos_list = []
-    for p in positions:
-        pos_list.append({
-            "ticket": p.ticket,
-            "symbol": p.symbol,
-            "type": p.type,  # 0: Buy, 1: Sell
-            "volume": p.volume,
-            "price_open": p.price_open,
-            "sl": p.sl,
-            "tp": p.tp,
-            "price_current": p.price_current,
-            "profit": p.profit,
-            "time": p.time,
-            "comment": p.comment,
-            "swap": p.swap
-        })
-    return {"success": True, "positions": pos_list}
-
 # --- REAL-TIME MARKET NEWS (Multi-source FREE RSS) ---
 # ForexLive works. FXStreet & others need a browser UA to avoid 301/403.
 NEWS_SOURCES = [

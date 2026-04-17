@@ -33,13 +33,15 @@ export function RightSidebar() {
       if (!res.ok) throw new Error("Bridge offline");
       const data = await res.json();
       
-      const mapped: Position[] = (data.positions || []).map((p: any) => {
-        const pl = typeof p.profit === "number" && !isNaN(p.profit) ? p.profit : 0;
+      const mapped: Position[] = (data.positions || [])
+        .filter((p: any) => p.pair && p.pair !== "N/A") // Skip dummy positions
+        .map((p: any) => {
+        const pl = typeof p.pnl === "number" && !isNaN(p.pnl) ? p.pnl : 0;
         return {
           ticket: String(p.ticket ?? ""),
-          pair: p.symbol ?? "N/A",
-          side: p.type === 0 ? "BUY" : "SELL",
-          entry: typeof p.price_open === "number" ? p.price_open : 0,
+          pair: p.pair ?? "N/A",
+          side: p.direction === "Long" ? "BUY" : "SELL",
+          entry: typeof p.entry === "number" ? p.entry : 0,
           pl,
           plPct: (pl / 1000) * 100,
         };
