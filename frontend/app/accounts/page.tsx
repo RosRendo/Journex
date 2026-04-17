@@ -82,10 +82,11 @@ function AccountCard({
           <div className="flex items-center gap-3 w-full">
             <button
               onClick={() => onToggleCopier(account.id)}
-              className={`flex-1 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider transition-colors ${account.copierEnabled
+              className={`flex-1 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider transition-colors ${
+                account.copierEnabled
                   ? "bg-[--profit]/20 text-[--profit] border border-[--profit]/50"
                   : "bg-[--bg-card] text-[--text-secondary] border border-[--border] hover:text-[--text-primary]"
-                }`}
+              }`}
             >
               {account.copierEnabled ? "Copier Active" : "Enable Copier"}
             </button>
@@ -257,13 +258,24 @@ export default function Accounts() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newAcc),
       });
-      if (res.ok) await fetchDbAccounts();
-    } catch (e) { }
 
-    setIsAddingMode(false);
-    setLogin("");
-    setPassword("");
-    setServer("");
+      if (!res.ok) {
+        alert(
+          "Failed to save account to database. Check if Backend API is running properly.",
+        );
+        return;
+      }
+
+      await fetchDbAccounts();
+
+      // Only clear and close if successful
+      setIsAddingMode(false);
+      setLogin("");
+      setPassword("");
+      setServer("");
+    } catch (e) {
+      alert("Network error: Could not reach Backend API. " + e);
+    }
   };
 
   const updateAccountInDb = async (id: number, data: any) => {
@@ -273,28 +285,50 @@ export default function Accounts() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      await fetchDbAccounts();
-    } catch (e) { }
+    } catch (e) {
+      console.error(`Failed to update account ${id}:`, e);
+    }
   };
 
   const setAsMaster = async (id: number) => {
-    setMasterAccount(id);
-    // Unset all existing masters
-    for (const acc of mt5Accounts) {
-      if (acc.isMaster) await updateAccountInDb(acc.id, { isMaster: false });
+    try {
+      // Make all updates first without fetching
+      const updates: Promise<void>[] = [];
+
+      // Unset all existing masters
+      for (const acc of mt5Accounts) {
+        if (acc.isMaster) {
+          updates.push(updateAccountInDb(acc.id, { isMaster: false }));
+        }
+      }
+
+      // Set new master
+      updates.push(
+        updateAccountInDb(id, { isMaster: true, copierEnabled: false }),
+      );
+
+      // Wait for all updates to complete
+      await Promise.all(updates);
+
+      // Then fetch once to refresh state
+      await fetchDbAccounts();
+    } catch (e) {
+      console.error("Failed to set master account:", e);
     }
-    // Set new master, and disable copy mode on master
-    await updateAccountInDb(id, { isMaster: true, copierEnabled: false });
   };
 
-  const toggleCopier = (id: number) => {
+  const toggleCopier = async (id: number) => {
     if (masterAccount === id) return; // Cannot copy itself
     const acc = mt5Accounts.find((a) => a.id === id);
-    if (acc) updateAccountInDb(id, { copierEnabled: !acc.copierEnabled });
+    if (acc) {
+      await updateAccountInDb(id, { copierEnabled: !acc.copierEnabled });
+      await fetchDbAccounts();
+    }
   };
 
-  const updateMultiplier = (id: number, val: number) => {
-    updateAccountInDb(id, { copierMultiplier: val });
+  const updateMultiplier = async (id: number, val: number) => {
+    await updateAccountInDb(id, { copierMultiplier: val });
+    await fetchDbAccounts();
   };
 
   const handleConnectMaster = async (acc: any) => {
@@ -340,7 +374,9 @@ export default function Accounts() {
       });
       if (masterAccount === id) setMasterAccount(null);
       await fetchDbAccounts();
-    } catch (e) { }
+    } catch (e) {
+      console.error(`Failed to remove account ${id}:`, e);
+    }
   };
 
   if (accountsLoading || tradesLoading) {
@@ -390,27 +426,36 @@ export default function Accounts() {
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
           {/* Aggregate Operations Matrix & Pulse Strip */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            
             {/* Aggregate Statistics */}
             <div className="bg-[--bg-card] border border-[--border] rounded-xl p-5 md:col-span-1 shadow-sm flex flex-col justify-between relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-[--accent]/5 rounded-bl-full pointer-events-none" />
-                <h3 className="text-[11px] font-bold uppercase tracking-widest text-[--text-tertiary] mb-4 flex items-center gap-2">
-                    <Server className="w-3.5 h-3.5" /> Aggregate Capital
-                </h3>
-                <div className="space-y-4 relative z-10">
-                    <div className="flex justify-between items-end border-b border-[--border]/50 pb-2">
-                       <span className="text-xs font-bold text-[--text-secondary]">Total Matrix Balance</span>
-                       <span className="font-mono text-xl font-black text-[--text-primary]">
-                          ${mt5Accounts.reduce((acc, a) => acc + (Number(a.balance) || 0), 0).toLocaleString(undefined, {minimumFractionDigits: 2})}
-                       </span>
-                    </div>
-                    <div className="flex justify-between items-end pb-2">
-                       <span className="text-xs font-bold text-[--text-secondary]">Combined Equity</span>
-                       <span className="font-mono text-lg font-bold text-[--text-primary]">
-                          ${mt5Accounts.reduce((acc, a) => acc + (Number(a.equity) || 0), 0).toLocaleString(undefined, {minimumFractionDigits: 2})}
-                       </span>
-                    </div>
+              <div className="absolute top-0 right-0 w-32 h-32 bg-[--accent]/5 rounded-bl-full pointer-events-none" />
+              <h3 className="text-[11px] font-bold uppercase tracking-widest text-[--text-tertiary] mb-4 flex items-center gap-2">
+                <Server className="w-3.5 h-3.5" /> Aggregate Capital
+              </h3>
+              <div className="space-y-4 relative z-10">
+                <div className="flex justify-between items-end border-b border-[--border]/50 pb-2">
+                  <span className="text-xs font-bold text-[--text-secondary]">
+                    Total Matrix Balance
+                  </span>
+                  <span className="font-mono text-xl font-black text-[--text-primary]">
+                    $
+                    {mt5Accounts
+                      .reduce((acc, a) => acc + (Number(a.balance) || 0), 0)
+                      .toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </span>
                 </div>
+                <div className="flex justify-between items-end pb-2">
+                  <span className="text-xs font-bold text-[--text-secondary]">
+                    Combined Equity
+                  </span>
+                  <span className="font-mono text-lg font-bold text-[--text-primary]">
+                    $
+                    {mt5Accounts
+                      .reduce((acc, a) => acc + (Number(a.equity) || 0), 0)
+                      .toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
             </div>
 
             {/* Account Pulse Strip */}
@@ -418,65 +463,83 @@ export default function Accounts() {
               className={`md:col-span-2 flex flex-col justify-center p-5 rounded-xl border relative shadow-sm ${mt5Pulse?.connected ? "bg-[--accent]/5 border-[--accent]/25" : "bg-[--bg-card] border-[--border]"}`}
             >
               <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${mt5Pulse?.connected ? "bg-[--bull] animate-pulse shadow-[0_0_6px_var(--bull)]" : "bg-[--text-tertiary]"}`} />
-                    <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: mt5Pulse?.connected ? "var(--accent)" : "var(--text-tertiary)" }}>
-                      {pulseLoading ? "Scanning Node..." : mt5Pulse?.connected ? "Master Bridge Active" : "Bridge Offline"}
-                    </span>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`w-2 h-2 rounded-full ${mt5Pulse?.connected ? "bg-[--bull] animate-pulse shadow-[0_0_6px_var(--bull)]" : "bg-[--text-tertiary]"}`}
+                  />
+                  <span
+                    className="text-[11px] font-bold uppercase tracking-widest"
+                    style={{
+                      color: mt5Pulse?.connected
+                        ? "var(--accent)"
+                        : "var(--text-tertiary)",
+                    }}
+                  >
+                    {pulseLoading
+                      ? "Scanning Node..."
+                      : mt5Pulse?.connected
+                        ? "Master Bridge Active"
+                        : "Bridge Offline"}
+                  </span>
+                </div>
               </div>
 
               <div className="flex flex-wrap gap-6 mt-1">
-              {mt5Pulse?.connected ? (
-                [
+                {mt5Pulse?.connected ? (
                   [
-                    "Balance",
-                    mt5Pulse.balance?.toLocaleString("en-US", {
-                      minimumFractionDigits: 2,
-                    }) ?? "—",
-                    "$",
-                  ],
-                  [
-                    "Equity",
-                    mt5Pulse.equity?.toLocaleString("en-US", {
-                      minimumFractionDigits: 2,
-                    }) ?? "—",
-                    "$",
-                  ],
-                  ["Float P&L", mt5Pulse.profit?.toFixed(2) ?? "—", "$"],
-                  ["Margin Level", mt5Pulse.marginLevel?.toFixed(1) ?? "—", "%"],
-                ].map(([label, val, symbol]) => (
-                  <div
-                    key={label as string}
-                    className="flex flex-col items-start"
-                  >
-                    <span
-                      className="text-[9px] font-bold uppercase tracking-widest"
-                      style={{ color: "var(--text-tertiary)" }}
+                    [
+                      "Balance",
+                      mt5Pulse.balance?.toLocaleString("en-US", {
+                        minimumFractionDigits: 2,
+                      }) ?? "—",
+                      "$",
+                    ],
+                    [
+                      "Equity",
+                      mt5Pulse.equity?.toLocaleString("en-US", {
+                        minimumFractionDigits: 2,
+                      }) ?? "—",
+                      "$",
+                    ],
+                    ["Float P&L", mt5Pulse.profit?.toFixed(2) ?? "—", "$"],
+                    [
+                      "Margin Level",
+                      mt5Pulse.marginLevel?.toFixed(1) ?? "—",
+                      "%",
+                    ],
+                  ].map(([label, val, symbol]) => (
+                    <div
+                      key={label as string}
+                      className="flex flex-col items-start"
                     >
-                      {label}
-                    </span>
-                    <span
-                      className="text-[13px] font-bold font-mono"
-                      style={{
-                        color:
-                          label === "Float P&L"
-                            ? Number(mt5Pulse.profit) >= 0
-                              ? "var(--bull)"
-                              : "var(--bear)"
-                            : "var(--text-primary)",
-                      }}
-                    >
-                      {symbol}
-                      {val}
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <span className="text-[11px] text-[--text-tertiary] mt-2 block">
-                  Assign a Master Node and Initialize the MT5 Python bridge to see live routing metrics.
-                </span>
-              )}
+                      <span
+                        className="text-[9px] font-bold uppercase tracking-widest"
+                        style={{ color: "var(--text-tertiary)" }}
+                      >
+                        {label}
+                      </span>
+                      <span
+                        className="text-[13px] font-bold font-mono"
+                        style={{
+                          color:
+                            label === "Float P&L"
+                              ? Number(mt5Pulse.profit) >= 0
+                                ? "var(--bull)"
+                                : "var(--bear)"
+                              : "var(--text-primary)",
+                        }}
+                      >
+                        {symbol}
+                        {val}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <span className="text-[11px] text-[--text-tertiary] mt-2 block">
+                    Assign a Master Node and Initialize the MT5 Python bridge to
+                    see live routing metrics.
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -1033,9 +1096,9 @@ export default function Accounts() {
                   <AccountCard
                     key={account.id}
                     account={account}
-                    onSetMaster={() => { }}
-                    onToggleCopier={() => { }}
-                    onUpdateMultiplier={() => { }}
+                    onSetMaster={() => {}}
+                    onToggleCopier={() => {}}
+                    onUpdateMultiplier={() => {}}
                   />
                 ))
               )}
