@@ -21,7 +21,13 @@ import {
   LucideIcon,
   ChevronDown,
   Users,
+  Shield,
+  Target,
+  Trophy,
+  CheckCircle2,
+  AlertTriangle,
 } from "lucide-react";
+import { useEffect } from "react";
 
 interface NavItem {
   href: string;
@@ -39,12 +45,24 @@ const Sidebar = () => {
   const pathname = usePathname();
 
   const [expandedGroups, setExpandedGroups] = useState<string[]>([
-    "Trading Bots",
+    "Validation Hub",
     "Risk Management",
+    "Trading Bots",
     "Live Monitoring",
     "Analysis & Trading",
     "Funded Account",
   ]);
+
+  // Auto-expand groups on initial load
+  useEffect(() => {
+    tradingTools.forEach(group => {
+      if (isActiveGroup(group.items)) {
+        setExpandedGroups(prev => 
+          prev.includes(group.title) ? prev : [...prev, group.title]
+        );
+      }
+    });
+  }, []);
 
   const toggleGroup = (groupId: string) => {
     setExpandedGroups((prev) =>
@@ -75,6 +93,16 @@ const Sidebar = () => {
   // Trading Tools Groups
   const tradingTools: NavGroup[] = [
     {
+      title: "Validation Hub",
+      icon: Shield,
+      items: [
+        { href: "/validation", label: "Pre-Trade Checks" },
+        { href: "/review", label: "Trade Review" },
+        { href: "/review/daily", label: "Daily Review" },
+        { href: "/progress", label: "Challenge Tracker" },
+      ],
+    },
+    {
       title: "Risk Management",
       icon: PieChart,
       items: [
@@ -87,7 +115,9 @@ const Sidebar = () => {
     {
       title: "Funded Account",
       icon: Wallet,
-      items: [{ href: "/fundedrequire", label: "Funded Requirements" }],
+      items: [
+        { href: "/fundedrequire", label: "Funded Requirements" },
+      ],
     },
     {
       title: "Trading Bots",

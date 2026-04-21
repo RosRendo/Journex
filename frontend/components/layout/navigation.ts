@@ -1,7 +1,8 @@
 import {
   LayoutDashboard, BookOpen, CalendarDays, BarChart3, Wallet, Users, Library, Bell,
   Settings, ShieldAlert, Calculator, Percent, Grid, Award, Zap, Eye, BellRing, MapPin,
-  Newspaper, Crosshair, FlipHorizontal2, RotateCcw, Code, Activity, TrendingUp, BarChart2, Target
+  Newspaper, Crosshair, FlipHorizontal2, RotateCcw, Code, Activity, TrendingUp, BarChart2, Target,
+  Shield, CheckCircle2, TrendingDown, AlertTriangle
 } from "lucide-react";
 
 export type NavItem = {
@@ -39,8 +40,18 @@ export const SIDEBAR_GROUPS: NavGroup[] = [
   }
 ];
 
-// Move RISK, TOOLS, SIMULATION to Header Dropdowns
+// Move RISK, TOOLS, SIMULATION, VALIDATION to Header Dropdowns
 export const HEADER_GROUPS: NavGroup[] = [
+  {
+    id: "validation",
+    label: "Validation",
+    items: [
+      { id: "pretrade", label: "Pre-Trade Checks", href: "/validation", icon: Shield },
+      { id: "tradereview", label: "Trade Review", href: "/review", icon: CheckCircle2 },
+      { id: "dailyreview", label: "Daily Review", href: "/review/daily", icon: TrendingDown },
+      { id: "challengetracker", label: "Challenge Tracker", href: "/progress", icon: AlertTriangle },
+    ],
+  },
   {
     id: "risk",
     label: "Risk",
