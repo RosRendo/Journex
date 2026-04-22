@@ -84,6 +84,7 @@ export function useCsvTrades(accountId?: number, autoRefreshMs: number = 0) {
   }, []);
 
   const API_BASE = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
+  const DB_API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
   // Fetch true history from Live MT5 bridge (bypassing node backend)
   const fetchTrades = useCallback(async () => {
@@ -91,6 +92,7 @@ export function useCsvTrades(accountId?: number, autoRefreshMs: number = 0) {
       setLoading(true);
       setError(null);
 
+      // 1. Fetch from MT5 bridge history
       const url = `${API_BASE}/api/history`;
       const response = await fetch(url, {
         headers: {
@@ -119,6 +121,49 @@ export function useCsvTrades(accountId?: number, autoRefreshMs: number = 0) {
         ticket: t.ticket,
       }));
 
+      // 2. ALSO fetch from database API for recently placed trades
+      try {
+        const dbRes = await fetch(`${DB_API}/api/trades?limit=100&sortBy=date&order=DESC`, {
+          headers: { "ngrok-skip-browser-warning": "true" }
+        });
+        if (dbRes.ok) {
+          const dbData = await dbRes.json();
+          const dbTrades = dbData.data || [];
+          
+          // Merge and dedupe by ticket
+          const ticketMap = new Map<number, TradeData>();
+          normalized.forEach(t => { if (t.ticket) ticketMap.set(Number(t.ticket), t); });
+          
+          dbTrades.forEach((t: any) => {
+            if (t.ticket && !ticketMap.has(Number(t.ticket))) {
+              ticketMap.set(Number(t.ticket), {
+                id: t.id,
+                date: t.closeTime || t.date,
+                openTime: t.date,
+                pair: t.pair,
+                direction: t.direction === "buy" ? "Long" : "Short",
+                entry: t.entry,
+                closePrice: t.closePrice,
+                lotSize: t.lot,
+                profit: t.profit || 0,
+                outcome: (t.profit || 0) > 0 ? "W" : (t.profit || 0) < 0 ? "L" : "E",
+                ticket: String(t.ticket)
+              });
+            }
+          });
+          
+          const merged = Array.from(ticketMap.values());
+          setTrades(merged.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+          const calculatedAnalytics = calculateAnalytics(merged);
+          setAnalytics(calculatedAnalytics);
+          setLastUpdated(new Date().toISOString());
+          setLoading(false);
+          return;
+        }
+      } catch (dbErr) {
+        console.warn("Failed to fetch trades from DB:", dbErr);
+      }
+
       setTrades(normalized);
       const calculatedAnalytics = calculateAnalytics(normalized);
       setAnalytics(calculatedAnalytics);
@@ -129,18 +174,23 @@ export function useCsvTrades(accountId?: number, autoRefreshMs: number = 0) {
     } finally {
       setLoading(false);
     }
-  }, [accountId, calculateAnalytics, API_BASE]);
+  }, [accountId, calculateAnalytics, API_BASE, DB_API]);
 
   // Fetch trades when component mounts
   useEffect(() => {
     fetchTrades();
 
-    // Set up auto-refresh if specified
+    // Set up auto-refresh (every 30 seconds for journal sync)
     if (autoRefreshMs > 0) {
       const interval = setInterval(() => {
         fetchTrades();
       }, autoRefreshMs);
-
+      return () => clearInterval(interval);
+    } else {
+      // Default 30s sync interval
+      const interval = setInterval(() => {
+        fetchTrades();
+      }, 30000);
       return () => clearInterval(interval);
     }
   }, [fetchTrades, autoRefreshMs]);

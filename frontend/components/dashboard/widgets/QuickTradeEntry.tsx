@@ -20,6 +20,7 @@ export function QuickTradeEntry() {
   const [toast, setToast] = useState<ToastMsg | null>(null);
 
   const BRIDGE_URL = process.env.NEXT_PUBLIC_BRIDGE_URL ?? "http://localhost:5003";
+  const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,6 +29,7 @@ export function QuickTradeEntry() {
     setToast(null);
 
     try {
+      // 1. Place trade on MT5
       const res = await fetch(`${BRIDGE_URL}/api/trade`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "ngrok-skip-browser-warning": "true" },
@@ -41,7 +43,29 @@ export function QuickTradeEntry() {
         }),
       });
       const data = await res.json();
+      
       if (data.success) {
+        // 2. Save to database for journal persistence
+        try {
+          await fetch(`${API_URL}/api/trades`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              pair: symbol,
+              direction: direction.toLowerCase(),
+              entry: data.entry_price || 0,
+              sl: sl ? parseFloat(sl) : null,
+              tp: tp ? parseFloat(tp) : null,
+              lot: parseFloat(lotSize),
+              date: new Date().toISOString(),
+              ticket: data.ticket,
+              status: "open"
+            }),
+          });
+        } catch (dbErr) {
+          console.error("Failed to save trade to DB:", dbErr);
+        }
+        
         setToast({ type: "success", text: `✓ ${direction} ${lotSize} lots of ${symbol} — Ticket #${data.ticket}` });
         setSl(""); setTp("");
       } else {

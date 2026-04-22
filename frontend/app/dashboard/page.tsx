@@ -58,6 +58,7 @@ import { SessionPerformanceGrid } from "@/components/dashboard/widgets/SessionPe
 import { usePositions } from "@/hooks/usePositions";
 import { SetupScorer } from "@/components/ui/SetupScorer";
 import { CorrelationMatrix } from "@/components/ui/CorrelationMatrix";
+import { PreTradeChecklist } from "@/components/ui/PreTradeChecklist";
 
 function StatCard({
   label,
@@ -119,12 +120,15 @@ export default function Dashboard() {
   const [technicals, setTechnicals] = useState<{ rsi: number | null; ema50: number | null; atr: number | null; sma50: number | null } | null>(null);
   const [tradeDirection, setTradeDirection] = useState<"buy" | "sell" | null>(null);
   const [rrRatio, setRrRatio] = useState<number | null>(2.0);
+  const [slPrice, setSlPrice] = useState<number | null>(null);
+  const [tpPrice, setTpPrice] = useState<number | null>(null);
+  const [showChecklist, setShowChecklist] = useState(false);
 
   const PAIRS = ["XAUUSD", "XAGUSD", "EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD"];
   const TIMEFRAMES = ["1m", "5m", "15m", "1h", "4h", "D"];
 
   // Fetch technicals for SetupScorer
-  useEffect(() => {
+useEffect(() => {
     const fetchTechnicals = async () => {
       try {
         const BRIDGE_URL = process.env.NEXT_PUBLIC_BRIDGE_URL ?? "http://localhost:5003";
@@ -136,8 +140,44 @@ export default function Dashboard() {
             ema50: data.ema50 ?? null,
             atr: data.atr ?? null,
             sma50: data.sma50 ?? null
-});
-  }
+          });
+        }
+      } catch (e) {
+        console.error("Failed to fetch technicals:", e);
+      }
+    };
+    fetchTechnicals();
+    const int = setInterval(fetchTechnicals, 10000);
+    return () => clearInterval(int);
+  }, [selectedPair]);
+
+  // Live candle streaming - poll every 5 seconds
+  useEffect(() => {
+    const fetchCandles = async () => {
+      try {
+        const BRIDGE_URL = process.env.NEXT_PUBLIC_BRIDGE_URL ?? "http://localhost:5003";
+        const res = await fetch(
+          `${BRIDGE_URL}/api/candles?symbol=${selectedPair}&timeframe=${selectedTimeframe}&count=200`,
+          { headers: { "ngrok-skip-browser-warning": "true" } }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          if (data.candles && Array.isArray(data.candles)) {
+            setLiveCandles(data.candles);
+            if (data.candles.length > 0) {
+              const lastClose = data.candles[data.candles.length - 1].close;
+              setLivePrice(lastClose);
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch candles:", e);
+      }
+    };
+    fetchCandles();
+    const int = setInterval(fetchCandles, 5000);
+    return () => clearInterval(int);
+  }, [selectedPair, selectedTimeframe]);
 
   // News data for SetupScorer
   const { news } = useNews();
@@ -227,6 +267,17 @@ export default function Dashboard() {
       .sort((a, b) => Math.abs(b.pnl) - Math.abs(a.pnl))
       .slice(0, 8);
   }, [trades]);
+
+  // Compute setup score from technicals + news
+  const computedSetupScore = useMemo(() => {
+    let score = 0, max = 0;
+    if (technicals?.rsi != null) { max += 1; score += (technicals.rsi >= 30 && technicals.rsi <= 70) ? 1 : 0; }
+    if (nextNewsMinutes != null) { max += 2; score += (nextNewsMinutes > 120) ? 2 : 0; }
+    if (livePrice != null && technicals?.ema50 != null) { max += 2; const aligned = tradeDirection === "buy" ? livePrice > technicals.ema50 : livePrice < technicals.ema50; score += aligned ? 2 : 0; }
+    const h = new Date().getUTCHours(); const sessionActive = (h >= 8 && h < 17) || (h >= 13 && h < 22);
+    if (sessionActive) { max += 2; score += 2; }
+    return max > 0 ? Math.round((score / max) * 10) : 5;
+  }, [technicals, nextNewsMinutes, livePrice, tradeDirection]);
 
   return (
     <div className="space-y-8 animate-fade-in pb-20 max-w-[1600px] mx-auto">
@@ -443,13 +494,20 @@ export default function Dashboard() {
               </button>
             </div>
           </div>
-          {livePrice !== null && (
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            {livePrice !== null && (
               <span className="text-lg font-mono font-bold" style={{ color: "var(--text-primary)" }}>
                 {livePrice.toFixed(2)}
               </span>
-            </div>
-          )}
+            )}
+            <button
+              onClick={() => setShowChecklist(true)}
+              disabled={!tradeDirection || !livePrice}
+              className="px-4 py-2 rounded-lg text-xs font-bold uppercase bg-[--accent] text-black hover:shadow-[0_0_20px_rgba(0,212,161,0.4)] transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              Place Trade
+            </button>
+          </div>
         </div>
         <div ref={chartContainerRef} className="h-[300px] w-full" />
       </div>
@@ -513,7 +571,7 @@ export default function Dashboard() {
       {/* Correlation Matrix - Below Open Positions */}
       <div className="mb-6">
         <CorrelationMatrix 
-          openPositions={positions.map(p => ({ pair: p.symbol, direction: p.direction as "buy" | "sell" }))} 
+          openPositions={positions.map(p => ({ pair: p.pair, direction: (p.direction === "Long" ? "buy" : "sell") as "buy" | "sell" }))} 
         />
       </div>
 
@@ -537,18 +595,36 @@ export default function Dashboard() {
             <QuickTradeEntry />
          </div>
 
-         {/* Alerts Widget - Spans 4 cols */}
-         <div className="lg:col-span-4 h-[560px]">
-            <AlertsWidget
-              trades={trades}
-              positions={positions}
-              mt5Connected={mt5Data?.connected}
-              balance={mt5Data?.balance}
-              equity={mt5Data?.equity}
-              maxDailyDrawdownPct={5}
-            />
-         </div>
-      </div>
+{/* Alerts Widget - Spans 4 cols */}
+          <div className="lg:col-span-4 h-[560px]">
+             <AlertsWidget
+               trades={trades}
+               positions={positions}
+               mt5Connected={mt5Data?.connected}
+               balance={mt5Data?.balance}
+               equity={mt5Data?.equity}
+               maxDailyDrawdownPct={5}
+             />
+          </div>
+       </div>
+
+      {/* Pre-Trade Checklist Modal */}
+      <PreTradeChecklist
+        isOpen={showChecklist}
+        onClose={() => setShowChecklist(false)}
+        onConfirm={(override) => {
+          setShowChecklist(false);
+          const score = override ? 3 : computedSetupScore;
+          saveSetupScore(tradeDirection || "buy", score);
+        }}
+        pair={selectedPair}
+        direction={tradeDirection || "buy"}
+        price={livePrice}
+        sl={slPrice}
+        tp={tpPrice}
+        nextNewsMinutes={nextNewsMinutes}
+        setupScore={computedSetupScore}
+      />
     </div>
   );
 }
