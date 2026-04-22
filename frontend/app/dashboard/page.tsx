@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import {
   TrendingUp,
   TrendingDown,
@@ -14,7 +14,15 @@ import {
   ArrowRight,
   Globe
 } from "lucide-react";
+import {
+  createChart,
+  IChartApi,
+  ISeriesApi,
+  Time
+} from "lightweight-charts";
+import { useWebSocket } from "@/hooks/useWebSocket";
 import { useCsvTrades } from "@/hooks/useCsvTrades";
+import { useNews } from "@/hooks/useNews";
 import { calculateMetrics, getStrategyStats } from "@/lib/calculations";
 import {
   AreaChart,
@@ -48,6 +56,8 @@ import { DrawdownVisualization } from "@/components/dashboard/widgets/DrawdownVi
 import { MonthlyPerformanceGrid } from "@/components/dashboard/widgets/MonthlyPerformanceGrid";
 import { SessionPerformanceGrid } from "@/components/dashboard/widgets/SessionPerformanceGrid";
 import { usePositions } from "@/hooks/usePositions";
+import { SetupScorer } from "@/components/ui/SetupScorer";
+import { CorrelationMatrix } from "@/components/ui/CorrelationMatrix";
 
 function StatCard({
   label,
@@ -98,43 +108,70 @@ export default function Dashboard() {
     margin_level?: number;
   } | null>(null);
 
+  // Live Chart State
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const [selectedPair, setSelectedPair] = useState("XAUUSD");
+  const [selectedTimeframe, setSelectedTimeframe] = useState("H1");
+  const [livePrice, setLivePrice] = useState<number | null>(null);
+  const [liveCandles, setLiveCandles] = useState<{ time: number; open: number; high: number; low: number; close: number }[]>([]);
+  const [technicals, setTechnicals] = useState<{ rsi: number | null; ema50: number | null; atr: number | null; sma50: number | null } | null>(null);
+  const [tradeDirection, setTradeDirection] = useState<"buy" | "sell" | null>(null);
+  const [rrRatio, setRrRatio] = useState<number | null>(2.0);
+
+  const PAIRS = ["XAUUSD", "XAGUSD", "EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD"];
+  const TIMEFRAMES = ["1m", "5m", "15m", "1h", "4h", "D"];
+
+  // Fetch technicals for SetupScorer
   useEffect(() => {
-    const BRIDGE_URL = process.env.NEXT_PUBLIC_BRIDGE_URL ?? "http://localhost:5003";
-    // Poll the MT5 Python bridge /health endpoint
-    const fetchMT5 = async () => {
+    const fetchTechnicals = async () => {
       try {
-        const res = await fetch(`${BRIDGE_URL}/health`, { headers: { "ngrok-skip-browser-warning": "true" } });
+        const BRIDGE_URL = process.env.NEXT_PUBLIC_BRIDGE_URL ?? "http://localhost:5003";
+        const res = await fetch(`${BRIDGE_URL}/api/technicals?symbol=${selectedPair}`, { headers: { "ngrok-skip-browser-warning": "true" } });
         if (res.ok) {
           const data = await res.json();
-          // /health gives us connected + balance, try /api/account for full stats
-          if (data.connected) {
-            try {
-              const accRes = await fetch(`${BRIDGE_URL}/api/account`, { headers: { "ngrok-skip-browser-warning": "true" } });
-              if (accRes.ok) {
-                const acc = await accRes.json();
-                setMt5Data({
-                  connected: true,
-                  balance: acc.balance,
-                  equity: acc.equity,
-                  profit: acc.profit,
-                  margin_level: acc.margin_level,
-                });
-                return;
-              }
-            } catch (_) {}
-          }
-          setMt5Data({ connected: data.connected, balance: data.balance });
-        }
-      } catch (e) {
-        setMt5Data({ connected: false });
-      }
-    };
-    fetchMT5();
-    const int = setInterval(fetchMT5, 5000);
-    return () => clearInterval(int);
-  }, []);
+          setTechnicals({
+            rsi: data.rsi ?? null,
+            ema50: data.ema50 ?? null,
+            atr: data.atr ?? null,
+            sma50: data.sma50 ?? null
+});
+  }
 
-  // Fallback metrics from local calculations if analytics not yet available
+  // News data for SetupScorer
+  const { news } = useNews();
+
+  // Calculate minutes until next high-impact news event
+  const nextNewsMinutes = useMemo(() => {
+    if (!news || news.length === 0) return null;
+    const now = new Date().getTime();
+    for (const n of news) {
+      const newsTime = new Date(n.published).getTime();
+      const diff = (newsTime - now) / 60000;
+      if (diff > -30 && diff < 300) return Math.round(diff);
+    }
+    return 180; // No upcoming news in reasonable window
+  }, [news]);
+
+  // Save score to localStorage (called when trade is placed)
+  const saveSetupScore = useCallback((direction: "buy" | "sell", score: number) => {
+    try {
+      const existing = JSON.parse(localStorage.getItem("setup_scores") || "[]");
+      existing.push({
+        pair: selectedPair,
+        direction,
+        score,
+        rrRatio,
+        price: livePrice,
+        timestamp: new Date().toISOString(),
+        timeframe: selectedTimeframe
+      });
+      localStorage.setItem("setup_scores", JSON.stringify(existing.slice(-500)));
+    } catch (e) {
+      console.error("Failed to save setup score:", e);
+    }
+  }, [selectedPair, livePrice, rrRatio, selectedTimeframe]);
   const metrics = useMemo(() => {
     if (analytics) return analytics;
     return {
@@ -245,14 +282,23 @@ export default function Dashboard() {
                  The Dollar is seeing some early pressure with a -16 flow score, though Copper is the real outlier this morning, sliding toward a 23rd percentile low (z=-0.42) that signals some underlying nerves. While the London open shows a slight risk appetite for the Dow Jones and Nasdaq 100, our Macro Desk remains cautious.
                </p>
                <button className="text-[#00dc82] hover:text-[#00c574] text-xs font-bold mt-2 hover:underline">Read more</button>
-            </div>
+</div>
 
-            {/* Capital Flow Container */}
-            <div className="flex-1 min-h-[300px]">
-               <CapitalFlow />
-            </div>
-         </div>
-      </div>
+            {/* Setup Quality Scorer */}
+            <SetupScorer
+              currentRSI={technicals?.rsi ?? null}
+              currentATR={technicals?.atr ?? null}
+              avgATR={(technicals?.atr ?? 0.001) * 1.2}
+              currentSpread={15}
+              avgSpread={12}
+              rrRatio={rrRatio}
+              nextNewsMinutes={nextNewsMinutes}
+              livePrice={livePrice}
+              sma50={technicals?.sma50 ?? technicals?.ema50 ?? null}
+              tradeDirection={tradeDirection}
+            />
+          </div>
+       </div>
 
       {/* ── MARKET CONDITIONS ── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -341,6 +387,73 @@ export default function Dashboard() {
 
       <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent my-8"></div>
 
+      {/* ── Live Candlestick Chart ── */}
+      <div className="rounded-xl border p-4" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Activity className="w-4 h-4 text-[--accent]" />
+              <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-primary)" }}>Live Chart</span>
+              <div className={`w-2 h-2 rounded-full ${livePrice !== null ? "bg-green-500 animate-pulse" : "bg-yellow-500"}`} />
+            </div>
+            <select
+              value={selectedPair}
+              onChange={(e) => setSelectedPair(e.target.value)}
+              className="bg-[--bg-base] border rounded-lg px-3 py-1.5 text-xs font-bold outline-none"
+              style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
+            >
+              {PAIRS.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+            <div className="flex gap-1">
+              {TIMEFRAMES.map(tf => (
+                <button
+                  key={tf}
+                  onClick={() => setSelectedTimeframe(tf)}
+                  className={`px-2 py-1 rounded text-[10px] font-bold uppercase transition-colors ${
+                    selectedTimeframe === tf
+                      ? "bg-[--accent] text-black"
+                      : "bg-[--bg-base] text-[--text-secondary] hover:bg-[--bg-elevated]"
+                  }`}
+                  style={{ border: "1px solid var(--border)" }}
+                >
+                  {tf}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setTradeDirection("buy")}
+                className={`px-3 py-1 rounded text-xs font-bold uppercase transition-colors ${
+                  tradeDirection === "buy"
+                    ? "bg-[--profit] text-black"
+                    : "bg-[--bg-base] text-[--text-secondary]"
+                }`}
+              >
+                Buy
+              </button>
+              <button
+                onClick={() => setTradeDirection("sell")}
+                className={`px-3 py-1 rounded text-xs font-bold uppercase transition-colors ${
+                  tradeDirection === "sell"
+                    ? "bg-[--loss] text-white"
+                    : "bg-[--bg-base] text-[--text-secondary]"
+                }`}
+              >
+                Sell
+              </button>
+            </div>
+          </div>
+          {livePrice !== null && (
+            <div className="flex items-center gap-2">
+              <span className="text-lg font-mono font-bold" style={{ color: "var(--text-primary)" }}>
+                {livePrice.toFixed(2)}
+              </span>
+            </div>
+          )}
+        </div>
+        <div ref={chartContainerRef} className="h-[300px] w-full" />
+      </div>
+
       {/* ── SECTION 5.5: PERFORMANCE SUMMARY ── */}
       <div className="mb-6">
         <PerformanceSummaryWidget trades={trades} />
@@ -395,6 +508,13 @@ export default function Dashboard() {
          <div className="lg:col-span-5 h-[450px]">
             <EconomicNewsTicker />
          </div>
+      </div>
+
+      {/* Correlation Matrix - Below Open Positions */}
+      <div className="mb-6">
+        <CorrelationMatrix 
+          openPositions={positions.map(p => ({ pair: p.symbol, direction: p.direction as "buy" | "sell" }))} 
+        />
       </div>
 
       <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent my-8"></div>
