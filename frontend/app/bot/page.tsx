@@ -65,7 +65,7 @@ function BotSettingsTab() {
   const [botName, setBotName] = useState('');
   const [broker, setBroker] = useState('');
   const [strategy, setStrategy] = useState('');
-  const [symbols, setSymbols] = useState('EURUSD');
+  const [symbols, setSymbols] = useState('XAUUSD');
   const [risk, setRisk] = useState(1.0);
   const [maxLoss, setMaxLoss] = useState(3.0);
 
