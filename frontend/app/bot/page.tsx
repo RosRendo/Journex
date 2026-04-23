@@ -188,7 +188,8 @@ function BotSettingsTab() {
               <CustomSelect placeholder="Select compiled strategy (.py/.ex5)" value={strategy} onChange={(e:any) => setStrategy(e.target.value)} options={[
                 { value: "London Breakout", label: "London Breakout v2.1" },
                 { value: "EMA Scalping", label: "1H EMA Trend Rider" },
-                { value: "Grid", label: "Dynamic Grid Matrix" }
+                { value: "MACD Crossover", label: "MACD Crossover Pro" },
+                { value: "Dynamic Grid Matrix", label: "Dynamic Grid Matrix" }
               ]} />
             </div>
             <div>
