@@ -113,16 +113,16 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchMt5Account = async () => {
       try {
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.dashboardkiller.online";
-        const res = await fetch(`${API_URL}/api/account`, { headers: { "ngrok-skip-browser-warning": "true" } });
+        const BRIDGE_URL = process.env.NEXT_PUBLIC_BRIDGE_URL || "https://python.dashboardkiller.online";
+        const res = await fetch(`${BRIDGE_URL}/api/account`, { headers: { "ngrok-skip-browser-warning": "true" } });
         if (res.ok) {
           const data = await res.json();
           setMt5Data({
-            connected: data.connected ?? false,
+            connected: data.login != null,
             balance: data.balance ?? 0,
             equity: data.equity ?? data.balance ?? 0,
             profit: data.profit ?? 0,
-            margin_level: data.margin_level ?? null
+            margin_level: data.margin_level > 0 ? data.margin_level : null
           });
         }
       } catch (e) {
