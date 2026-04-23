@@ -438,10 +438,9 @@ export default function Accounts() {
                     Total Matrix Balance
                   </span>
                   <span className="font-mono text-xl font-black text-[--text-primary]">
-                    $
-                    {mt5Accounts
-                      .reduce((acc, a) => acc + (Number(a.balance) || 0), 0)
-                      .toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    ${mt5Pulse?.connected && mt5Pulse?.balance != null
+                      ? mt5Pulse.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })
+                      : mt5Accounts.reduce((acc, a) => acc + (Number(a.balance) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </span>
                 </div>
                 <div className="flex justify-between items-end pb-2">
@@ -449,10 +448,9 @@ export default function Accounts() {
                     Combined Equity
                   </span>
                   <span className="font-mono text-lg font-bold text-[--text-primary]">
-                    $
-                    {mt5Accounts
-                      .reduce((acc, a) => acc + (Number(a.equity) || 0), 0)
-                      .toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    ${mt5Pulse?.connected && mt5Pulse?.equity != null
+                      ? mt5Pulse.equity.toLocaleString(undefined, { minimumFractionDigits: 2 })
+                      : mt5Accounts.reduce((acc, a) => acc + (Number(a.equity) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </span>
                 </div>
               </div>
