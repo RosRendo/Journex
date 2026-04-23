@@ -109,6 +109,32 @@ export default function Dashboard() {
     margin_level?: number;
   } | null>(null);
 
+  // Fetch MT5 account data
+  useEffect(() => {
+    const fetchMt5Account = async () => {
+      try {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.dashboardkiller.online";
+        const res = await fetch(`${API_URL}/api/account`, { headers: { "ngrok-skip-browser-warning": "true" } });
+        if (res.ok) {
+          const data = await res.json();
+          setMt5Data({
+            connected: data.connected ?? false,
+            balance: data.balance ?? 0,
+            equity: data.equity ?? data.balance ?? 0,
+            profit: data.profit ?? 0,
+            margin_level: data.margin_level ?? null
+          });
+        }
+      } catch (e) {
+        console.error("Failed to fetch MT5 account:", e);
+        setMt5Data({ connected: false });
+      }
+    };
+    fetchMt5Account();
+    const int = setInterval(fetchMt5Account, 5000);
+    return () => clearInterval(int);
+  }, []);
+
   // Live Chart State
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -178,6 +204,49 @@ useEffect(() => {
     const int = setInterval(fetchCandles, 5000);
     return () => clearInterval(int);
   }, [selectedPair, selectedTimeframe]);
+
+  // Initialize and update live candlestick chart
+  useEffect(() => {
+    if (!chartContainerRef.current) return;
+    
+    if (!chartRef.current) {
+      chartRef.current = createChart(chartContainerRef.current, {
+        width: chartContainerRef.current.clientWidth,
+        height: 300,
+        layout: { background: { type: "solid" as any, color: "transparent" }, textColor: "#8e9196" },
+        grid: { vertLines: { color: "rgba(255,255,255,0.03)" }, horzLines: { color: "rgba(255,255,255,0.03)" } },
+        timeScale: { timeVisible: true, secondsVisible: false, borderColor: "rgba(255,255,255,0.1)", rightOffset: 15 },
+        rightPriceScale: { borderColor: "rgba(255,255,255,0.1)", scaleMargins: { top: 0.1, bottom: 0.1 } },
+        crosshair: { mode: 0 },
+      });
+      candleSeriesRef.current = chartRef.current.addCandlestickSeries({
+        upColor: "#00d4a1", downColor: "#ff4d6a", borderVisible: false,
+        wickUpColor: "#00d4a1", wickDownColor: "#ff4d6a",
+      });
+    }
+
+    if (liveCandles.length > 0 && candleSeriesRef.current) {
+      candleSeriesRef.current.setData(
+        liveCandles.map((c) => ({ time: c.time as unknown as Time, open: c.open, high: c.high, low: c.low, close: c.close }))
+      );
+      chartRef.current.timeScale().fitContent();
+    }
+
+    const handleResize = () => {
+      if (chartContainerRef.current && chartRef.current) {
+        chartRef.current.applyOptions({ width: chartContainerRef.current.clientWidth, height: 300 });
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      if (chartRef.current) {
+        chartRef.current.remove();
+        chartRef.current = null;
+        candleSeriesRef.current = null;
+      }
+    };
+  }, [liveCandles]);
 
   // News data for SetupScorer
   const { news } = useNews();
