@@ -26,7 +26,8 @@ export const SIDEBAR_GROUPS: NavGroup[] = [
     label: "CORE",
     items: [
       { id: "dashboard", label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-      { id: "journal", label: "Journal", href: "/journal", icon: BookOpen },
+      { id: "ai-journals", label: "AI Journals", href: "/journals", icon: BookOpen },
+      { id: "journal", label: "Manual Journal", href: "/journal", icon: BookOpen },
       { id: "calendar", label: "Calendar", href: "/calendar", icon: CalendarDays },
       { id: "analytics", label: "Analytics", href: "/analytics", icon: BarChart3 },
       { id: "accounts", label: "Accounts", href: "/accounts", icon: Wallet },
