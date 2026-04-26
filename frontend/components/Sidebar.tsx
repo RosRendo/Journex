@@ -80,7 +80,8 @@ const Sidebar = () => {
   // Main Quick Navigation
   const mainNav: NavItem[] = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/journal", label: "Journal", icon: BookOpen },
+    { href: "/journals", label: "AI Journals", icon: BookOpen },
+    { href: "/journal", label: "Manual Journal", icon: BookOpen },
     { href: "/calendar", label: "Calendar", icon: CalendarDays },
     { href: "/analytics", label: "Analytics", icon: BarChart3 },
     { href: "/accounts", label: "Accounts", icon: Wallet },
