@@ -175,7 +175,7 @@ export default function JournalDetailPage() {
               <div className="rounded-lg overflow-hidden border border-slate-800 bg-black aspect-video flex items-center justify-center">
                 {trade.media?.chart_image ? (
                   <img 
-                    src={`http://localhost:5003/journals/${trade.trade_id}/${trade.media.chart_image}`} 
+                    src={`${MT5_URL}/journals/${trade.trade_id}/${trade.media.chart_image}`} 
                     alt="Trade Chart" 
                     className="w-full h-full object-contain"
                     onError={(e) => {
