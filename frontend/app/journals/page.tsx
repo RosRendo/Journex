@@ -7,12 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search } from "lucide-react";
 
+
 export default function JournalsPage() {
   const [journals, setJournals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState("ALL");
   const [search, setSearch] = useState("");
+  const MT5_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5003";
 
   useEffect(() => {
     fetchJournals();
@@ -21,7 +23,7 @@ export default function JournalsPage() {
   const fetchJournals = async () => {
     try {
       setLoading(true);
-      const res = await fetch('http://localhost:5003/api/journals');
+      const res = await fetch(`${MT5_URL}/api/journals`, { headers: { "ngrok-skip-browser-warning": "true" } });
       const data = await res.json();
       if (data.success) {
         setJournals(data.journals);

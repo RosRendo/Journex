@@ -14,6 +14,7 @@ export default function JournalDetailPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const MT5_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5003";
 
   useEffect(() => {
     fetchJournal();
@@ -22,7 +23,7 @@ export default function JournalDetailPage() {
   const fetchJournal = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`http://localhost:5003/api/journals/${id}`);
+      const res = await fetch(`${MT5_URL}/api/journals/${id}`, { headers: { "ngrok-skip-browser-warning": "true" } });
       const json = await res.json();
       if (json.success) {
         setData(json);
