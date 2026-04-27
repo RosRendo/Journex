@@ -24,6 +24,9 @@ export default function JournalDetailPage() {
     try {
       setLoading(true);
       const res = await fetch(`${MT5_URL}/api/journals/${id}`, { headers: { "ngrok-skip-browser-warning": "true" } });
+      if (!res.ok) {
+        throw new Error(`Server error: ${res.status}`);
+      }
       const json = await res.json();
       if (json.success) {
         setData(json);
