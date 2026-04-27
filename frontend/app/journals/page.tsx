@@ -14,10 +14,12 @@ export default function JournalsPage() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState("ALL");
   const [search, setSearch] = useState("");
-  const MT5_URL = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
+  const MT5_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5003";
 
   useEffect(() => {
     fetchJournals();
+    const interval = setInterval(fetchJournals, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const fetchJournals = async () => {
