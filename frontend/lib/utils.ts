@@ -17,3 +17,14 @@ export function resolveLocalUrl(url: string): string {
   }
   return url;
 }
+
+/**
+ * Returns the absolute backend base URL for use in fetch() calls.
+ * - On production (Vercel/Railway): uses NEXT_PUBLIC_BACKEND_URL as-is.
+ * - Locally: falls back to http://localhost:5000.
+ * Never replaces localhost with the current window host — that caused CSP errors
+ * when the Vercel domain was substituted into bridge port URLs.
+ */
+export function getBackendUrl(): string {
+  return process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+}
