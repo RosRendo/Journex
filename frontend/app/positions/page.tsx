@@ -7,6 +7,12 @@ import {
   Wifi, WifiOff, Zap
 } from "lucide-react";
 
+import {
+  fetchBridgePositions,
+  closeBridgePosition,
+  modifyBridgePosition
+} from "@/lib/terminalApi";
+
 interface Position {
   ticket: number;
   symbol: string;
@@ -39,9 +45,6 @@ export default function PositionsPage() {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
-  const BRIDGE = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
-  const HEADERS = { "ngrok-skip-browser-warning": "true" };
-
   const showToast = (type: "success" | "error", text: string) => {
     setToast({ type, text });
     setTimeout(() => setToast(null), 5000);
@@ -49,9 +52,7 @@ export default function PositionsPage() {
 
   const fetchPositions = async () => {
     try {
-      const res = await fetch(`${BRIDGE}/api/positions`, { headers: HEADERS });
-      if (!res.ok) throw new Error("Bridge not reachable");
-      const data = await res.json();
+      const data = await fetchBridgePositions();
       if (data.success) {
         setPositions(data.positions || []);
         setError("");
@@ -74,12 +75,7 @@ export default function PositionsPage() {
   const closePosition = async (ticket: number) => {
     setClosingTicket(ticket);
     try {
-      const res = await fetch(`${BRIDGE}/api/close-position`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...HEADERS },
-        body: JSON.stringify({ ticket }),
-      });
-      const data = await res.json();
+      const data = await closeBridgePosition(ticket);
       if (data.success) {
         showToast("success", `Position #${ticket} closed successfully.`);
         await fetchPositions();
@@ -95,16 +91,11 @@ export default function PositionsPage() {
 
   const modifyPosition = async (ticket: number) => {
     try {
-      const res = await fetch(`${BRIDGE}/api/modify-position`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...HEADERS },
-        body: JSON.stringify({
-          ticket,
-          sl: editSl ? parseFloat(editSl) : undefined,
-          tp: editTp ? parseFloat(editTp) : undefined,
-        }),
-      });
-      const data = await res.json();
+      const data = await modifyBridgePosition(
+        ticket,
+        editSl ? parseFloat(editSl) : undefined,
+        editTp ? parseFloat(editTp) : undefined
+      );
       if (data.success) {
         showToast("success", `Position #${ticket} SL/TP updated.`);
         setEditingTicket(null);
@@ -130,12 +121,7 @@ export default function PositionsPage() {
     let closed = 0;
     for (const p of targets) {
       try {
-        const res = await fetch(`${BRIDGE}/api/close-position`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...HEADERS },
-          body: JSON.stringify({ ticket: p.ticket }),
-        });
-        const data = await res.json();
+        const data = await closeBridgePosition(p.ticket);
         if (data.success) closed++;
       } catch {}
     }

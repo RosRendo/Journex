@@ -6,6 +6,9 @@ except ImportError:
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from PIL import ImageGrab
+from pathlib import Path
 import asyncio
 import hashlib
 import json
@@ -20,6 +23,10 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict
 from pydantic import BaseModel
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # Load .env file if it exists (python-dotenv)
 try:
@@ -293,6 +300,18 @@ def place_quick_trade(req: QuickTradeModel):
         err = mt5.last_error()
         retcode = result.retcode if result else -1
         return {"success": False, "error": f"Order failed. Retcode: {retcode}. MT5 error: {err}"}
+
+    # Broadcast trade to slaves
+    trade_data = {
+        "symbol": req.symbol,
+        "direction": direction,
+        "entry": price,
+        "sl": req.sl if req.sl else 0.0,
+        "tp": req.tp if req.tp else 0.0,
+        "lot_size": req.lot_size,
+        "ticket": result.order
+    }
+    asyncio.create_task(broadcast_to_slaves(trade_data))
 
     return {
         "success": True,
@@ -1635,13 +1654,27 @@ def replay_trade(session_id: str, req: ReplayTrade):
     return {"success": True, "position": pos, "statistics": _replay_stats(s)}
 
 # --- BOTS & TRADE COPIER MANAGEMENT ---
-bots_db = [
-    {
-        "id": "master-mt5", "name": "Alpha Trend Scalper", "broker": "Local MT5", "apiKey": "LOCAL",
-        "strategy": "London Breakout", "status": "active", "riskPerTrade": 1, "maxDailyLoss": 3,
-        "symbols": ["EURUSD", "GBPUSD"], "createdAt": datetime.now().isoformat()
-    }
-]
+BOTS_FILE = "bots_database.json"
+
+def load_bots() -> list:
+    """Load bots from database file."""
+    try:
+        if os.path.exists(BOTS_FILE):
+            with open(BOTS_FILE, "r") as f:
+                return json.load(f)
+    except Exception as e:
+        logger.error(f"[BOTS] Failed to load: {e}")
+    return []
+
+def save_bots(bots: list):
+    """Save bots to database file."""
+    try:
+        with open(BOTS_FILE, "w") as f:
+            json.dump(bots, f, indent=2)
+    except Exception as e:
+        logger.error(f"[BOTS] Failed to save: {e}")
+
+bots_db = load_bots()
 
 class BotCreate(BaseModel):
     name: str
@@ -1655,6 +1688,71 @@ class BotCreate(BaseModel):
 def get_bots():
     return {"success": True, "bots": bots_db}
 
+@app.post("/api/bots/test-trade")
+def test_bot_trade():
+    """Test Instant Scalping - shows signal, RSI, ATR."""
+    if not connected:
+        return {"success": False, "error": "MT5 not connected"}
+    
+    symbol = "XAUUSD"
+    candles = get_bot_candles(symbol, "M1", 30)
+    if not candles or len(candles) < 25:
+        return {"success": False, "error": "Not enough candles"}
+    
+    closes = [c["close"] for c in candles]
+    
+    # EMA 9/21
+    ema9 = calculate_ema(closes, 9)
+    ema21 = calculate_ema(closes, 21)
+    prev_closes = closes[:-1]
+    prev_ema9 = calculate_ema(prev_closes, 9)
+    prev_ema21 = calculate_ema(prev_closes, 21)
+    
+    # RSI 14
+    rsi_period = 14
+    gains, losses = [], []
+    for i in range(1, min(rsi_period + 1, len(closes))):
+        diff = closes[-i] - closes[-(i+1)]
+        gains.append(max(diff, 0))
+        losses.append(max(-diff, 0))
+    avg_gain = sum(gains) / rsi_period
+    avg_loss = sum(losses) / rsi_period if sum(losses) > 0 else 1
+    rsi = 100 - (100 / (1 + avg_gain / avg_loss))
+    
+    # ATR
+    atr = calculate_atr(candles, 14)
+    current_price = closes[-1]
+    
+    # Signal
+    signal = "HOLD"
+    if prev_ema9 <= prev_ema21 and ema9 > ema21 and rsi > 55:
+        signal = "BUY"
+    elif prev_ema9 >= prev_ema21 and ema9 < ema21 and rsi < 45:
+        signal = "SELL"
+    
+    sl_dist = atr * 1.2 if atr > 0 else 30
+    tp_dist = atr * 1.8 if atr > 0 else 45
+    
+    positions = mt5.positions_get(symbol=symbol)
+    open_count = len(positions) if positions else 0
+    
+    return {
+        "success": True,
+        "strategy": "Instant Scalping",
+        "symbol": symbol,
+        "ema9": round(ema9, 2),
+        "ema21": round(ema21, 2),
+        "price": round(current_price, 2),
+        "rsi": round(rsi, 1),
+        "atr": round(atr, 3),
+        "signal": signal,
+        "open_positions": open_count,
+        "sl": round(current_price - sl_dist, 2),
+        "tp": round(current_price + tp_dist, 2),
+        "filters": f"RSI>55(buy) RSI<45(sell) ATR 0.40-3.00",
+        "status": "Ready" if signal != "HOLD" else "Waiting"
+    }
+
 @app.post("/api/bots")
 def create_bot(bot: BotCreate):
     new_bot = {
@@ -1663,13 +1761,14 @@ def create_bot(bot: BotCreate):
         "broker": bot.broker,
         "apiKey": "LOCAL_MT5",
         "strategy": bot.strategy,
-        "status": "active",
+        "status": "paused",
         "riskPerTrade": bot.riskPerTrade,
         "maxDailyLoss": bot.maxDailyLoss,
         "symbols": bot.symbols,
-        "createdAt": datetime.now().isoformat()
+        "createdAt": datetime.now(timezone.utc).isoformat()
     }
     bots_db.append(new_bot)
+    save_bots(bots_db)
     return {"success": True, "bot": new_bot}
 
 @app.post("/api/bots/{bot_id}/toggle")
@@ -1677,6 +1776,7 @@ def toggle_bot(bot_id: str):
     for b in bots_db:
         if b["id"] == bot_id:
             b["status"] = "paused" if b["status"] == "active" else "active"
+            save_bots(bots_db)
             return {"success": True, "status": b["status"]}
     return {"success": False, "error": "Bot not found"}
 
@@ -1684,42 +1784,558 @@ def toggle_bot(bot_id: str):
 def delete_bot(bot_id: str):
     global bots_db
     bots_db = [b for b in bots_db if b["id"] != bot_id]
+    save_bots(bots_db)
     return {"success": True}
 
-# --- REAL-TIME BOT TRADING ENGINE ---
+# --- Helper: Get candles for bot trading ---
+def get_bot_candles(symbol: str, timeframe: str = "M5", count: int = 100):
+    """Fetch candles for bot trading strategies."""
+    if not connected:
+        return []
+    
+    symbol = ensure_symbol(symbol)
+    tf_map = {"M1": mt5.TIMEFRAME_M1, "M5": mt5.TIMEFRAME_M5, "M15": mt5.TIMEFRAME_M15, "H1": mt5.TIMEFRAME_H1, "H4": mt5.TIMEFRAME_H4, "D1": mt5.TIMEFRAME_D1}
+    tf = tf_map.get(timeframe, mt5.TIMEFRAME_M5)
+    
+    rates = mt5.copy_rates_from_pos(symbol, tf, 0, count)
+    if rates is None:
+        return []
+    
+    return [{"time": r[0], "open": r[1], "high": r[2], "low": r[3], "close": r[4], "volume": r[5]} for r in rates]
+
+# --- Helper: Calculate EMA ---
+def calculate_ema(prices: list, period: int) -> float:
+    if len(prices) < period:
+        return 0.0
+    ema = sum(prices[:period]) / period
+    multiplier = 2 / (period + 1)
+    for price in prices[period:]:
+        ema = (price - ema) * multiplier + ema
+    return ema
+
+# --- Helper: Calculate atr ---
+def calculate_atr(candles: list, period: int = 14) -> float:
+    if len(candles) < period + 1:
+        return 0.0
+    trs = []
+    for i in range(1, len(candles)):
+        high = candles[i]["high"]
+        low = candles[i]["low"]
+        prev_close = candles[i-1]["close"]
+        tr = max(high - low, abs(high - prev_close), abs(low - prev_close))
+        trs.append(tr)
+    return sum(trs[-period:]) / period if len(trs) >= period else sum(trs) / len(trs) if trs else 0.0
+
+# --- Helper: Execute bot trade ---
+def execute_bot_trade(symbol: str, direction: str, lot_size: float, sl: float, tp: float, comment: str, magic: int):
+    global bot_health
+    
+    if not connected:
+        return False
+    
+    symbol = ensure_symbol(symbol)
+    dir_upper = direction.upper()
+    order_type = mt5.ORDER_TYPE_BUY if dir_upper == "BUY" else mt5.ORDER_TYPE_SELL
+    price = mt5.symbol_info_tick(symbol).ask if dir_upper == "BUY" else mt5.symbol_info_tick(symbol).bid
+
+    request = {
+        "action": mt5.TRADE_ACTION_DEAL,
+        "symbol": symbol,
+        "volume": lot_size,
+        "type": order_type,
+        "price": price,
+        "sl": sl,
+        "tp": tp,
+        "deviation": 10,
+        "magic": magic,
+        "comment": comment,
+        "type_time": mt5.ORDER_TIME_GTC,
+        "type_filling": mt5.ORDER_FILLING_IOC,
+    }
+    
+    result = mt5.order_send(request)
+    success = result and result.retcode == mt5.TRADE_RETCODE_DONE
+    
+    if success:
+        logger.info(f"[TRADE] {direction} {symbol} {lot_size} lots at {price} | SL: {sl} TP: {tp}")
+        bot_health["total_trades"] += 1
+        
+        log_trade(symbol, direction, lot_size, price, sl, tp, comment)
+        
+        trade_data = {
+            "symbol": symbol,
+            "direction": direction,
+            "entry": price,
+            "sl": sl,
+            "tp": tp,
+            "lot_size": lot_size,
+            "ticket": result.order
+        }
+        
+        asyncio.create_task(broadcast_to_slaves(trade_data))
+    
+    return success
+
+def log_trade(symbol: str, direction: str, lot_size: float, price: float, sl: float, tp: float, comment: str):
+    """Log trade to file for audit."""
+    log_file = "bot_trades.log"
+    timestamp = datetime.now(timezone.utc).isoformat()
+    log_entry = f"{timestamp} | {direction} | {symbol} | {lot_size} | Entry: {price} | SL: {sl} | TP: {tp} | {comment}\n"
+    
+    try:
+        with open(log_file, "a") as f:
+            f.write(log_entry)
+    except Exception as e:
+        logger.error(f"[LOG] Failed to write trade log: {e}")
+
+# --- Helper: Check if position exists for symbol ---
+def has_open_position(symbol: str, magic: int) -> bool:
+    if not connected:
+        return False
+    positions = mt5.positions_get(symbol=symbol)
+    if positions is None:
+        return False
+    for pos in positions:
+        if pos.magic == magic:
+            return True
+    return False
+
+# --- Real-Time Bot Trading Engine ---
+# Track bot states to avoid duplicate trades
+bot_states: Dict[str, dict] = {}
+
 async def bot_trading_loop():
+    global bot_states
+    
     while True:
+        # Reconnect if needed
+        if not connected or mt5.terminal_info() is None:
+            init_mt5()
+        
         if connected:
             for bot in bots_db:
                 if bot["status"] != "active":
                     continue
                 
-                # Here is where you add MORE STRATEGIES!
+                bot_id = bot["id"]
+                if bot_id not in bot_states:
+                    bot_states[bot_id] = {"last_trade": 0, "grid_level": 0, "asian_high": 0, "asian_low": 0}
+                
+                state = bot_states[bot_id]
+                now = datetime.now(timezone.utc)
+                current_hour = now.hour
+                
                 for symbol in bot["symbols"]:
+                    risk = bot.get("riskPerTrade", 1.0)
+                    lot_size = round(0.01 * risk, 2)  # 0.01 lot per 1% risk
+                    if lot_size < 0.01:
+                        lot_size = 0.01  # Minimum 0.01 lots
+                    if lot_size > 1.0:
+                        lot_size = 1.0  # Max 1.0 lots
+                    magic = 234000 + int(bot_id[:4], 16)  # Unique magic per bot
                     
+                    # Skip if position already open
+                    if has_open_position(symbol, magic):
+                        continue
+                    
+                    # === LONDON BREAKOUT ===
                     if bot["strategy"] == "London Breakout":
-                        # Logic: Check time, find Asian range, wait for breakout
-                        pass
+                        # Calculate Asian range (00:00-07:00 GMT)
+                        if current_hour == 7 and state["asian_high"] == 0:
+                            candles = get_bot_candles(symbol, "H1", 8)
+                            if candles:
+                                state["asian_high"] = max(c["high"] for c in candles[:7])
+                                state["asian_low"] = min(c["low"] for c in candles[:7])
                         
+                        # Check for breakout at 07:00-07:05 GMT
+                        if 7 <= current_hour <= 7 and state["asian_high"] > 0:
+                            candles = get_bot_candles(symbol, "M5", 3)
+                            if candles:
+                                current_price = candles[-1]["close"]
+                                atr = calculate_atr(candles)
+                                
+                                # Long breakout
+                                if current_price > state["asian_high"] + atr * 0.2:
+                                    sl = current_price - atr * 1.5
+                                    tp = current_price + atr * 3.0
+                                    if execute_bot_trade(symbol, "BUY", lot_size, sl, tp, f"LBO-{symbol}", magic):
+                                        state["last_trade"] = now.timestamp()
+                                        print(f"[LBO] BUY {symbol} at {current_price}")
+                                
+                                # Short breakout
+                                elif current_price < state["asian_low"] - atr * 0.2:
+                                    sl = current_price + atr * 1.5
+                                    tp = current_price - atr * 3.0
+                                    if execute_bot_trade(symbol, "SELL", lot_size, sl, tp, f"LBO-{symbol}", magic):
+                                        state["last_trade"] = now.timestamp()
+                                        print(f"[LBO] SELL {symbol} at {current_price}")
+                        
+                        # Reset at 07:10 GMT
+                        if current_hour == 7 and now.minute > 10:
+                            state["asian_high"] = 0
+                            state["asian_low"] = 0
+                    
+                    # --- INSTANT SCALPING BOT (RSI + ATR filters, 1:1.5 R:R) ---
+                    elif bot["strategy"] == "Instant Scalping":
+                        candles = get_bot_candles(symbol, "M1", 30)
+                        if len(candles) >= 25:
+                            closes = [c["close"] for c in candles]
+                            highs = [c["high"] for c in candles]
+                            lows = [c["low"] for c in candles]
+                            
+                            # EMA 9/21
+                            ema9 = calculate_ema(closes, 9)
+                            ema21 = calculate_ema(closes, 21)
+                            prev_closes = closes[:-1]
+                            prev_ema9 = calculate_ema(prev_closes, 9)
+                            prev_ema21 = calculate_ema(prev_closes, 21)
+                            
+                            # RSI 14
+                            rsi_period = 14
+                            gains, losses = [], []
+                            for i in range(1, min(rsi_period + 1, len(closes))):
+                                diff = closes[-i] - closes[-(i+1)]
+                                gains.append(max(diff, 0))
+                                losses.append(max(-diff, 0))
+                            avg_gain = sum(gains) / rsi_period
+                            avg_loss = sum(losses) / rsi_period if sum(losses) > 0 else 1
+                            rsi = 100 - (100 / (1 + avg_gain / avg_loss))
+                            
+                            # ATR
+                            atr = calculate_atr(candles, 14)
+                            
+                            current_price = closes[-1]
+                            
+                            # ATR volatility gate
+                            if atr < 0.40 or atr > 3.00:
+                                logger.debug(f"[INSTANT] Skip: ATR {atr:.3f} outside gate (0.40-3.00)")
+                            
+                            # Count open positions
+                            positions = mt5.positions_get(symbol=symbol)
+                            open_count = len(positions) if positions else 0
+                            max_trades = 3
+                            
+                            # Check to CLOSE existing positions
+                            if positions:
+                                for pos in positions:
+                                    if pos.magic == magic:
+                                        pip_profit = (current_price - pos.price_open) * (1 if pos.type == 0 else -1)
+                                        
+                                        # Close: +30 pips profit OR -20 pips loss
+                                        if pip_profit > 30 or pip_profit < -20:
+                                            close_price = mt5.symbol_info_tick(symbol).bid if pos.type == 0 else mt5.symbol_info_tick(symbol).ask
+                                            mt5.order_send({
+                                                "action": mt5.TRADE_ACTION_DEAL,
+                                                "symbol": symbol,
+                                                "volume": pos.volume,
+                                                "type": mt5.ORDER_TYPE_SELL if pos.type == 0 else mt5.ORDER_TYPE_BUY,
+                                                "price": close_price,
+                                                "deviation": 10,
+                                                "magic": magic,
+                                                "comment": "INSTANT-CLOSE",
+                                                "type_time": mt5.ORDER_TIME_GTC,
+                                                "type_filling": mt5.ORDER_FILLING_IOC,
+                                            })
+                                            logger.info(f"[INSTANT] CLOSED {symbol} profit: {pip_profit:.1f} pips")
+                            
+                            # OPEN new position: EMA crossover + RSI filter
+                            else:
+                                sl_dist = atr * 1.2
+                                tp_dist = atr * 1.8
+                                
+                                # Bullish: EMA9 crosses above EMA21 + RSI > 55
+                                if prev_ema9 <= prev_ema21 and ema9 > ema21 and rsi > 55 and current_price > ema9:
+                                    if open_count < max_trades:
+                                        sl = current_price - sl_dist
+                                        tp = current_price + tp_dist
+                                        if execute_bot_trade(symbol, "BUY", lot_size, sl, tp, f"INSTANT-{symbol}", magic):
+                                            state["last_trade"] = now.timestamp()
+                                            logger.info(f"[INSTANT] BUY {symbol} RSI:{rsi:.1f} ATR:{atr:.3f}")
+                                
+                                # Bearish: EMA9 crosses below EMA21 + RSI < 45
+                                elif prev_ema9 >= prev_ema21 and ema9 < ema21 and rsi < 45 and current_price < ema9:
+                                    if open_count < max_trades:
+                                        sl = current_price + sl_dist
+                                        tp = current_price - tp_dist
+                                        if execute_bot_trade(symbol, "SELL", lot_size, sl, tp, f"INSTANT-{symbol}", magic):
+                                            state["last_trade"] = now.timestamp()
+                                            logger.info(f"[INSTANT] SELL {symbol} RSI:{rsi:.1f} ATR:{atr:.3f}")
+                        candles = get_bot_candles(symbol, "M1", 30)
+                        if len(candles) >= 10:
+                            closes = [c["close"] for c in candles]
+                            
+                            # Fast EMA: 5 and 13
+                            ema5 = calculate_ema(closes, 5)
+                            ema13 = calculate_ema(closes, 13)
+                            prev_closes = closes[:-1]
+                            prev_ema5 = calculate_ema(prev_closes, 5)
+                            prev_ema13 = calculate_ema(prev_closes, 13)
+                            
+                            current_price = closes[-1]
+                            atr = calculate_atr(candles)
+                            
+                            # Tight stops for scalping
+                            sl_distance = atr * 0.5 if atr > 0 else current_price * 0.002
+                            tp_distance = atr * 0.75 if atr > 0 else current_price * 0.003
+                            
+                            # Bullish crossover - BUY
+                            if prev_ema5 <= prev_ema13 and ema5 > ema13:
+                                sl = current_price - sl_distance
+                                tp = current_price + tp_distance
+                                if execute_bot_trade(symbol, "BUY", lot_size, sl, tp, f"FAST-{symbol}", magic):
+                                    state["last_trade"] = now.timestamp()
+                                    logger.info(f"[FAST] BUY {symbol} {lot_size} lots")
+                            
+                            # Bearish crossover - SELL
+                            elif prev_ema5 >= prev_ema13 and ema5 < ema13:
+                                sl = current_price + sl_distance
+                                tp = current_price - tp_distance
+                                if execute_bot_trade(symbol, "SELL", lot_size, sl, tp, f"FAST-{symbol}", magic):
+                                    state["last_trade"] = now.timestamp()
+                                    logger.info(f"[FAST] SELL {symbol} {lot_size} lots")
+                    elif bot["strategy"] == "EMA Scalping" or bot["strategy"] == "1H EMA Trend Rider":
+                        candles = get_bot_candles(symbol, "M5", 50)
+                        if len(candles) >= 26:
+                            closes = [c["close"] for c in candles]
+                            
+                            ema9 = calculate_ema(closes, 9)
+                            ema21 = calculate_ema(closes, 21)
+                            prev_closes = closes[:-1]
+                            prev_ema9 = calculate_ema(prev_closes, 9)
+                            prev_ema21 = calculate_ema(prev_closes, 21)
+                            
+                            current_price = closes[-1]
+                            atr = calculate_atr(candles)
+                            
+                            # Bullish crossover
+                            if prev_ema9 <= prev_ema21 and ema9 > ema21:
+                                sl = current_price - atr * 1.0
+                                tp = current_price + atr * 1.5
+                                if execute_bot_trade(symbol, "BUY", lot_size, sl, tp, f"EMA-{symbol}", magic):
+                                    state["last_trade"] = now.timestamp()
+                                    logger.info(f"[EMA] BUY {symbol} EMA cross")
+                            
+                            # Bearish crossover
+                            elif prev_ema9 >= prev_ema21 and ema9 < ema21:
+                                sl = current_price + atr * 1.0
+                                tp = current_price - atr * 1.5
+                                if execute_bot_trade(symbol, "SELL", lot_size, sl, tp, f"EMA-{symbol}", magic):
+                                    state["last_trade"] = now.timestamp()
+                                    logger.info(f"[EMA] SELL {symbol} EMA cross")
+                    
+                    # === MACD CROSSOVER ===
                     elif bot["strategy"] == "MACD Crossover":
-                        # Logic: Fetch last 2 candles, check MACD lines, fire MT5 order
-                        # Example usage:
-                        # macd_val = calculate_macd(symbol)
-                        # if macd_val > 0:
-                        #    mt5.order_send(...)
-                        pass
+                        candles = get_bot_candles(symbol, "M15", 50)
+                        if len(candles) >= 34:
+                            closes = [c["close"] for c in candles]
+                            
+                            # MACD(12,26,9)
+                            ema12 = calculate_ema(closes, 12)
+                            ema26 = calculate_ema(closes, 26)
+                            macd_line = ema12 - ema26
+                            
+                            # Signal line (EMA of MACD)
+                            signal_values = []
+                            for i in range(26, len(closes)):
+                                e12 = calculate_ema(closes[:i+1], 12)
+                                e26 = calculate_ema(closes[:i+1], 26)
+                                signal_values.append(e12 - e26)
+                            
+                            if len(signal_values) >= 9:
+                                signal_line = calculate_ema(signal_values, 9)
+                                prev_signal = signal_values[-2] if len(signal_values) > 1 else 0
+                                
+                                current_price = closes[-1]
+                                atr = calculate_atr(candles)
+                                
+                                # MACD cross above signal = BUY
+                                if prev_signal <= macd_line and macd_line > signal_line:
+                                    sl = current_price - atr * 1.2
+                                    tp = current_price + atr * 2.0
+                                    if execute_bot_trade(symbol, "BUY", lot_size, sl, tp, f"MACD-{symbol}", magic):
+                                        state["last_trade"] = now.timestamp()
+                                        print(f"[MACD] BUY {symbol}")
+                                
+                                # MACD cross below signal = SELL
+                                elif prev_signal >= macd_line and macd_line < signal_line:
+                                    sl = current_price + atr * 1.2
+                                    tp = current_price - atr * 2.0
+                                    if execute_bot_trade(symbol, "SELL", lot_size, sl, tp, f"MACD-{symbol}", magic):
+                                        state["last_trade"] = now.timestamp()
+                                        print(f"[MACD] SELL {symbol}")
+                    
+                    # === DYNAMIC GRID MATRIX ===
+                    elif bot["strategy"] == "Dynamic Grid Matrix" or bot["strategy"] == "Grid":
+                        candles = get_bot_candles(symbol, "H1", 48)
+                        if not candles:
+                            continue
                         
-                    elif bot["strategy"] == "EMA Scalping":
-                        # Logic for Scalping
-                        pass
-
-        # Throttle loop to check every 1 second (1000ms)
-        await asyncio.sleep(1.0)
+                        current_price = candles[-1]["close"]
+                        atr = calculate_atr(candles, 14)
+                        grid_spacing = atr * 0.5
+                        
+                        # Get existing positions for this symbol
+                        positions = mt5.positions_get(symbol=symbol)
+                        grid_levels = state.get("grid_levels", [])
+                        
+                        # Calculate grid levels (5 levels each side)
+                        base_price = state.get("grid_base", current_price)
+                        if base_price == 0:
+                            state["grid_base"] = current_price
+                            base_price = current_price
+                        
+                        # Check if we need to place new grid orders
+                        if len(positions) < 10:
+                            # Place new grid orders at intervals
+                            for i in range(-3, 4):
+                                level_price = base_price + (i * grid_spacing)
+                                direction = "BUY" if i < 0 else "SELL" if i > 0 else None
+                                if direction and not any(abs(pos.price_open - level_price) < grid_spacing * 0.5 for pos in positions or []):
+                                    sl = level_price - (grid_spacing if direction == "BUY" else -grid_spacing) * 1.5
+                                    tp = level_price + (grid_spacing if direction == "BUY" else -grid_spacing) * 1.0
+                                    if execute_bot_trade(symbol, direction, lot_size, sl, tp, f"GRID-{symbol}", magic):
+                                        print(f"[GRID] {direction} {symbol} at {level_price}")
+                        
+                        # Martingale: increase lot on losing trades
+                        if positions:
+                            total_pnl = sum(p.profit for p in positions)
+                            if total_pnl < -atr * 10:  # Heavy loss
+                                state["grid_level"] = state.get("grid_level", 0) + 1
+                                lot_size *= (2 ** state["grid_level"])  # Double lot
+                            elif total_pnl > 0:
+                                state["grid_level"] = 0  # Reset on profit
+                                state["grid_base"] = current_price  # New base
 
 @app.on_event("startup")
 async def startup_event():
-    # Start the continuous background trading engine
+    global journal_monitor
+    journal_monitor = TradeJournalMonitor()
+    print("[*] Starting Trade Journal Monitor...")
+    asyncio.create_task(journal_monitor.monitor_positions())
     asyncio.create_task(bot_trading_loop())
+    asyncio.create_task(health_monitor_loop())
+
+# --- ROBUST HEALTH MONITORING SYSTEM ---
+bot_health: Dict[str, dict] = {
+    "status": "healthy",
+    "last_heartbeat": datetime.now(timezone.utc).isoformat(),
+    "reconnect_attempts": 0,
+    "total_trades": 0,
+    "daily_pnl": 0.0,
+    "last_reset_date": datetime.now(timezone.utc).date().isoformat(),
+}
+
+async def health_monitor_loop():
+    """Health monitoring with auto-reconnect and daily loss protection."""
+    global bot_health, connected
+    
+    while True:
+        await asyncio.sleep(30)  # Check every 30 seconds
+        
+        current_date = datetime.now(timezone.utc).date().isoformat()
+        
+        # Reset daily P&L tracker
+        if bot_health.get("last_reset_date") != current_date:
+            bot_health["daily_pnl"] = 0.0
+            bot_health["last_reset_date"] = current_date
+            logger.info(f"[HEALTH] Daily P&L reset to 0")
+        
+        # Auto-reconnect on disconnect with exponential backoff
+        if not connected or mt5.terminal_info() is None:
+            bot_health["reconnect_attempts"] += 1
+            wait_time = min(2 ** bot_health["reconnect_attempts"], 300)  # Max 5 min wait
+            logger.warning(f"[HEALTH] MT5 disconnected. Reconnect attempt {bot_health['reconnect_attempts']} in {wait_time}s")
+            
+            await asyncio.sleep(wait_time)
+            
+            # Try reconnect using saved credentials
+            if init_mt5():
+                logger.info(f"[HEALTH] Reconnected successfully after {bot_health['reconnect_attempts']} attempts")
+                bot_health["reconnect_attempts"] = 0
+            else:
+                logger.error(f"[HEALTH] Reconnect failed. Will retry...")
+                continue
+        
+        # Update heartbeat
+        bot_health["last_heartbeat"] = datetime.now(timezone.utc).isoformat()
+        bot_health["status"] = "healthy" if connected else "disconnected"
+        
+        # Track daily P&L
+        if account_info:
+            daily_pnl = account_info.profit
+            equity = account_info.equity
+            balance = account_info.balance
+            
+            bot_health["daily_pnl"] = daily_pnl
+            bot_health["equity"] = equity
+            bot_health["balance"] = balance
+            
+            logger.info(f"[HEALTH] Equity: {equity:.2f} | Daily P&L: {daily_pnl:.2f}")
+        
+        # Check daily loss limit (-3% of account) and pause if exceeded
+        if account_info:
+            equity = account_info.equity
+            balance = account_info.balance
+            
+            if balance > 0:
+                loss_pct = (daily_pnl / balance) * 100
+                
+                if loss_pct <= -3.0:
+                    for bot in bots_db:
+                        if bot["status"] == "active":
+                            bot["status"] = "paused"
+                            logger.warning(f"[HEALTH] Daily loss {loss_pct:.1f}%. Paused bot {bot['name']}")
+                            
+                            if _alert_config.get("telegram_bot_token"):
+                                await send_telegram_alert(f"⚠️ Bot paused: Daily loss {loss_pct:.1f}% exceeded 3% limit")
+                            if _alert_config.get("discord_alerts_webhook"):
+                                send_discord_alert(f"⚠️ Bot paused: Daily loss {loss_pct:.1f}% exceeded 3% limit")
+
+async def send_telegram_alert(message: str):
+    """Send alert to Telegram."""
+    token = _alert_config.get("telegram_bot_token")
+    chat_id = _alert_config.get("telegram_chat_alerts") or _alert_config.get("telegram_chat_id")
+    
+    if not token or not chat_id:
+        return
+    
+    try:
+        import httpx
+        await httpx.AsyncClient().post(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            json={"chat_id": chat_id, "text": message}
+        )
+    except Exception as e:
+        logger.error(f"[TELEGRAM] Alert failed: {e}")
+
+def send_discord_alert(message: str):
+    """Send alert to Discord."""
+    webhook = _alert_config.get("discord_alerts_webhook")
+    if not webhook:
+        return
+    
+    try:
+        requests.post(webhook, json={"content": message})
+    except Exception as e:
+        logger.error(f"[DISCORD] Alert failed: {e}")
+
+@app.get("/api/bot-health")
+def get_bot_health():
+    """Get bot health status."""
+    return {"success": True, "health": bot_health}
+
+@app.post("/api/bot-health/reset-daily")
+def reset_daily_pnl():
+    """Reset daily P&L tracker."""
+    bot_health["daily_pnl"] = 0.0
+    bot_health["last_reset_date"] = datetime.now(timezone.utc).date().isoformat()
+    
+    # Resume bots
+    for bot in bots_db:
+        if bot["status"] == "paused":
+            bot["status"] = "active"
+    
+    return {"success": True, "message": "Daily P&L reset and bots resumed"}
 
 @app.get("/api/performance")
 def get_bot_performance():
@@ -1749,12 +2365,144 @@ signals_db = [
     { "id": "ini-1", "source": "TradingView Alerts", "symbol": "XAUUSD", "direction": "long", "entry": 2025.5, "sl": 2015.0, "tp": 2045.0, "status": "executed", "timestamp": datetime.now().isoformat() }
 ]
 
-@app.get("/api/signals")
-def get_signals():
-    return {"success": True, "signals": signals_db}
+# --- SLAVE COPY TRADING REGISTRY ---
+SLAVES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "slaves_database.json")
 
-@app.post("/api/webhook/copier")
-def receive_signal(sig: WebhookSignal):
+def load_slaves() -> list:
+    try:
+        if os.path.exists(SLAVES_FILE):
+            with open(SLAVES_FILE, "r") as f:
+                return json.load(f)
+    except Exception as e:
+        logger.error(f"[SLAVES] Failed to load: {e}")
+    return []
+
+def save_slaves(slaves: list):
+    try:
+        with open(SLAVES_FILE, "w") as f:
+            json.dump(slaves, f, indent=2)
+    except Exception as e:
+        logger.error(f"[SLAVES] Failed to save: {e}")
+
+slaves_db = load_slaves()
+
+class SlaveCreate(BaseModel):
+    name: str
+    webhook_url: str
+    multiplier: float = 1.0
+
+class SlaveTradeSignal(BaseModel):
+    symbol: str
+    direction: str
+    entry: float
+    sl: float
+    tp: float
+    lot_size: float
+    master_ticket: Optional[int] = None
+
+@app.get("/api/slaves")
+def get_slaves():
+    return {"success": True, "slaves": slaves_db}
+
+@app.post("/api/slaves")
+def create_slave(slave: SlaveCreate):
+    new_slave = {
+        "id": str(uuid.uuid4())[:8],
+        "name": slave.name,
+        "webhook_url": slave.webhook_url,
+        "multiplier": slave.multiplier,
+        "enabled": True,
+        "createdAt": datetime.now(timezone.utc).isoformat()
+    }
+    slaves_db.append(new_slave)
+    save_slaves(slaves_db)
+    return {"success": True, "slave": new_slave}
+
+@app.delete("/api/slaves/{slave_id}")
+def delete_slave(slave_id: str):
+    global slaves_db
+    slaves_db = [s for s in slaves_db if s["id"] != slave_id]
+    save_slaves(slaves_db)
+    return {"success": True}
+
+@app.post("/api/slaves/{slave_id}/toggle")
+def toggle_slave(slave_id: str):
+    for s in slaves_db:
+        if s["id"] == slave_id:
+            s["enabled"] = not s["enabled"]
+            save_slaves(slaves_db)
+            return {"success": True, "enabled": s["enabled"]}
+    return {"success": False, "error": "Slave not found"}
+
+# --- SLAVE TRADE EXECUTION ENDPOINT ---
+@app.post("/api/copy-trade/execute")
+def execute_copied_trade(signal: SlaveTradeSignal):
+    """Execute a trade received from master account."""
+    if not connected:
+        return {"success": False, "error": "MT5 not connected"}
+    
+    symbol = ensure_symbol(signal.symbol)
+    dir_upper = signal.direction.upper()
+    order_type = mt5.ORDER_TYPE_BUY if dir_upper == "BUY" else mt5.ORDER_TYPE_SELL
+    
+    try:
+        tick = mt5.symbol_info_tick(symbol)
+        price = tick.ask if dir_upper == "BUY" else tick.bid
+    except Exception:
+        return {"success": False, "error": "Failed to get price"}
+    
+    request = {
+        "action": mt5.TRADE_ACTION_DEAL,
+        "symbol": symbol,
+        "volume": signal.lot_size,
+        "type": order_type,
+        "price": price,
+        "sl": signal.sl,
+        "tp": signal.tp,
+        "deviation": 10,
+        "magic": 888000,  # Copier magic number
+        "comment": f"COPY-MASTER-{signal.master_ticket}",
+        "type_time": mt5.ORDER_TIME_GTC,
+        "type_filling": mt5.ORDER_FILLING_IOC,
+    }
+    
+    result = mt5.order_send(request)
+    success = result and result.retcode == mt5.TRADE_RETCODE_DONE
+    
+    logger.info(f"[COPY] {signal.direction} {signal.symbol} {signal.lot_size} lots - Slave execution: {'OK' if success else 'FAIL'}")
+    
+    return {"success": success, "ticket": result.order if success else None}
+
+# --- BROADCAST TRADE TO SLAVES ---
+async def broadcast_to_slaves(trade_data: dict):
+    """Broadcast executed trade to all enabled slaves."""
+    for slave in slaves_db:
+        if not slave.get("enabled", True):
+            continue
+        
+        webhook = slave.get("webhook_url")
+        if not webhook:
+            continue
+        
+        multiplier = slave.get("multiplier", 1.0)
+        lot_size = round(trade_data.get("lot_size", 0.01) * multiplier, 2)
+        
+        signal = {
+            "symbol": trade_data["symbol"],
+            "direction": trade_data["direction"],
+            "entry": trade_data["entry"],
+            "sl": trade_data["sl"],
+            "tp": trade_data["tp"],
+            "lot_size": lot_size,
+            "master_ticket": trade_data.get("ticket")
+        }
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                await session.post(webhook, json=signal, timeout=aiohttp.ClientTimeout(total=10))
+                logger.info(f"[COPY] Broadcast to {slave['name']}: {trade_data['symbol']} {trade_data['direction']}")
+        except Exception as e:
+            logger.error(f"[COPY] Failed to broadcast to {slave['name']}: {e}")
     new_sig = {
         "id": str(uuid4())[:8],
         "source": sig.source,
@@ -3331,6 +4079,315 @@ def get_technical_levels(symbol: str = "US100"):
         "symbol": symbol,
         "levels": levels
     }
+
+# --- AUTOMATED TRADE JOURNAL GENERATOR ---
+JOURNALS_DIR = Path("journals")
+JOURNALS_DIR.mkdir(exist_ok=True)
+app.mount("/journals", StaticFiles(directory="journals"), name="journals")
+
+class ClaudeClient:
+    def __init__(self, api_key=None):
+        try:
+            from anthropic import Anthropic
+            self.client = Anthropic()
+            self.model = "claude-3-5-sonnet-20241022"
+            self.enabled = True
+        except ImportError:
+            print("[!] Anthropic library not installed. AI Analysis disabled.")
+            self.enabled = False
+        except Exception as e:
+            print(f"[!] Anthropic initialization error: {e}. AI Analysis disabled.")
+            self.enabled = False
+    
+    def generate(self, prompt):
+        if not self.enabled:
+            return "Analysis generation failed or AI is disabled."
+            
+        try:
+            message = self.client.messages.create(
+                model=self.model,
+                max_tokens=1024,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            return message.content[0].text
+        except Exception as e:
+            print(f"[ERROR] Claude API: {e}")
+            return "Analysis generation failed."
+
+class TradeJournalMonitor:
+    def __init__(self):
+        self.open_positions = {}
+        self.claude = ClaudeClient()
+    
+    async def monitor_positions(self):
+        global connected
+        while True:
+            print(f"[*] Checking positions: connected={connected}")
+            try:
+                if not connected or mt5.terminal_info() is None:
+                    await asyncio.sleep(5)
+                    continue
+                    
+                positions = mt5.positions_get()
+                
+                if positions is None:
+                    await asyncio.sleep(1)
+                    continue
+                
+                current_tickets = {p.ticket: p for p in positions}
+                
+                # Detect new positions
+                for ticket, position in current_tickets.items():
+                    if ticket not in self.open_positions:
+                        self.on_position_opened(position)
+                        self.open_positions[ticket] = position
+                
+                # Detect closed positions
+                for ticket in list(self.open_positions.keys()):
+                    if ticket not in current_tickets:
+                        self.on_position_closed(ticket)
+                        del self.open_positions[ticket]
+                
+                # Update open positions
+                for ticket in self.open_positions:
+                    if ticket in current_tickets:
+                        self.open_positions[ticket] = current_tickets[ticket]
+                
+                await asyncio.sleep(1)
+                
+            except Exception as e:
+                print(f"[ERROR] Monitor loop: {e}")
+                await asyncio.sleep(5)
+    
+    def on_position_opened(self, position):
+        print(f"\\n[+] Position Opened: {position.symbol}")
+        try:
+            trade_id = self.generate_trade_id(position)
+            trade_dir = JOURNALS_DIR / trade_id
+            trade_dir.mkdir(exist_ok=True)
+            
+            symbol_info = mt5.symbol_info(position.symbol)
+            spread = symbol_info.spread if symbol_info else 0
+            
+            trade_data = {
+                "trade_id": trade_id,
+                "trade_number": len(list(JOURNALS_DIR.glob("*"))),
+                "symbol": position.symbol,
+                "position_type": "BUY" if position.type == 0 else "SELL",
+                "entry": {
+                    "price": position.price_open,
+                    "time": datetime.fromtimestamp(position.time).isoformat() + "Z",
+                    "session": self.detect_session(),
+                    "spread": spread,
+                    "timestamp_ms": int(position.time * 1000)
+                },
+                "position": {
+                    "lot_size": position.volume,
+                    "risk_amount": 0,
+                    "stop_loss": position.sl,
+                    "take_profit": position.tp,
+                    "risk_pips": abs(position.price_open - position.sl) * 10000 if position.sl else 0,
+                    "reward_pips": abs(position.tp - position.price_open) * 10000 if position.tp else 0,
+                    "rr_ratio": abs(position.tp - position.price_open) / abs(position.price_open - position.sl) if position.sl > 0 and abs(position.price_open - position.sl) > 0 else 0
+                },
+                "close": {},
+                "results": {"trade_status": "OPEN"},
+                "media": {"chart_image": "chart.png", "analysis_file": "analysis.txt"},
+                "tags": {"strategy": [], "emotion": [], "session": self.detect_session()},
+                "metadata": {
+                    "created_at": datetime.utcnow().isoformat() + "Z",
+                    "updated_at": datetime.utcnow().isoformat() + "Z",
+                    "ai_version": "claude-3.5-sonnet",
+                    "version": "1.0",
+                    "ticket": position.ticket
+                }
+            }
+            
+            with open(trade_dir / "trade.json", "w") as f:
+                json.dump(trade_data, f, indent=2)
+            
+            self.capture_chart(trade_dir)
+            self.generate_html(trade_dir, trade_data, None)
+            print(f"[✓] Journal created: {trade_id}")
+            
+        except Exception as e:
+            print(f"[ERROR] on_position_opened: {e}")
+    
+    def on_position_closed(self, ticket):
+        print(f"\\n[+] Position Closed: Ticket {ticket}")
+        try:
+            trade_dirs = list(JOURNALS_DIR.glob(f"*"))
+            trade_data = None
+            trade_dir = None
+            
+            for d in trade_dirs:
+                if not d.is_dir(): continue
+                trade_file = d / "trade.json"
+                if trade_file.exists():
+                    with open(trade_file) as f:
+                        try:
+                            data = json.load(f)
+                            if data.get("metadata", {}).get("ticket") == ticket:
+                                trade_data = data
+                                trade_dir = d
+                                break
+                        except json.JSONDecodeError:
+                            continue
+            
+            if not trade_data:
+                print(f"[!] Could not find trade journal for ticket {ticket}")
+                return
+            
+            deals = mt5.history_deals_get(position=ticket)
+            if not deals:
+                print(f"[!] Could not find deal history for ticket {ticket}")
+                return
+            
+            close_deal = next((d for d in deals if d.entry == 1), deals[-1])
+            
+            symbol_info = mt5.symbol_info(trade_data["symbol"])
+            pips_multiplier = 10000 if symbol_info and symbol_info.digits in [4, 5] else 100
+            
+            pips = abs(close_deal.price - trade_data["entry"]["price"]) * pips_multiplier
+            if trade_data["position_type"] == "SELL":
+                if close_deal.price > trade_data["entry"]["price"]: pips = -pips
+            else:
+                if close_deal.price < trade_data["entry"]["price"]: pips = -pips
+            
+            profit_loss = close_deal.profit
+            result = "W" if profit_loss > 0 else ("L" if profit_loss < 0 else "BE")
+            
+            close_time_iso = datetime.fromtimestamp(close_deal.time_msc / 1000).isoformat() + "Z"
+            entry_time_dt = datetime.fromisoformat(trade_data["entry"]["time"].replace("Z", ""))
+            duration_mins = int((datetime.fromtimestamp(close_deal.time_msc / 1000) - entry_time_dt).total_seconds() / 60)
+            
+            closed_by = "Manual"
+            if trade_data["position"].get("take_profit", 0) > 0 and abs(close_deal.price - trade_data["position"]["take_profit"]) < 0.0005:
+                closed_by = "TP"
+            elif trade_data["position"].get("stop_loss", 0) > 0 and abs(close_deal.price - trade_data["position"]["stop_loss"]) < 0.0005:
+                closed_by = "SL"
+                
+            trade_data["close"] = {
+                "price": close_deal.price,
+                "time": close_time_iso,
+                "closed_by": closed_by,
+                "duration_minutes": duration_mins
+            }
+            
+            risk_amount = trade_data["position"].get("risk_amount", 0)
+            return_percent = (profit_loss / risk_amount * 100) if risk_amount > 0 else 0
+            
+            trade_data["results"] = {
+                "profit_loss": profit_loss,
+                "pips": pips,
+                "return_percent": return_percent,
+                "result": result,
+                "trade_status": "CLOSED"
+            }
+            
+            trade_data["metadata"]["updated_at"] = datetime.utcnow().isoformat() + "Z"
+            
+            with open(trade_dir / "trade.json", "w") as f:
+                json.dump(trade_data, f, indent=2)
+            
+            analysis = self.generate_ai_analysis(trade_data)
+            with open(trade_dir / "analysis.txt", "w") as f:
+                f.write(analysis)
+            
+            self.generate_html(trade_dir, trade_data, analysis)
+            print(f"[✓] Trade closed, journal updated for {trade_data['trade_id']}")
+            
+        except Exception as e:
+            print(f"[ERROR] on_position_closed: {e}")
+    
+    def generate_trade_id(self, position):
+        timestamp = datetime.fromtimestamp(position.time).strftime("%Y-%m-%d_%H%M%S")
+        return f"{position.symbol}_{timestamp}"
+    
+    def detect_session(self):
+        hour = datetime.utcnow().hour
+        if 0 <= hour < 8: return "Asia"
+        elif 8 <= hour < 12: return "London"
+        elif 12 <= hour < 20: return "NewYork"
+        else: return "Mixed"
+    
+    def capture_chart(self, trade_dir):
+        try:
+            screenshot = ImageGrab.grab()
+            screenshot.save(trade_dir / "chart.png")
+            print(f"[✓] Chart captured")
+        except Exception as e:
+            print(f"[!] Could not capture chart: {e}")
+    
+    def generate_ai_analysis(self, trade_data):
+        prompt = f"""
+Analyze this forex trade and generate a professional trading journal entry.
+Trade Details:
+- Symbol: {trade_data['symbol']}
+- Type: {trade_data['position_type']}
+- Entry: {trade_data['entry']['price']}
+- SL: {trade_data['position']['stop_loss']} ({trade_data['position']['risk_pips']:.0f} pips risk)
+- TP: {trade_data['position']['take_profit']} ({trade_data['position']['reward_pips']:.0f} pips target)
+- R:R Ratio: {trade_data['position']['rr_ratio']:.2f}
+- Session: {trade_data['tags']['session']}
+- Duration: {trade_data['close'].get('duration_minutes', 0)} minutes
+- Result: {trade_data['results']['result']} ({trade_data['results']['profit_loss']:.2f} / {trade_data['results']['pips']:.0f} pips)
+
+Generate a 4-paragraph analysis covering:
+1. Market Context (why this setup worked/didn't work)
+2. Risk Management Review (R:R analysis)
+3. Execution Quality (entry, hold, exit)
+4. Key Takeaway (lesson learned)
+Keep it professional, concise, and actionable.
+"""
+        return self.claude.generate(prompt)
+    
+    def generate_html(self, trade_dir, trade_data, analysis):
+        # Implementation omitted for brevity in main file
+        pass
+
+journal_monitor = None
+
+@app.get("/api/journals")
+def api_get_journals():
+    journals = []
+    try:
+        for d in JOURNALS_DIR.glob("*"):
+            if not d.is_dir(): continue
+            trade_file = d / "trade.json"
+            if trade_file.exists():
+                with open(trade_file) as f:
+                    try:
+                        journals.append(json.load(f))
+                    except json.JSONDecodeError:
+                        pass
+        # Sort by creation time descending
+        journals.sort(key=lambda x: x.get("metadata", {}).get("created_at", ""), reverse=True)
+        return {"success": True, "journals": journals}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.get("/api/journals/{trade_id}")
+def api_get_journal(trade_id: str):
+    trade_dir = JOURNALS_DIR / trade_id
+    trade_file = trade_dir / "trade.json"
+    analysis_file = trade_dir / "analysis.txt"
+    
+    if not trade_dir.exists() or not trade_file.exists():
+        return {"success": False, "error": "Journal not found"}
+        
+    try:
+        with open(trade_file) as f:
+            trade_data = json.load(f)
+            
+        analysis = ""
+        if analysis_file.exists():
+            with open(analysis_file) as f:
+                analysis = f.read()
+                
+        return {"success": True, "trade": trade_data, "analysis": analysis}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 app.router.lifespan_context = lifespan
 if __name__ == "__main__":

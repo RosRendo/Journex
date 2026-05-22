@@ -1,0 +1,20 @@
+# ═══════════════════════════════════════════════════════════════════
+# Railway deployment config — Express TypeScript Backend
+# Deploy this file from the /backend sub-directory on Railway.
+# ═══════════════════════════════════════════════════════════════════
+
+[build]
+# Railway detects Node via package.json automatically.
+# Runs: npm install && npm run build  (which does: prisma generate + tsc)
+builder = "NIXPACKS"
+buildCommand = "npm install && npm run build"
+
+[deploy]
+# On every deploy: apply any pending Prisma migrations, then start server
+startCommand = "npm run start"
+restartPolicyType = "always"
+restartPolicyMaxRetries = 5
+
+# Health-check endpoint so Railway knows the service is alive
+healthcheckPath = "/health"
+healthcheckTimeout = 60

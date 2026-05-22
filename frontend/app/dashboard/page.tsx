@@ -56,6 +56,7 @@ import { DrawdownVisualization } from "@/components/dashboard/widgets/DrawdownVi
 import { MonthlyPerformanceGrid } from "@/components/dashboard/widgets/MonthlyPerformanceGrid";
 import { SessionPerformanceGrid } from "@/components/dashboard/widgets/SessionPerformanceGrid";
 import { usePositions } from "@/hooks/usePositions";
+import { useBridgeUrl } from "@/hooks/useBridgeUrl";
 import { SetupScorer } from "@/components/ui/SetupScorer";
 import { CorrelationMatrix } from "@/components/ui/CorrelationMatrix";
 import { PreTradeChecklist } from "@/components/ui/PreTradeChecklist";
@@ -99,6 +100,7 @@ function StatCard({
 }
 
 export default function Dashboard() {
+  const { bridgeUrl } = useBridgeUrl();
   const { trades, analytics, loading, error } = useCsvTrades();
   const { positions, loading: rootPosLoading } = usePositions();
   const [mt5Data, setMt5Data] = useState<{
@@ -113,8 +115,7 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchMt5Account = async () => {
       try {
-        const BRIDGE_URL = process.env.NEXT_PUBLIC_BRIDGE_URL || "https://python.dashboardkiller.online";
-        const res = await fetch(`${BRIDGE_URL}/api/account`, { headers: { "ngrok-skip-browser-warning": "true" } });
+        const res = await fetch(`${bridgeUrl}/api/account`, { headers: { "ngrok-skip-browser-warning": "true" } });
         if (res.ok) {
           const data = await res.json();
           setMt5Data({
@@ -133,7 +134,7 @@ export default function Dashboard() {
     fetchMt5Account();
     const int = setInterval(fetchMt5Account, 5000);
     return () => clearInterval(int);
-  }, []);
+  }, [bridgeUrl]);
 
   // Live Chart State
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -154,11 +155,10 @@ export default function Dashboard() {
   const TIMEFRAMES = ["1m", "5m", "15m", "1h", "4h", "D"];
 
   // Fetch technicals for SetupScorer
-useEffect(() => {
+  useEffect(() => {
     const fetchTechnicals = async () => {
       try {
-        const BRIDGE_URL = process.env.NEXT_PUBLIC_BRIDGE_URL ?? "http://localhost:5003";
-        const res = await fetch(`${BRIDGE_URL}/api/technicals?symbol=${selectedPair}`, { headers: { "ngrok-skip-browser-warning": "true" } });
+        const res = await fetch(`${bridgeUrl}/api/technicals?symbol=${selectedPair}`, { headers: { "ngrok-skip-browser-warning": "true" } });
         if (res.ok) {
           const data = await res.json();
           setTechnicals({
@@ -175,15 +175,14 @@ useEffect(() => {
     fetchTechnicals();
     const int = setInterval(fetchTechnicals, 10000);
     return () => clearInterval(int);
-  }, [selectedPair]);
+  }, [selectedPair, bridgeUrl]);
 
   // Live candle streaming - poll every 5 seconds
   useEffect(() => {
     const fetchCandles = async () => {
       try {
-        const BRIDGE_URL = process.env.NEXT_PUBLIC_BRIDGE_URL ?? "http://localhost:5003";
         const res = await fetch(
-          `${BRIDGE_URL}/api/candles?symbol=${selectedPair}&timeframe=${selectedTimeframe}&count=200`,
+          `${bridgeUrl}/api/candles?symbol=${selectedPair}&timeframe=${selectedTimeframe}&count=200`,
           { headers: { "ngrok-skip-browser-warning": "true" } }
         );
         if (res.ok) {
@@ -203,7 +202,7 @@ useEffect(() => {
     fetchCandles();
     const int = setInterval(fetchCandles, 5000);
     return () => clearInterval(int);
-  }, [selectedPair, selectedTimeframe]);
+  }, [selectedPair, selectedTimeframe, bridgeUrl]);
 
   // Initialize and update live candlestick chart
   useEffect(() => {

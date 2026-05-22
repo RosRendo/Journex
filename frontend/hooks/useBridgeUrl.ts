@@ -11,12 +11,13 @@
  */
 "use client";
 import { useState, useEffect } from "react";
+import { resolveLocalUrl } from "@/lib/utils";
 
 let _cachedBridgeUrl: string | null = null; // module-level cache so we only fetch once
 
 export function useBridgeUrl() {
-  const [bridgeUrl, setBridgeUrl] = useState<string>(
-    _cachedBridgeUrl || process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003"
+  const [bridgeUrl, setBridgeUrl] = useState<string>(() =>
+    resolveLocalUrl(_cachedBridgeUrl || process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003")
   );
   const [loading, setLoading] = useState(!_cachedBridgeUrl);
 
@@ -25,15 +26,16 @@ export function useBridgeUrl() {
     if (typeof window !== "undefined") {
       const customUrl = localStorage.getItem("bridge_url");
       if (customUrl) {
-        _cachedBridgeUrl = customUrl;
-        setBridgeUrl(customUrl);
+        const resolved = resolveLocalUrl(customUrl);
+        _cachedBridgeUrl = resolved;
+        setBridgeUrl(resolved);
         setLoading(false);
         return;
       }
     }
 
     if (_cachedBridgeUrl) {
-      setBridgeUrl(_cachedBridgeUrl);
+      setBridgeUrl(resolveLocalUrl(_cachedBridgeUrl));
       setLoading(false);
       return;
     }
@@ -43,8 +45,9 @@ export function useBridgeUrl() {
       .then((r) => r.json())
       .then((data) => {
         if (data.url) {
-          _cachedBridgeUrl = data.url;
-          setBridgeUrl(data.url);
+          const resolved = resolveLocalUrl(data.url);
+          _cachedBridgeUrl = resolved;
+          setBridgeUrl(resolved);
         }
       })
       .catch(() => {

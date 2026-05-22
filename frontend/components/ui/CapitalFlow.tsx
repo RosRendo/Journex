@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Info, Loader2 } from "lucide-react";
+import { resolveLocalUrl } from "@/lib/utils";
 
-const BRIDGE = process.env.NEXT_PUBLIC_BRIDGE_URL ?? "http://localhost:5003";
+const BRIDGE = resolveLocalUrl(process.env.NEXT_PUBLIC_BRIDGE_URL ?? "http://localhost:5003");
 
 export function CapitalFlow() {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);

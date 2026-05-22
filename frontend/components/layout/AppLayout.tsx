@@ -54,7 +54,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const isStandalonePage =
     pathname === "/" ||
     pathname.startsWith("/auth") ||
-    pathname.startsWith("/subscription");
+    pathname.startsWith("/subscription") ||
+    pathname.startsWith("/terminal");
 
   if (isStandalonePage) {
     return (

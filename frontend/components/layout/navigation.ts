@@ -2,7 +2,7 @@ import {
   LayoutDashboard, BookOpen, CalendarDays, BarChart3, Wallet, Users, Library, Bell,
   Settings, ShieldAlert, Calculator, Percent, Grid, Award, Zap, Eye, BellRing, MapPin,
   Newspaper, Crosshair, FlipHorizontal2, RotateCcw, Code, Activity, TrendingUp, BarChart2, Target,
-  Shield, CheckCircle2, TrendingDown, AlertTriangle
+  Shield, CheckCircle2, TrendingDown, AlertTriangle, Terminal
 } from "lucide-react";
 
 export type NavItem = {
@@ -26,6 +26,7 @@ export const SIDEBAR_GROUPS: NavGroup[] = [
     label: "CORE",
     items: [
       { id: "dashboard", label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+      { id: "terminal", label: "Bloomberg Terminal", href: "/terminal", icon: Terminal },
       { id: "ai-journals", label: "AI Journals", href: "/journals", icon: BookOpen },
       { id: "journal", label: "Manual Journal", href: "/journal", icon: BookOpen },
       { id: "calendar", label: "Calendar", href: "/calendar", icon: CalendarDays },

@@ -1,0 +1,54 @@
+# Full Stack Setup: Postgres + Backend + Frontend
+version: "3.8"
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: trading-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: zipmu3-cEcsak-jifqyf
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/001-init.sql
+    networks:
+      - trading_network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API (Node.js)
+  backend:
+    build: ./backend
+    container_name: trading-backend
+    environment:
+      DATABASE_URL: postgresql://postgres:zipmu3-cEcsak-jifqyf@postgres:5432/trading_journal
+      NODE_ENV: production
+      PORT: 5000
+      FRONTEND_URL: https://dashboard-nine-flax-74.vercel.app
+      MT5_BRIDGE_URL: http://host.docker.internal:5003
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - trading_network
+    restart: unless-stopped
+    volumes:
+      - ./backend/uploads:/app/uploads
+
+volumes:
+  postgres_data:
+
+networks:
+  trading_network:
+    driver: bridge

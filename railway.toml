@@ -1,9 +1,15 @@
+# ═══════════════════════════════════════════════════════════════════
+# Railway deployment config — Root level
+# This deploys the Express TypeScript backend from /backend subfolder.
+# ═══════════════════════════════════════════════════════════════════
+
 [build]
-dockerfile = "Dockerfile"
-context = "."
+builder = "NIXPACKS"
+buildCommand = "cd backend && npm install && npm run build"
 
 [deploy]
+startCommand = "cd backend && npm run start"
 restartPolicyType = "always"
 restartPolicyMaxRetries = 5
-startCommand = "uvicorn mt5_bridge:app --host 0.0.0.0 --port $PORT"
-port = 8000
+healthcheckPath = "/health"
+healthcheckTimeout = 60

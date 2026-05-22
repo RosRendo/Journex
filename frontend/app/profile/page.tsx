@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { resolveLocalUrl } from "@/lib/utils";
 import Link from "next/link";
 import {
     User, Edit3, Save, X, Camera,
@@ -9,7 +10,8 @@ import {
     Briefcase, Clock
 } from "lucide-react";
 
-const API = `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000"}/api/community`;
+const BACKEND_URL = resolveLocalUrl(process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000");
+const API = `${BACKEND_URL}/api/community`;
 
 interface Community { id: string; name: string; description: string; }
 interface Comment { id: string; content: string; createdAt: string; author: { name: string; avatar: string; }; }
@@ -73,14 +75,14 @@ export default function ProfilePage() {
         formData.append("image", file);
 
         try {
-            const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000"}/api/upload`, { headers: { "ngrok-skip-browser-warning": "true" }, 
+            const uploadRes = await fetch(`${BACKEND_URL}/api/upload`, { headers: { "ngrok-skip-browser-warning": "true" }, 
                 method: "POST",
                 body: formData
             });
             if (uploadRes.ok) {
                 const data = await uploadRes.json();
                 if (data.success) {
-                    const fullUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000"}${data.data.url}`;
+                    const fullUrl = `${BACKEND_URL}${data.data.url}`;
                     setForm({ ...form, avatar: fullUrl });
                 }
             }

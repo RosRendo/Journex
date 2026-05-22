@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { resolveLocalUrl } from "@/lib/utils";
 
 export interface NewsItem {
   title: string;
@@ -12,7 +13,7 @@ export function useNews(autoRefreshMs: number = 300000) { // Default 5 minutes
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  const BRIDGE_URL = process.env.NEXT_PUBLIC_BRIDGE_URL ?? "http://localhost:5003";
+  const BRIDGE_URL = resolveLocalUrl(process.env.NEXT_PUBLIC_BRIDGE_URL ?? "http://localhost:5003");
 
   useEffect(() => {
     let mounted = true;

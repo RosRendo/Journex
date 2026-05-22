@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { resolveLocalUrl } from "@/lib/utils";
 import { Menu, Zap, TrendingUp, Compass, Users, Clock, Filter, Sparkles, MessageSquare, Play, RefreshCw, BarChart2, Briefcase, Plus, Send, Heart, Reply, Share, Activity, Search, AlertCircle, Bookmark, Eye, CornerDownRight, ThumbsUp, ChevronDown, User, Edit3, Image as ImageIcon, Share2, TrendingDown, Crosshair, Target, Trash2, Save, X, MoreHorizontal, UserCheck, UserPlus, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -58,6 +59,9 @@ const DEFAULT_PROFILE: UserProfile = {
     avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=TraderX",
     tradeStyle: "Day Trader",
 };
+
+const BACKEND_URL = resolveLocalUrl(process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000");
+const BRIDGE_URL = resolveLocalUrl(process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003");
 
 export default function CommunityPage() {
     const { data: session } = useSession();
@@ -130,8 +134,7 @@ export default function CommunityPage() {
 
     const fetchProfile = async () => {
         try {
-            const backend = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
-            const res = await fetch(`${backend}/api/community/profile`);
+            const res = await fetch(`${BACKEND_URL}/api/community/profile`);
             if (res.ok) {
                 const data = await res.json();
                 setProfile(data);
@@ -141,16 +144,14 @@ export default function CommunityPage() {
 
     const fetchCommunities = async () => {
         try {
-            const backend = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
-            const res = await fetch(`${backend}/api/community/list`);
+            const res = await fetch(`${BACKEND_URL}/api/community/list`);
             if (res.ok) setCommunities(await res.json());
         } catch (e) { }
     };
 
     const fetchPosts = async (cid?: string | null) => {
         try {
-            const backend = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
-            const url = cid ? `${backend}/api/community/posts?communityId=${cid}` : `${backend}/api/community/posts`;
+            const url = cid ? `${BACKEND_URL}/api/community/posts?communityId=${cid}` : `${BACKEND_URL}/api/community/posts`;
             const res = await fetch(url);
             if (res.ok) {
                 const data = await res.json();
@@ -177,14 +178,14 @@ export default function CommunityPage() {
         formData.append("image", file);
 
         try {
-            const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000"}/api/upload`, { headers: { "ngrok-skip-browser-warning": "true" }, 
+            const uploadRes = await fetch(`${BACKEND_URL}/api/upload`, { headers: { "ngrok-skip-browser-warning": "true" }, 
                 method: "POST",
                 body: formData
             });
             if (uploadRes.ok) {
                 const data = await uploadRes.json();
                 if (data.success) {
-                    setter(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000"}${data.data.url}`);
+                    setter(`${BACKEND_URL}${data.data.url}`);
                 }
             }
         } catch (err) {
@@ -213,8 +214,7 @@ export default function CommunityPage() {
 
         try {
             setPriceLoading(true);
-            const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
-            const res = await fetch(`${bridgeUrl}/api/symbol-price?symbol=${signalPair.toUpperCase()}`, { headers: { "ngrok-skip-browser-warning": "true" } });
+            const res = await fetch(`${BRIDGE_URL}/api/symbol-price?symbol=${signalPair.toUpperCase()}`, { headers: { "ngrok-skip-browser-warning": "true" } });
             if (!res.ok) throw new Error("Bridge not reachable");
             const data = await res.json();
             if (!data.success) throw new Error(data.error || "Price fetch failed");
@@ -246,8 +246,7 @@ export default function CommunityPage() {
         if (!newPostContent.trim()) return;
 
         try {
-            const backend = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
-            const res = await fetch(`${backend}/api/community/posts`, {
+            const res = await fetch(`${BACKEND_URL}/api/community/posts`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -271,8 +270,7 @@ export default function CommunityPage() {
                 if (session?.user?.email === "rousrendo@gmail.com" && !activeCommunityId && isSignal) {
                     try {
                         const message = `🚨 **NEW SIGNAL ALERT: ${signalPair.toUpperCase()}** 🚨\n\n**Direction:** ${signalDirection}\n**Entry Target:** ${signalEntry || "Market Price"}\n**Take Profit:** ${signalTP || "Open"}\n**Stop Loss:** ${signalSL || "Open"}\n\n📝 **Notes:** ${newPostContent}\n\n⚡ Execute this exact trade instantly with auto-calculated risk on TradeKiller Pro:\nhttps://tradekiller.com/community`;
-                        const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
-                        fetch(`${bridgeUrl}/api/notify`, {
+                        fetch(`${BRIDGE_URL}/api/notify`, {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ message, channel: "signal" })
@@ -296,8 +294,7 @@ export default function CommunityPage() {
         
         try {
             const uid = session?.user?.email || "demo-user-1";
-            const backend = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
-            const res = await fetch(`${backend}/api/community/posts/${postId}`, {
+            const res = await fetch(`${BACKEND_URL}/api/community/posts/${postId}`, {
                 method: "DELETE",
                 headers: { "x-user-id": uid }
             });
@@ -316,8 +313,7 @@ export default function CommunityPage() {
 
         try {
             const uid = session?.user?.email || "demo-user-1";
-            const backend = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
-            const res = await fetch(`${backend}/api/community/posts/${postId}`, {
+            const res = await fetch(`${BACKEND_URL}/api/community/posts/${postId}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ userId: uid, content: editContent })
@@ -339,8 +335,7 @@ export default function CommunityPage() {
     const handleCreateCommunity = async () => {
         if (!newCommunityName.trim()) return;
         try {
-            const backend = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
-            const res = await fetch(`${backend}/api/community/list`, {
+            const res = await fetch(`${BACKEND_URL}/api/community/list`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ 
@@ -366,24 +361,21 @@ export default function CommunityPage() {
 
     const joinCommunity = async (cid: string) => {
         try {
-            const backend = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
-            const res = await fetch(`${backend}/api/community/list/${cid}/join`, { method: "POST" });
+            const res = await fetch(`${BACKEND_URL}/api/community/list/${cid}/join`, { method: "POST" });
             if (res.ok) { fetchProfile(); fetchCommunities(); }
         } catch (e) { }
     };
 
     const leaveCommunity = async (cid: string) => {
         try {
-            const backend = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
-            const res = await fetch(`${backend}/api/community/list/${cid}/leave`, { method: "POST" });
+            const res = await fetch(`${BACKEND_URL}/api/community/list/${cid}/leave`, { method: "POST" });
             if (res.ok) { fetchProfile(); fetchCommunities(); }
         } catch (e) { }
     };
 
     const handleLike = async (postId: string) => {
         try {
-            const backend = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
-            const res = await fetch(`${backend}/api/community/posts/${postId}/like`, { method: "POST" });
+            const res = await fetch(`${BACKEND_URL}/api/community/posts/${postId}/like`, { method: "POST" });
             if (res.ok) {
                 fetchPosts(); // Refresh likes
             }
@@ -394,8 +386,7 @@ export default function CommunityPage() {
         if (!commentText.trim()) return;
 
         try {
-            const backend = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
-            const res = await fetch(`${backend}/api/community/posts/${postId}/comments`, {
+            const res = await fetch(`${BACKEND_URL}/api/community/posts/${postId}/comments`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ content: commentText }),
@@ -429,8 +420,7 @@ export default function CommunityPage() {
         }
 
         try {
-            const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
-            const res = await fetch(`${bridgeUrl}/api/execute-signal`, {
+            const res = await fetch(`${BRIDGE_URL}/api/execute-signal`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

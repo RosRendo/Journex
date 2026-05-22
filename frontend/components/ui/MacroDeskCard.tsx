@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { Settings, RefreshCw, ChevronDown } from "lucide-react";
 import Link from "next/link";
+import { resolveLocalUrl } from "@/lib/utils";
 
 type Bias = "BULLISH" | "BEARISH" | "NEUTRAL";
 

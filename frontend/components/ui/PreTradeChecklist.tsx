@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { resolveLocalUrl } from "@/lib/utils";
 import { CheckCircle2, XCircle, AlertTriangle, Loader2, Shield, X } from "lucide-react";
 
 export interface PreTradeChecklistProps {
@@ -108,7 +109,7 @@ export function PreTradeChecklist({
     };
 
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+      const API_URL = resolveLocalUrl(process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000");
       await fetch(`${API_URL}/api/checklist/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

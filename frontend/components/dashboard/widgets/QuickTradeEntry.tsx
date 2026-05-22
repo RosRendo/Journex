@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { resolveLocalUrl } from "@/lib/utils";
 import { Crosshair, TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, Loader2, ChevronDown } from "lucide-react";
 
 const SYMBOLS = ["XAUUSD", "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "USDCHF", "NZDUSD", "US30", "NAS100"];
@@ -19,8 +20,8 @@ export function QuickTradeEntry() {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<ToastMsg | null>(null);
 
-  const BRIDGE_URL = process.env.NEXT_PUBLIC_BRIDGE_URL ?? "http://localhost:5003";
-  const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+  const BRIDGE_URL = resolveLocalUrl(process.env.NEXT_PUBLIC_BRIDGE_URL ?? "http://localhost:5003");
+  const API_URL = resolveLocalUrl(process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -1,4 +1,9 @@
 import { useState, useCallback, useEffect } from "react";
+import { resolveLocalUrl } from "@/lib/utils";
+
+const BRIDGE_URL = resolveLocalUrl(process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003");
+const API_URL = resolveLocalUrl(process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
+const DB_API_URL = resolveLocalUrl(process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000");
 
 export interface TradeData {
   id: number;
@@ -83,8 +88,8 @@ export function useCsvTrades(accountId?: number, autoRefreshMs: number = 0) {
     };
   }, []);
 
-  const API_BASE = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
-  const DB_API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+  const API_BASE = BRIDGE_URL;
+  const DB_API = DB_API_URL;
 
   // Fetch true history from Live MT5 bridge (bypassing node backend)
   const fetchTrades = useCallback(async () => {
@@ -213,7 +218,7 @@ export function useBrokerAnalytics(accountId: number) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  const API_BASE = API_URL;
 
   const fetchAnalytics = useCallback(async () => {
     try {
@@ -257,7 +262,7 @@ export function useBrokerAccounts() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  const API_BASE = API_URL;
 
   const fetchAccounts = useCallback(async () => {
     try {

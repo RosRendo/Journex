@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { resolveLocalUrl } from "@/lib/utils";
 
 export interface Position {
   ticket: number;
@@ -19,7 +20,7 @@ export function usePositions(accountId?: string, autoRefreshMs: number = 2000) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  const BRIDGE_URL = process.env.NEXT_PUBLIC_BRIDGE_URL ?? "http://localhost:5003";
+  const BRIDGE_URL = resolveLocalUrl(process.env.NEXT_PUBLIC_BRIDGE_URL ?? "http://localhost:5003");
 
   useEffect(() => {
     let mounted = true;

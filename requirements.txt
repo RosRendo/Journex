@@ -5,3 +5,6 @@ aiohttp==3.9.1
 requests==2.31.0
 feedparser==6.0.10
 pydantic==2.5.0
+MetaTrader5
+Pillow
+anthropic

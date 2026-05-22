@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { resolveLocalUrl } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, ChevronLeft, Save, BookOpen, AlertTriangle, Crosshair, Clock, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
@@ -79,7 +80,7 @@ export default function TradingPlanGenerator() {
     setIsGenerating(true);
     try {
       // Assuming backend URL is exposed via env or proxy
-      const apiBase = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+      const apiBase = resolveLocalUrl(process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000");
       const res = await fetch(`${apiBase}/api/trading-plan/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

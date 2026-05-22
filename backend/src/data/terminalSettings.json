@@ -1,0 +1,11 @@
+{
+  "broker": {
+    "provider": "oanda",
+    "environment": "paper",
+    "api_key": "98c931a8b85c5288dcf373eb7a36a5f3-c382b60af9bcedb3f49815834feae859",
+    "api_secret": "",
+    "account_id": "101-011-39362416-001",
+    "base_url": "https://api-fxpractice.oanda.com",
+    "connected": false
+  }
+}
