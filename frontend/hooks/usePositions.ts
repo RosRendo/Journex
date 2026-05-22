@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { resolveLocalUrl } from "@/lib/utils";
+import { getBackendUrl } from "@/lib/utils";
+import { getSession } from "next-auth/react";
 
 export interface Position {
   ticket: number;
@@ -19,20 +20,24 @@ export function usePositions(accountId?: string, autoRefreshMs: number = 2000) {
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
-  const BRIDGE_URL = resolveLocalUrl(process.env.NEXT_PUBLIC_BRIDGE_URL ?? "http://localhost:5003");
 
   useEffect(() => {
     let mounted = true;
 
     const fetchPositions = async () => {
       try {
-        const res = await fetch(`${BRIDGE_URL}/api/positions`, {
-          headers: { "ngrok-skip-browser-warning": "true" }
-        });
-        if (!res.ok) throw new Error("Network response was not ok");
+        // Always route through the backend proxy — never hit the bridge directly from the browser.
+        // The backend enforces admin auth and returns mock data for non-admin callers.
+        const backendUrl = getBackendUrl();
+        const session = await getSession();
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (session?.user?.email) {
+          headers["Authorization"] = `Bearer ${session.user.email}`;
+        }
+        const res = await fetch(`${backendUrl}/api/bridge/api/positions`, { headers });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        
+
         if (!mounted) return;
 
         if (data.success && data.positions) {
@@ -50,7 +55,7 @@ export function usePositions(accountId?: string, autoRefreshMs: number = 2000) {
     };
 
     fetchPositions();
-    
+
     if (autoRefreshMs > 0) {
       const interval = setInterval(fetchPositions, autoRefreshMs);
       return () => {
@@ -62,7 +67,7 @@ export function usePositions(accountId?: string, autoRefreshMs: number = 2000) {
     return () => {
       mounted = false;
     };
-  }, [accountId, BRIDGE_URL, autoRefreshMs]);
+  }, [accountId, autoRefreshMs]);
 
   return { positions, loading, error };
 }

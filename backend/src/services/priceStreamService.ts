@@ -34,15 +34,16 @@ export class OandaPricingStream extends EventEmitter {
     const url = `${streamUrl}/v3/accounts/${this.accountId}/pricing/stream?instruments=${instStr}`;
 
     const parsedUrl = new URL(url);
-    const proxyUrl = "http://fvtpyskr:atzg4nqjzpp0@23.95.150.145:6114";
-    const agent = new HttpsProxyAgent(proxyUrl);
+    // Use OANDA_PROXY_URL env var if set, otherwise connect directly.
+    const proxyUrl = process.env.OANDA_PROXY_URL || "";
+    const agent = proxyUrl ? new HttpsProxyAgent(proxyUrl) : undefined;
 
     const options: any = {
       hostname: parsedUrl.hostname,
       port: parsedUrl.port || 443,
       path: parsedUrl.pathname + parsedUrl.search,
       method: "GET",
-      agent: agent,
+      ...(agent ? { agent } : {}),
       headers: {
         "Authorization": `Bearer ${this.token}`,
         "Accept-Datetime-Format": "RFC3339",

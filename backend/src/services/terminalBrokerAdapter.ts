@@ -485,8 +485,10 @@ export class OandaAdapter implements BrokerAdapter {
   }
 
   private async request(method: "GET" | "POST" | "PUT", path: string, data?: any, params?: any) {
-    const proxyUrl = "http://fvtpyskr:atzg4nqjzpp0@23.95.150.145:6114";
-    const agent = new HttpsProxyAgent(proxyUrl);
+    // Use OANDA_PROXY_URL env var if set (e.g. local dev behind firewall).
+    // Leave unset in Railway / production — requests go direct.
+    const proxyUrl = process.env.OANDA_PROXY_URL || "";
+    const agent = proxyUrl ? new HttpsProxyAgent(proxyUrl) : undefined;
 
     const res = await axios({
       method,
@@ -495,7 +497,7 @@ export class OandaAdapter implements BrokerAdapter {
         Authorization: `Bearer ${this.token}`,
         "Content-Type": "application/json"
       },
-      httpsAgent: agent,
+      ...(agent ? { httpsAgent: agent } : {}),
       data,
       params,
       timeout: 10000
