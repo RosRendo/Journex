@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { resolveLocalUrl } from "../lib/utils";
+import { getWebSocketUrl } from "../lib/utils";
 import { useSession } from "next-auth/react";
 
 export interface Tick {
@@ -24,9 +24,7 @@ export function usePriceStream(symbol: string) {
     let cancelled = false;
 
     const open = () => {
-      const backend = resolveLocalUrl(process.env.NEXT_PUBLIC_BACKEND_URL || "");
-      const wsBase = backend.replace(/^http/, "ws");
-      const url = `${wsBase}/api/ws/prices?symbol=${encodeURIComponent(symbol)}&token=${encodeURIComponent(userEmail)}`;
+      const url = getWebSocketUrl(`api/ws/prices?symbol=${encodeURIComponent(symbol)}&token=${encodeURIComponent(userEmail)}`);
       try {
         const ws = new WebSocket(url);
         wsRef.current = ws;

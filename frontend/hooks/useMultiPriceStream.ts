@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { resolveLocalUrl } from "../lib/utils";
+import { getWebSocketUrl } from "../lib/utils";
+import { useSession } from "next-auth/react";
 
 export interface MultiTick {
   symbol: string;
@@ -13,6 +14,8 @@ export interface MultiTick {
 }
 
 export function useMultiPriceStream(symbols: string[], { tapeLimit = 60 } = {}) {
+  const { data: session } = useSession();
+  const userEmail = session?.user?.email || "";
   const [lastBySymbol, setLastBySymbol] = useState<Record<string, MultiTick>>({});
   const [tape, setTape] = useState<MultiTick[]>([]);
   const [status, setStatus] = useState<string>("connecting");
@@ -29,9 +32,7 @@ export function useMultiPriceStream(symbols: string[], { tapeLimit = 60 } = {}) 
     let cancelled = false;
 
     const open = () => {
-      const backend = resolveLocalUrl(process.env.NEXT_PUBLIC_BACKEND_URL || "");
-      const wsBase = backend.replace(/^http/, "ws");
-      const url = `${wsBase}/api/ws/prices?symbols=${encodeURIComponent(key)}`;
+      const url = getWebSocketUrl(`api/ws/prices?symbols=${encodeURIComponent(key)}&token=${encodeURIComponent(userEmail)}`);
       try {
         const ws = new WebSocket(url);
         wsRef.current = ws;

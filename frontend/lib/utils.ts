@@ -28,3 +28,28 @@ export function resolveLocalUrl(url: string): string {
 export function getBackendUrl(): string {
   return process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
 }
+
+/**
+ * Returns a robustly formatted WebSocket URL pointing to the backend.
+ * Handles domains with or without protocols (http/https).
+ */
+export function getWebSocketUrl(path: string): string {
+  const backend = getBackendUrl();
+  
+  // Strip protocol to get the clean domain/host
+  let cleanDomain = backend.replace(/^https?:\/\//i, "");
+  
+  // Clean any trailing slashes from domain and leading slashes from path
+  const domain = cleanDomain.replace(/\/$/, "");
+  const cleanPath = path.replace(/^\//, "");
+  
+  // Determine if we should use secure websockets (wss://)
+  const isLocalhost = domain.includes("localhost") || domain.includes("127.0.0.1") || domain.includes("0.0.0.0");
+  
+  let protocol = "wss://";
+  if (backend.startsWith("http://") || (isLocalhost && !backend.startsWith("https://"))) {
+    protocol = "ws://";
+  }
+  
+  return `${protocol}${domain}/${cleanPath}`;
+}
