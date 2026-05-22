@@ -93,7 +93,7 @@ export function useMultiPriceStream(symbols: string[], { tapeLimit = 60 } = {}) 
         try { wsRef.current.close(); } catch (_) { /* ignore */ }
       }
     };
-  }, [key, tapeLimit]);
+  }, [key, tapeLimit, userEmail]);
 
   return { lastBySymbol, tape, status };
 }

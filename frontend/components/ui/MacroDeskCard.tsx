@@ -2,7 +2,8 @@
 import React, { useState } from "react";
 import { Settings, RefreshCw, ChevronDown } from "lucide-react";
 import Link from "next/link";
-import { resolveLocalUrl } from "@/lib/utils";
+import { getBackendUrl } from "@/lib/utils";
+import { useSession } from "next-auth/react";
 
 type Bias = "BULLISH" | "BEARISH" | "NEUTRAL";
 
@@ -162,15 +163,23 @@ export function MacroDeskCard({ data, delay = 0 }: { data: PairCard; delay?: num
 export function AIMacroDeskSection() {
   const [pairs, setPairs] = useState<PairCard[]>(FALLBACK_PAIRS);
   const [loading, setLoading] = useState(true);
+  const { data: session } = useSession();
+  const userEmail = session?.user?.email || "";
 
   React.useEffect(() => {
     const fetchTechnicals = async () => {
       try {
-        const BRIDGE = process.env.NEXT_PUBLIC_BRIDGE_URL ?? "http://localhost:5003";
+        const backendUrl = getBackendUrl();
         const aiKey = localStorage.getItem("ai_key");
         const aiProvider = localStorage.getItem("ai_provider") || "openai";
-        const url = `${BRIDGE}/api/technicals${aiKey ? `?ai_key=${aiKey}&provider=${aiProvider}` : ""}`;
-        const res = await fetch(url, { headers: { "ngrok-skip-browser-warning": "true" } });
+        const query = aiKey ? `?ai_key=${aiKey}&provider=${aiProvider}` : "";
+        const url = `${backendUrl}/api/bridge/api/technicals${query}`;
+        const res = await fetch(url, {
+          headers: {
+            "ngrok-skip-browser-warning": "true",
+            ...(userEmail ? { "Authorization": `Bearer ${userEmail}` } : {}),
+          }
+        });
         const json = await res.json();
         
         if (json.success && json.signals) {
@@ -202,7 +211,7 @@ export function AIMacroDeskSection() {
     fetchTechnicals();
     const interval = setInterval(fetchTechnicals, 60000); // 1 min refresh
     return () => clearInterval(interval);
-  }, []);
+  }, [userEmail]);
 
   // Compute overall status easily
   const bullCount = pairs.filter(p => p.bias === "BULLISH").length;

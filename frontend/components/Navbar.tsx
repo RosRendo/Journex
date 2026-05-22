@@ -5,11 +5,12 @@ import {
   LogOut, User, Settings, Bell, X, Flame, TrendingUp, TrendingDown, CreditCard, ChevronDown, Palette, Menu
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
+import { useSession, signOut, getSession } from "next-auth/react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { HEADER_GROUPS } from "@/components/layout/navigation";
 import { useTheme } from "next-themes";
+import { getBackendUrl } from "@/lib/utils";
 
 function DualClock() {
   const [now, setNow] = useState(new Date());
@@ -122,8 +123,15 @@ export default function Navbar({ onMenuToggle }: { onMenuToggle?: () => void }) 
 
     const pollNews = async () => {
       try {
-        const BRIDGE = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
-        const res = await fetch(`${BRIDGE}/api/news`, { headers: { "ngrok-skip-browser-warning": "true" } });
+        const backendUrl = getBackendUrl();
+        const sess = await getSession();
+        const authHeaders: HeadersInit = {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true",
+          ...(sess?.user?.email ? { "Authorization": `Bearer ${sess.user.email}` } : {}),
+        };
+
+        const res = await fetch(`${backendUrl}/api/bridge/api/news`, { headers: authHeaders });
         const data = await res.json();
         if (!data.success || !data.news) return;
 
@@ -138,9 +146,9 @@ export default function Navbar({ onMenuToggle }: { onMenuToggle?: () => void }) 
         if (newHot.length > 0 && !isFirstFetch) {
           setNewsUnread(prev => prev + newHot.length);
           newHot.forEach((item: any) => {
-            fetch(`${BRIDGE}/api/notify`, {
+            fetch(`${backendUrl}/api/bridge/api/notify`, {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: authHeaders,
               body: JSON.stringify({
                 message: `🔴 **HOT NEWS:** ${item.title}\nSymbol: ${item.symbol} | Impact: ${item.impact}`,
                 channel: "news"

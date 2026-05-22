@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { usePriceStream } from "../../hooks/usePriceStream";
 import Chart from "./Chart";
 import VolumeProfile from "./VolumeProfile";
 import MultiChartCompare from "./MultiChartCompare";
@@ -106,12 +107,20 @@ export default function CenterPanel({ symbol, timeframe, onTimeframeChange, snap
     setDrawings([]);
   };
 
+  // Live price via WebSocket (reconnects automatically once session resolves)
+  const { lastTick } = usePriceStream(symbol);
+
   const candles = snapshot?.candles || [];
   const last = candles[candles.length - 1];
   const prev = candles[candles.length - 2];
-  const lastPrice = last?.close;
-  const change = last && prev ? last.close - prev.close : 0;
-  const changePct = last && prev ? (change / prev.close) * 100 : 0;
+
+  // Prefer live WebSocket mid; fall back to last candle close
+  const lastPrice = lastTick?.mid ?? last?.close;
+  // Change vs previous candle close to reflect intra-bar movement
+  const basePrice = prev?.close ?? last?.open;
+  const change = lastPrice && basePrice ? lastPrice - basePrice : 0;
+  const changePct = change && basePrice ? (change / basePrice) * 100 : 0;
+  const digits = symbol === "USDJPY" || symbol.endsWith("JPY") ? 3 : 5;
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -132,12 +141,12 @@ export default function CenterPanel({ symbol, timeframe, onTimeframeChange, snap
               change >= 0 ? "text-emerald-500" : "text-red-500"
             }`}
           >
-            {lastPrice ? lastPrice.toFixed(symbol === "USDJPY" || symbol.endsWith("JPY") ? 3 : 5) : "—"}
+            {lastPrice ? lastPrice.toFixed(digits) : "—"}
           </span>
           <span
             className={`font-mono text-[11px] ${change >= 0 ? "text-emerald-500" : "text-red-500"}`}
           >
-            {change >= 0 ? "▲" : "▼"} {Math.abs(change).toFixed(5)} ({changePct.toFixed(2)}%)
+            {change >= 0 ? "▲" : "▼"} {Math.abs(change).toFixed(digits)} ({changePct.toFixed(2)}%)
           </span>
           <div className="flex-1" />
           <div className="flex items-center gap-1">
