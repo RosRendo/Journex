@@ -32,17 +32,45 @@ const FALLBACK_PAIRS: PairCard[] = [
   {
     pair: "XAUUSD", fullName: "Gold / US Dollar", change: "−0.86%", bias: "NEUTRAL",
     confidence: 64,
-    lastUpdate: "Offline fallback",
-    analysis: "MT5 Bridge Offline. Please start the python backend. Gold is consolidating near key resistance at $2,320.",
-    bullets: ["Bridge Offline", "Resistance: $2,320", "Support: $2,290"],
+    lastUpdate: "Bridge Offline",
+    analysis: "MT5 Bridge Offline. Start the Python backend to get live analysis. Gold is consolidating near key resistance.",
+    bullets: ["Bridge Offline — start mt5_bridge.py", "Resistance: $2,320", "Support: $2,290"],
   },
   {
     pair: "GBPUSD", fullName: "British Pound / US Dollar", change: "+0.12%", bias: "BULLISH",
     confidence: 71,
-    lastUpdate: "Offline fallback",
+    lastUpdate: "Bridge Offline",
     analysis: "MT5 Bridge Offline. Cable is showing bullish momentum above the 1.2700 level.",
-    bullets: ["Bridge Offline", "Target: 1.2780", "Key risk: US PCE data"],
-  }
+    bullets: ["Bridge Offline — start mt5_bridge.py", "Target: 1.2780", "Key risk: US PCE data"],
+  },
+  {
+    pair: "EURUSD", fullName: "Euro / US Dollar", change: "+0.05%", bias: "NEUTRAL",
+    confidence: 58,
+    lastUpdate: "Bridge Offline",
+    analysis: "MT5 Bridge Offline. EURUSD is ranging between key support and resistance levels. Start the bridge for live analysis.",
+    bullets: ["Bridge Offline — start mt5_bridge.py", "Support: 1.0820", "Resistance: 1.0920"],
+  },
+  {
+    pair: "USDJPY", fullName: "US Dollar / Yen", change: "−0.22%", bias: "NEUTRAL",
+    confidence: 55,
+    lastUpdate: "Bridge Offline",
+    analysis: "MT5 Bridge Offline. USDJPY is consolidating. BoJ policy and US yields are the key drivers to watch.",
+    bullets: ["Bridge Offline — start mt5_bridge.py", "Support: 148.00", "Resistance: 151.00"],
+  },
+  {
+    pair: "GBPJPY", fullName: "British Pound / Yen", change: "−0.10%", bias: "NEUTRAL",
+    confidence: 52,
+    lastUpdate: "Bridge Offline",
+    analysis: "MT5 Bridge Offline. GBPJPY is a high-volatility cross — live analysis requires the MT5 bridge to be running.",
+    bullets: ["Bridge Offline — start mt5_bridge.py", "Support: 188.00", "Resistance: 192.50"],
+  },
+  {
+    pair: "XAGUSD", fullName: "Silver / US Dollar", change: "−0.43%", bias: "NEUTRAL",
+    confidence: 50,
+    lastUpdate: "Bridge Offline",
+    analysis: "MT5 Bridge Offline. Silver is tracking Gold with some industrial demand underpinning. Start the bridge for live signals.",
+    bullets: ["Bridge Offline — start mt5_bridge.py", "Support: $27.50", "Resistance: $29.00"],
+  },
 ];
 
 function ConfidenceBar({ value, delay = 0 }: { value: number; delay?: number }) {
@@ -183,20 +211,30 @@ export function AIMacroDeskSection() {
         const json = await res.json();
         
         if (json.success && json.signals) {
-          const mapped: PairCard[] = json.signals.map((sig: any) => ({
-            pair: sig.pair.replace("/", ""),
-            fullName: PAIR_NAMES[sig.pair] || sig.pair,
-            change: `${sig.change > 0 ? '+' : ''}${sig.change}%`,
-            bias: sig.signal === "buy" ? "BULLISH" : sig.signal === "sell" ? "BEARISH" : "NEUTRAL",
-            confidence: sig.strength,
-            lastUpdate: "Live MT5",
-            analysis: `MT5 Engine Analysis: ${sig.reason}. Current market conditions favor the ${sig.signal} side based on H4 timeframe convergence.`,
-            bullets: [
-              `RSI (14): ${sig.rsi.toFixed(1)}`,
-              `EMA (20): ${sig.ema20.toFixed(5)}`,
-              `EMA (50): ${sig.ema50.toFixed(5)}`
-            ]
-          }));
+          const mapped: PairCard[] = json.signals.map((sig: any) => {
+            const pairName = sig.pair || sig.symbol || "";
+            const pairClean = pairName.replace("/", "");
+            const rsiVal = typeof sig.rsi === "number" ? sig.rsi : parseFloat(sig.rsi) || 0;
+            const ema20Val = typeof sig.ema20 === "number" ? sig.ema20 : parseFloat(sig.ema20) || 0;
+            const ema50Val = typeof sig.ema50 === "number" ? sig.ema50 : parseFloat(sig.ema50) || 0;
+            const changeVal = typeof sig.change === "number" ? sig.change : parseFloat(sig.change) || 0;
+            const changeStr = `${changeVal >= 0 ? '+' : ''}${changeVal.toFixed(2)}%`;
+            
+            return {
+              pair: pairClean,
+              fullName: PAIR_NAMES[sig.pair] || PAIR_NAMES[pairName] || pairName,
+              change: changeStr,
+              bias: sig.signal === "buy" ? "BULLISH" : sig.signal === "sell" ? "BEARISH" : "NEUTRAL",
+              confidence: sig.strength || 50,
+              lastUpdate: "Live MT5",
+              analysis: `MT5 Engine Analysis: ${sig.reason || "Consolidating indicators"}. Current market conditions favor the ${sig.signal || "neutral"} side based on H4 timeframe convergence.`,
+              bullets: [
+                `RSI (14): ${rsiVal.toFixed(1)}`,
+                `EMA (20): ${ema20Val.toFixed(5)}`,
+                `EMA (50): ${ema50Val.toFixed(5)}`
+              ]
+            };
+          });
           setPairs(mapped);
         } else {
           setPairs(FALLBACK_PAIRS);

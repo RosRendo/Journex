@@ -1207,9 +1207,13 @@ def get_ai_analysis(symbol: str, ai_key: str = None, provider: str = "openai"):
             except Exception as e:
                 print("AI API LLM Request Error in ai-analysis:", e)
 
+        trend_str = "bullish" if ema20 > ema50 else "bearish"
+        overview_text = f"Market structure for {symbol} currently exhibits a {trend_str} bias on the H1 timeframe. Technical models point towards " + ("accumulation" if trend_str == "bullish" else "distribution") + f" near current levels, backed by RSI momentum at {rsi:.1f}."
+
         return {
             "success": True, 
             "analysis": {
+                "overview": overview_text,
                 "pulse": pulse,
                 "flow": flow,
                 "bearing": bearing
@@ -1218,7 +1222,7 @@ def get_ai_analysis(symbol: str, ai_key: str = None, provider: str = "openai"):
     except Exception as e:
         return {"success": False, "error": str(e)}
 
-SIGNAL_SYMBOLS = ["EURUSD", "GBPJPY", "XAUUSD", "USDJPY", "GBPUSD"]
+SIGNAL_SYMBOLS = ["EURUSD", "GBPJPY", "XAUUSD", "USDJPY", "GBPUSD", "XAGUSD"]
 TF_SIGNAL = mt5.TIMEFRAME_H4 if mt5 else 16408
 
 @app.get("/api/technicals")
@@ -1269,6 +1273,7 @@ def get_technicals(ai_key: str = None, provider: str = "openai"):
             pair_label = f"{sym[:3]}/{sym[3:]}"
             signals.append({
                 "pair":       pair_label,
+                "symbol":     sym,
                 "signal":     direction,
                 "strength":   min(strength_base, 98),
                 "price":      round(current, 5),
@@ -1278,6 +1283,8 @@ def get_technicals(ai_key: str = None, provider: str = "openai"):
                 "ema20":      round(ema20, 5),
                 "ema50":      round(ema50, 5),
                 "reason":     f"EMA20={'>' if ema20 > ema50 else '<'}EMA50 · RSI {rsi} · {'Bullish' if direction=='buy' else 'Bearish' if direction=='sell' else 'Ranging'} bias",
+                "macd":       "Bullish" if direction == "buy" else "Bearish" if direction == "sell" else "Neutral",
+                "trend":      "Up" if direction == "buy" else "Down" if direction == "sell" else "Sideways",
             })
         except Exception as ex:
             print(f"[technicals] {sym} error: {ex}")
@@ -3967,29 +3974,7 @@ async def bot_engine_loop(bot_id: str):
         if bot_id in active_bots:
             active_bots[bot_id]["status"] = "error"
             active_bots[bot_id]["task"] = None
-
-@app.get("/api/technicals")
-def get_technicals():
-    """Return mockup of realtime technical signals for Live Monitor"""
-    return {
-        "success": True,
-        "signals": [
-            { "symbol": "XAUUSD", "rsi": 65, "macd": "Bullish", "trend": "Up" },
-            { "symbol": "EURUSD", "rsi": 45, "macd": "Bearish", "trend": "Down" },
-            { "symbol": "GBPUSD", "rsi": 50, "macd": "Neutral", "trend": "Sideways" }
-        ]
-    }
-
-@app.get("/api/calculations")
-def get_calculations():
-    """Return mockup of complex calculation values for Live Monitor"""
-    return {
-        "success": True,
-        "calculations": [
-             { "symbol": "XAUUSD", "atr": 15.2, "volatility": "High", "score": 85 },
-             { "symbol": "EURUSD", "atr": 0.0045, "volatility": "Low", "score": 45 }
-        ]
-    }
+# Duplicate mockup routes for /api/technicals, /api/calculations, and /api/ai-analysis removed to prevent route override conflicts.
 
 @asynccontextmanager
 async def lifespan(app):
@@ -4000,63 +3985,6 @@ async def lifespan(app):
     print("[bridge] Background tasks started (Discord, Telegram & Trade Monitor)")
     yield
     # Shutdown — nothing special needed
-
-@app.get("/api/ai-analysis")
-def get_ai_analysis(symbol: str = "US100", ai_key: str = None, provider: str = "openai"):
-    """
-    Returns AI Analysis data: Pulse, Flow, Bearing meters, plus text overrides.
-    Simulates high-end Level 2 analysis using basic MT5 chart logic if AI is not provided/available.
-    """
-    # 1) Try to calculate basic MT5 moving averages to drive the logic realistically
-    score = 50
-    trend = "Neutral"
-    if connected:
-        raw = mt5.copy_rates_from_pos(ensure_symbol(symbol), mt5.TIMEFRAME_D1, 0, 10)
-        if raw is not None and len(raw) > 5:
-            last = raw[-1]
-            prev = raw[-2]
-            if last['close'] > prev['close']:
-                score = 65
-                trend = "Bullish"
-            elif last['close'] < prev['close']:
-                score = 35
-                trend = "Bearish"
-
-    # 2) Construct real-looking dynamic AI data based on current symbol & pseudo-score
-    is_bull = score > 50
-    pulse_score = 45 + (score % 30) # Randomish volatility 45-75
-    flow_score = score
-    bearing_score = 50 + abs(score - 50) * 1.5 
-    
-    pulse_color = "#f59e0b" if pulse_score > 60 else "#3b82f6"
-    flow_color = "#22c55e" if is_bull else "#ef4444"
-    bearing_color = "#22c55e" if is_bull else "#ef4444"
-
-    return {
-        "success": True,
-        "analysis": {
-            "overview": f"Market structure for {symbol} currently exhibits a {trend.lower()} bias on the daily timeframe. Institutional flow models point towards " + ("accumulation" if is_bull else "distribution") + " near current levels.",
-            "pulse": {
-                "label": "Tradable",
-                "score": pulse_score,
-                "color": pulse_color,
-                "bullets": ["ATR within normal range", "Standard risk-reward ratios apply", "Normal stop sizing"]
-            },
-            "flow": {
-                "label": "Healthy" if flow_score >= 50 else "Thin",
-                "score": flow_score,
-                "color": flow_color,
-                "bullets": ["Volume profile confirming trend", "Fills executing near quotes", "Good structure"] if is_bull else ["Light volume on bounces", "Minor spoofing in orderbook", "Wait for liquidity sweeps"]
-            },
-            "bearing": {
-                "label": trend,
-                "score": min(95, bearing_score),
-                "color": bearing_color,
-                "bullets": [f"{trend} bias aligned with moving averages", "Momentum confirmed", "Wait for pullbacks"]
-            }
-        }
-    }
-
 
 @app.get("/api/levels")
 def get_technical_levels(symbol: str = "US100"):
