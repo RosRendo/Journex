@@ -11,7 +11,7 @@ export interface Tick {
 }
 
 export function usePriceStream(symbol: string) {
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const userEmail = session?.user?.email || "";
   const [lastTick, setLastTick] = useState<Tick | null>(null);
   const [status, setStatus] = useState<string>("connecting"); // connecting | open | closed | error
@@ -21,6 +21,7 @@ export function usePriceStream(symbol: string) {
 
   useEffect(() => {
     if (!symbol) return undefined;
+    if (sessionStatus === "loading") return undefined;
     let cancelled = false;
 
     const open = () => {
@@ -68,7 +69,7 @@ export function usePriceStream(symbol: string) {
         try { wsRef.current.close(); } catch (_) { /* ignore */ }
       }
     };
-  }, [symbol, userEmail]);
+  }, [symbol, userEmail, sessionStatus]);
 
   return { lastTick, status };
 }

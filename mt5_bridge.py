@@ -60,6 +60,7 @@ TELEGRAM_THREAD_CALENDAR = os.environ.get("TELEGRAM_THREAD_CALENDAR", "")
 
 # ─── Runtime alert config (can be overridden by frontend via /api/alert-config)
 _alert_config: dict = {
+    "alerts_paused":            True,  # Default is paused
     # Discord — one webhook per channel
     "discord_news_webhook":     DISCORD_NEWS_WEBHOOK,
     "discord_calendar_webhook": DISCORD_CALENDAR_WEBHOOK,
@@ -422,9 +423,11 @@ class TradeRequest(BaseModel):
     comment: Optional[str] = "TradeKiller Risk Calc"
 
 # ─── Notification Helpers (Discord Webhook + Telegram) ───────────────────────
-async def discord_webhook_embed(webhook_url: str, embeds: list):
+async def discord_webhook_embed(webhook_url: str, embeds: list, bypass_pause: bool = False):
     """Post embeds to a Discord channel via Webhook URL (no bot token needed)."""
     if not webhook_url:
+        return
+    if not bypass_pause and _alert_config.get("alerts_paused", True):
         return
     async with aiohttp.ClientSession() as session:
         async with session.post(webhook_url, json={"embeds": embeds}) as resp:
@@ -432,9 +435,11 @@ async def discord_webhook_embed(webhook_url: str, embeds: list):
                 text = await resp.text()
                 print(f"[discord] Webhook failed {resp.status}: {text[:200]}")
 
-async def discord_webhook_text(webhook_url: str, content: str):
+async def discord_webhook_text(webhook_url: str, content: str, bypass_pause: bool = False):
     """Post a plain text message to a Discord channel via Webhook URL."""
     if not webhook_url:
+        return
+    if not bypass_pause and _alert_config.get("alerts_paused", True):
         return
     async with aiohttp.ClientSession() as session:
         async with session.post(webhook_url, json={"content": content[:2000]}) as resp:
@@ -442,9 +447,11 @@ async def discord_webhook_text(webhook_url: str, content: str):
                 text = await resp.text()
                 print(f"[discord] Webhook text failed {resp.status}: {text[:200]}")
 
-async def telegram_send(bot_token: str, chat_id: str, text: str, parse_mode: str = "HTML", message_thread_id: str = None):
+async def telegram_send(bot_token: str, chat_id: str, text: str, parse_mode: str = "HTML", message_thread_id: str = None, bypass_pause: bool = False):
     """Send a message via Telegram Bot API."""
     if not bot_token or not chat_id:
+        return
+    if not bypass_pause and _alert_config.get("alerts_paused", True):
         return
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
     payload = {
@@ -468,6 +475,7 @@ class AlertConfigModel(BaseModel):
     telegram_bot_token:       Optional[str] = None
     telegram_news_chat_id:    Optional[str] = None
     telegram_cal_chat_id:     Optional[str] = None
+    alerts_paused:            Optional[bool] = None
 
 @app.get("/api/alert-config")
 def get_alert_config():
@@ -482,6 +490,7 @@ def get_alert_config():
         "telegram_bot_token":       mask(_alert_config.get("telegram_bot_token", "")),
         "telegram_news_chat_id":    _alert_config.get("telegram_news_chat_id", ""),
         "telegram_cal_chat_id":     _alert_config.get("telegram_cal_chat_id", ""),
+        "alerts_paused":            _alert_config.get("alerts_paused", True),
     }
 
 @app.post("/api/alert-config")
@@ -498,6 +507,8 @@ def set_alert_config(req: AlertConfigModel):
         _alert_config["telegram_news_chat_id"] = req.telegram_news_chat_id
     if req.telegram_cal_chat_id is not None:
         _alert_config["telegram_cal_chat_id"] = req.telegram_cal_chat_id
+    if req.alerts_paused is not None:
+        _alert_config["alerts_paused"] = req.alerts_paused
     return {"success": True, "message": "Alert config updated"}
 
 @app.post("/api/alert-config/test")
@@ -522,12 +533,12 @@ async def test_alert(type: str = "news"):
         "footer": {"text": "TradeKiller • Test Message"},
     }
     if webhook:
-        await discord_webhook_embed(webhook, [embed])
+        await discord_webhook_embed(webhook, [embed], bypass_pause=True)
         sent.append("discord")
     if tg_token and tg_chat:
         await telegram_send(tg_token, tg_chat,
             f"✅ TradeKiller Alert Test\n{'📅 Calendar' if is_cal else '📰 News'} notifications are working!",
-            message_thread_id=tg_thread if tg_thread else None)
+            message_thread_id=tg_thread if tg_thread else None, bypass_pause=True)
         sent.append("telegram")
     if not sent:
         return {"success": False, "error": "No webhook/token configured for this alert type"}
@@ -726,6 +737,8 @@ _CHANNEL_THREAD_MAP = {
 
 @app.post("/api/notify")
 def send_notification(req: NotifyMessage):
+    if _alert_config.get("alerts_paused", True):
+        return {"success": False, "error": "Alerts are paused"}
     success = True
     errors  = []
     channel = (req.channel or "news").lower()
@@ -2293,6 +2306,8 @@ async def health_monitor_loop():
 
 async def send_telegram_alert(message: str):
     """Send alert to Telegram."""
+    if _alert_config.get("alerts_paused", True):
+        return
     token = _alert_config.get("telegram_bot_token")
     chat_id = _alert_config.get("telegram_chat_alerts") or _alert_config.get("telegram_chat_id")
     
@@ -2310,6 +2325,8 @@ async def send_telegram_alert(message: str):
 
 def send_discord_alert(message: str):
     """Send alert to Discord."""
+    if _alert_config.get("alerts_paused", True):
+        return
     webhook = _alert_config.get("discord_alerts_webhook")
     if not webhook:
         return
@@ -3002,6 +3019,8 @@ def get_history():
     return {"data": trades}
 
 def __send_execution_alert(symbol: str, action: str, lot_size: float, price: float, sl: float=0, tp: float=0):
+    if _alert_config.get("alerts_paused", True):
+        return
     import threading
     def _send_bg():
         direction = "Long" if action.lower() == "buy" else "Short"

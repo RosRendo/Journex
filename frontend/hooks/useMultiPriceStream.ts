@@ -14,7 +14,7 @@ export interface MultiTick {
 }
 
 export function useMultiPriceStream(symbols: string[], { tapeLimit = 60 } = {}) {
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const userEmail = session?.user?.email || "";
   const [lastBySymbol, setLastBySymbol] = useState<Record<string, MultiTick>>({});
   const [tape, setTape] = useState<MultiTick[]>([]);
@@ -29,6 +29,7 @@ export function useMultiPriceStream(symbols: string[], { tapeLimit = 60 } = {}) 
 
   useEffect(() => {
     if (!key) return undefined;
+    if (sessionStatus === "loading") return undefined;
     let cancelled = false;
 
     const open = () => {
@@ -93,7 +94,7 @@ export function useMultiPriceStream(symbols: string[], { tapeLimit = 60 } = {}) 
         try { wsRef.current.close(); } catch (_) { /* ignore */ }
       }
     };
-  }, [key, tapeLimit, userEmail]);
+  }, [key, tapeLimit, userEmail, sessionStatus]);
 
   return { lastBySymbol, tape, status };
 }

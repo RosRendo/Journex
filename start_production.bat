@@ -1,85 +1,90 @@
 @echo off
-title 🌐 DashboardKiller — PRODUCTION (ONE-CLICK AUTO-DEPLOY)
+title 🌐 DashboardKiller — PRODUCTION (Cloudflare Tunnels)
 color 0B
 
 REM ═══════════════════════════════════════════════════════════════════════
-REM  PRODUCTION STARTUP — FULLY AUTOMATED
+REM  PRODUCTION STARTUP — CLOUDFLARE TUNNEL EDITION
 REM
-REM  This script does EVERYTHING in one click:
-REM    [1] Starts the MT5 Python bridge (port 5003)
-REM    [2] Starts Ngrok tunnel (exposes MT5 bridge to Railway cloud)
-REM    [3] Auto-detects the new Ngrok URL (changes every run)
-REM    [4] Updates Railway  → LOCAL_MT5_URL
-REM        Updates Vercel   → NEXT_PUBLIC_BRIDGE_URL
-REM        Triggers Vercel  → Production redeploy (~60s)
-REM    [5] Opens the live dashboard in your browser
+REM  Permanent fixed URLs (no updates needed each run):
+REM    Frontend  → https://dashboard-roan-tau-xrg43s0811.vercel.app
+REM    Backend   → https://api.dashboardkiller.online → localhost:5000
+REM    MT5 Brdg  → https://python.dashboardkiller.online → localhost:5003
 REM
-REM  Requirements (one-time setup):
-REM    npm i -g @railway/cli vercel
-REM    railway login
-REM    vercel login
+REM  What this script starts:
+REM    [1] Backend Express API    (port 5000)
+REM    [2] MT5 Python bridge      (port 5003)
+REM    [3] Cloudflare tunnel      (config.yml — routes both domains)
+REM    [4] Opens live dashboard
 REM ═══════════════════════════════════════════════════════════════════════
 
 set PROJECT_WIN=d:\Forex\dashboardkiller
+set BACKEND_DIR=%PROJECT_WIN%\backend
+set DASHBOARD_URL=https://dashboard-roan-tau-xrg43s0811.vercel.app/dashboard
 
 echo.
 echo  ╔══════════════════════════════════════════════════════════════════╗
-echo  ║   DashboardKiller — Production Startup (ONE-CLICK AUTO-DEPLOY)  ║
-echo  ║   Frontend  → https://dashboard-nine-flax-74.vercel.app         ║
-echo  ║   Backend   → https://dashboard-production-f374.up.railway.app  ║
-echo  ║   MT5 Brdg  → Local Windows (Ngrok tunnel, URL auto-updated)    ║
+echo  ║   DashboardKiller — Production Startup (Cloudflare Edition)     ║
+echo  ║                                                                  ║
+echo  ║   Frontend  → https://dashboard-roan-tau-xrg43s0811.vercel.app  ║
+echo  ║   Backend   → https://api.dashboardkiller.online  (:5000 local) ║
+echo  ║   MT5 Brdg  → https://python.dashboardkiller.online (:5003 loc) ║
 echo  ╚══════════════════════════════════════════════════════════════════╝
 echo.
 
-REM ── [1/4] Start MT5 Python Bridge ─────────────────────────────────────
-echo [1/4] Starting MT5 Bridge on port 5003...
-start "MT5 Bridge" cmd /k "cd /d %PROJECT_WIN% && python mt5_bridge.py"
+REM ── [1/4] Start Backend Express API (port 5000) ────────────────────────
+echo [1/4] Starting Backend API on port 5000...
+start "Backend API :5000" cmd /k "cd /d %BACKEND_DIR% && npm run dev"
+echo       Waiting for backend to initialize...
+timeout /t 5 /nobreak > nul
+
+REM ── [2/4] Start MT5 Python Bridge (port 5003) ─────────────────────────
+echo [2/4] Starting MT5 Bridge on port 5003...
+start "MT5 Bridge :5003" cmd /k "cd /d %PROJECT_WIN% && python mt5_bridge.py"
 echo       Waiting for MT5 bridge to initialize...
 timeout /t 4 /nobreak > nul
 
-REM ── [2/4] Start Ngrok Tunnel ──────────────────────────────────────────
-echo [2/4] Starting Ngrok tunnel (mt5-bridge)...
-start "Ngrok — MT5 Bridge" cmd /k "cd /d %PROJECT_WIN% && ngrok start --config ngrok-tunnels.yml mt5-bridge"
-echo       Waiting 9 seconds for Ngrok to get a URL from the server...
-timeout /t 9 /nobreak > nul
+REM ── [3/4] Start Cloudflare Tunnel (config.yml) ────────────────────────
+echo [3/4] Starting Cloudflare tunnel...
+echo       api.dashboardkiller.online    → localhost:5000
+echo       python.dashboardkiller.online → localhost:5003
 
-REM ── [3/4 + 4/4] Auto-update Railway + Vercel, then redeploy ───────────
-echo [3/4] Fetching Ngrok URL and updating cloud services...
-echo       (Railway + Vercel env vars will be set, then Vercel will redeploy)
-echo.
-powershell -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_WIN%\update_prod_env.ps1" -ProjectPath "%PROJECT_WIN%"
-
-if %ERRORLEVEL% NEQ 0 (
-    echo.
-    echo  ⚠️  Auto-update script returned an error.
-    echo     Check if Railway CLI and Vercel CLI are installed and logged in:
-    echo       npm i -g @railway/cli vercel
-    echo       railway login
-    echo       vercel login
-    echo.
-    echo  You can re-run the env update manually at any time:
-    echo    powershell -File "%PROJECT_WIN%\update_prod_env.ps1"
-    echo.
+REM Try running via config.yml (named tunnel, uses stored credentials)
+where cloudflared >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    start "Cloudflare Tunnel" cmd /k "cd /d %PROJECT_WIN% && cloudflared tunnel --config config.yml run"
+    echo       [OK] Cloudflare tunnel launched via config.yml
+) else (
+    REM cloudflared not on PATH — try common install locations
+    if exist "C:\Program Files\cloudflared\cloudflared.exe" (
+        start "Cloudflare Tunnel" cmd /k "cd /d %PROJECT_WIN% && \"C:\Program Files\cloudflared\cloudflared.exe\" tunnel --config config.yml run"
+        echo       [OK] Cloudflare tunnel launched from Program Files
+    ) else (
+        REM Last resort: use the token directly
+        start "Cloudflare Tunnel" cmd /k "cloudflared tunnel run --token eyJhIjoiNjgyYTI2OGM1YjBlNThhMjRjMTU0Y2I2MjU1ODVlN2MiLCJ0IjoiZDg4NTUzZmItZDVlMy00OTZhLWIyNWUtOGY4ODI1NTcwYTIzIiwicyI6Ik56UXlPV0pqTnpJdE5HSmtNQzAwWW1GbExUbGtPREV0WVRObFpqZGxZVEpqTjJabSJ9"
+        echo       [WARN] cloudflared not found on PATH — running with token
+    )
 )
+
+echo       Waiting for tunnel to connect...
+timeout /t 6 /nobreak > nul
 
 REM ── [4/4] Open the live dashboard ─────────────────────────────────────
 echo.
-echo [4/4] Opening production dashboard in browser...
-timeout /t 3 /nobreak > nul
-start https://dashboard-nine-flax-74.vercel.app/dashboard
+echo [4/4] Opening production dashboard...
+start %DASHBOARD_URL%
 
 echo.
 echo  ╔══════════════════════════════════════════════════════════════════╗
 echo  ║  ✅  Production startup complete!                                ║
 echo  ║                                                                  ║
-echo  ║  📡  MT5 Bridge    : running on port 5003                        ║
-echo  ║  🔗  Ngrok tunnel  : active (URL auto-updated in cloud)          ║
-echo  ║  🚂  Railway       : LOCAL_MT5_URL refreshed                     ║
-echo  ║  ▲   Vercel        : NEXT_PUBLIC_BRIDGE_URL refreshed            ║
-echo  ║  🌐  Dashboard     : Redeploying (~60s) then live                ║
+echo  ║  🖥️   Backend API  :5000  → api.dashboardkiller.online           ║
+echo  ║  📡  MT5 Bridge  :5003  → python.dashboardkiller.online         ║
+echo  ║  ☁️   Cloudflare          → both tunnels active                  ║
+echo  ║  🌐  Dashboard            → Vercel (always live)                 ║
 echo  ╚══════════════════════════════════════════════════════════════════╝
 echo.
-echo  Tip: Keep this window open. Close it to stop nothing —
-echo       MT5 Bridge and Ngrok run in their own windows.
+echo  3 windows opened: Backend, MT5 Bridge, Cloudflare Tunnel
+echo  Keep them running. Close any one to stop that service.
 echo.
 pause
+

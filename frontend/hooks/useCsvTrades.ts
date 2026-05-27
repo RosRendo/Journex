@@ -1,9 +1,13 @@
 import { useState, useCallback, useEffect } from "react";
-import { resolveLocalUrl } from "@/lib/utils";
+import { getBackendUrl } from "@/lib/utils";
 
-const BRIDGE_URL = resolveLocalUrl(process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003");
-const API_URL = resolveLocalUrl(process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
-const DB_API_URL = resolveLocalUrl(process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000");
+// Use getBackendUrl() — returns NEXT_PUBLIC_BACKEND_URL or localhost:5000.
+// Never uses resolveLocalUrl() which was blindly replacing 'localhost' with
+// the current window hostname, producing broken URLs like
+// http://dashboard-roan-tau-xrg43s0811.vercel.app:3000 on Vercel.
+const BRIDGE_URL = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
+const API_URL   = getBackendUrl();
+const DB_API_URL = getBackendUrl();
 
 export interface TradeData {
   id: number;

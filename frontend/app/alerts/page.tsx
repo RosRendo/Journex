@@ -29,6 +29,7 @@ interface AlertConfig {
   dnd_enabled: boolean;
   dnd_start: string;
   dnd_end: string;
+  alerts_paused: boolean;
 }
 
 const DEFAULT: AlertConfig = {
@@ -40,6 +41,7 @@ const DEFAULT: AlertConfig = {
   dnd_enabled: false,
   dnd_start: "22:00",
   dnd_end: "06:00",
+  alerts_paused: true,
 };
 
 function StatusDot({ active }: { active: boolean }) {
@@ -180,6 +182,32 @@ export default function AlertSettingsPage() {
           calendar alerts
         </p>
       </div>
+
+      {/* ── Global Alerts Pause / Open Status Control ─────────────────── */}
+      <section className={`rounded-2xl border p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all duration-300 ${config.alerts_paused ? "border-amber-500/20 bg-amber-500/5" : "border-emerald-500/20 bg-emerald-500/5"}`}>
+        <div>
+          <h2 className={`font-bold flex items-center gap-2 transition-colors ${config.alerts_paused ? "text-amber-500" : "text-emerald-500"}`}>
+            <BellRing className="w-4 h-4" /> Global Alerts Status: {config.alerts_paused ? "PAUSED" : "ACTIVE (OPEN)"}
+          </h2>
+          <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+            Mute or unmute all Discord and Telegram notifications. Background loops will not post alerts when paused.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setConfig(prev => ({ ...prev, alerts_paused: true }))}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${config.alerts_paused ? "bg-amber-500 text-white shadow-md shadow-amber-500/20" : "bg-muted border border-border hover:bg-muted/80 text-foreground"}`}
+          >
+            Pause
+          </button>
+          <button
+            onClick={() => setConfig(prev => ({ ...prev, alerts_paused: false }))}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${!config.alerts_paused ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/20" : "bg-muted border border-border hover:bg-muted/80 text-foreground"}`}
+          >
+            Open
+          </button>
+        </div>
+      </section>
 
       {/* ── Global Do Not Disturb Schedule ────────────────────────────── */}
       <section className="rounded-2xl border border-rose-500/20 bg-rose-500/5 p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
