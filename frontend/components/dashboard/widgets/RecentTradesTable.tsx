@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { TradeData } from "@/hooks/useCsvTrades";
 import { MoreHorizontal, Filter, ChevronDown, ChevronUp } from "lucide-react";
+import { getPairDigits } from "@/lib/format";
 
 interface RecentTradesTableProps {
   trades: TradeData[];
@@ -158,8 +159,8 @@ export function RecentTradesTable({ trades, loading }: RecentTradesTableProps) {
                       {t.direction}
                     </span>
                   </td>
-                  <td className="px-6 py-4 font-mono text-[12px] text-gray-300">{Number(t.entry).toFixed(5)}</td>
-                  <td className="px-6 py-4 font-mono text-[12px] text-gray-300">{t.closePrice ? Number(t.closePrice).toFixed(5) : "—"}</td>
+                  <td className="px-6 py-4 font-mono text-[12px] text-gray-300">{Number(t.entry).toFixed(getPairDigits(t.pair))}</td>
+                  <td className="px-6 py-4 font-mono text-[12px] text-gray-300">{t.closePrice ? Number(t.closePrice).toFixed(getPairDigits(t.pair)) : "—"}</td>
                   <td className={`px-6 py-4 text-right font-mono font-bold ${t.profit >= 0 ? "text-[--bull]" : "text-[--bear]"}`}>
                     {t.profit >= 0 ? "+" : "-"}${Math.abs(t.profit).toFixed(2)}
                   </td>

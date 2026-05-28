@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { resolveLocalUrl } from "@/lib/utils";
 import { CheckCircle2, XCircle, AlertTriangle, Loader2, Shield, X } from "lucide-react";
+import { getPairDigits } from "@/lib/format";
 
 export interface PreTradeChecklistProps {
   isOpen: boolean;
@@ -152,7 +153,7 @@ export function PreTradeChecklist({
               </span>
             </div>
             <div className="text-xs text-gray-400">
-              Entry: {price?.toFixed(2) || "—"} · SL: {sl || "—"} · TP: {tp || "—"}
+              Entry: {price?.toFixed(getPairDigits(pair)) || "—"} · SL: {sl || "—"} · TP: {tp || "—"}
             </div>
           </div>
 

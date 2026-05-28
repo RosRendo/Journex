@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { Position } from "@/hooks/usePositions";
 import { Activity, XCircle, ArrowUpRight, ArrowDownRight, Clock } from "lucide-react";
+import { getPairDigits } from "@/lib/format";
 
 interface OpenPositionsListProps {
   positions: Position[];
@@ -122,13 +123,13 @@ export function OpenPositionsList({ positions, loading }: OpenPositionsListProps
                         </div>
                      </div>
                   </td>
-                  <td className="px-6 py-4 font-mono text-[12px] text-gray-300">{Number(p.entry).toFixed(5)}</td>
+                  <td className="px-6 py-4 font-mono text-[12px] text-gray-300">{Number(p.entry).toFixed(getPairDigits(p.pair))}</td>
                   <td className="px-6 py-4 font-mono text-[12px] text-white">
-                     {Number(p.current).toFixed(5)}
+                     {Number(p.current).toFixed(getPairDigits(p.pair))}
                   </td>
                   <td className="px-6 py-4 text-[10px] font-mono text-gray-400">
-                     <div className="mb-0.5">SL: {p.sl > 0 ? p.sl.toFixed(5) : "—"}</div>
-                     <div>TP: {p.tp > 0 ? p.tp.toFixed(5) : "—"}</div>
+                     <div className="mb-0.5">SL: {p.sl > 0 ? p.sl.toFixed(getPairDigits(p.pair)) : "—"}</div>
+                     <div>TP: {p.tp > 0 ? p.tp.toFixed(getPairDigits(p.pair)) : "—"}</div>
                   </td>
                   <td className={`px-6 py-4 text-right font-mono font-bold ${p.pnl >= 0 ? "text-[--bull]" : "text-[--bear]"}`}>
                     <div className="text-sm">

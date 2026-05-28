@@ -24,6 +24,7 @@ import { useWebSocket } from "@/hooks/useWebSocket";
 import { useCsvTrades } from "@/hooks/useCsvTrades";
 import { useNews } from "@/hooks/useNews";
 import { calculateMetrics, getStrategyStats } from "@/lib/calculations";
+import { getPairDigits } from "@/lib/format";
 import {
   AreaChart,
   Area,
@@ -565,7 +566,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-3">
             {livePrice !== null && (
               <span className="text-lg font-mono font-bold" style={{ color: "var(--text-primary)" }}>
-                {livePrice.toFixed(2)}
+                {livePrice.toFixed(getPairDigits(selectedPair))}
               </span>
             )}
             <button

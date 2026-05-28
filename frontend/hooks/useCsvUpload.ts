@@ -199,13 +199,13 @@ export function useCsvUpload() {
       };
     }
 
-    const wins = trades.filter((t) => t.profit > 0);
-    const losses = trades.filter((t) => t.profit < 0);
-    const breakEven = trades.filter((t) => t.profit === 0);
+    const wins = trades.filter((t) => Number(t.profit || 0) > 0);
+    const losses = trades.filter((t) => Number(t.profit || 0) < 0);
+    const breakEven = trades.filter((t) => Number(t.profit || 0) === 0);
 
-    const totalProfit = trades.reduce((sum, t) => sum + t.profit, 0);
-    const totalWins = wins.reduce((sum, t) => sum + t.profit, 0);
-    const totalLosses = Math.abs(losses.reduce((sum, t) => sum + t.profit, 0));
+    const totalProfit = trades.reduce((sum, t) => sum + Number(t.profit || 0), 0);
+    const totalWins = wins.reduce((sum, t) => sum + Number(t.profit || 0), 0);
+    const totalLosses = Math.abs(losses.reduce((sum, t) => sum + Number(t.profit || 0), 0));
 
     // Group by pair
     const pairMap = new Map<
@@ -218,9 +218,10 @@ export function useCsvUpload() {
         pairMap.set(pair, { wins: 0, losses: 0, profit: 0 });
       }
       const pairStats = pairMap.get(pair)!;
-      if (trade.profit > 0) pairStats.wins++;
-      if (trade.profit < 0) pairStats.losses++;
-      pairStats.profit += trade.profit;
+      const profitNum = Number(trade.profit || 0);
+      if (profitNum > 0) pairStats.wins++;
+      if (profitNum < 0) pairStats.losses++;
+      pairStats.profit += profitNum;
     });
 
     return {
@@ -233,8 +234,8 @@ export function useCsvUpload() {
       profitFactor: totalLosses > 0 ? totalWins / totalLosses : 0,
       avgWin: wins.length > 0 ? totalWins / wins.length : 0,
       avgLoss: losses.length > 0 ? -totalLosses / losses.length : 0,
-      bestTrade: Math.max(...trades.map((t) => t.profit)),
-      worstTrade: Math.min(...trades.map((t) => t.profit)),
+      bestTrade: Math.max(...trades.map((t) => Number(t.profit || 0))),
+      worstTrade: Math.min(...trades.map((t) => Number(t.profit || 0))),
       pairs: Array.from(pairMap.entries()).map(([pair, stats]) => ({
         pair,
         ...stats,

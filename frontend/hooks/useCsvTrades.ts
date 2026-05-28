@@ -122,10 +122,10 @@ export function useCsvTrades(accountId?: number, autoRefreshMs: number = 0) {
         openTime: t.openTime,
         pair: t.pair,
         direction: t.direction,
-        entry: t.entry,
-        closePrice: t.closePrice,
-        lotSize: t.lotSize,
-        profit: t.profit,
+        entry: Number(t.entry || 0),
+        closePrice: t.closePrice !== undefined && t.closePrice !== null ? Number(t.closePrice) : undefined,
+        lotSize: t.lotSize !== undefined && t.lotSize !== null ? Number(t.lotSize) : undefined,
+        profit: Number(t.profit || 0),
         outcome: t.outcome,
         ticket: t.ticket,
       }));
@@ -151,11 +151,11 @@ export function useCsvTrades(accountId?: number, autoRefreshMs: number = 0) {
                 openTime: t.date,
                 pair: t.pair,
                 direction: t.direction === "buy" ? "Long" : "Short",
-                entry: t.entry,
-                closePrice: t.closePrice,
-                lotSize: t.lot,
-                profit: t.profit || 0,
-                outcome: (t.profit || 0) > 0 ? "W" : (t.profit || 0) < 0 ? "L" : "E",
+                entry: Number(t.entry || 0),
+                closePrice: t.closePrice !== undefined && t.closePrice !== null ? Number(t.closePrice) : undefined,
+                lotSize: t.lot !== undefined && t.lot !== null ? Number(t.lot) : undefined,
+                profit: Number(t.profit || 0),
+                outcome: Number(t.profit || 0) > 0 ? "W" : Number(t.profit || 0) < 0 ? "L" : "E",
                 ticket: String(t.ticket)
               });
             }

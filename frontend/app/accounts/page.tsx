@@ -1,6 +1,6 @@
 "use client";
 
-import { resolveLocalUrl } from "@/lib/utils";
+import { getBackendUrl } from "@/lib/utils";
 import { useBrokerAccounts } from "@/hooks/useCsvTrades";
 import { useCsvTrades } from "@/hooks/useCsvTrades";
 import {
@@ -174,7 +174,7 @@ export default function Accounts() {
   } = useBrokerAccounts();
   const { analytics, trades, loading: tradesLoading } = useCsvTrades();
 
-  const API_URL = resolveLocalUrl(process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
+  const API_URL = getBackendUrl();
 
   const fetchDbAccounts = async () => {
     try {

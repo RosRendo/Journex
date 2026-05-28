@@ -1,7 +1,6 @@
-import { resolveLocalUrl } from "../../lib/utils";
+import { resolveLocalUrl, getBackendUrl } from "../../lib/utils";
 
-const BACKEND_URL =
-  resolveLocalUrl(process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000");
+const BACKEND_URL = getBackendUrl();
 const BRIDGE_URL = resolveLocalUrl(process.env.NEXT_PUBLIC_BRIDGE_URL || "");
 
 export interface Trade {

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { resolveLocalUrl } from "@/lib/utils";
+import { getBackendUrl } from "@/lib/utils";
 import Link from "next/link";
 import {
     User, Edit3, Save, X, Camera,
@@ -10,7 +10,7 @@ import {
     Briefcase, Clock
 } from "lucide-react";
 
-const BACKEND_URL = resolveLocalUrl(process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000");
+const BACKEND_URL = getBackendUrl();
 const API = `${BACKEND_URL}/api/community`;
 
 interface Community { id: string; name: string; description: string; }

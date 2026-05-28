@@ -6,6 +6,7 @@ import {
   X, Edit2, Check, XCircle, Loader2, ChevronDown, ChevronUp,
   Wifi, WifiOff, Zap
 } from "lucide-react";
+import { getPairDigits } from "@/lib/format";
 
 import {
   fetchBridgePositions,
@@ -307,11 +308,11 @@ export default function PositionsPage() {
                       {/* Volume */}
                       <td className="px-6 py-4 font-mono text-white font-medium">{pos.volume.toFixed(2)}</td>
                       {/* Open */}
-                      <td className="px-6 py-4 font-mono text-gray-300">{pos.price_open.toFixed(5)}</td>
+                      <td className="px-6 py-4 font-mono text-gray-300">{pos.price_open.toFixed(getPairDigits(pos.symbol))}</td>
                       {/* Current */}
                       <td className="px-6 py-4">
                         <div className="font-mono font-bold text-white bg-white/5 border border-white/10 px-3 py-1 rounded-lg inline-block">
-                          {pos.price_current.toFixed(5)}
+                          {pos.price_current.toFixed(getPairDigits(pos.symbol))}
                         </div>
                       </td>
                       {/* SL/TP - Editable */}
@@ -321,23 +322,23 @@ export default function PositionsPage() {
                             <div className="flex items-center gap-1.5">
                               <span className="text-[9px] text-[--bear] uppercase font-bold w-6">SL</span>
                               <input type="number" step="any" value={editSl} onChange={e => setEditSl(e.target.value)}
-                                placeholder={pos.sl > 0 ? pos.sl.toFixed(5) : "None"}
+                                placeholder={pos.sl > 0 ? pos.sl.toFixed(getPairDigits(pos.symbol)) : "None"}
                                 className="w-28 bg-white/5 border border-white/20 rounded px-2 py-1 text-xs font-mono text-white focus:outline-none focus:border-[--bear]/50" />
                             </div>
                             <div className="flex items-center gap-1.5">
                               <span className="text-[9px] text-[--bull] uppercase font-bold w-6">TP</span>
                               <input type="number" step="any" value={editTp} onChange={e => setEditTp(e.target.value)}
-                                placeholder={pos.tp > 0 ? pos.tp.toFixed(5) : "None"}
+                                placeholder={pos.tp > 0 ? pos.tp.toFixed(getPairDigits(pos.symbol)) : "None"}
                                 className="w-28 bg-white/5 border border-white/20 rounded px-2 py-1 text-xs font-mono text-white focus:outline-none focus:border-[--bull]/50" />
                             </div>
                           </div>
                         ) : (
                           <div className="flex flex-col gap-1 text-[11px] font-mono">
                             <span className={`px-2 py-0.5 rounded flex items-center gap-1 ${pos.sl > 0 ? "bg-[--bear]/10 text-[--bear]" : "text-gray-600"}`}>
-                              <AlertCircle className="w-3 h-3" />{pos.sl > 0 ? pos.sl.toFixed(5) : "No SL"}
+                              <AlertCircle className="w-3 h-3" />{pos.sl > 0 ? pos.sl.toFixed(getPairDigits(pos.symbol)) : "No SL"}
                             </span>
                             <span className={`px-2 py-0.5 rounded flex items-center gap-1 ${pos.tp > 0 ? "bg-[--bull]/10 text-[--bull]" : "text-gray-600"}`}>
-                              <Target className="w-3 h-3" />{pos.tp > 0 ? pos.tp.toFixed(5) : "No TP"}
+                              <Target className="w-3 h-3" />{pos.tp > 0 ? pos.tp.toFixed(getPairDigits(pos.symbol)) : "No TP"}
                             </span>
                           </div>
                         )}

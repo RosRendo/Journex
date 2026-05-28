@@ -1,7 +1,7 @@
 import axios, { AxiosInstance } from "axios";
-import { resolveLocalUrl } from "@/lib/utils";
+import { getBackendUrl } from "@/lib/utils";
 
-const API_BASE_URL = resolveLocalUrl(process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
+const API_BASE_URL = getBackendUrl();
 
 export interface BrokerCredentials {
   broker: string;

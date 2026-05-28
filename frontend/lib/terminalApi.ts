@@ -1,8 +1,8 @@
 import axios from "axios";
-import { resolveLocalUrl } from "./utils";
+import { getBackendUrl } from "./utils";
 import { getSession } from "next-auth/react";
 
-const BACKEND_URL = resolveLocalUrl(process.env.NEXT_PUBLIC_BACKEND_URL || "");
+const BACKEND_URL = getBackendUrl();
 export const API = `${BACKEND_URL}/api`;
 
 export const api = axios.create({ baseURL: API, timeout: 30000 });

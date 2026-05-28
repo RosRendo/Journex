@@ -2,6 +2,7 @@
 import { useCsvTrades } from "@/hooks/useCsvTrades";
 import type { TradeData } from "@/hooks/useCsvTrades";
 import { useMemo, useState, useEffect, useRef } from "react";
+import { getPairDigits } from "@/lib/format";
 import CsvUploadComponent from "@/components/CsvUploadComponent";
 import {
   Search,
@@ -158,7 +159,7 @@ export default function JournalPage() {
       `"${new Date(t.date).toLocaleString()}"`,
       t.pair,
       t.direction,
-      t.entry.toFixed(5),
+      t.entry.toFixed(getPairDigits(t.pair)),
       t.lotSize?.toFixed(2) ?? "0",
       t.profit.toFixed(2),
       t.outcome
@@ -386,7 +387,7 @@ export default function JournalPage() {
                             {trade.direction}
                           </span>
                         </td>
-                        <td className="px-5 py-3.5 font-mono" style={{ color: "var(--text-tertiary)", fontSize: 11 }}>{trade.entry.toFixed(5)}</td>
+                        <td className="px-5 py-3.5 font-mono" style={{ color: "var(--text-tertiary)", fontSize: 11 }}>{trade.entry.toFixed(getPairDigits(trade.pair))}</td>
                         <td className="px-5 py-3.5 font-mono" style={{ color: "var(--text-secondary)", fontSize: 12 }}>{trade.lotSize?.toFixed(2) ?? "-"}</td>
                         <td className="px-5 py-3.5 text-right font-bold font-mono" style={{ color: trade.profit >= 0 ? "var(--bull)" : "var(--bear)", fontSize: 12 }}>
                           {trade.profit >= 0 ? "+" : ""}${trade.profit.toFixed(2)}

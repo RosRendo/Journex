@@ -104,3 +104,14 @@ export const impactColor = (impact: string | null | undefined): string => {
       return "text-zinc-400";
   }
 };
+
+export const getPairDigits = (symbol: string): number => {
+  if (!symbol) return 2;
+  const s = symbol.toUpperCase().replace("/", "").replace("_", "");
+  if (s.includes("JPY")) return 3;
+  if (s.includes("XAU") || s === "GOLD") return 2;
+  if (s.includes("XAG") || s === "SILVER") return 3;
+  if (s.includes("US30") || s.includes("DOW")) return 2;
+  if (s.includes("US100") || s.includes("NAS")) return 2;
+  return 5;
+};
