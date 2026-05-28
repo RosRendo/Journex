@@ -219,24 +219,61 @@ async function seedDemoTradesIfEmpty() {
 
 // generateCandles is imported from terminalBrokerAdapter
 
-function getWatchlist() {
+async function getWatchlist(adapter?: any) {
   const items = [];
   const rng = new SeededRandom(42);
-  for (const sym of Object.keys(SYMBOLS)) {
+  const symbols = Object.keys(SYMBOLS).slice(0, 8);
+
+  let livePrices: Record<string, { bid: number; ask: number; mid: number }> | null = null;
+  if (adapter) {
+    try {
+      livePrices = await adapter.getPricing(symbols);
+    } catch (err) {
+      console.warn("Failed to fetch live prices for watchlist:", err);
+    }
+  }
+
+  for (const sym of symbols) {
     const base = SYMBOLS[sym];
-    const change = rng.uniform(-0.9, 0.9);
-    const change_pips = parseFloat((change * (base.digits >= 4 ? 10000 : 100)).toFixed(1));
+    let price = base.price;
+    let bid = parseFloat((base.price - Math.pow(10, -base.digits)).toFixed(base.digits));
+    let ask = parseFloat((base.price + Math.pow(10, -base.digits)).toFixed(base.digits));
+    let change_pct = 0;
+    let change_pips = 0;
+
+    if (livePrices && livePrices[sym]) {
+      const live = livePrices[sym];
+      price = live.mid;
+      bid = live.bid;
+      ask = live.ask;
+      
+      const pDiff = price - base.price;
+      const factor = base.digits >= 4 ? 10000 : 100;
+      change_pips = parseFloat((pDiff * factor).toFixed(1));
+      change_pct = parseFloat(((pDiff / base.price) * 100).toFixed(2));
+      
+      if (change_pips === 0) {
+        const change = rng.uniform(-0.1, 0.1);
+        change_pips = parseFloat((change * factor).toFixed(1));
+        change_pct = parseFloat(change.toFixed(2));
+      }
+    } else {
+      const change = rng.uniform(-0.9, 0.9);
+      change_pips = parseFloat((change * (base.digits >= 4 ? 10000 : 100)).toFixed(1));
+      change_pct = parseFloat(change.toFixed(2));
+    }
+
     items.push({
       symbol: sym,
-      price: base.price,
+      price,
       digits: base.digits,
-      change_pct: parseFloat(change.toFixed(2)),
-      change_pips: change_pips,
-      bid: parseFloat((base.price - Math.pow(10, -base.digits)).toFixed(base.digits)),
-      ask: parseFloat((base.price + Math.pow(10, -base.digits)).toFixed(base.digits)),
+      change_pct,
+      change_pips,
+      bid,
+      ask,
     });
   }
-  return items.slice(0, 8);
+  return items;
 }
 
 async function getPositionsList() {
@@ -590,7 +627,7 @@ router.get("/terminal/snapshot", async (req, res) => {
       candles = generateCandles(symbol, timeframe, 200);
     }
 
-    const watchlist = getWatchlist();
+    const watchlist = await getWatchlist(adapter);
 
     // Fetch positions via adapter, fallback if error
     let positions;
@@ -787,8 +824,15 @@ router.get("/terminal/candles", async (req, res) => {
 });
 
 // GET /api/terminal/watchlist
-router.get("/terminal/watchlist", (req, res) => {
-  res.json(getWatchlist());
+router.get("/terminal/watchlist", async (req, res) => {
+  try {
+    const adapter = getActiveAdapter(req);
+    const watchlist = await getWatchlist(adapter);
+    res.json(watchlist);
+  } catch (error) {
+    console.error("Failed to load watchlist:", error);
+    res.status(500).json({ error: "Failed to load watchlist" });
+  }
 });
 
 // GET /api/terminal/positions
