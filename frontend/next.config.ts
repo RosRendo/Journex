@@ -28,6 +28,9 @@ const nextConfig: NextConfig = {
                 // Railway fallback (keep in case direct Railway access needed)
                 "https://dashboard-production-f374.up.railway.app",
                 "wss://dashboard-production-f374.up.railway.app",
+                // Supabase
+                "https://*.supabase.co",
+                "wss://*.supabase.co",
                 // Local development
                 "http://localhost:5000",
                 "/api/bridge",
