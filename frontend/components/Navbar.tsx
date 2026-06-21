@@ -212,7 +212,7 @@ export default function Navbar({ onMenuToggle }: { onMenuToggle?: () => void }) 
             <span className="text-black text-xs font-black">T</span>
           </div>
           <span className="font-display text-[15px] font-bold tracking-wide text-[--text-primary]">
-            TRADEDESK
+            Journex
           </span>
         </div>
 
