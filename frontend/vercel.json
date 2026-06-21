@@ -1,6 +1,5 @@
 {
   "framework": "nextjs",
-  "public": false,
   "regions": ["sfo1"],
   "git": {
     "deploymentEnabled": true
