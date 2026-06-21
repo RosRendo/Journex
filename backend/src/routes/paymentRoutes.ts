@@ -1,6 +1,5 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import DodoPayments from 'dodopayments';
-import { Webhooks } from '@dodopayments/express';
 import { requireAuth } from '../middleware/authMiddleware';
 import { PrismaClient } from '@prisma/client';
 
@@ -34,9 +33,13 @@ router.post('/checkout', requireAuth, async (req: Request, res: Response) => {
         street: '123 Main St',
         zipcode: '10001'
       },
-      productCart: [
+      customer: {
+        email: 'user@example.com', // In a real app, fetch the user's email from the DB
+        name: 'Journex User'
+      },
+      product_cart: [
         {
-          productId: productId,
+          product_id: productId,
           quantity: 1
         }
       ],
@@ -57,28 +60,39 @@ router.post('/checkout', requireAuth, async (req: Request, res: Response) => {
 
 // 2. Webhook to instantly upgrade user upon payment
 // Notice we do NOT use requireAuth here, because Dodo Payments calls this, not the user
-router.post('/webhook', Webhooks({
-  webhookKey: process.env.DODO_PAYMENTS_WEBHOOK_SECRET || "test_secret",
-  onPayload: async (payload: any) => {
-    console.log("Received Dodo Payment Webhook:", payload.event_type);
+router.post('/webhook', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    // Dynamically import the ESM module
+    const { Webhooks } = await import('@dodopayments/express');
+    const middleware = Webhooks({
+      webhookKey: process.env.DODO_PAYMENTS_WEBHOOK_SECRET || "test_secret",
+      onPayload: async (payload: any) => {
+        console.log("Received Dodo Payment Webhook:", payload.event_type);
 
-    if (payload.event_type === 'payment.succeeded' || payload.event_type === 'subscription.created') {
-      const metadata = payload.data?.metadata;
-      
-      if (metadata && metadata.userId) {
-        // Find the user in our Supabase DB via Prisma, and mark them as premium!
-        console.log(`Upgrading user ${metadata.userId} to premium!`);
-        
-        // Ensure you add a 'tier' or 'subscriptionStatus' column to your Prisma schema 
-        // if you want to track this in the database permanently.
-        // Example:
-        // await prisma.user.update({
-        //   where: { id: metadata.userId },
-        //   data: { tier: 'premium' }
-        // });
+        if (payload.event_type === 'payment.succeeded' || payload.event_type === 'subscription.created') {
+          const metadata = payload.data?.metadata;
+          
+          if (metadata && metadata.userId) {
+            // Find the user in our Supabase DB via Prisma, and mark them as premium!
+            console.log(`Upgrading user ${metadata.userId} to premium!`);
+            
+            // Ensure you add a 'tier' or 'subscriptionStatus' column to your Prisma schema 
+            // if you want to track this in the database permanently.
+            // Example:
+            // await prisma.user.update({
+            //   where: { id: metadata.userId },
+            //   data: { tier: 'premium' }
+            // });
+          }
+        }
       }
-    }
+    });
+    
+    // Execute the middleware
+    return (middleware as any)(req, res, next);
+  } catch (error) {
+    next(error);
   }
-}));
+});
 
 export default router;
