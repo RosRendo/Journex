@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { useSession } from "@/lib/useSession";
 import { useRouter } from "next/navigation";
 import { Clock, Zap, X } from "lucide-react";
 import { useState } from "react";

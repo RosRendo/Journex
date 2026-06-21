@@ -1,0 +1,51 @@
+{
+  "trade_id": "XAUUSD_2026-06-12_113536",
+  "trade_number": 1,
+  "symbol": "XAUUSD",
+  "position_type": "BUY",
+  "entry": {
+    "price": 4195.625,
+    "time": "2026-06-12T11:35:36Z",
+    "session": "Asia",
+    "spread": 50,
+    "timestamp_ms": 1781238936000
+  },
+  "position": {
+    "lot_size": 0.01,
+    "risk_amount": 0,
+    "stop_loss": 0.0,
+    "take_profit": 0.0,
+    "risk_pips": 0,
+    "reward_pips": 0,
+    "rr_ratio": 0
+  },
+  "close": {
+    "price": 4195.22,
+    "time": "2026-06-12T11:35:57.183000Z",
+    "closed_by": "Manual",
+    "duration_minutes": 0
+  },
+  "results": {
+    "profit_loss": -0.41,
+    "pips": -40.499999999974534,
+    "return_percent": 0,
+    "result": "L",
+    "trade_status": "CLOSED"
+  },
+  "media": {
+    "chart_image": "chart.png",
+    "analysis_file": "analysis.txt"
+  },
+  "tags": {
+    "strategy": [],
+    "emotion": [],
+    "session": "Asia"
+  },
+  "metadata": {
+    "created_at": "2026-06-12T04:35:37.403970Z",
+    "updated_at": "2026-06-12T04:35:58.806174Z",
+    "ai_version": "claude-3.5-sonnet",
+    "version": "1.0",
+    "ticket": 2090513076
+  }
+}

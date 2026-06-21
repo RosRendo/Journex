@@ -1,7 +1,11 @@
 import * as accountController from '../controllers/accountController';
 import { Router } from 'express';
+import { adminGuard } from '../middleware/auth';
 
 const accountRouter = Router();
+
+// Secure all account routes behind the adminGuard
+accountRouter.use(adminGuard);
 
 accountRouter.post('/', accountController.createAccount);
 accountRouter.get('/', accountController.getAllAccounts);

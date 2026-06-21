@@ -9,7 +9,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "../ui/dialog";
-import { getBroker, saveBroker, testBroker } from "../../lib/terminalApi";
+import { getBroker, saveBroker, testBroker, syncBrokerTrades } from "../../lib/terminalApi";
 
 interface BrokerSettingsProps {
   open: boolean;
@@ -19,6 +19,7 @@ interface BrokerSettingsProps {
 
 const PROVIDERS = [
   { value: "mock", label: "Mock (built-in)" },
+  { value: "metaapi", label: "MetaApi (Cloud MT5/MT4)" },
   { value: "oanda", label: "OANDA (REST/Stream)" },
   { value: "alpaca", label: "Alpaca (Paper / Live)" },
   { value: "mt5_bridge", label: "MT5 Local Bridge" },
@@ -26,9 +27,10 @@ const PROVIDERS = [
 
 const HELP: Record<string, string> = {
   mock: "Built-in mock data. No credentials needed.",
+  metaapi: "Cloud MT5 execution. Enter your Broker Server Name (e.g. Exness-Real11), MT5 Account ID, and MT5 Password.",
   oanda: "Practice account: https://www.oanda.com/demo-account/tpa/personal_token  → paste token + account ID. Base URL: https://api-fxpractice.oanda.com",
   alpaca: "Paper account: https://alpaca.markets/  → API Key ID + Secret. Base URL: https://paper-api.alpaca.markets",
-  mt5_bridge: "Your local MT5 EA exposing REST/WebSocket. Base URL example: http://localhost:8765 ; api_key optional if your bridge has auth.",
+  mt5_bridge: "Your local MT5 EA exposing REST/WebSocket. Base URL example: http://localhost:8765",
 };
 
 const DEFAULT_BASE_URL: Record<string, string> = {
@@ -50,6 +52,7 @@ export default function BrokerSettings({ open, onOpenChange, onConnected }: Brok
   });
   const [status, setStatus] = useState<any>(null);
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [confirmLive, setConfirmLive] = useState("");
   const [showLiveConfirm, setShowLiveConfirm] = useState(false);
 
@@ -121,6 +124,26 @@ export default function BrokerSettings({ open, onOpenChange, onConnected }: Brok
     }
   };
 
+  const onSync = async () => {
+    setSyncing(true);
+    setStatus(null);
+    try {
+      const s = await syncBrokerTrades();
+      setStatus({
+        ok: true,
+        message: s.message || `Successfully synced ${s.count || 0} trades.`
+      });
+      onConnected?.();
+    } catch (e: any) {
+      setStatus({
+        ok: false,
+        message: e?.response?.data?.error || e?.message || "Sync failed"
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -181,26 +204,56 @@ export default function BrokerSettings({ open, onOpenChange, onConnected }: Brok
           )}
           <div className="text-[10px] text-zinc-500 font-mono">{HELP[cfg.provider]}</div>
 
+          {cfg.provider === "metaapi" && (
+            <label className="flex flex-col gap-1 text-[10px]">
+              <span className="text-zinc-500 uppercase tracking-widest">Broker Server Name</span>
+              <input
+                data-testid="broker-base-url"
+                value={cfg.base_url || ""}
+                onChange={(e) => setCfg({ ...cfg, base_url: e.target.value })}
+                className="bg-black border border-zinc-700 focus:border-amber-500 outline-none px-2 py-1 font-mono text-[12px] text-zinc-100"
+                placeholder="e.g. Exness-Real11"
+              />
+            </label>
+          )}
+
+          {cfg.provider !== "mock" && cfg.provider !== "metaapi" && (
+            <label className="flex flex-col gap-1 text-[10px]">
+              <span className="text-zinc-500 uppercase tracking-widest">Base URL</span>
+              <input
+                data-testid="broker-base-url"
+                value={cfg.base_url || ""}
+                onChange={(e) => setCfg({ ...cfg, base_url: e.target.value })}
+                className="bg-black border border-zinc-700 focus:border-amber-500 outline-none px-2 py-1 font-mono text-[12px] text-zinc-100"
+              />
+            </label>
+          )}
+
+          {cfg.provider === "metaapi" ? (
+            <label className="flex flex-col gap-1 text-[10px]">
+              <span className="text-zinc-500 uppercase tracking-widest">MT5 Password</span>
+              <input
+                data-testid="broker-api-key"
+                type="password"
+                value={cfg.api_key || ""}
+                onChange={(e) => setCfg({ ...cfg, api_key: e.target.value })}
+                className="bg-black border border-zinc-700 focus:border-amber-500 outline-none px-2 py-1 font-mono text-[12px] text-zinc-100"
+              />
+            </label>
+          ) : (
+            <label className="flex flex-col gap-1 text-[10px]">
+              <span className="text-zinc-500 uppercase tracking-widest">API Key / Token</span>
+              <input
+                data-testid="broker-api-key"
+                value={cfg.api_key || ""}
+                onChange={(e) => setCfg({ ...cfg, api_key: e.target.value })}
+                className="bg-black border border-zinc-700 focus:border-amber-500 outline-none px-2 py-1 font-mono text-[12px] text-zinc-100"
+              />
+            </label>
+          )}
+
           <label className="flex flex-col gap-1 text-[10px]">
-            <span className="text-zinc-500 uppercase tracking-widest">Base URL</span>
-            <input
-              data-testid="broker-base-url"
-              value={cfg.base_url || ""}
-              onChange={(e) => setCfg({ ...cfg, base_url: e.target.value })}
-              className="bg-black border border-zinc-700 focus:border-amber-500 outline-none px-2 py-1 font-mono text-[12px] text-zinc-100"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-[10px]">
-            <span className="text-zinc-500 uppercase tracking-widest">API Key</span>
-            <input
-              data-testid="broker-api-key"
-              value={cfg.api_key || ""}
-              onChange={(e) => setCfg({ ...cfg, api_key: e.target.value })}
-              className="bg-black border border-zinc-700 focus:border-amber-500 outline-none px-2 py-1 font-mono text-[12px] text-zinc-100"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-[10px]">
-            <span className="text-zinc-500 uppercase tracking-widest">API Secret</span>
+            <span className="text-zinc-500 uppercase tracking-widest">API Secret (Alpaca only)</span>
             <input
               data-testid="broker-api-secret"
               type="password"
@@ -210,7 +263,9 @@ export default function BrokerSettings({ open, onOpenChange, onConnected }: Brok
             />
           </label>
           <label className="flex flex-col gap-1 text-[10px]">
-            <span className="text-zinc-500 uppercase tracking-widest">Account ID</span>
+            <span className="text-zinc-500 uppercase tracking-widest">
+              {cfg.provider === "metaapi" ? "MT5 Login (Account ID)" : "Account ID"}
+            </span>
             <input
               data-testid="broker-account-id"
               value={cfg.account_id || ""}
@@ -239,10 +294,17 @@ export default function BrokerSettings({ open, onOpenChange, onConnected }: Brok
             Close
           </button>
           <button
+            onClick={onSync}
+            disabled={saving || syncing}
+            className="text-[11px] uppercase tracking-widest border border-blue-500 text-blue-500 hover:bg-blue-500/10 px-3 py-1.5 disabled:opacity-50"
+          >
+            {syncing ? "Syncing…" : "Sync Trades"}
+          </button>
+          <button
             data-testid="broker-save"
             onClick={onSave}
-            disabled={saving}
-            className="text-[11px] uppercase tracking-widest border border-amber-500 text-amber-500 hover:bg-amber-500/10 px-3 py-1.5"
+            disabled={saving || syncing}
+            className="text-[11px] uppercase tracking-widest border border-amber-500 text-amber-500 hover:bg-amber-500/10 px-3 py-1.5 disabled:opacity-50"
           >
             {saving ? "Saving…" : "Save & Test"}
           </button>

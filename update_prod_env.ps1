@@ -12,7 +12,7 @@
 # ============================================================
 
 param(
-    [string]$ProjectPath = "d:\Forex\dashboardkiller"
+    [string]$ProjectPath = "d:\Forex\journex"
 )
 
 Set-Location $ProjectPath

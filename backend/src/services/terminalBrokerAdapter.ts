@@ -1,6 +1,8 @@
 import axios from "axios";
 import prisma from "../config/database";
 const { HttpsProxyAgent } = require("https-proxy-agent");
+import MetaApi from "metaapi.cloud-sdk";
+
 
 // ----------------------------------------------------
 // SYMBOLS & CONSTANTS (Shared for Mocks & Fallbacks)
@@ -812,16 +814,161 @@ export class AlpacaAdapter implements BrokerAdapter {
   }
 }
 
+export class MetaApiAdapter implements BrokerAdapter {
+  provider = "metaapi";
+  private metaApi: any;
+  private accountId: string;
+  private connectionPromise: Promise<any> | null = null;
+  private connection: any = null;
+
+  constructor(token: string, accountId: string) {
+    this.metaApi = new MetaApi(token);
+    this.accountId = accountId;
+  }
+
+  private async getConnection() {
+    if (this.connection) return this.connection;
+    if (this.connectionPromise) return this.connectionPromise;
+
+    this.connectionPromise = (async () => {
+      try {
+        const account = await this.metaApi.metatraderAccountApi.getAccount(this.accountId);
+        const connection = account.getRPCConnection();
+        await connection.connect();
+        await connection.waitSynchronized();
+        this.connection = connection;
+        return connection;
+      } catch (err) {
+        this.connectionPromise = null;
+        throw err;
+      }
+    })();
+    return this.connectionPromise;
+  }
+
+  async ping() {
+    try {
+      const conn = await this.getConnection();
+      const accountInfo = await conn.getAccountInformation();
+      return { ok: true, provider: "metaapi", message: `Connected to MetaApi (Balance: ${accountInfo.balance})` };
+    } catch (err: any) {
+      return { ok: false, provider: "metaapi", message: err.message || "Failed to ping MetaApi" };
+    }
+  }
+
+  async getCandles(symbol: string, timeframe: string, limit: number) {
+    try {
+      const conn = await this.getConnection();
+      // metaapi uses getHistory for candles
+      const history = await conn.getHistory(symbol, timeframe, new Date(Date.now() - limit * timeframeSeconds(timeframe) * 1000));
+      return history.map((c: any) => ({
+        time: Math.floor(new Date(c.time).getTime() / 1000),
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+        volume: c.tickVolume || c.volume
+      }));
+    } catch (err) {
+      console.warn("MetaApi getCandles failed, returning mock:", err);
+      return generateCandles(symbol, timeframe, limit);
+    }
+  }
+
+  async getPricing(symbols: string[]) {
+    const out: Record<string, { bid: number; ask: number; mid: number }> = {};
+    try {
+      const conn = await this.getConnection();
+      for (const sym of symbols) {
+        try {
+          const price = await conn.getSymbolPrice(sym);
+          if (price) {
+             out[sym] = { bid: price.bid, ask: price.ask, mid: (price.bid + price.ask) / 2 };
+          }
+        } catch (e) {
+          // fallback if symbol not found
+        }
+      }
+    } catch (err) {
+      // ignore
+    }
+    return out;
+  }
+
+  async getAccount() {
+    try {
+      const conn = await this.getConnection();
+      const info = await conn.getAccountInformation();
+      return {
+        balance: info.balance,
+        equity: info.equity,
+        free_margin: info.freeMargin,
+        used_margin_pct: info.marginLevel ? (100 / info.marginLevel) : 0,
+        drawdown_pct: ((info.balance - info.equity) / info.balance) * 100,
+        win_rate: 0,
+        trades_today: 0,
+        profit_factor: 0,
+        avg_win: 0,
+        avg_loss: 0
+      };
+    } catch (err) {
+      console.warn("MetaApi getAccount failed", err);
+      throw err;
+    }
+  }
+
+  async getPositions() {
+    try {
+      const conn = await this.getConnection();
+      const positions = await conn.getPositions();
+      return positions.map((p: any) => ({
+        id: p.id,
+        symbol: p.symbol,
+        side: p.type === "POSITION_TYPE_BUY" ? "BUY" : "SELL",
+        volume: p.volume,
+        entry: p.openPrice,
+        current: p.currentPrice,
+        sl: p.stopLoss || null,
+        tp: p.takeProfit || null,
+        pnl: p.profit,
+        status: "open",
+        tag: p.comment || "metaapi",
+        duration: "0h 0m",
+        opened_at: new Date(p.time).toISOString()
+      }));
+    } catch (err) {
+      console.warn("MetaApi getPositions failed", err);
+      return [];
+    }
+  }
+
+  async submitOrder(symbol: string, side: "BUY" | "SELL", volume: number, sl?: number, tp?: number) {
+    const conn = await this.getConnection();
+    const actionType = side === "BUY" ? "ORDER_TYPE_BUY" : "ORDER_TYPE_SELL";
+    const order = await conn.createMarketOrder(symbol, volume, sl, tp, { actionType });
+    return order;
+  }
+
+  async closeTrade(tradeId: string) {
+    const conn = await this.getConnection();
+    const res = await conn.closePosition(tradeId);
+    return res;
+  }
+}
+
 // ----------------------------------------------------
 // UNIFIED BROKER ADAPTER FACTORY
 // ----------------------------------------------------
 export function buildAdapter(cfg: any): BrokerAdapter {
-  const provider = (cfg || {}).provider || "mock";
-  const api_key = (cfg || {}).api_key || "";
+  const provider = (cfg || {}).provider || process.env.DEFAULT_BROKER || "mock";
+  const api_key = (cfg || {}).api_key || process.env.METAAPI_TOKEN || "";
   const api_secret = (cfg || {}).api_secret || "";
-  const account_id = (cfg || {}).account_id || "";
+  const account_id = (cfg || {}).account_id || process.env.METAAPI_ACCOUNT_ID || "";
   const base_url = (cfg || {}).base_url || "";
 
+  if (provider === "metaapi") {
+    return new MetaApiAdapter(api_key, account_id);
+  }
   if (provider === "oanda") {
     return new OandaAdapter(api_key, account_id, base_url || undefined);
   }

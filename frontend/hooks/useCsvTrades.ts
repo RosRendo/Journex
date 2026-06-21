@@ -1,13 +1,14 @@
 import { useState, useCallback, useEffect } from "react";
 import { getBackendUrl } from "@/lib/utils";
+import { getSession } from "@/lib/useSession";
 
 // Use getBackendUrl() — returns NEXT_PUBLIC_BACKEND_URL or localhost:5000.
 // Never uses resolveLocalUrl() which was blindly replacing 'localhost' with
 // the current window hostname, producing broken URLs like
 // http://dashboard-roan-tau-xrg43s0811.vercel.app:3000 on Vercel.
-const BRIDGE_URL = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
+const BRIDGE_URL = process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge";
+const DB_API_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 const API_URL   = getBackendUrl();
-const DB_API_URL = getBackendUrl();
 
 export interface TradeData {
   id: number;
@@ -21,6 +22,12 @@ export interface TradeData {
   profit: number;
   outcome: "W" | "L" | "E";
   ticket?: string;
+  notes?: string;
+  imageUrl?: string;
+  followedPlan?: boolean;
+  planDeviationReason?: string;
+  checklistPassed?: boolean;
+  emotion?: string;
 }
 
 export interface Analytics {
@@ -114,7 +121,7 @@ export function useCsvTrades(accountId?: number, autoRefreshMs: number = 0) {
       }
 
       const data = await response.json();
-      const fetchedTrades = data.data || [];
+      const fetchedTrades = data.trades || data.data || [];
 
       const normalized: TradeData[] = fetchedTrades.map((t: any) => ({
         id: t.id,
@@ -132,8 +139,15 @@ export function useCsvTrades(accountId?: number, autoRefreshMs: number = 0) {
 
       // 2. ALSO fetch from database API for recently placed trades
       try {
-        const dbRes = await fetch(`${DB_API}/api/trades?limit=100&sortBy=date&order=DESC`, {
-          headers: { "ngrok-skip-browser-warning": "true" }
+        const session = await getSession();
+        const headers: Record<string, string> = { "ngrok-skip-browser-warning": "true" };
+        if (session?.user?.email) {
+          headers["Authorization"] = `Bearer ${session.user.email}`;
+        }
+
+        const fetchUrl = DB_API_URL === "http://localhost:5000" ? `${DB_API}/api/trades?limit=100&sortBy=date&order=DESC` : `/api/trades?limit=100&sortBy=date&order=DESC`;
+        const dbRes = await fetch(fetchUrl, {
+          headers
         });
         if (dbRes.ok) {
           const dbData = await dbRes.json();
@@ -144,20 +158,40 @@ export function useCsvTrades(accountId?: number, autoRefreshMs: number = 0) {
           normalized.forEach(t => { if (t.ticket) ticketMap.set(Number(t.ticket), t); });
           
           dbTrades.forEach((t: any) => {
-            if (t.ticket && !ticketMap.has(Number(t.ticket))) {
-              ticketMap.set(Number(t.ticket), {
-                id: t.id,
-                date: t.closeTime || t.date,
-                openTime: t.date,
-                pair: t.pair,
-                direction: t.direction === "buy" ? "Long" : "Short",
-                entry: Number(t.entry || 0),
-                closePrice: t.closePrice !== undefined && t.closePrice !== null ? Number(t.closePrice) : undefined,
-                lotSize: t.lot !== undefined && t.lot !== null ? Number(t.lot) : undefined,
-                profit: Number(t.profit || 0),
-                outcome: Number(t.profit || 0) > 0 ? "W" : Number(t.profit || 0) < 0 ? "L" : "E",
-                ticket: String(t.ticket)
-              });
+            const ticketNum = t.ticket ? Number(t.ticket) : null;
+            if (ticketNum) {
+              if (ticketMap.has(ticketNum)) {
+                // If it is in both, copy the database details onto the bridge trade object
+                const existing = ticketMap.get(ticketNum)!;
+                existing.id = t.id; // DB auto-increment integer ID
+                existing.notes = t.notes || "";
+                existing.imageUrl = t.imageUrl || "";
+                existing.followedPlan = t.followedPlan !== null ? t.followedPlan : undefined;
+                existing.planDeviationReason = t.planDeviationReason || "";
+                existing.checklistPassed = t.checklistPassed !== null ? t.checklistPassed : undefined;
+                existing.emotion = t.emotion || "";
+              } else {
+                // If only in DB, add it
+                ticketMap.set(ticketNum, {
+                  id: t.id,
+                  date: t.closeTime || t.date,
+                  openTime: t.date,
+                  pair: t.pair,
+                  direction: (t.direction?.toLowerCase() === "buy" || t.direction?.toLowerCase() === "long") ? "Long" : "Short",
+                  entry: Number(t.entry || 0),
+                  closePrice: t.closePrice !== undefined && t.closePrice !== null ? Number(t.closePrice) : undefined,
+                  lotSize: t.lotSize !== undefined && t.lotSize !== null ? Number(t.lotSize) : undefined,
+                  profit: Number(t.profit || 0),
+                  outcome: Number(t.profit || 0) > 0 ? "W" : Number(t.profit || 0) < 0 ? "L" : "E",
+                  ticket: String(t.ticket),
+                  notes: t.notes || "",
+                  imageUrl: t.imageUrl || "",
+                  followedPlan: t.followedPlan !== null ? t.followedPlan : undefined,
+                  planDeviationReason: t.planDeviationReason || "",
+                  checklistPassed: t.checklistPassed !== null ? t.checklistPassed : undefined,
+                  emotion: t.emotion || "",
+                });
+              }
             }
           });
           
@@ -183,7 +217,7 @@ export function useCsvTrades(accountId?: number, autoRefreshMs: number = 0) {
     } finally {
       setLoading(false);
     }
-  }, [accountId, calculateAnalytics, API_BASE, DB_API]);
+  }, [accountId, calculateAnalytics]);
 
   // Fetch trades when component mounts
   useEffect(() => {
@@ -244,7 +278,7 @@ export function useBrokerAnalytics(accountId: number) {
     } finally {
       setLoading(false);
     }
-  }, [accountId, API_BASE]);
+  }, [accountId]);
 
   useEffect(() => {
     fetchAnalytics();
@@ -286,7 +320,7 @@ export function useBrokerAccounts() {
     } finally {
       setLoading(false);
     }
-  }, [API_BASE]);
+  }, []);
 
   useEffect(() => {
     fetchAccounts();

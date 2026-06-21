@@ -1,6 +1,6 @@
 # Polar Payment Integration Guide
 
-This document covers the complete Polar payment integration for DashboardKiller.
+This document covers the complete Polar payment integration for Journex.
 
 ## Overview
 

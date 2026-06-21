@@ -6,6 +6,10 @@
     "api_secret": "",
     "account_id": "101-011-39362416-001",
     "base_url": "https://api-fxpractice.oanda.com",
-    "connected": false
+    "connected": false,
+    "_oanda_backup": {
+      "provider": "oanda",
+      "note": "Switched to mock because OANDA API is unreachable from this network. Switch provider back to oanda when on a network that can reach api-fxpractice.oanda.com"
+    }
   }
 }

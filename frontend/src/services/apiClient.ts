@@ -64,6 +64,23 @@ class ApiClient {
       },
     });
 
+    // Add request interceptor to inject session token
+    this.httpClient.interceptors.request.use(async (config) => {
+      try {
+        const { getSession } = await import("next-auth/react");
+        const session = await getSession();
+        const token = (session?.user as any)?.apiToken || session?.user?.email;
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+      } catch (err) {
+        console.warn("Failed to get NextAuth session in interceptor:", err);
+      }
+      return config;
+    }, (err) => {
+      return Promise.reject(err);
+    });
+
     // Add response interceptor for error handling
     this.httpClient.interceptors.response.use(
       (response) => response,

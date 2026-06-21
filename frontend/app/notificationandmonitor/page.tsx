@@ -18,7 +18,7 @@ const XAUUSDMonitor: React.FC = () => {
   const [targets, setTargets] = useState<Target[]>([]);
   const [serverUrl, setServerUrl] = useState<string>(
     typeof window !== "undefined" && window.location.hostname === "localhost"
-      ? "http://localhost:5003" : (process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003")
+      ? "/api/bridge" : (process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge")
   );
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("disconnected");
   const [lastUpdated, setLastUpdated] = useState<string>("");

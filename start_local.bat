@@ -1,5 +1,5 @@
 @echo off
-title 🚀 DashboardKiller — LOCAL DEV STARTUP
+title 🚀 Journex — LOCAL DEV STARTUP
 color 0A
 
 REM ═══════════════════════════════════════════════════════════════════════
@@ -15,16 +15,16 @@ REM       and put a shortcut here to auto-run on every boot.
 REM ═══════════════════════════════════════════════════════════════════════
 
 REM ── PATHS (edit these if your project lives elsewhere) ─────────────────
-set PROJECT_WIN=d:\Forex\dashboardkiller
+set PROJECT_WIN=d:\Forex\journex
 set FRONTEND_DIR=%PROJECT_WIN%\frontend
-set PROJECT_WSL=/mnt/d/Forex/dashboardkiller
+set PROJECT_WSL=/mnt/d/Forex/journex
 REM If you moved the project into WSL native fs, change the line above:
-REM set PROJECT_WSL=/home/%USERNAME%/dashboardkiller
+REM set PROJECT_WSL=/home/%USERNAME%/journex
 REM ───────────────────────────────────────────────────────────────────────
 
 echo.
 echo  ┌──────────────────────────────────────────────────────────┐
-echo  │   DashboardKiller — Local Development Startup            │
+echo  │   Journex — Local Development Startup            │
 echo  │   Frontend  → http://localhost:3000                      │
 echo  │   Backend   → http://localhost:5000                      │
 echo  │   MT5 Brdg  → http://localhost:5003                      │

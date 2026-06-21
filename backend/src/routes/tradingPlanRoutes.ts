@@ -1,8 +1,12 @@
 import express from "express";
 import { PrismaClient } from "@prisma/client";
+import { adminGuard } from "../middleware/auth";
 
 const router = express.Router();
 const prisma = new PrismaClient();
+
+// Secure all trading plan routes behind the adminGuard
+router.use(adminGuard);
 
 // GET /api/trading-plan
 router.get("/", async (req, res) => {

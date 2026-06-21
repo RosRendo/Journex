@@ -16,7 +16,7 @@ const EMOTION_PERFORMANCE_DATA = [
 
 const STREAK_DATA = Array.from({ length: 30 }).map((_, i) => ({
   date: `2024-03-${(i + 1).toString().padStart(2, '0')}`,
-  compliant: Math.random() > 0.3,
+  compliant: true,
   future: i > 24
 }));
 

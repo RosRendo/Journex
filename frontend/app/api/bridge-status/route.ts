@@ -14,7 +14,7 @@ export async function GET() {
   const bridgeUrl =
     process.env.BRIDGE_URL ||           // server-side only (Railway env var)
     process.env.NEXT_PUBLIC_BRIDGE_URL || // fallback to public var
-    "http://localhost:5003";
+    "/api/bridge";
 
   return NextResponse.json({
     url: bridgeUrl,

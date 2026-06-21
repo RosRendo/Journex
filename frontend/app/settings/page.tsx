@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { signOut, useSession } from "next-auth/react";
+import { signOut, useSession } from "@/lib/useSession";
 import { User, DollarSign, ShieldAlert, LogOut, Settings2, MonitorSmartphone, BellRing, Key, Palette, Save, Server, CheckCircle2, XCircle, Loader2, RefreshCw, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+
 
 export default function EnvironmentSettings() {
   const { data: session } = useSession();
@@ -17,7 +19,7 @@ export default function EnvironmentSettings() {
   const [riskPerTrade, setRiskPerTrade] = useState("2.5");
   const [maxDailyLoss, setMaxDailyLoss] = useState("5.0");
   const [theme, setTheme] = useState("Deep Space (Default)");
-  const [bridgeUrl, setBridgeUrl] = useState("http://localhost:5003");
+  const [bridgeUrl, setBridgeUrl] = useState("/api/bridge");
   const [aiProvider, setAiProvider] = useState("openai");
   const [aiKey, setAiKey] = useState("");
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
@@ -36,7 +38,7 @@ export default function EnvironmentSettings() {
   const runDiagnostics = async () => {
     setDiagRunning(true);
     setDiagResults({});
-    const bridge = localStorage.getItem("bridge_url") || "http://localhost:5003";
+    const bridge = localStorage.getItem("bridge_url") || "/api/bridge";
     const apiKey = localStorage.getItem("ai_key");
     const provider = localStorage.getItem("ai_provider") || "openai";
     const next: typeof diagResults = {};
@@ -99,7 +101,7 @@ export default function EnvironmentSettings() {
     if (bridgeUrl) {
       localStorage.setItem("bridge_url", bridgeUrl);
     }
-    // Optionally trigger a toast here
+    toast.success("Configuration committed successfully!");
   };
 
   const handleLogout = async () => {

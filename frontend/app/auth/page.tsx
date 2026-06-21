@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { signIn } from "@/lib/useSession";
 import { useRouter } from "next/navigation";
 import {
   TrendingUp, Mail, Lock, User, Eye, EyeOff,
@@ -35,7 +35,7 @@ export default function AuthPage() {
     setLoading(true);
     setError(null);
     const res = await signIn("credentials", {
-      email, password, redirect: false,
+      email, password, name, isRegister: mode === "register", redirect: false,
     });
     setLoading(false);
     if (res?.ok) {
@@ -63,7 +63,7 @@ export default function AuthPage() {
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
             <TrendingUp className="w-5 h-5 text-foreground" />
           </div>
-          <span className="text-xl font-bold text-foreground tracking-tight">TradeKiller</span>
+          <span className="text-xl font-bold text-foreground tracking-tight">Journex</span>
         </div>
 
         {/* Central content */}
@@ -110,7 +110,7 @@ export default function AuthPage() {
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
               <TrendingUp className="w-4 h-4 text-foreground" />
             </div>
-            <span className="text-lg font-bold text-foreground">TradeKiller</span>
+            <span className="text-lg font-bold text-foreground">Journex</span>
           </div>
 
           <h1 className="text-2xl font-bold text-foreground mb-1">

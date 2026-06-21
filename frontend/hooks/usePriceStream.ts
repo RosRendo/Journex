@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { getWebSocketUrl } from "../lib/utils";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/lib/useSession";
 
 export interface Tick {
   symbol: string;

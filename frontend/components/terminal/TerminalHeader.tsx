@@ -2,7 +2,7 @@
 
 import { useUtcClock } from "../../hooks/useTerminalData";
 import { utcClock } from "../../lib/format";
-import { ChevronDown, Activity, Settings, Plus, Key } from "lucide-react";
+import { ChevronDown, Activity, Settings, Plus, Key, Crosshair } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -18,6 +18,21 @@ export default function TerminalHeader({ symbol, onSymbolChange, connected, symb
   const now = useUtcClock();
   const list = symbols && symbols.length > 0 ? symbols.map((s) => s.symbol) : POPULAR;
 
+  // Killzone Logic (using UTC)
+  let killzone: any = null;
+  if (now) {
+    const h = now.getUTCHours();
+    if (h >= 6 && h < 9) {
+      killzone = { name: "LONDON KILLZONE", color: "text-blue-500 border-blue-500 bg-blue-500/10" };
+    } else if (h >= 11 && h < 14) {
+      killzone = { name: "NY KILLZONE", color: "text-red-500 border-red-500 bg-red-500/10" };
+    } else if (h >= 23 || h < 4) {
+      killzone = { name: "ASIAN RANGE", color: "text-purple-500 border-purple-500 bg-purple-500/10" };
+    } else {
+      killzone = { name: "DEAD ZONE", color: "text-zinc-500 border-zinc-700 bg-zinc-900" };
+    }
+  }
+
   return (
     <header
       data-testid="terminal-header"
@@ -26,7 +41,7 @@ export default function TerminalHeader({ symbol, onSymbolChange, connected, symb
       <div className="flex items-center gap-2 pr-3 border-r border-zinc-800 h-full">
         <div className="w-2 h-2 bg-amber-500 rounded-sm" />
         <span className="text-[11px] font-bold tracking-[0.18em] uppercase text-zinc-100">
-          BLOOMBERG TERMINAL
+          JOURNEX TERMINAL
         </span>
         <span className="text-[10px] tracking-widest uppercase text-zinc-500">v1.0</span>
       </div>
@@ -97,6 +112,12 @@ export default function TerminalHeader({ symbol, onSymbolChange, connected, symb
       </div>
 
       <div className="flex items-center gap-4 text-[11px] font-mono">
+        {killzone && (
+          <div className={`flex items-center gap-1.5 px-2 py-0.5 border text-[9px] font-bold tracking-widest ${killzone.color}`}>
+            <Crosshair size={10} />
+            {killzone.name}
+          </div>
+        )}
         <div
           data-testid="data-source-badge"
           className={`px-2 py-0.5 text-[9px] uppercase tracking-[0.2em] font-bold border ${
@@ -117,7 +138,7 @@ export default function TerminalHeader({ symbol, onSymbolChange, connected, symb
         </div>
         <div className="flex items-center gap-1.5 text-zinc-400">
           <Activity size={12} className="text-amber-500" />
-          <span className="tabular-nums">{utcClock(now)}</span>
+          <span className="tabular-nums">{now ? utcClock(now) : "--:--:--"}</span>
         </div>
       </div>
     </header>

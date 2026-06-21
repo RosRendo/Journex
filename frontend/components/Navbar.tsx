@@ -5,7 +5,7 @@ import {
   LogOut, User, Settings, Bell, X, Flame, TrendingUp, TrendingDown, CreditCard, ChevronDown, Palette, Menu
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useSession, signOut, getSession } from "next-auth/react";
+import { useSession, signOut, getSession } from "@/lib/useSession";
 import { toast } from "sonner";
 import Link from "next/link";
 import { HEADER_GROUPS } from "@/components/layout/navigation";

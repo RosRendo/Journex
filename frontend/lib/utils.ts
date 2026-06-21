@@ -32,46 +32,58 @@ export function resolveLocalUrl(url: string): string {
  * - Locally: falls back to http://localhost:5000.
  */
 export function getBackendUrl(): string {
-  if (typeof window !== "undefined") {
-    const currentHost = window.location.hostname;
-    const isProduction = currentHost && 
-                         currentHost !== "localhost" && 
-                         currentHost !== "127.0.0.1" && 
-                         currentHost !== "0.0.0.0" &&
-                         !currentHost.startsWith("192.168.") && 
-                         !currentHost.startsWith("10.") && 
-                         !currentHost.startsWith("172.") && 
-                         !currentHost.endsWith(".local");
-    if (isProduction) {
-      return process.env.NEXT_PUBLIC_BACKEND_URL || 
-             process.env.NEXT_PUBLIC_API_URL || 
-             "https://api.dashboardkiller.online";
-    }
-  }
-  return process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  if (process.env.NEXT_PUBLIC_BACKEND_URL) return process.env.NEXT_PUBLIC_BACKEND_URL;
+  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
+  return ""; // Default to relative paths so Next.js rewrites can proxy requests
 }
 
 /**
  * Returns a robustly formatted WebSocket URL pointing to the backend.
- * Handles domains with or without protocols (http/https).
+ *
+ * Priority:
+ *  1. NEXT_PUBLIC_WS_URL  (explicit WS override, e.g. wss://api.example.com)
+ *  2. NEXT_PUBLIC_BACKEND_URL / NEXT_PUBLIC_API_URL converted to ws://
+ *  3. Local fallback: ws://localhost:5000  (Next.js at :3000 cannot proxy WS upgrades)
  */
 export function getWebSocketUrl(path: string): string {
-  const backend = getBackendUrl();
-  
-  // Strip protocol to get the clean domain/host
-  let cleanDomain = backend.replace(/^https?:\/\//i, "");
-  
-  // Clean any trailing slashes from domain and leading slashes from path
-  const domain = cleanDomain.replace(/\/$/, "");
   const cleanPath = path.replace(/^\//, "");
-  
-  // Determine if we should use secure websockets (wss://)
-  const isLocalhost = domain.includes("localhost") || domain.includes("127.0.0.1") || domain.includes("0.0.0.0");
-  
-  let protocol = "wss://";
-  if (backend.startsWith("http://") || (isLocalhost && !backend.startsWith("https://"))) {
-    protocol = "ws://";
+
+  // 1. Dedicated WS URL env var (highest priority)
+  const wsUrl = process.env.NEXT_PUBLIC_WS_URL;
+  if (wsUrl) {
+    const base = wsUrl.replace(/\/$/, "");
+    return `${base}/${cleanPath}`;
   }
-  
-  return `${protocol}${domain}/${cleanPath}`;
+
+  // 2. HTTP backend URL — convert protocol to ws/wss
+  const backend = getBackendUrl();
+  if (backend) {
+    try {
+      const base = (typeof window !== "undefined") ? window.location.origin : "http://localhost:5000";
+      const url = new URL(backend, base);
+      url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+      const basePath = url.pathname.replace(/\/$/, "");
+      url.pathname = `${basePath}/${cleanPath}`;
+      return url.toString().replace(/([^:]\/)\/+/g, "$1");
+    } catch {
+      const isLocalhost = backend.includes("localhost") || backend.includes("127.0.0.1");
+      const proto = (backend.startsWith("http://") || backend.startsWith("ws://") || isLocalhost) ? "ws://" : "wss://";
+      const domain = backend.replace(/^(https?|wss?):\/\//i, "").replace(/\/$/, "");
+      return `${proto}${domain}/${cleanPath}`;
+    }
+  }
+
+  // 3. Local fallback: MUST go directly to the Express server port.
+  //    Next.js at :3000 cannot proxy WebSocket upgrade requests via rewrites.
+  if (typeof window !== "undefined") {
+    const isSecure = window.location.protocol === "https:";
+    const proto = isSecure ? "wss:" : "ws:";
+    const hostname = window.location.hostname; // e.g. "localhost" or "192.168.x.x"
+    // Use port 5000 (Express backend) — NOT window.location.host which is :3000
+    const port = isSecure ? "" : ":5000";
+    return `${proto}//${hostname}${port}/${cleanPath}`;
+  }
+
+  return `ws://localhost:5000/${cleanPath}`;
 }
+

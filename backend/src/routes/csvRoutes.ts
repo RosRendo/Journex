@@ -6,8 +6,12 @@ import {
   getCsvImports,
   getImportTrades,
 } from "../controllers/csvController";
+import { adminGuard } from "../middleware/auth";
 
 const router = Router();
+
+// Secure all CSV routes behind the adminGuard
+router.use(adminGuard);
 
 // Configure multer for CSV uploads
 const storage = multer.diskStorage({

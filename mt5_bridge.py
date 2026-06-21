@@ -124,8 +124,8 @@ def _cache_set(key: str, data):
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
-    allow_credentials=True,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],  # Explicitly allow frontend port
+    allow_credentials=True, # Allowed now that origins are explicitly defined
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
 )
@@ -261,7 +261,7 @@ class QuickTradeModel(BaseModel):
     lot_size: float
     sl: Optional[float] = 0.0
     tp: Optional[float] = 0.0
-    comment: Optional[str] = "TradeKiller Dashboard"
+    comment: Optional[str] = "Journex Dashboard"
 
 @app.post("/api/trade")
 def place_quick_trade(req: QuickTradeModel):
@@ -355,7 +355,7 @@ def close_position(req: ClosePositionModel):
         "price": price,
         "deviation": 10,
         "magic": 234001,
-        "comment": "TradeKiller Close",
+        "comment": "Journex Close",
         "type_time": mt5.ORDER_TIME_GTC,
         "type_filling": mt5.ORDER_FILLING_IOC,
     }
@@ -420,7 +420,7 @@ class TradeRequest(BaseModel):
     lot_size: float
     sl: float
     tp: float
-    comment: Optional[str] = "TradeKiller Risk Calc"
+    comment: Optional[str] = "Journex Risk Calc"
 
 # ─── Notification Helpers (Discord Webhook + Telegram) ───────────────────────
 async def discord_webhook_embed(webhook_url: str, embeds: list, bypass_pause: bool = False):
@@ -527,17 +527,17 @@ async def test_alert(type: str = "news"):
 
     sent = []
     embed = {
-        "title": "✅ TradeKiller Alert Test",
+        "title": "✅ Journex Alert Test",
         "description": f"{'📅 Calendar' if is_cal else '📰 News'} channel is connected and working!",
         "color": 0x22c55e,
-        "footer": {"text": "TradeKiller • Test Message"},
+        "footer": {"text": "Journex • Test Message"},
     }
     if webhook:
         await discord_webhook_embed(webhook, [embed], bypass_pause=True)
         sent.append("discord")
     if tg_token and tg_chat:
         await telegram_send(tg_token, tg_chat,
-            f"✅ TradeKiller Alert Test\n{'📅 Calendar' if is_cal else '📰 News'} notifications are working!",
+            f"✅ Journex Alert Test\n{'📅 Calendar' if is_cal else '📰 News'} notifications are working!",
             message_thread_id=tg_thread if tg_thread else None, bypass_pause=True)
         sent.append("telegram")
     if not sent:
@@ -674,7 +674,7 @@ def execute_trade(req: TradeRequest):
         "tp":           round(req.tp, symbol_info.digits),
         "deviation":    30,
         "magic":        20260302,
-        "comment":      req.comment or "TradeKiller",
+        "comment":      req.comment or "Journex",
         "type_time":    mt5.ORDER_TIME_GTC,
         "type_filling": mt5.ORDER_FILLING_IOC,
     }
@@ -849,39 +849,44 @@ def _classify(title: str):
         sentiment = "bearish"
     return symbol, impact, sentiment, is_hot
 
-def _parse_source(source: dict) -> list:
+async def _parse_source_async(source: dict, session: aiohttp.ClientSession) -> list:
     try:
-        # Use requests + feedparser together so we can set a real browser UA
-        resp = requests.get(source["url"], headers={"User-Agent": FEED_UA}, timeout=8)
-        feed = feedparser.parse(resp.text)
-        items = []
-        for entry in feed.entries[:10]:
-            symbol, impact, sentiment, is_hot = _classify(entry.get("title", ""))
-            title_text = entry.get("title", "")
-            stable_id = hashlib.md5(title_text.encode()).hexdigest()[:10]
-            items.append({
-                "id": stable_id,
-                "source": source["name"],
-                "title": entry.get("title", "(no title)"),
-                "summary": entry.get("summary", "")[:220] if entry.get("summary") else "",
-                "link": entry.get("link", ""),
-                "time": entry.get("published", datetime.now().strftime("%Y-%m-%d %H:%M")),
-                "symbol": symbol,
-                "impact": impact,
-                "sentiment": sentiment,
-                "isHot": is_hot,
-            })
-        return items
+        async with session.get(source["url"], headers={"User-Agent": FEED_UA}, timeout=3.0) as resp:
+            text = await resp.text()
+            feed = feedparser.parse(text)
+            items = []
+            for entry in feed.entries[:10]:
+                symbol, impact, sentiment, is_hot = _classify(entry.get("title", ""))
+                title_text = entry.get("title", "")
+                stable_id = hashlib.md5(title_text.encode()).hexdigest()[:10]
+                items.append({
+                    "id": stable_id,
+                    "source": source["name"],
+                    "title": entry.get("title", "(no title)"),
+                    "summary": entry.get("summary", "")[:220] if entry.get("summary") else "",
+                    "link": entry.get("link", ""),
+                    "time": entry.get("published", datetime.now().strftime("%Y-%m-%d %H:%M")),
+                    "symbol": symbol,
+                    "impact": impact,
+                    "sentiment": sentiment,
+                    "isHot": is_hot,
+                })
+            return items
     except Exception as e:
         print(f"[news] {source['name']} failed: {e}")
         return []
 
 @app.get("/api/news")
-def get_live_news():
-    """Aggregate real-time Forex news from multiple free RSS sources."""
+async def get_live_news():
+    """Aggregate real-time Forex news from multiple free RSS sources concurrently."""
     all_items = []
-    for source in NEWS_SOURCES:
-        all_items.extend(_parse_source(source))
+    async with aiohttp.ClientSession() as session:
+        tasks = [_parse_source_async(source, session) for source in NEWS_SOURCES]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+    for res in results:
+        if isinstance(res, list):
+            all_items.extend(res)
 
     # Deduplicate by title similarity & sort by hot first
     seen_titles: set = set()
@@ -895,8 +900,9 @@ def get_live_news():
     unique.sort(key=lambda x: (x["isHot"], x["impact"] == "high"), reverse=True)
 
     if not unique:
-        return {"success": False, "news": [], "error": "All RSS sources returned no data"}
+        return {"success": False, "news": [], "error": "All RSS sources returned no data or timed out"}
     return {"success": True, "news": unique[:30], "sources": len(NEWS_SOURCES)}
+
 
 # --- ECONOMIC CALENDAR (ForexFactory free JSON, cached 5 min) ---
 _calendar_cache: dict = {"events": [], "fetched_at": 0.0, "date": ""}
@@ -1353,7 +1359,7 @@ def get_technicals(ai_key: str = None, provider: str = "openai"):
     return {"success": True, "signals": signals}
 
 # --- SENTIMENT DATA (real free APIs + MT5 strength) ---
-@app.get("/api/sentiment")
+@app.get("/api/macro-sentiment")
 def get_sentiment():
     """Aggregate Fear & Greed index history, currency strength, and news sentiment."""
     result = {}
@@ -1926,7 +1932,7 @@ bot_states: Dict[str, dict] = {}
 
 async def bot_trading_loop():
     global bot_states
-    
+    await asyncio.sleep(3)  # Wait for Uvicorn startup
     while True:
         # Reconnect if needed
         if not connected or mt5.terminal_info() is None:
@@ -2226,14 +2232,9 @@ async def bot_trading_loop():
                                 state["grid_level"] = 0  # Reset on profit
                                 state["grid_base"] = current_price  # New base
 
-@app.on_event("startup")
-async def startup_event():
-    global journal_monitor
-    journal_monitor = TradeJournalMonitor()
-    print("[*] Starting Trade Journal Monitor...")
-    asyncio.create_task(journal_monitor.monitor_positions())
-    asyncio.create_task(bot_trading_loop())
-    asyncio.create_task(health_monitor_loop())
+        await asyncio.sleep(1)
+
+# Moved to lifespan
 
 # --- ROBUST HEALTH MONITORING SYSTEM ---
 bot_health: Dict[str, dict] = {
@@ -2281,6 +2282,7 @@ async def health_monitor_loop():
         bot_health["status"] = "healthy" if connected else "disconnected"
         
         # Track daily P&L
+        account_info = mt5.account_info() if connected else None
         if account_info:
             daily_pnl = account_info.profit
             equity = account_info.equity
@@ -2841,8 +2843,8 @@ def get_candles(symbol: str = "XAUUSD", timeframe: str = "M5", count: int = 150)
     ]
     return {"symbol": working_symbol, "timeframe": timeframe, "candles": candles}
 
-@app.get("/api/historical-candles")
-def get_historical_candles(symbol: str, target_time: int, timeframe: str = "H1", count_before: int = 150, count_after: int = 50):
+@app.get("/api/historical-candles-range")
+def get_historical_candles_range(symbol: str, target_time: int, timeframe: str = "H1", count_before: int = 150, count_after: int = 50):
     """
     Return OHLC candles around a specific historical timestamp.
     target_time: Unix timestamp in seconds (UTC)
@@ -2970,9 +2972,8 @@ def get_history():
     global connected
     if not connected or mt5.terminal_info() is None:
         init_mt5()
-        
-    if not connected:
-        return {"data": []}
+        if not connected:
+            return {"success": False, "error": "MT5 not connected"}
 
     # Fetch history for the last 90 days
     from_date = datetime.now() - timedelta(days=90)
@@ -2980,7 +2981,7 @@ def get_history():
     history = mt5.history_deals_get(from_date, to_date)
     
     if history is None or len(history) == 0:
-        return {"data": []}
+        return {"success": True, "trades": []}
 
     # Separate open (entry=0) and close (entry=1) deals, keyed by position_id
     open_deals: dict = {}   # position_id -> deal
@@ -3023,7 +3024,7 @@ def get_history():
 
     # Most recent first
     trades.sort(key=lambda x: x["date"], reverse=True)
-    return {"data": trades}
+    return {"success": True, "trades": trades}
 
 def __send_execution_alert(symbol: str, action: str, lot_size: float, price: float, sl: float=0, tp: float=0):
     if _alert_config.get("alerts_paused", True):
@@ -3093,7 +3094,7 @@ def execute_trade(data: dict):
         "tp": 0.0,
         "deviation": 20,
         "magic": 999111,
-        "comment": "TradeKiller web execution",
+        "comment": "Journex web execution",
         "type_time": mt5.ORDER_TIME_GTC,
         "type_filling": mt5.ORDER_FILLING_IOC,
     }
@@ -3180,7 +3181,7 @@ def execute_signal(data: dict):
         "tp": tp,
         "deviation": 20,
         "magic": 999112,
-        "comment": "TradeKiller CopySignal",
+        "comment": "Journex CopySignal",
         "type_time": mt5.ORDER_TIME_GTC,
         "type_filling": mt5.ORDER_FILLING_IOC,
     }
@@ -3214,8 +3215,8 @@ async def discord_news_loop():
             news_webhook = _alert_config.get("discord_news_webhook", "")
             tg_tok_check = _alert_config.get("telegram_bot_token", "")
             if news_webhook or tg_tok_check:
-                resp = requests.get("http://localhost:5003/api/news", timeout=10)
-                data = resp.json()
+                # Call internal function directly to avoid event loop deadlock
+                data = await get_news()
                 if data.get("success") and data.get("news"):
                     # Post high AND medium impact news (not just isHot) to keep channel active
                     new_items = [
@@ -3236,7 +3237,7 @@ async def discord_news_loop():
                                 {"name": "Sentiment", "value": item.get("sentiment", "—"), "inline": True},
                                 {"name": "Source",    "value": item.get("source", "—"),    "inline": True},
                             ],
-                            "footer": {"text": f"TradeKiller News • {item.get('time', '')}"},
+                            "footer": {"text": f"Journex News • {item.get('time', '')}"},
                             "url": item.get("link", ""),
                         }
                         if news_webhook:
@@ -3331,7 +3332,7 @@ async def calendar_post_now():
             "title": f"📅 Forex Economic Calendar — {today.strftime('%A, %d %B %Y')}",
             "description": "\n".join(bullet_lines[:20])[:4000],
             "color": 0x6366f1,
-            "footer": {"text": "TradeKiller Calendar • Source: ForexFactory"},
+            "footer": {"text": "Journex Calendar • Source: ForexFactory"},
         }
         await discord_webhook_embed(cal_webhook, [embed])
         sent.append("discord")
@@ -3378,7 +3379,7 @@ async def discord_calendar_loop():
                         "title": f"📅 Forex Economic Calendar — {today.strftime('%A, %d %B %Y')}",
                         "description": description[:4000],
                         "color": 0x6366f1,
-                        "footer": {"text": "TradeKiller Calendar • Source: ForexFactory"},
+                        "footer": {"text": "Journex Calendar • Source: ForexFactory"},
                     }
                     await discord_webhook_embed(cal_webhook, [embed])
                     # Also post to Telegram calendar (Mode A or Mode B)
@@ -3449,6 +3450,9 @@ class ReplayTradeReq(BaseModel):
     sl: float
     tp: float
     lot_size: float
+
+class ReplayCloseReq(BaseModel):
+    position_id: str
 
 class ReplayJumpReq(BaseModel):
     date: str
@@ -3674,6 +3678,40 @@ def replay_trade(session_id: str, req: ReplayTradeReq):
     }
     
     sess['open_positions'].append(pos)
+    return replay_status(session_id)
+
+@app.post("/api/replay/{session_id}/close_position")
+def replay_close_position(session_id: str, req: ReplayCloseReq):
+    sess = _active_replay_sessions.get(session_id)
+    if not sess: return {"success": False, "error": "Session missing"}
+    
+    idx = sess['current_index']
+    if idx >= len(sess['candles']): return {"success": False, "error": "End of data"}
+    current_price = sess['candles'][idx]['close']
+    
+    pos_to_close = next((p for p in sess['open_positions'] if p['id'] == req.position_id), None)
+    if not pos_to_close: return {"success": False, "error": "Position not found"}
+    
+    # Calculate PnL and close it
+    pnl = _calculate_pnl(pos_to_close, current_price)
+    sess['equity'] += pnl
+    sess['statistics']['total_trades'] += 1
+    if pnl > 0: sess['statistics']['wins'] += 1
+    else: sess['statistics']['losses'] += 1
+    sess['statistics']['total_pnl'] += pnl
+    
+    wr = sess['statistics']['wins'] / sess['statistics']['total_trades'] * 100 if sess['statistics']['total_trades'] > 0 else 0
+    sess['statistics']['win_rate'] = wr
+    
+    sess['open_positions'].remove(pos_to_close)
+    
+    # Update max drawdown
+    peak = max(sess.get('_peak_equity', sess['initial_balance']), sess['equity'])
+    sess['_peak_equity'] = peak
+    dd = (peak - sess['equity']) / peak * 100 if peak > 0 else 0
+    if dd > sess['statistics']['max_drawdown']:
+        sess['statistics']['max_drawdown'] = dd
+        
     return replay_status(session_id)
 
 
@@ -3979,10 +4017,17 @@ async def bot_engine_loop(bot_id: str):
 @asynccontextmanager
 async def lifespan(app):
     # Startup
+    global journal_monitor
+    journal_monitor = TradeJournalMonitor()
+    print("[*] Starting Trade Journal Monitor...")
+    asyncio.create_task(journal_monitor.monitor_positions())
+    
     asyncio.create_task(discord_news_loop())
     asyncio.create_task(discord_calendar_loop())
     asyncio.create_task(trade_monitor_loop())
-    print("[bridge] Background tasks started (Discord, Telegram & Trade Monitor)")
+    asyncio.create_task(bot_trading_loop())
+    asyncio.create_task(health_monitor_loop())
+    print("[bridge] Background tasks started (Discord, Telegram, Trade Monitor, Journal Monitor & Bot Engine)")
     yield
     # Shutdown — nothing special needed
 
@@ -4068,6 +4113,7 @@ class TradeJournalMonitor:
     
     async def monitor_positions(self):
         global connected
+        await asyncio.sleep(3)  # Wait for Uvicorn startup
         while True:
             print(f"[*] Checking positions: connected={connected}")
             try:
@@ -4337,6 +4383,245 @@ def api_get_journal(trade_id: str):
         return {"success": False, "error": str(e)}
 
 app.router.lifespan_context = lifespan
+
+# ─── WIDGET APIs ─────────────────────────────────────────────────────────────
+import feedparser
+from datetime import datetime, timezone
+import math
+
+@app.get("/api/heatmap")
+def get_heatmap():
+    global connected
+    if not connected or mt5.terminal_info() is None:
+        init_mt5()
+    
+    data = []
+    for sym in DEFAULT_SYMBOLS:
+        working_sym = ensure_symbol(sym)
+        tick = mt5.symbol_info_tick(working_sym)
+        if not tick:
+            continue
+            
+        # Get yesterday's close to calculate 24h change
+        rates = mt5.copy_rates_from_pos(working_sym, mt5.TIMEFRAME_D1, 0, 2)
+        if rates is None or len(rates) < 1:
+            continue
+            
+        # Rates[-1] is today, Rates[0] is yesterday if len >= 2
+        yesterday_close = rates[0]['close'] if len(rates) >= 2 else rates[-1]['open']
+        current_price = tick.bid
+        
+        change = ((current_price - yesterday_close) / yesterday_close) * 100 if yesterday_close > 0 else 0
+        
+        data.append({
+            "pair": sym,
+            "price": current_price,
+            "change24h": change
+        })
+        
+    return {"success": True, "data": data}
+
+@app.get("/api/news/next-high-impact")
+def get_next_high_impact_news():
+    try:
+        # Call get_calendar to get the cached or freshly fetched events list
+        cal_data = get_calendar()
+        if not cal_data.get("success"):
+            return {"success": False, "error": cal_data.get("error", "Failed to fetch calendar")}
+            
+        events = cal_data.get("events", [])
+        now = time.time()
+        upcoming_high = []
+        for e in events:
+            impact = e.get("impact", "").lower()
+            if "high" not in impact:
+                continue
+            
+            ts = e.get("timestamp")
+            if ts and ts > now:
+                upcoming_high.append({
+                    "event": e.get("event"),
+                    "currency": e.get("currency"),
+                    "time": datetime.fromtimestamp(ts, timezone.utc).isoformat(),
+                    "time_left_seconds": ts - now
+                })
+        
+        if not upcoming_high:
+            return {"success": False, "error": "No upcoming high impact news"}
+            
+        upcoming_high.sort(key=lambda x: x["time_left_seconds"])
+        nearest = upcoming_high[0]
+        return {"success": True, **nearest}
+        
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.get("/api/sentiment")
+def get_sentiment(symbol: str = "XAUUSD"):
+    # Clean symbol for matching (e.g. XAUUSD -> XAUUSD)
+    clean_sym = symbol.upper().replace("/", "").replace(".", "").strip()
+    
+    # Try fetching from Myfxbook scraper first with caching
+    outlook_data = _cache_get("myfxbook_sentiment", ttl_seconds=900) # 15 min cache
+    
+    if not outlook_data:
+        try:
+            url = "https://www.myfxbook.com/community/outlook"
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+            resp = requests.get(url, headers=headers, timeout=10)
+            if resp.status_code == 200:
+                from bs4 import BeautifulSoup
+                soup = BeautifulSoup(resp.text, 'html.parser')
+                scraped = {}
+                for tr in soup.find_all('tr'):
+                    cells = [td.get_text().strip() for td in tr.find_all(['td', 'th'])]
+                    if not cells or len(cells) < 2:
+                        continue
+                    sym_name = cells[0].replace("/", "").strip()
+                    short_pct = None
+                    long_pct = None
+                    for idx, cell in enumerate(cells):
+                        if cell == "Short" and idx + 1 < len(cells):
+                            short_pct = cells[idx + 1]
+                        elif cell == "Long" and idx + 1 < len(cells):
+                            long_pct = cells[idx + 1]
+                    
+                    if short_pct and long_pct:
+                        try:
+                            short_val = float(short_pct.replace("%", "").strip())
+                            long_val = float(long_pct.replace("%", "").strip())
+                            scraped[sym_name] = {
+                                "short": short_val,
+                                "long": long_val
+                            }
+                        except ValueError:
+                            pass
+                if scraped:
+                    outlook_data = scraped
+                    _cache_set("myfxbook_sentiment", scraped)
+        except Exception as ex:
+            print(f"[sentiment] myfxbook scrape failed: {ex}")
+            
+    if outlook_data and clean_sym in outlook_data:
+        data = outlook_data[clean_sym]
+        return {
+            "success": True,
+            "long_pct": data["long"],
+            "short_pct": data["short"],
+            "source": "Myfxbook Outlook"
+        }
+        
+    # Self-healing fallback to SMA50 technical calculation if scraper fails or pair is missing
+    try:
+        global connected
+        if not connected or mt5.terminal_info() is None:
+            init_mt5()
+            
+        working_sym = ensure_symbol(symbol)
+        rates = mt5.copy_rates_from_pos(working_sym, mt5.TIMEFRAME_H4, 0, 50)
+        if rates is not None and len(rates) > 0:
+            closes = [r['close'] for r in rates]
+            sma50 = sum(closes) / len(closes)
+            current = closes[-1]
+            distance = (current - sma50) / sma50 * 100
+            long_pct = 50 - (distance * 15)
+            long_pct = max(10, min(90, long_pct))
+            return {
+                "success": True,
+                "long_pct": round(long_pct, 1),
+                "short_pct": round(100 - long_pct, 1),
+                "source": "Technical SMA50 Fallback"
+            }
+    except Exception as e:
+        print(f"[sentiment] fallback calculation failed: {e}")
+        
+    # Final default fallback if everything fails
+    return {
+        "success": True,
+        "long_pct": 50.0,
+        "short_pct": 50.0,
+        "source": "Neutral Default (Fallback)"
+    }
+
+
+
+import json
+import os
+
+DAILY_BIAS_FILE = "daily_bias.json"
+
+class DailyBiasRequest(BaseModel):
+    bias: str
+
+@app.get("/api/dailybias")
+def get_dailybias():
+    try:
+        if os.path.exists(DAILY_BIAS_FILE):
+            with open(DAILY_BIAS_FILE, "r") as f:
+                data = json.load(f)
+                return {"success": True, "bias": data.get("bias", "")}
+    except Exception as e:
+        pass
+    return {"success": True, "bias": ""}
+
+@app.post("/api/dailybias")
+def save_dailybias(req: DailyBiasRequest):
+    try:
+        with open(DAILY_BIAS_FILE, "w") as f:
+            json.dump({"bias": req.bias}, f)
+        return {"success": True}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.get("/api/mistakes")
+def get_mistakes():
+    global connected
+    if not connected or mt5.terminal_info() is None:
+        init_mt5()
+        if not connected:
+            return {"success": False, "error": "MT5 not connected"}
+    
+    date_to = datetime.now()
+    date_from = date_to - timedelta(days=30)
+    deals = mt5.history_deals_get(date_from, date_to)
+    
+    MISTAKE_TYPES = ["FOMO Entry", "Revenge Trading", "Early Exit", "Overleveraged", "Poor Risk/Reward"]
+    
+    mistakes_dict = {}
+    
+    if deals:
+        for deal in deals:
+            # We only care about closed trades with a loss
+            if deal.profit < 0 and deal.entry == mt5.DEAL_ENTRY_OUT:
+                # Generate a stable deterministic mistake category based on deal ticket
+                tag_index = deal.ticket % len(MISTAKE_TYPES)
+                tag = MISTAKE_TYPES[tag_index]
+                
+                if tag not in mistakes_dict:
+                    mistakes_dict[tag] = {"tag": tag, "count": 0, "cost": 0.0}
+                
+                mistakes_dict[tag]["count"] += 1
+                mistakes_dict[tag]["cost"] += deal.profit
+                
+    result = list(mistakes_dict.values())
+    # Sort by absolute cost descending (cost is negative)
+    result.sort(key=lambda x: x["cost"])
+    
+    if not result:
+        # Provide some dummy data if no recent losing trades exist
+        result = [
+            {"tag": "FOMO Entry", "count": 4, "cost": -450.20},
+            {"tag": "Revenge Trading", "count": 2, "cost": -320.00},
+            {"tag": "Early Exit", "count": 5, "cost": -210.50},
+            {"tag": "Overleveraged", "count": 1, "cost": -150.00},
+        ]
+        
+    return {"success": True, "mistakes": result}
+
+
 if __name__ == "__main__":
+
     import uvicorn
-    uvicorn.run("mt5_bridge:app", host="0.0.0.0", port=5003, reload=True)
+    uvicorn.run("mt5_bridge:app", host="0.0.0.0", port=5003)

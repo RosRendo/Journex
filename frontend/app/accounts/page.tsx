@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/lib/useSession";
 import { useBridgeUrl } from "@/hooks/useBridgeUrl";
 
 function AccountCard({

@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { AlertTriangle, CheckCircle2, Clock } from "lucide-react";
 import { resolveLocalUrl } from "@/lib/utils";
 
-const BRIDGE = resolveLocalUrl(process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003");
+const BRIDGE = resolveLocalUrl(process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge");
 
 interface CalEvent {
   time: string;

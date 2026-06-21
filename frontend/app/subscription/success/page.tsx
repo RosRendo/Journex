@@ -35,7 +35,7 @@ export default function SubscriptionSuccessPage() {
 
         <p className="text-muted-foreground mb-2">
           Welcome to{" "}
-          <strong className="text-foreground">TradeKiller {plan}</strong>. Your
+          <strong className="text-foreground">Journex {plan}</strong>. Your
           payment was processed successfully.
         </p>
 

@@ -12,8 +12,19 @@ function hitCache(key: string): any | null {
   return null;
 }
 
+function trimCache(targetCache: Record<string, any>, limit = 50) {
+  const keys = Object.keys(targetCache);
+  if (keys.length > limit) {
+    const oldestKey = keys.reduce((oldest, current) => {
+      return targetCache[current].t < targetCache[oldest].t ? current : oldest;
+    });
+    delete targetCache[oldestKey];
+  }
+}
+
 function setCache(key: string, payload: any) {
   cache[key] = { t: Date.now(), payload };
+  trimCache(cache, 50);
 }
 
 const COIN_IDS: Record<string, string> = {
@@ -291,6 +302,7 @@ export async function getRealNews(apiKeys: Record<string, string>, symbol?: stri
       if (items && items.length) {
         const payload = { provider: "marketaux", items };
         newsCache[cacheKey] = { t: now, payload };
+        trimCache(newsCache, 50);
         return { ...payload, cached: false };
       }
     } catch (e: any) {
@@ -305,6 +317,7 @@ export async function getRealNews(apiKeys: Record<string, string>, symbol?: stri
       if (items && items.length) {
         const payload = { provider: "newsapi", items };
         newsCache[cacheKey] = { t: now, payload };
+        trimCache(newsCache, 50);
         return { ...payload, cached: false };
       }
     } catch (e: any) {

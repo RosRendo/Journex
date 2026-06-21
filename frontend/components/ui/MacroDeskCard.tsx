@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { Settings, RefreshCw, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { getBackendUrl } from "@/lib/utils";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/lib/useSession";
 
 type Bias = "BULLISH" | "BEARISH" | "NEUTRAL";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/lib/useSession";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
@@ -138,7 +138,7 @@ export default function SubscriptionPage() {
         <h1 className="text-4xl md:text-5xl font-extrabold text-foreground mb-4 tracking-tight">
           Upgrade to{" "}
           <span className="bg-gradient-to-r from-violet-500 to-indigo-500 bg-clip-text text-transparent">
-            TradeKiller Pro
+            Journex Pro
           </span>
         </h1>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">

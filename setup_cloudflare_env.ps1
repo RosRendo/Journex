@@ -8,8 +8,8 @@
 #  the URLs never change.
 #
 #  Mapping:
-#    python.dashboardkiller.online → localhost:5003  (Cloudflare tunnel)
-#    api.dashboardkiller.online    → Railway backend (DNS/proxy)
+#    python.journex.online → localhost:5003  (Cloudflare tunnel)
+#    api.journex.online    → Railway backend (DNS/proxy)
 #    Vercel frontend               → https://dashboard-roan-tau-xrg43s0811.vercel.app
 #
 #  Requirements:
@@ -19,13 +19,13 @@
 # ============================================================
 
 param(
-    [string]$ProjectPath = "d:\Forex\dashboardkiller"
+    [string]$ProjectPath = "d:\Forex\journex"
 )
 
 Set-Location $ProjectPath
 
-$BRIDGE_URL  = "https://python.dashboardkiller.online"
-$BACKEND_URL = "https://api.dashboardkiller.online"
+$BRIDGE_URL  = "https://python.journex.online"
+$BACKEND_URL = "https://api.journex.online"
 
 function Write-Step([string]$msg) {
     Write-Host ""
@@ -37,7 +37,7 @@ function Write-Err([string]$msg)  { Write-Host "    ❌ $msg" -ForegroundColor R
 
 Write-Host ""
 Write-Host "  ╔══════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "  ║  DashboardKiller — One-Time Cloudflare Env Setup     ║" -ForegroundColor Cyan
+Write-Host "  ║  Journex — One-Time Cloudflare Env Setup     ║" -ForegroundColor Cyan
 Write-Host "  ║                                                      ║" -ForegroundColor Cyan
 Write-Host "  ║  Bridge  → $($BRIDGE_URL.PadRight(40))║" -ForegroundColor Cyan
 Write-Host "  ║  Backend → $($BACKEND_URL.PadRight(39))║" -ForegroundColor Cyan
@@ -111,8 +111,8 @@ Write-Host ""
 Write-Host "  ╔══════════════════════════════════════════════════════╗" -ForegroundColor Green
 Write-Host "  ║  ✅  ONE-TIME SETUP COMPLETE                          ║" -ForegroundColor Green
 Write-Host "  ║                                                      ║" -ForegroundColor Green
-Write-Host "  ║  NEXT_PUBLIC_BRIDGE_URL  → python.dashboardkiller.online  ║" -ForegroundColor Green
-Write-Host "  ║  NEXT_PUBLIC_BACKEND_URL → api.dashboardkiller.online     ║" -ForegroundColor Green
+Write-Host "  ║  NEXT_PUBLIC_BRIDGE_URL  → python.journex.online  ║" -ForegroundColor Green
+Write-Host "  ║  NEXT_PUBLIC_BACKEND_URL → api.journex.online     ║" -ForegroundColor Green
 Write-Host "  ║                                                      ║" -ForegroundColor Green
 Write-Host "  ║  From now on just run: start_production.bat          ║" -ForegroundColor Green
 Write-Host "  ╚══════════════════════════════════════════════════════╝" -ForegroundColor Green

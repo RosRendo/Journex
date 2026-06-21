@@ -6,12 +6,14 @@ import {
 import {
   createChart, IChartApi, ISeriesApi, Time, IPriceLine, LineStyle
 } from "lightweight-charts";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/lib/useSession";
 import { ProLock } from "@/components/ui/ProLock";
+import { toast } from "sonner";
+
 
 const BRIDGE_URL = typeof window !== "undefined"
-  ? (window.location.hostname === "localhost" ? "http://localhost:5003" : (process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003"))
-  : (process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003");
+  ? (window.location.hostname === "localhost" ? "/api/bridge" : (process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge"))
+  : (process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge");
 const BACKTEST_API_URL = `${BRIDGE_URL}/api`;
 
 interface Candle { time: number; open: number; high: number; low: number; close: number; volume: number; }
@@ -19,6 +21,13 @@ interface SavedSessionItem { id: string; symbol: string; timeframe: string; date
 interface ReplaySession { session_id: string; symbol: string; timeframe: string; total_candles: number; candles?: Candle[]; }
 interface Statistics { total_trades: number; wins: number; losses: number; win_rate: number; total_pnl: number; average_r: number; expectancy: number; max_drawdown: number; current_balance: number; equity: number; }
 interface OpenPosition { id: string; symbol: string; direction: "BUY" | "SELL"; entry: number; sl: number; tp: number; lot_size: number; current_pnl?: number; }
+
+// Helper for floating PnL
+function calculateFloatingPnl(pos: OpenPosition, currentPrice: number) {
+  const diff = currentPrice - pos.entry;
+  const directionMultiplier = pos.direction === "BUY" ? 1 : -1;
+  return diff * directionMultiplier * 100000 * pos.lot_size;
+}
 type DrawTool = "none" | "horizontal" | "trend" | "vertical";
 
 function StatRow({ label, value, colorClass = "text-[--text-primary]" }: { label: string, value: string | number, colorClass?: string }) {
@@ -144,6 +153,40 @@ export default function BacktestingPage() {
     }
   }, [allCandles, currentIndex, showRSI]);
 
+  
+  // Sync chart lines for open positions
+  useEffect(() => {
+    if (!candlestickSeriesRef.current) return;
+    // Clear old position lines
+    priceLinesRef.current.forEach((pl) => candlestickSeriesRef.current?.removePriceLine(pl));
+    priceLinesRef.current = [];
+    
+    // Add new lines for each open position
+    openPositions.forEach(pos => {
+      const color = pos.direction === "BUY" ? "#00d4a1" : "#ff4d6a";
+      const line = candlestickSeriesRef.current!.createPriceLine({
+        price: pos.entry,
+        color: color,
+        lineWidth: 2,
+        lineStyle: 2, // Dashed
+        axisLabelVisible: true,
+        title: `${pos.direction} ${pos.lot_size}L`
+      });
+      priceLinesRef.current.push(line);
+      
+      if (pos.sl > 0) {
+        priceLinesRef.current.push(candlestickSeriesRef.current!.createPriceLine({
+          price: pos.sl, color: "#ff4d6a", lineWidth: 1, lineStyle: 3, axisLabelVisible: true, title: "SL"
+        }));
+      }
+      if (pos.tp > 0) {
+        priceLinesRef.current.push(candlestickSeriesRef.current!.createPriceLine({
+          price: pos.tp, color: "#00d4a1", lineWidth: 1, lineStyle: 3, axisLabelVisible: true, title: "TP"
+        }));
+      }
+    });
+  }, [openPositions]);
+
   const nextCandle = useCallback(async () => {
     if (!session || replayBusyRef.current) return;
     replayBusyRef.current = true;
@@ -205,8 +248,8 @@ export default function BacktestingPage() {
         const newSaved = [...savedSessions.filter(s => s.id !== session.session_id), item];
         localStorage.setItem("backtest_sessions", JSON.stringify(newSaved));
         setSavedSessions(newSaved);
-        alert("Session correctly saved locally!");
-    } catch(e) { alert("Error saving session"); }
+        toast.success(`Session ${session.symbol} · ${session.timeframe} saved locally.`);
+    } catch(e) { toast.error("Error saving session. localStorage may be full."); }
   };
 
   const loadSavedSession = async (item: SavedSessionItem) => {
@@ -238,6 +281,22 @@ export default function BacktestingPage() {
     } catch (e) { console.error("Jump error:", e); }
   };
 
+  
+  const closePosition = async (posId: string) => {
+    if (!session) return;
+    try {
+      const response = await fetch(`${BACKTEST_API_URL}/replay/${session.session_id}/close_position`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ position_id: posId }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setStatistics(data.statistics);
+        setOpenPositions(data.open_positions);
+      }
+    } catch (e) { console.error("Close position error:", e); }
+  };
+
   const simulateTrade = async () => {
     if (!session || !currentCandle) return;
     try {
@@ -246,7 +305,7 @@ export default function BacktestingPage() {
         body: JSON.stringify({ ...tradeFormData, entry: tradeFormData.entry || currentCandle.close }),
       });
       setTradeFormData(prev => ({ ...prev, sl: 0, tp: 0 })); loadStatus(session.session_id);
-    } catch (e) { alert("Error opening trade: " + (e as Error).message); }
+    } catch (e) { toast.error("Error opening trade: " + (e as Error).message); }
   };
 
   const addHorizontalLine = () => {
@@ -342,7 +401,7 @@ export default function BacktestingPage() {
             <div className="absolute inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-20 flex-col gap-6">
               
               {/* Main New Session Box */}
-              <div className="rounded-3xl p-8 max-w-2xl w-full shadow-2xl flex flex-col gap-6" style={{ background: "var(--bg-card)", border: "1px solid var(--border-strong)" }}>
+              <div className="rounded-3xl p-8 max-w-2xl w-full shadow-[0_0_50px_rgba(0,0,0,0.5)] flex flex-col gap-6 backdrop-blur-3xl border transition-all hover:border-white/10" style={{ background: "rgba(15,15,20,0.8)", borderColor: "var(--border-strong)" }}>
                 
                 <div className="text-center">
                   <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 border" style={{ background: "rgba(0,212,161,0.1)", borderColor: "rgba(0,212,161,0.2)" }}>
@@ -397,7 +456,7 @@ export default function BacktestingPage() {
               
               {/* Saved Sessions Box */}
               {savedSessions.length > 0 && (
-                  <div className="rounded-2xl p-6 max-w-2xl w-full shadow-2xl border" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+                  <div className="rounded-3xl p-6 max-w-2xl w-full shadow-2xl border backdrop-blur-3xl transition-all" style={{ background: "rgba(15,15,20,0.8)", borderColor: "var(--border-strong)" }}>
                       <h3 className="font-bold text-[14px] uppercase tracking-wider text-[--text-primary] mb-3 flex items-center gap-2">
                           <History size={16} className="text-blue-500"/> Saved Replay Sessions
                       </h3>
@@ -490,7 +549,7 @@ export default function BacktestingPage() {
       </div>
 
       {/* ── RIGHT: Execution & Analytics Sidebar ── */}
-      <div className={`w-[360px] bg-[--bg-card] h-full flex flex-col transition-all duration-300 border-l ${!session ? 'opacity-30 pointer-events-none' : 'opacity-100'}`} style={{ borderColor: "var(--border)" }}>
+      <div className={`w-[360px] backdrop-blur-2xl h-full flex flex-col transition-all duration-300 border-l shadow-2xl ${!session ? 'opacity-30 pointer-events-none' : 'opacity-100'}`} style={{ background: "rgba(10,10,15,0.8)", borderColor: "var(--border-strong)" }}>
         
         {/* Equity Header */}
         <div className="p-6 border-b" style={{ borderColor: "var(--border)" }}>
@@ -555,26 +614,41 @@ export default function BacktestingPage() {
             </div>
           ) : (
             <div className="space-y-3 mb-8">
-              {openPositions.map(pos => (
-                <div key={pos.id} className="rounded-xl border p-3 flex flex-col" style={{ background: "var(--bg-base)", borderColor: "var(--border)" }}>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-bold font-mono text-[12px] text-[--text-primary]">{pos.symbol}</span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ background: pos.direction === 'BUY' ? "rgba(0,212,161,0.1)" : "rgba(255,77,106,0.1)", color: pos.direction === 'BUY' ? "var(--bull)" : "var(--bear)" }}>{pos.direction} {pos.lot_size}L</span>
-                  </div>
-                  <div className="flex justify-between items-end">
-                    <div>
-                      <p className="text-[9px] uppercase font-bold text-[--text-tertiary]">Entry Price</p>
-                      <p className="text-[12px] font-mono font-bold text-[--text-primary]">{pos.entry.toFixed(3)}</p>
+              {openPositions.map(pos => {
+                const floatingPnl = currentCandle ? calculateFloatingPnl(pos, currentCandle.close) : 0;
+                const isProfit = floatingPnl >= 0;
+                return (
+                <div key={pos.id} className="rounded-2xl border p-4 flex flex-col backdrop-blur-xl shadow-lg transition-all hover:border-white/10 group" style={{ background: "rgba(15,15,20,0.6)", borderColor: "var(--border)" }}>
+                  <div className="flex justify-between items-center mb-3">
+                    <div className="flex flex-col">
+                      <span className="font-bold font-mono text-[14px] text-[--text-primary]">{pos.symbol}</span>
+                      <span className="text-[10px] font-bold mt-1 px-2 py-0.5 rounded w-max" style={{ background: pos.direction === 'BUY' ? "rgba(0,212,161,0.1)" : "rgba(255,77,106,0.1)", color: pos.direction === 'BUY' ? "var(--bull)" : "var(--bear)" }}>{pos.direction} {pos.lot_size}L</span>
+                    </div>
+                    <div className="flex flex-col items-end">
+                      <span className={`font-bold font-mono text-[15px] ${isProfit ? "text-[--profit]" : "text-[--loss]"}`}>
+                        {isProfit ? '+' : ''}${floatingPnl.toFixed(2)}
+                      </span>
+                      <span className="text-[10px] font-mono text-[--text-tertiary] mt-1">{currentCandle?.close.toFixed(3)}</span>
                     </div>
                   </div>
+                  
+                  <div className="flex justify-between items-end mt-2">
+                    <div>
+                      <p className="text-[9px] uppercase font-bold text-[--text-tertiary] tracking-wider mb-0.5">Entry Price</p>
+                      <p className="text-[12px] font-mono font-bold text-[--text-secondary]">{pos.entry.toFixed(3)}</p>
+                    </div>
+                    <button onClick={() => closePosition(pos.id)} className="opacity-0 group-hover:opacity-100 transition-opacity bg-[--bg-base] hover:bg-white/10 text-white border rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest" style={{ borderColor: "var(--border)" }}>
+                      Close
+                    </button>
+                  </div>
                 </div>
-              ))}
+              )})}
             </div>
           )}
           
           <h3 className="text-[13px] font-bold uppercase tracking-wider text-[--text-primary] mb-4">Simulation Analytics</h3>
           {statistics ? (
-            <div className="rounded-xl p-4 border space-y-1" style={{ background: "var(--bg-base)", borderColor: "var(--border)" }}>
+            <div className="rounded-2xl p-4 border space-y-2 backdrop-blur-xl shadow-lg" style={{ background: "rgba(15,15,20,0.6)", borderColor: "var(--border-strong)" }}>
               <StatRow label="Win Rate" value={`${statistics.win_rate.toFixed(1)}%`} colorClass={statistics.win_rate > 50 ? "text-[--profit]" : "text-[--loss]"} />
               <StatRow label="Total Deals" value={statistics.total_trades} />
               <StatRow label="Wins / Defeats" value={`${statistics.wins} / ${statistics.losses}`} />

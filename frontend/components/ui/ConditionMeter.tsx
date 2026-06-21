@@ -122,7 +122,7 @@ export function ConditionMeter({ type, symbol = "XAUUSDm" }: MeterProps & { symb
     let active = true;
     const fetchAi = async () => {
       try {
-        const BRIDGE = resolveLocalUrl(process.env.NEXT_PUBLIC_BRIDGE_URL ?? "http://localhost:5003");
+        const BRIDGE = resolveLocalUrl(process.env.NEXT_PUBLIC_BRIDGE_URL ?? "/api/bridge");
         const aiKey = localStorage.getItem("ai_key");
         const aiProvider = localStorage.getItem("ai_provider") || "openai";
         const res = await fetch(`${BRIDGE}/api/ai-analysis?symbol=${symbol}${aiKey ? `&ai_key=${aiKey}&provider=${aiProvider}` : ""}`, { headers: { "ngrok-skip-browser-warning": "true" } });

@@ -6,9 +6,11 @@ import { TradeInput } from '../types';
 export const createTrade = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tradeData: TradeInput = req.body;
+    const userId = req.userId;
 
     const trade = await prisma.trade.create({
       data: {
+        userId: userId!,
         date: new Date(tradeData.date),
         pair: tradeData.pair,
         strategy: tradeData.strategy,
@@ -56,7 +58,7 @@ export const getAllTrades = async (req: Request, res: Response, next: NextFuncti
     const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
     const take = parseInt(limit as string);
 
-    const where: any = {};
+    const where: any = { userId: req.userId };
 
     if (strategy) where.strategy = strategy;
     if (outcome) where.outcome = outcome;
@@ -103,7 +105,7 @@ export const getTrade = async (req: Request, res: Response, next: NextFunction) 
       include: { profitLoss: true },
     });
 
-    if (!trade) {
+    if (!trade || trade.userId !== req.userId) {
       throw new AppError('Trade not found', 404);
     }
 
@@ -120,6 +122,11 @@ export const updateTrade = async (req: Request, res: Response, next: NextFunctio
   try {
     const { id } = req.params;
     const tradeData: Partial<TradeInput> = req.body;
+
+    const existing = await prisma.trade.findUnique({ where: { id: parseInt(id) } });
+    if (!existing || existing.userId !== req.userId) {
+      throw new AppError('Trade not found', 404);
+    }
 
     const updatedTrade = await prisma.trade.update({
       where: { id: parseInt(id) },
@@ -158,6 +165,11 @@ export const deleteTrade = async (req: Request, res: Response, next: NextFunctio
   try {
     const { id } = req.params;
 
+    const existing = await prisma.trade.findUnique({ where: { id: parseInt(id) } });
+    if (!existing || existing.userId !== req.userId) {
+      throw new AppError('Trade not found', 404);
+    }
+
     await prisma.trade.delete({
       where: { id: parseInt(id) },
     });
@@ -166,6 +178,73 @@ export const deleteTrade = async (req: Request, res: Response, next: NextFunctio
       success: true,
       message: 'Trade deleted successfully',
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const syncTrades = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const days = req.body.days || 30;
+    const bridgeUrl = process.env.LOCAL_MT5_URL || 'http://127.0.0.1:5003';
+    
+    // Fetch from bridge
+    console.log(`Fetching from: ${bridgeUrl}/api/history?days=${days}`);
+    const response = await fetch(`${bridgeUrl}/api/history?days=${days}`);
+    const data = await response.json() as any;
+    console.log(`Bridge response:`, data);
+    
+    if (!data.success) {
+      return res.status(500).json({ success: false, error: data.error || 'Failed to fetch from MT5' });
+    }
+    
+    const mt5Trades = data.trades || [];
+    let synced = 0;
+    
+    // Upsert trades
+    for (const t of mt5Trades) {
+      if (!t.ticket) continue;
+      
+      const outcome = t.profit >= 0 ? 'Win' : 'Loss';
+      
+      const existing = await prisma.trade.findFirst({
+        where: { ticket: String(t.ticket), userId: req.userId }
+      });
+      
+      if (existing) {
+        await prisma.trade.update({
+          where: { id: existing.id },
+          data: {
+            closePrice: t.closePrice,
+            profit: t.profit,
+            outcome: outcome,
+            closeTime: t.closeTime ? new Date(t.closeTime) : null,
+            commission: t.commission,
+            lotSize: t.lotSize,
+          }
+        });
+      } else {
+        await prisma.trade.create({
+          data: {
+            userId: req.userId!,
+            date: t.openTime ? new Date(t.openTime) : new Date(t.closeTime),
+            pair: t.pair,
+            direction: t.direction,
+            entry: t.entry || t.closePrice,
+            outcome: outcome,
+            ticket: String(t.ticket),
+            lotSize: t.lotSize,
+            profit: t.profit,
+            closePrice: t.closePrice,
+            openTime: t.openTime ? new Date(t.openTime) : null,
+            closeTime: t.closeTime ? new Date(t.closeTime) : null,
+            commission: t.commission,
+          }
+        });
+      }
+      synced++;
+    }
+    console.log('SENDING SUCCESS RESPONSE'); res.json({ success: true, synced });
   } catch (error) {
     next(error);
   }

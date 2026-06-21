@@ -8,127 +8,133 @@ datasource db {
 }
 
 model Trade {
-  id             Int      @id @default(autoincrement())
-  date           DateTime @db.Date
-  pair           String   @db.VarChar(20)
-  strategy       String?  @db.VarChar(50)
-  setupType      String?  @map("setup_type") @db.VarChar(50)
-  entry          Decimal  @db.Decimal(12, 5)
-  sl             Decimal? @db.Decimal(12, 5)
-  tp             Decimal? @db.Decimal(12, 5)
-  rr             String?  @db.VarChar(10)
-  outcome        String   @db.VarChar(20)
-  notes          String?  @db.Text
-  imageUrl       String?  @map("image_url") @db.Text
-  
+  id        Int      @id @default(autoincrement())
+  userId    String   @default("default-user") @map("user_id")
+  date      DateTime @db.Date
+  pair      String   @db.VarChar(20)
+  strategy  String?  @db.VarChar(50)
+  setupType String?  @map("setup_type") @db.VarChar(50)
+  entry     Decimal  @db.Decimal(12, 5)
+  sl        Decimal? @db.Decimal(12, 5)
+  tp        Decimal? @db.Decimal(12, 5)
+  rr        String?  @db.VarChar(10)
+  outcome   String   @db.VarChar(20)
+  notes     String?  @db.Text
+  imageUrl  String?  @map("image_url") @db.Text
+
   // Broker CSV fields
-  ticket         String?  @db.VarChar(50)  // Order ticket from broker
-  brokerSymbol   String?  @map("broker_symbol") @db.VarChar(20)
-  direction      String   @db.VarChar(10)  // "Long" | "Short" | "Buy" | "Sell"
-  lotSize        Decimal? @map("lot_size") @db.Decimal(12, 5)
-  profit         Decimal  @db.Decimal(12, 5)
-  closePrice     Decimal? @map("close_price") @db.Decimal(12, 5)
-  openTime       DateTime? @map("open_time")
-  closeTime      DateTime? @map("close_time")
-  commission     Decimal? @db.Decimal(12, 5)
-  
+  ticket       String?   @db.VarChar(50) // Order ticket from broker
+  brokerSymbol String?   @map("broker_symbol") @db.VarChar(20)
+  direction    String    @db.VarChar(10) // "Long" | "Short" | "Buy" | "Sell"
+  lotSize      Decimal?  @map("lot_size") @db.Decimal(12, 5)
+  profit       Decimal   @db.Decimal(12, 5)
+  closePrice   Decimal?  @map("close_price") @db.Decimal(12, 5)
+  openTime     DateTime? @map("open_time")
+  closeTime    DateTime? @map("close_time")
+  commission   Decimal?  @db.Decimal(12, 5)
+
   // Linking to import session
-  csvImportId    Int?     @map("csv_import_id")
-  csvImport      CsvImport? @relation(fields: [csvImportId], references: [id], onDelete: SetNull)
-  
+  csvImportId Int?       @map("csv_import_id")
+  csvImport   CsvImport? @relation(fields: [csvImportId], references: [id], onDelete: SetNull)
+
   // New Fields for Trading Discipline & Journal Enhancement
-  emotion        String?  @db.VarChar(50) // "Calm", "Confident", "Anxious", "Panicked", "Greedy", "Revenge"
-  followedPlan   Boolean? @map("followed_plan")
-  planDeviationReason String? @map("plan_deviation_reason") @db.Text
-  checklistPassed Boolean? @map("checklist_passed")
+  emotion             String?  @db.VarChar(50) // "Calm", "Confident", "Anxious", "Panicked", "Greedy", "Revenge"
+  followedPlan        Boolean? @map("followed_plan")
+  planDeviationReason String?  @map("plan_deviation_reason") @db.Text
+  checklistPassed     Boolean? @map("checklist_passed")
 
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  profitLoss     ProfitLoss?
+  profitLoss ProfitLoss?
 
+  @@index([userId, date])
+  @@index([userId, pair])
+  @@index([outcome])
   @@map("trades")
 }
 
 model ChecklistTemplate {
-  id                Int      @id @default(autoincrement())
-  userId            String   @unique @map("user_id") // Optional link to auth if multi-tenant
-  questions         Json     // Array of { id, text }
-  blockingQuestions Json     @map("blocking_questions") // Array of IDs that block trade
-  passThreshold     Int      @default(100) @map("pass_threshold")
-  overrideAllowed   Boolean  @default(false) @map("override_allowed")
+  id                Int     @id @default(autoincrement())
+  userId            String  @unique @map("user_id") // Optional link to auth if multi-tenant
+  questions         Json // Array of { id, text }
+  blockingQuestions Json    @map("blocking_questions") // Array of IDs that block trade
+  passThreshold     Int     @default(100) @map("pass_threshold")
+  overrideAllowed   Boolean @default(false) @map("override_allowed")
 
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("checklist_templates")
 }
 
 model TradingPlan {
-  id             Int      @id @default(autoincrement())
-  userId         String   @unique @map("user_id")
-  market         String   @db.VarChar(50)
-  pairs          Json     // Array of strings
-  timeframe      String   @db.VarChar(50)
-  strategyType   String   @map("strategy_type") @db.VarChar(50)
-  session        String   @db.VarChar(50)
-  accountSize    Decimal  @map("account_size") @db.Decimal(15, 2)
-  riskPerTrade   Decimal  @map("risk_per_trade") @db.Decimal(5, 2)
-  dailyLossLimit Decimal  @map("daily_loss_limit") @db.Decimal(5, 2)
-  goal           String   @db.Text
-  planSections   Json     @map("plan_sections") // Generated sections
+  id             Int     @id @default(autoincrement())
+  userId         String  @unique @map("user_id")
+  market         String  @db.VarChar(50)
+  pairs          Json // Array of strings
+  timeframe      String  @db.VarChar(50)
+  strategyType   String  @map("strategy_type") @db.VarChar(50)
+  session        String  @db.VarChar(50)
+  accountSize    Decimal @map("account_size") @db.Decimal(15, 2)
+  riskPerTrade   Decimal @map("risk_per_trade") @db.Decimal(5, 2)
+  dailyLossLimit Decimal @map("daily_loss_limit") @db.Decimal(5, 2)
+  goal           String  @db.Text
+  planSections   Json    @map("plan_sections") // Generated sections
 
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("trading_plans")
 }
 
 model Account {
-  id               Int      @id @default(autoincrement())
-  brokerName       String   @map("broker_name") @db.VarChar(100)
-  accountNumber    String   @map("account_number") @db.VarChar(50)
-  apiKey           String?  @map("api_key") @db.Text
-  apiSecret        String?  @map("api_secret") @db.Text
-  
+  id            Int     @id @default(autoincrement())
+  userId        String  @default("default-user") @map("user_id")
+  brokerName    String  @map("broker_name") @db.VarChar(100)
+  accountNumber String  @map("account_number") @db.VarChar(50)
+  apiKey        String? @map("api_key") @db.Text
+  apiSecret     String? @map("api_secret") @db.Text
+
   // MT5 specific Connection details
-  mt5Password      String?  @map("mt5_password") @db.Text
-  mt5Server        String?  @map("mt5_server") @db.VarChar(100)
-  
+  mt5Password String? @map("mt5_password") @db.Text
+  mt5Server   String? @map("mt5_server") @db.VarChar(100)
+
   // Account Stats
-  balance          Decimal? @db.Decimal(15, 2)
-  equity           Decimal? @db.Decimal(15, 2)
-  lastUpdated      DateTime? @map("last_updated")
-  
+  balance     Decimal?  @db.Decimal(15, 2)
+  equity      Decimal?  @db.Decimal(15, 2)
+  lastUpdated DateTime? @map("last_updated")
+
   // Trade Copier Settings
-  isMaster         Boolean  @default(false) @map("is_master")
-  copierEnabled    Boolean  @default(false) @map("copier_enabled")
-  copierMultiplier Decimal  @default(1.0) @map("copier_multiplier") @db.Decimal(5, 2)
+  isMaster         Boolean @default(false) @map("is_master")
+  copierEnabled    Boolean @default(false) @map("copier_enabled")
+  copierMultiplier Decimal @default(1.0) @map("copier_multiplier") @db.Decimal(5, 2)
 
   @@map("accounts")
 }
 
 model CsvImport {
-  id            Int      @id @default(autoincrement())
-  fileName      String   @map("file_name") @db.VarChar(255)
-  brokerName    String   @map("broker_name") @db.VarChar(100)
-  accountNumber String?  @map("account_number") @db.VarChar(50)
-  totalTrades   Int      @map("total_trades")
-  successCount  Int      @map("success_count")
-  failureCount  Int      @map("failure_count")
-  
+  id            Int     @id @default(autoincrement())
+  userId        String  @default("default-user") @map("user_id")
+  fileName      String  @map("file_name") @db.VarChar(255)
+  brokerName    String  @map("broker_name") @db.VarChar(100)
+  accountNumber String? @map("account_number") @db.VarChar(50)
+  totalTrades   Int     @map("total_trades")
+  successCount  Int     @map("success_count")
+  failureCount  Int     @map("failure_count")
+
   // Summary metrics from CSV
-  totalProfit   Decimal  @map("total_profit") @db.Decimal(15, 2)
-  winRate       Decimal  @map("win_rate") @db.Decimal(5, 2)
-  profitFactor  Decimal? @map("profit_factor") @db.Decimal(8, 2)
-  
-  status        String   @db.VarChar(20)  // "pending" | "processing" | "completed" | "failed"
-  errorMessage  String?  @map("error_message") @db.Text
-  
-  trades        Trade[]
-  
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  totalProfit  Decimal  @map("total_profit") @db.Decimal(15, 2)
+  winRate      Decimal  @map("win_rate") @db.Decimal(5, 2)
+  profitFactor Decimal? @map("profit_factor") @db.Decimal(8, 2)
+
+  status       String  @db.VarChar(20) // "pending" | "processing" | "completed" | "failed"
+  errorMessage String? @map("error_message") @db.Text
+
+  trades Trade[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("csv_imports")
 }
@@ -156,63 +162,63 @@ model UserProfile {
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
-  posts      Post[]
-  comments   Comment[]
-  likes      PostLike[]
+  posts    Post[]
+  comments Comment[]
+  likes    PostLike[]
 
-  communities Community[] @relation("CommunityMembers")
+  communities        Community[] @relation("CommunityMembers")
   createdCommunities Community[] @relation("CreatedCommunities")
 
   @@map("user_profiles")
 }
 
 model Post {
-  id          String   @id @default(uuid())
-  content     String   @db.Text
-  image       String?  @db.Text
-  pair        String?  @db.VarChar(20)
-  direction   String?  @db.VarChar(10)
-  entry       String?  @db.VarChar(50)
-  tp          String?  @db.VarChar(50)
-  sl          String?  @db.VarChar(50)
-  result      String?  @db.VarChar(50)
-  createdAt   DateTime @default(now()) @map("created_at")
+  id        String   @id @default(uuid())
+  content   String   @db.Text
+  image     String?  @db.Text
+  pair      String?  @db.VarChar(20)
+  direction String?  @db.VarChar(10)
+  entry     String?  @db.VarChar(50)
+  tp        String?  @db.VarChar(50)
+  sl        String?  @db.VarChar(50)
+  result    String?  @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at")
 
-  authorId    String   @map("author_id")
-  author      UserProfile @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId String      @map("author_id")
+  author   UserProfile @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
-  communityId String?  @map("community_id")
+  communityId String?    @map("community_id")
   community   Community? @relation(fields: [communityId], references: [id], onDelete: Cascade)
 
-  comments    Comment[]
-  likes       PostLike[]
+  comments Comment[]
+  likes    PostLike[]
 
   @@map("posts")
 }
 
 model Comment {
-  id          String   @id @default(uuid())
-  content     String   @db.Text
-  createdAt   DateTime @default(now()) @map("created_at")
+  id        String   @id @default(uuid())
+  content   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
 
-  postId      String   @map("post_id")
-  post        Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId String @map("post_id")
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
 
-  authorId    String   @map("author_id")
-  author      UserProfile @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId String      @map("author_id")
+  author   UserProfile @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   @@map("comments")
 }
 
 model PostLike {
-  id          String   @id @default(uuid())
-  createdAt   DateTime @default(now()) @map("created_at")
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now()) @map("created_at")
 
-  postId      String   @map("post_id")
-  post        Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId String @map("post_id")
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
 
-  userId      String   @map("user_id")
-  user        UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String      @map("user_id")
+  user   UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([postId, userId])
   @@map("post_likes")
@@ -225,11 +231,11 @@ model Community {
   image       String?  @db.Text
   createdAt   DateTime @default(now()) @map("created_at")
 
-  creatorId   String   @map("creator_id")
-  creator     UserProfile @relation("CreatedCommunities", fields: [creatorId], references: [id])
+  creatorId String      @map("creator_id")
+  creator   UserProfile @relation("CreatedCommunities", fields: [creatorId], references: [id])
 
-  members     UserProfile[] @relation("CommunityMembers")
-  posts       Post[]
+  members UserProfile[] @relation("CommunityMembers")
+  posts   Post[]
 
   @@map("communities")
 }

@@ -7,6 +7,7 @@ import prisma from "../config/database";
 import { buildAdapter, SYMBOLS, generateCandles } from "../services/terminalBrokerAdapter";
 import { fetchTECalendar, fetchCommunityOutlook, getRealNews } from "../services/externalFeedsService";
 import { dispatchAlert, fmtTradeOpen, fmtTradeClose } from "../services/alertsService";
+import { syncBrokerTrades } from "../services/syncService";
 
 const router = express.Router();
 
@@ -116,13 +117,12 @@ function saveSettings(settings: Record<string, any>) {
 }
 
 // ── Admin guard ──────────────────────────────────────────────────────────────
+import { verifyAdminToken } from "../middleware/auth";
 const ADMIN_EMAIL = "rousrendo@gmail.com";
 
 function isAdmin(req: any): boolean {
   const auth: string = req?.headers?.authorization || "";
-  // Header is "Bearer <email>" set by the frontend Axios interceptor
-  const email = auth.startsWith("Bearer ") ? auth.slice(7).trim().toLowerCase() : "";
-  return email === ADMIN_EMAIL.toLowerCase();
+  return verifyAdminToken(auth).valid;
 }
 
 function getActiveAdapter(req?: any) {
@@ -618,136 +618,109 @@ router.get("/terminal/snapshot", async (req, res) => {
 
     const adapter = getActiveAdapter(req);
 
-    // Fetch candles via adapter, fallback if error
-    let candles;
-    try {
-      candles = await adapter.getCandles(symbol, timeframe, 200);
-    } catch (err) {
-      console.warn("Failed to fetch candles via adapter, using mock fallback:", err);
-      candles = generateCandles(symbol, timeframe, 200);
+
+    // Execute all independent asynchronous tasks concurrently to massively speed up load times (especially over proxies)
+    const [
+      candlesRes,
+      watchlistRes,
+      positionsRes,
+      accountRes,
+      orderBookRes,
+      pingRes,
+      journalRes,
+      eventsRes,
+      newsRes,
+      outlookRes
+    ] = await Promise.allSettled([
+      adapter.getCandles(symbol, timeframe, 200),
+      getWatchlist(adapter),
+      adapter.getPositions(),
+      adapter.getAccount(),
+      getOrderBook(symbol),
+      adapter.ping(),
+      getJournalList(),
+      (async () => {
+        const keys = getSettings().api_keys || {};
+        if (keys.tradingeconomics) return await fetchTECalendar(keys.tradingeconomics, 3);
+        return null;
+      })(),
+      (async () => {
+        const keys = getSettings().api_keys || {};
+        return await getRealNews(keys, symbol, 6);
+      })(),
+      (async () => {
+        const keys = getSettings().api_keys || {};
+        if (keys.myfxbook_email && keys.myfxbook_password) {
+           return await fetchCommunityOutlook(keys.myfxbook_email, keys.myfxbook_password);
+        }
+        return null;
+      })()
+    ]);
+
+    // Handle results and fallbacks
+    let candles = candlesRes.status === "fulfilled" && candlesRes.value ? candlesRes.value : generateCandles(symbol, timeframe, 200);
+    if (candlesRes.status === "rejected") console.warn("Failed to fetch candles via adapter, using mock fallback:", candlesRes.reason);
+
+    const watchlist = watchlistRes.status === "fulfilled" && watchlistRes.value ? watchlistRes.value : [];
+    
+    let positions = positionsRes.status === "fulfilled" && positionsRes.value ? positionsRes.value : undefined;
+    if (positionsRes.status === "rejected") {
+      console.warn("Failed to fetch positions via adapter, using mock fallback:", positionsRes.reason);
+    }
+    if (!positions) {
+      try { positions = await getPositionsList(); } catch(e) { positions = []; }
     }
 
-    const watchlist = await getWatchlist(adapter);
-
-    // Fetch positions via adapter, fallback if error
-    let positions;
-    try {
-      positions = await adapter.getPositions();
-    } catch (err) {
-      console.warn("Failed to fetch positions via adapter, using mock fallback:", err);
-      positions = await getPositionsList();
+    let account = accountRes.status === "fulfilled" && accountRes.value ? accountRes.value : undefined;
+    if (accountRes.status === "rejected") {
+      console.warn("Failed to fetch account via adapter, using mock fallback:", accountRes.reason);
+    }
+    if (!account) {
+      try { account = await getAccountData(); } catch(e) { account = null; }
     }
 
-    // Fetch account via adapter, fallback if error
-    let account;
-    try {
-      account = await adapter.getAccount();
-    } catch (err) {
-      console.warn("Failed to fetch account via adapter, using mock fallback:", err);
-      account = await getAccountData();
+    const order_book = orderBookRes.status === "fulfilled" && orderBookRes.value ? orderBookRes.value : undefined;
+    const journal = journalRes.status === "fulfilled" && journalRes.value ? journalRes.value : [];
+
+    let events = eventsRes.status === "fulfilled" && eventsRes.value && eventsRes.value.length ? eventsRes.value : getEvents(3);
+    
+    let news = newsRes.status === "fulfilled" && newsRes.value && newsRes.value.items && newsRes.value.items.length ? newsRes.value.items : getNews();
+
+    let positioning;
+    if (outlookRes.status === "fulfilled" && outlookRes.value && Array.isArray(outlookRes.value)) {
+      const normSym = symbol.toUpperCase().replace("/", "");
+      const match = outlookRes.value.find((item: any) => item.symbol.toUpperCase().replace("/", "") === normSym);
+      if (match) {
+        const extreme = Math.abs(match.long_pct - 50) >= 20;
+        positioning = {
+          retail: { long_pct: match.long_pct, short_pct: match.short_pct, trend: match.long_pct > 50 ? "up" : "down" },
+          institutional: { long_pct: match.short_pct, short_pct: match.long_pct, trend: match.short_pct > 50 ? "up" : "down" },
+          extreme, risk: extreme ? "high" : "low", provider: "myfxbook",
+          note: `MyFXBook: Retail is crowded ${match.long_pct > 50 ? "long" : "short"} (${match.long_pct}%) while institutions are opposite (${match.short_pct}%)`
+        };
+      }
     }
+    if (!positioning) positioning = getPositioning();
 
     const checklist = getSetupChecklist();
     const confluence = getConfluence();
     const central_banks = getCentralBanks();
-
-    // Fetch dynamic events if Trading Economics API configured
-    let events;
-    try {
-      const keys = getSettings().api_keys || {};
-      const teKey = keys.tradingeconomics;
-      if (teKey) {
-        const teEvents = await fetchTECalendar(teKey, 3);
-        if (teEvents && teEvents.length) {
-          events = teEvents;
-        }
-      }
-    } catch (err) {
-      console.warn("Snapshot fetchTECalendar failed:", err);
-    }
-    if (!events || !events.length) {
-      events = getEvents(3);
-    }
-
-    // Fetch dynamic news if Marketaux or NewsAPI configured
-    let news;
-    try {
-      const keys = getSettings().api_keys || {};
-      const newsRes = await getRealNews(keys, symbol, 6);
-      if (newsRes && newsRes.items && newsRes.items.length) {
-        news = newsRes.items;
-      }
-    } catch (err) {
-      console.warn("Snapshot news fetch failed:", err);
-    }
-    if (!news || !news.length) {
-      news = getNews();
-    }
-
     const correlations = getCorrelations();
-
-    // Fetch positioning via MyFXBook if available, else fallback
-    let positioning;
-    try {
-      const keys = getSettings().api_keys || {};
-      const email = keys.myfxbook_email;
-      const password = keys.myfxbook_password;
-      if (email && password) {
-        const outlookList = await fetchCommunityOutlook(email, password);
-        const normSym = symbol.toUpperCase().replace("/", "");
-        const match = outlookList.find(item => {
-          const itemSym = item.symbol.toUpperCase().replace("/", "");
-          return itemSym === normSym;
-        });
-        if (match) {
-          const extreme = Math.abs(match.long_pct - 50) >= 20;
-          const risk = extreme ? "high" : "low";
-          const instLong = match.short_pct;
-          const instShort = match.long_pct;
-          positioning = {
-            retail: {
-              long_pct: match.long_pct,
-              short_pct: match.short_pct,
-              trend: match.long_pct > 50 ? "up" : "down"
-            },
-            institutional: {
-              long_pct: instLong,
-              short_pct: instShort,
-              trend: instLong > 50 ? "up" : "down"
-            },
-            extreme,
-            risk,
-            provider: "myfxbook",
-            note: `MyFXBook: Retail is crowded ${match.long_pct > 50 ? "long" : "short"} (${match.long_pct}%) while institutions are opposite (${instLong}%)`
-          };
-        }
-      }
-    } catch (err) {
-      console.warn("Snapshot MyFXBook positioning failed:", err);
-    }
-    if (!positioning) {
-      positioning = getPositioning();
-    }
-
     const volatility = getVolatility();
-    const order_book = await getOrderBook(symbol);
     const signals = getTechnicalSignals();
-    const journal = await getJournalList();
     const alerts = getAlertsList();
 
     const currentSettings = getSettings();
     const brokerProvider = currentSettings.broker?.provider || "mock";
 
-    // Test actual connection
     let connected = true;
     let pingMsg = "Connected";
-    try {
-      const pingRes = await adapter.ping();
-      connected = pingRes.ok;
-      pingMsg = pingRes.message;
-    } catch (err: any) {
-      connected = false;
-      pingMsg = err.message || "Failed to ping broker";
+    if (pingRes.status === "fulfilled") {
+       connected = pingRes.value.ok;
+       pingMsg = pingRes.value.message;
+    } else {
+       connected = false;
+       pingMsg = pingRes.reason?.message || "Failed to ping broker";
     }
 
     res.json({
@@ -1017,26 +990,72 @@ router.get("/heatmap", (req, res) => {
 });
 
 // GET /api/sentiment-gauge
-router.get("/sentiment-gauge", (req, res) => {
-  const hourSeed = parseInt(new Date().toISOString().substring(0, 13).replace(/[-T:]/g, ""));
-  const rng = new SeededRandom(hourSeed);
-  const value = parseFloat(rng.uniform(-65, 65).toFixed(1));
-  let label = "NEUTRAL";
-  if (value > 50) label = "EXTREME GREED";
-  else if (value > 20) label = "GREED";
-  else if (value > -20) label = "NEUTRAL";
-  else if (value > -50) label = "FEAR";
-  else label = "EXTREME FEAR";
+router.get("/sentiment-gauge", async (req, res) => {
+  try {
+    const keys = getSettings().api_keys || {};
+    const email = keys.myfxbook_email;
+    const password = keys.myfxbook_password;
 
-  const components = [
-    { name: "Equity Momentum", value: parseFloat(rng.uniform(-80, 80).toFixed(1)) },
-    { name: "Safe Haven Demand", value: parseFloat(rng.uniform(-80, 80).toFixed(1)) },
-    { name: "VIX Level", value: parseFloat(rng.uniform(-80, 80).toFixed(1)) },
-    { name: "Put/Call Ratio", value: parseFloat(rng.uniform(-80, 80).toFixed(1)) },
-    { name: "Junk Bond Demand", value: parseFloat(rng.uniform(-80, 80).toFixed(1)) },
-  ];
+    let value = 0;
+    let components: any[] = [];
+    
+    if (email && password) {
+      const outlook = await fetchCommunityOutlook(email, password);
+      if (outlook && outlook.length > 0) {
+        // Calculate a composite Fear/Greed index based on retail positioning on majors
+        // E.g., if Retail is heavily SHORT on XAUUSD, that means the trend is strong GREED (bullish).
+        const majors = ["EURUSD", "GBPUSD", "XAUUSD", "USDJPY"];
+        let totalScore = 0;
+        let count = 0;
 
-  res.json({ value, label, components });
+        for (const o of outlook) {
+          if (majors.includes(o.symbol) || o.symbol === "BTCUSD") {
+            // Retail long %
+            const longPct = o.long_pct;
+            // Map 50% = 0, 100% Long = -100 (Extreme Fear / retail buying dip), 0% Long = 100 (Extreme Greed)
+            const sentimentScore = (50 - longPct) * 2; 
+            totalScore += sentimentScore;
+            count++;
+            
+            components.push({
+              name: `${o.symbol} Positioning`,
+              value: sentimentScore,
+              raw_long: o.long_pct,
+              raw_short: o.short_pct
+            });
+          }
+        }
+        
+        if (count > 0) {
+          value = parseFloat((totalScore / count).toFixed(1));
+        }
+      }
+    }
+
+    // Fallback to random if no data
+    if (components.length === 0) {
+      const hourSeed = parseInt(new Date().toISOString().substring(0, 13).replace(/[-T:]/g, ""));
+      const rng = new SeededRandom(hourSeed);
+      value = parseFloat(rng.uniform(-65, 65).toFixed(1));
+      components = [
+        { name: "Equity Momentum", value: parseFloat(rng.uniform(-80, 80).toFixed(1)) },
+        { name: "Safe Haven Demand", value: parseFloat(rng.uniform(-80, 80).toFixed(1)) },
+        { name: "VIX Level", value: parseFloat(rng.uniform(-80, 80).toFixed(1)) },
+        { name: "Put/Call Ratio", value: parseFloat(rng.uniform(-80, 80).toFixed(1)) },
+      ];
+    }
+
+    let label = "NEUTRAL";
+    if (value > 50) label = "EXTREME GREED";
+    else if (value > 20) label = "GREED";
+    else if (value > -20) label = "NEUTRAL";
+    else if (value > -50) label = "FEAR";
+    else label = "EXTREME FEAR";
+
+    res.json({ value, label, components });
+  } catch (error) {
+    res.json({ value: 0, label: "NEUTRAL", components: [] });
+  }
 });
 
 // GET /api/macro-calendar
@@ -1445,6 +1464,21 @@ router.get("/settings/broker", (req, res) => {
     connected: false,
   };
   res.json(broker);
+});
+
+// POST /api/terminal/sync (Sync Historical Trades from Broker)
+router.post("/sync", async (req, res) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ success: false, error: "Unauthorized. Read-only mode." });
+  }
+
+  try {
+    const insertedCount = await syncBrokerTrades(req.userId!);
+    res.json({ success: true, message: `Successfully synced ${insertedCount} new trades from broker.`, count: insertedCount });
+  } catch (error: any) {
+    console.error("Broker sync failed:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 // POST /api/settings/broker

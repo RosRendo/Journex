@@ -17,7 +17,7 @@ let _cachedBridgeUrl: string | null = null; // module-level cache so we only fet
 
 export function useBridgeUrl() {
   const [bridgeUrl, setBridgeUrl] = useState<string>(() =>
-    resolveLocalUrl(_cachedBridgeUrl || process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003")
+    resolveLocalUrl(_cachedBridgeUrl || process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge")
   );
   const [loading, setLoading] = useState(!_cachedBridgeUrl);
 

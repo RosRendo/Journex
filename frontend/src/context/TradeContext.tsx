@@ -1,35 +1,48 @@
 "use client";
 
-import { useState, createContext, useContext, ReactNode } from "react";
+import { useState, useEffect, createContext, useContext, ReactNode } from "react";
 import { Trade } from "../../types/trade";
-import { mockTrades } from "../data/mockTrades";
+import { fetchTrades, createTrade, deleteTrade as apiDeleteTrade } from "../../lib/tradeApi";
 
 interface TradeContextType {
   trades: Trade[];
-  addTrade: (trade: Omit<Trade, "id" | "createdAt">) => void;
-  deleteTrade: (id: string) => void;
+  isLoading: boolean;
+  addTrade: (trade: Omit<Trade, "id" | "createdAt">) => Promise<void>;
+  deleteTrade: (id: string) => Promise<void>;
 }
 
 const TradeContext = createContext<TradeContextType | null>(null);
 
 export function TradeProvider({ children }: { children: ReactNode }) {
-  const [trades, setTrades] = useState<Trade[]>(mockTrades);
+  const [trades, setTrades] = useState<Trade[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const addTrade = (trade: Omit<Trade, "id" | "createdAt">) => {
-    const newTrade: Trade = {
-      ...trade,
-      id: `t${Date.now()}`,
-      createdAt: new Date().toISOString(),
+  useEffect(() => {
+    const loadTrades = async () => {
+      setIsLoading(true);
+      const data = await fetchTrades();
+      setTrades(data);
+      setIsLoading(false);
     };
-    setTrades((prev) => [newTrade, ...prev]);
+    loadTrades();
+  }, []);
+
+  const addTrade = async (trade: Omit<Trade, "id" | "createdAt">) => {
+    const newTrade = await createTrade(trade);
+    if (newTrade) {
+      setTrades((prev) => [newTrade, ...prev]);
+    }
   };
 
-  const deleteTrade = (id: string) => {
-    setTrades((prev) => prev.filter((t) => t.id !== id));
+  const deleteTrade = async (id: string) => {
+    const success = await apiDeleteTrade(id);
+    if (success) {
+      setTrades((prev) => prev.filter((t) => t.id !== id));
+    }
   };
 
   return (
-    <TradeContext.Provider value={{ trades, addTrade, deleteTrade }}>
+    <TradeContext.Provider value={{ trades, isLoading, addTrade, deleteTrade }}>
       {children}
     </TradeContext.Provider>
   );

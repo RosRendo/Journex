@@ -14,7 +14,7 @@ export default function JournalDetailPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const MT5_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
+  const MT5_URL = process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge";
 
   useEffect(() => {
     fetchJournal();

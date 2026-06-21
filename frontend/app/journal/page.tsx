@@ -4,59 +4,19 @@ import type { TradeData } from "@/hooks/useCsvTrades";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { getPairDigits } from "@/lib/format";
 import CsvUploadComponent from "@/components/CsvUploadComponent";
+import { motion, AnimatePresence } from "framer-motion";
 import {
-  Search,
-  Upload,
-  RefreshCw,
-  X,
-  Image as ImageIcon,
-  Tag,
-  FileText,
-  Clock,
-  TrendingUp,
-  TrendingDown,
-  Trash2,
-  Save,
-  List,
-  Calendar as CalendarIcon,
-  ChevronLeft,
-  Camera,
-  Download,
-  ChevronRight,
+  Search, Upload, RefreshCw, X, Image as ImageIcon, Tag,
+  FileText, Clock, TrendingUp, TrendingDown, Trash2,
+  List, Calendar as CalendarIcon, ChevronLeft, Camera, Download, ChevronRight,
 } from "lucide-react";
 import { useJournalData } from "@/hooks/useJournalData";
 import JournalCalendar from "@/components/JournalCalendar";
 import AutoScreenshotModal from "@/components/AutoScreenshotModal";
 
-// Reusable tag component
-const TagPill = ({
-  label,
-  selected,
-  onClick,
-}: {
-  label: string;
-  selected?: boolean;
-  onClick?: () => void;
-}) => (
-  <button
-    onClick={onClick}
-    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${selected
-      ? "bg-primary text-primary-foreground shadow-[0_0_10px_rgba(59,130,246,0.3)]"
-      : "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border"
-      }`}
-  >
-    {label}
-  </button>
-);
-
 const STRATEGIES = [
-  "Trend Following",
-  "Breakout",
-  "Reversal",
-  "SMC",
-  "Support / Resistance",
-  "Supply / Demand",
-  "News Trading",
+  "Trend Following", "Breakout", "Reversal", "SMC",
+  "Support / Resistance", "Supply / Demand", "News Trading",
 ];
 
 export default function JournalPage() {
@@ -73,36 +33,19 @@ export default function JournalPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
 
-  // For the side panel
   const tradeIdToUse = selectedTrade ? (selectedTrade.ticket || selectedTrade.id) : (selectedDay ? `day_${selectedDay.dateStr}` : undefined);
   const { entry, saveEntry } = useJournalData(tradeIdToUse?.toString());
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Sort and filter trades
   const filteredTrades = useMemo(() => {
-    let filtered = [...trades].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
-
-    if (searchSymbol) {
-      filtered = filtered.filter((t) =>
-        t.pair.toUpperCase().includes(searchSymbol.toUpperCase())
-      );
-    }
-
-    if (filterDirection !== "all") {
-      filtered = filtered.filter((t) => t.direction === filterDirection);
-    }
-
-    if (filterOutcome !== "all") {
-      filtered = filtered.filter((t) => t.outcome === filterOutcome);
-    }
-
+    let filtered = [...trades].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    if (searchSymbol) filtered = filtered.filter((t) => t.pair.toUpperCase().includes(searchSymbol.toUpperCase()));
+    if (filterDirection !== "all") filtered = filtered.filter((t) => t.direction === filterDirection);
+    if (filterOutcome !== "all") filtered = filtered.filter((t) => t.outcome === filterOutcome);
     if (dateFilter !== "all") {
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
       filtered = filtered.filter((t) => {
         const d = new Date(t.date);
         if (dateFilter === "today") return d >= today;
@@ -111,28 +54,21 @@ export default function JournalPage() {
           startOfWeek.setDate(today.getDate() - today.getDay());
           return d >= startOfWeek;
         }
-        if (dateFilter === "month") {
-          return d >= new Date(now.getFullYear(), now.getMonth(), 1);
-        }
-        if (dateFilter === "year") {
-          return d >= new Date(now.getFullYear(), 0, 1);
-        }
+        if (dateFilter === "month") return d >= new Date(now.getFullYear(), now.getMonth(), 1);
+        if (dateFilter === "year") return d >= new Date(now.getFullYear(), 0, 1);
         return true;
       });
     }
-
     return filtered;
-  }, [trades, searchSymbol, filterDirection, filterOutcome]);
+  }, [trades, searchSymbol, filterDirection, filterOutcome, dateFilter]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     if (file.size > 2 * 1024 * 1024) {
       alert("Image is too large. Please use an image under 2MB.");
       return;
     }
-
     const reader = new FileReader();
     reader.onload = (event) => {
       const base64Str = event.target?.result as string;
@@ -142,13 +78,9 @@ export default function JournalPage() {
   };
 
   const toggleStrategy = (strat: string) => {
-    // We can store a single strategy or multiple by toggling. Let's do comma separated.
     let current = entry.strategy ? entry.strategy.split(", ") : [];
-    if (current.includes(strat)) {
-      current = current.filter((s) => s !== strat);
-    } else {
-      current.push(strat);
-    }
+    if (current.includes(strat)) current = current.filter((s) => s !== strat);
+    else current.push(strat);
     saveEntry({ strategy: current.join(", ") });
   };
 
@@ -157,12 +89,8 @@ export default function JournalPage() {
     const headers = ["Date", "Symbol", "Direction", "Entry", "Lot Size", "P&L", "Outcome"];
     const rows = filteredTrades.map(t => [
       `"${new Date(t.date).toLocaleString()}"`,
-      t.pair,
-      t.direction,
-      t.entry.toFixed(getPairDigits(t.pair)),
-      t.lotSize?.toFixed(2) ?? "0",
-      t.profit.toFixed(2),
-      t.outcome
+      t.pair, t.direction, t.entry.toFixed(getPairDigits(t.pair)),
+      t.lotSize?.toFixed(2) ?? "0", t.profit.toFixed(2), t.outcome
     ]);
     const csvContent = [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -174,14 +102,12 @@ export default function JournalPage() {
     URL.revokeObjectURL(url);
   };
 
-  // Pagination logic
   const totalPages = Math.ceil(filteredTrades.length / itemsPerPage);
   const paginatedTrades = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     return filteredTrades.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredTrades, currentPage]);
   
-  // Reset pagination if filters change
   useEffect(() => { setCurrentPage(1); }, [filteredTrades]);
 
   if (loading) {
@@ -193,54 +119,45 @@ export default function JournalPage() {
   }
 
   return (
-    <div className="space-y-6 relative h-full">
+    <div className="space-y-6 relative h-full max-w-[1600px] mx-auto pb-20">
+      
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-start justify-between">
         <div>
-          <h1 className="text-[28px] font-bold" style={{ fontFamily: "var(--font-display, Syne, sans-serif)", color: "var(--text-primary)" }}>
-            Trading Journal
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold tracking-wide mb-3" style={{ background: "rgba(0, 212, 161, 0.1)", border: "1px solid rgba(0, 212, 161, 0.2)", color: "var(--accent)" }}>
+            <FileText size={14} />
+            TRADE ARCHIVE
+          </div>
+          <h1 className="text-[36px] font-black tracking-tight" style={{ fontFamily: "var(--font-display, Syne, sans-serif)", color: "var(--text-primary)" }}>
+            Trading <span style={{ color: "var(--accent)" }}>Journal</span>
           </h1>
-          <p className="text-[12px] mt-0.5" style={{ color: "var(--text-tertiary)" }}>
+          <p className="text-[14px] mt-1" style={{ color: "var(--text-tertiary)" }}>
             Your professional trading history and detailed trade annotations
           </p>
         </div>
         <div className="flex gap-3">
-          <button
-            onClick={() => refresh()}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-[12px] font-bold transition-all"
-            style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            Refresh
+          <button onClick={() => refresh()} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all hover:scale-105 shadow-lg" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "var(--text-primary)", backdropFilter: "blur(10px)" }}>
+            <RefreshCw className="w-4 h-4" style={{ color: "var(--accent)" }} /> Refresh
           </button>
-          <button
-            onClick={() => setShowUpload(!showUpload)}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-[12px] font-bold transition-all"
-            style={{ background: "var(--accent)", color: "#000" }}
-          >
-            <Upload className="w-3.5 h-3.5" />
-            {showUpload ? "Close" : "Import CSV"}
+          <button onClick={() => setShowUpload(!showUpload)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all hover:scale-105 shadow-lg" style={{ background: "var(--accent)", color: "#000" }}>
+            <Upload className="w-4 h-4" /> {showUpload ? "Close" : "Import CSV"}
           </button>
-          <button
-            onClick={exportCSV}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-[12px] font-bold transition-all text-white hover:opacity-90"
-            style={{ background: "var(--bear)" }}
-          >
-            <Download className="w-3.5 h-3.5" />
-            Export CSV
+          <button onClick={exportCSV} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all hover:scale-105 shadow-lg text-white" style={{ background: "var(--bear)" }}>
+            <Download className="w-4 h-4" /> Export
           </button>
         </div>
-      </div>
+      </motion.div>
 
-      {/* CSV Upload Panel */}
-      {showUpload && (
-        <div className="border border-border/50 rounded-2xl overflow-hidden shadow-2xl bg-card/50 backdrop-blur-sm animate-in fade-in slide-in-from-top-4 duration-300">
-          <CsvUploadComponent />
-        </div>
-      )}
+      <AnimatePresence>
+        {showUpload && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden rounded-3xl shadow-2xl backdrop-blur-xl border" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+            <div className="p-6"><CsvUploadComponent /></div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
           { label: "Total Trades", value: analytics?.totalTrades || 0, color: "var(--text-primary)" },
           { label: "Win Rate", value: `${(analytics?.winRate || 0).toFixed(1)}%`, color: (analytics?.winRate || 0) >= 50 ? "var(--bull)" : "var(--bear)" },
@@ -248,554 +165,306 @@ export default function JournalPage() {
           { label: "Profit Factor", value: (analytics?.profitFactor || 0).toFixed(2), color: (analytics?.profitFactor || 0) >= 1 ? "var(--bull)" : "var(--bear)" },
           { label: "Avg Win", value: `$${(analytics?.avgWin || 0).toFixed(2)}`, color: "var(--bull)" },
         ].map((stat, i) => (
-          <div key={i} className="p-4 rounded-xl border" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
-            <div className="text-[9px] font-bold uppercase tracking-widest mb-2" style={{ color: "var(--text-tertiary)" }}>{stat.label}</div>
-            <div className="text-[22px] font-bold font-mono" style={{ color: stat.color }}>{stat.value}</div>
-          </div>
+          <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}
+               className="p-5 rounded-2xl border backdrop-blur-md shadow-lg relative overflow-hidden" 
+               style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+            <div className="absolute top-0 right-0 w-32 h-32 opacity-[0.03] blur-[50px] pointer-events-none rounded-full" style={{ background: stat.color }} />
+            <div className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: "var(--text-tertiary)" }}>{stat.label}</div>
+            <div className="text-[28px] font-black font-mono tracking-tight" style={{ color: stat.color }}>{stat.value}</div>
+          </motion.div>
         ))}
       </div>
 
-      {/* Error Message */}
       {error && (
-        <div className="p-4 bg-loss/10 border border-loss/30 rounded-xl text-loss text-sm font-medium flex items-center gap-2">
-          <X className="w-4 h-4" />
-          {error}
+        <div className="p-4 rounded-xl text-[14px] font-bold flex items-center gap-2 backdrop-blur-md" style={{ background: "rgba(255,77,106,0.1)", border: "1px solid rgba(255,77,106,0.3)", color: "var(--bear)" }}>
+          <X className="w-5 h-5" /> {error}
         </div>
       )}
 
-      {/* Filters */}
-      <div className="flex gap-3 flex-wrap items-center p-2 rounded-xl" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-        <div className="flex gap-2 items-center pl-2">
-          <Search className="w-4 h-4" style={{ color: "var(--text-tertiary)" }} />
-          <input
-            type="text"
-            placeholder="Search symbol..."
-            value={searchSymbol}
-            onChange={(e) => setSearchSymbol(e.target.value)}
-            className="w-32 lg:w-40 px-3 py-1.5 bg-transparent border-none focus:outline-none focus:ring-0 text-[12px]"
-            style={{ color: "var(--text-primary)" }}
-          />
-        </div>
-        <div className="h-5 w-px hidden sm:block" style={{ background: "var(--border)" }} />
-
-        <div className="flex gap-1">
-          {(["all", "today", "week", "month", "year"] as const).map((d) => (
-            <button key={d} onClick={() => setDateFilter(d)}
-              className="px-3 py-1 rounded-lg text-[11px] font-bold transition-all"
-              style={{ background: dateFilter === d ? "var(--accent)" : "transparent", color: dateFilter === d ? "#000" : "var(--text-tertiary)" }}>
-              {d === "all" ? "All Time" : d.charAt(0).toUpperCase() + d.slice(1)}
-            </button>
-          ))}
-        </div>
-
-        <div className="h-5 w-px hidden lg:block" style={{ background: "var(--border)" }} />
-        <div className="flex gap-1">
-          {(["all", "Long", "Short"] as const).map((dir) => (
-            <button key={dir} onClick={() => setFilterDirection(dir)}
-              className="px-3 py-1 rounded-lg text-[11px] font-bold transition-all"
-              style={{ background: filterDirection === dir ? (dir === "Long" ? "var(--bull)" : dir === "Short" ? "var(--bear)" : "var(--accent)") : "transparent", color: filterDirection === dir ? (dir === "all" ? "#000" : "#fff") : "var(--text-tertiary)" }}>
-              {dir === "all" ? "All Dirs" : dir}
-            </button>
-          ))}
-        </div>
-
-        <div className="h-5 w-px hidden xl:block" style={{ background: "var(--border)" }} />
-        <div className="hidden xl:flex gap-1">
-          {(["all", "W", "L", "E"] as const).map((out) => (
-            <button key={out} onClick={() => setFilterOutcome(out)}
-              className="px-3 py-1 rounded-lg text-[11px] font-bold transition-all"
-              style={{ background: filterOutcome === out ? (out === "W" ? "var(--bull)" : out === "L" ? "var(--bear)" : "var(--accent)") : "transparent", color: filterOutcome === out ? (out === "all" ? "#000" : "#fff") : "var(--text-tertiary)" }}>
-              {out === "all" ? "All" : out === "W" ? "Wins" : out === "L" ? "Losses" : "BE"}
-            </button>
-          ))}
-        </div>
-
-        <div className="ml-auto flex items-center pr-2 gap-3">
-          <span className="text-[11px] font-mono hidden md:block" style={{ color: "var(--text-tertiary)" }}>
-            {filteredTrades.length}/{trades.length}
-          </span>
-          <div className="flex p-0.5 rounded-lg gap-0.5" style={{ background: "var(--bg-elevated)" }}>
-            <button onClick={() => setViewMode("list")}
-              className="p-1.5 rounded-md transition-all"
-              style={{ background: viewMode === "list" ? "var(--bg-card)" : "transparent", color: viewMode === "list" ? "var(--text-primary)" : "var(--text-tertiary)" }}>
-              <List className="w-3.5 h-3.5" />
-            </button>
-            <button onClick={() => setViewMode("calendar")}
-              className="p-1.5 rounded-md transition-all"
-              style={{ background: viewMode === "calendar" ? "var(--bg-card)" : "transparent", color: viewMode === "calendar" ? "var(--text-primary)" : "var(--text-tertiary)" }}>
-              <CalendarIcon className="w-3.5 h-3.5" />
-            </button>
+      {/* Filters & View Toggle */}
+      <div className="flex flex-wrap items-center justify-between gap-4 p-3 rounded-2xl backdrop-blur-xl shadow-lg border" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+        <div className="flex gap-4 flex-wrap items-center">
+          <div className="flex gap-2 items-center pl-3">
+            <Search className="w-4 h-4" style={{ color: "var(--text-tertiary)" }} />
+            <input
+              type="text" placeholder="Search symbol..." value={searchSymbol} onChange={(e) => setSearchSymbol(e.target.value)}
+              className="w-32 lg:w-40 px-2 py-1.5 bg-transparent border-none focus:outline-none text-[13px] font-bold"
+              style={{ color: "var(--text-primary)" }}
+            />
           </div>
+          <div className="h-6 w-px hidden md:block" style={{ background: "var(--border-strong)" }} />
+          <div className="flex gap-1">
+            {(["all", "today", "week", "month", "year"] as const).map((d) => (
+              <button key={d} onClick={() => setDateFilter(d)}
+                className="px-4 py-2 rounded-xl text-[12px] font-bold transition-all"
+                style={{ background: dateFilter === d ? "var(--accent)" : "transparent", color: dateFilter === d ? "#000" : "var(--text-tertiary)" }}>
+                {d === "all" ? "All Time" : d.charAt(0).toUpperCase() + d.slice(1)}
+              </button>
+            ))}
+          </div>
+          <div className="h-6 w-px hidden lg:block" style={{ background: "var(--border-strong)" }} />
+          <div className="flex gap-1">
+            {(["all", "Long", "Short"] as const).map((dir) => (
+              <button key={dir} onClick={() => setFilterDirection(dir)}
+                className="px-4 py-2 rounded-xl text-[12px] font-bold transition-all"
+                style={{ background: filterDirection === dir ? (dir === "Long" ? "var(--bull)" : dir === "Short" ? "var(--bear)" : "var(--accent)") : "transparent", color: filterDirection === dir ? (dir === "all" ? "#000" : "#fff") : "var(--text-tertiary)" }}>
+                {dir === "all" ? "All Dirs" : dir}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex gap-1 pr-1">
+          <button onClick={() => setViewMode("list")} className="p-2.5 rounded-xl transition-all" style={{ background: viewMode === "list" ? "var(--bg-elevated)" : "transparent", color: viewMode === "list" ? "var(--text-primary)" : "var(--text-tertiary)" }}>
+            <List className="w-4 h-4" />
+          </button>
+          <button onClick={() => setViewMode("calendar")} className="p-2.5 rounded-xl transition-all" style={{ background: viewMode === "calendar" ? "var(--bg-elevated)" : "transparent", color: viewMode === "calendar" ? "var(--text-primary)" : "var(--text-tertiary)" }}>
+            <CalendarIcon className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
-      {/* Trades Table & Calendar */}
-      {viewMode === "calendar" ? (
-        <JournalCalendar trades={filteredTrades} onDayClick={(dateStr, trades) => {
-          setSelectedTrade(null);
-          setSelectedDay({ dateStr, trades });
-        }} />
-      ) : (
-        <div className="rounded-xl overflow-hidden" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-          <div className="overflow-x-auto">
-            <table className="w-full text-[12px]">
-              <thead>
-                <tr style={{ background: "var(--bg-elevated)", borderBottom: "1px solid var(--border)" }}>
-                  {["Date", "Symbol", "Direction", "Entry", "Lot Size", "P&L", "Result"].map((col, ci) => (
-                    <th key={col} className={`px-5 py-3 text-[9px] uppercase tracking-widest font-bold ${ci === 5 ? "text-right" : ci === 6 ? "text-center" : "text-left"}`}
-                      style={{ color: "var(--text-tertiary)" }}>{col}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredTrades.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={7}
-                      className="px-5 py-16 text-center text-muted-foreground font-medium"
-                    >
-                      {trades.length === 0
-                        ? "No trades yet. Click \"Import CSV\" to upload your broker export."
-                        : "No trades match your filters."}
-                    </td>
-                  </tr>
+      <div className="flex items-start gap-6">
+        {/* Main Content Area */}
+        <div className="flex-1">
+          <AnimatePresence mode="wait">
+            {viewMode === "list" ? (
+              <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                {paginatedTrades.length === 0 ? (
+                  <div className="text-center py-20 rounded-3xl border backdrop-blur-xl" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center" style={{ background: "var(--bg-elevated)" }}>
+                      <List className="w-8 h-8 opacity-50" />
+                    </div>
+                    <h3 className="text-lg font-bold mb-1" style={{ color: "var(--text-primary)" }}>No Trades Found</h3>
+                    <p className="text-sm" style={{ color: "var(--text-secondary)" }}>Upload a CSV or change your filters.</p>
+                  </div>
                 ) : (
-                  paginatedTrades.map((trade: TradeData) => {
-                    const hasJournal = !!localStorage.getItem(`journal_${trade.ticket || trade.id}`);
-                    return (
-                      <tr key={trade.id} onClick={() => setSelectedTrade(trade)}
-                        className="cursor-pointer transition-all"
-                        style={{ borderBottom: "1px solid var(--border)", background: selectedTrade?.id === trade.id ? "rgba(0,212,161,0.05)" : "transparent" }}
-                        onMouseEnter={(e) => { if (selectedTrade?.id !== trade.id) (e.currentTarget as HTMLElement).style.background = "var(--bg-elevated)"; }}
-                        onMouseLeave={(e) => { if (selectedTrade?.id !== trade.id) (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-                        <td className="px-5 py-3.5 text-[11px] font-mono whitespace-nowrap" style={{ color: "var(--text-secondary)" }}>
-                          {new Date(trade.date).toLocaleDateString()}
-                          <span className="ml-2 text-[10px]" style={{ color: "var(--text-tertiary)" }}>
-                            {new Date(trade.date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3.5 text-[12px] font-bold" style={{ color: "var(--text-primary)" }}>
-                          <span className="flex items-center gap-1.5">
-                            {trade.pair}
-                            {hasJournal && <FileText className="w-3 h-3" style={{ color: "var(--accent)" }} />}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3.5">
-                          <span className="px-2 py-1 rounded text-[10px] font-bold uppercase flex items-center w-max gap-1"
-                            style={{ background: trade.direction === "Long" ? "rgba(0,200,150,0.1)" : "rgba(255,77,106,0.1)", color: trade.direction === "Long" ? "var(--bull)" : "var(--bear)", border: `1px solid ${trade.direction === "Long" ? "rgba(0,200,150,0.25)" : "rgba(255,77,106,0.25)"}` }}>
-                            {trade.direction === "Long" ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                            {trade.direction}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3.5 font-mono" style={{ color: "var(--text-tertiary)", fontSize: 11 }}>{trade.entry.toFixed(getPairDigits(trade.pair))}</td>
-                        <td className="px-5 py-3.5 font-mono" style={{ color: "var(--text-secondary)", fontSize: 12 }}>{trade.lotSize?.toFixed(2) ?? "-"}</td>
-                        <td className="px-5 py-3.5 text-right font-bold font-mono" style={{ color: trade.profit >= 0 ? "var(--bull)" : "var(--bear)", fontSize: 12 }}>
-                          {trade.profit >= 0 ? "+" : ""}${trade.profit.toFixed(2)}
-                        </td>
-                        <td className="px-5 py-3.5 text-center">
-                          <span className="px-2.5 py-1 rounded text-[10px] font-bold uppercase"
-                            style={{ background: trade.outcome === "W" ? "rgba(0,200,150,0.15)" : trade.outcome === "L" ? "rgba(255,77,106,0.15)" : "rgba(255,255,255,0.06)", color: trade.outcome === "W" ? "var(--bull)" : trade.outcome === "L" ? "var(--bear)" : "var(--text-tertiary)" }}>
-                            {trade.outcome === "W" ? "WIN" : trade.outcome === "L" ? "LOSS" : "BE"}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-          
-          {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between p-4 border-t" style={{ borderColor: "var(--border)", background: "var(--bg-elevated)" }}>
-              <span className="text-[11px] font-bold text-[--text-tertiary]">
-                Showing {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredTrades.length)} of {filteredTrades.length} trades
-              </span>
-              <div className="flex gap-2">
-                 <button onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} disabled={currentPage === 1} className="px-3 py-1.5 rounded bg-[--bg-card] border border-[--border] text-[11px] font-bold disabled:opacity-50 hover:bg-[--accent]/10 text-[--text-secondary] flex items-center gap-1">
-                    <ChevronLeft className="w-3.5 h-3.5" /> Prev
-                 </button>
-                 <span className="px-3 py-1.5 flex items-center text-[12px] font-bold text-[--text-primary] font-mono">
-                    {currentPage} / {totalPages}
-                 </span>
-                 <button onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} disabled={currentPage === totalPages} className="px-3 py-1.5 rounded bg-[--bg-card] border border-[--border] text-[11px] font-bold disabled:opacity-50 hover:bg-[--accent]/10 text-[--text-secondary] flex items-center gap-1">
-                    Next <ChevronRight className="w-3.5 h-3.5" />
-                 </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Trade Journal Side Panel Overlay */}
-      {(selectedTrade || selectedDay) && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-background/80 backdrop-blur-sm animate-in fade-in duration-300"
-            onClick={() => {
-              setSelectedTrade(null);
-              setSelectedDay(null);
-            }}
-          />
-
-          {/* Panel */}
-          <div className="relative w-full max-w-lg bg-card h-full border-l border-border/50 shadow-[-10px_0_30px_rgba(0,0,0,0.5)] flex flex-col animate-in slide-in-from-right duration-300">
-            {/* Header */}
-            <div className="flex flex-col border-b border-border/50 bg-secondary/30">
-              {selectedTrade && selectedDay && (
-                <button
-                  onClick={() => setSelectedTrade(null)}
-                  className="w-full text-left px-6 py-2 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors flex items-center gap-1"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" /> Back to Daily Overview
-                </button>
-              )}
-              <div className="flex items-center justify-between p-6 pt-4">
-                <div>
-                  <h2 className="text-2xl font-bold flex items-center gap-3">
-                    {selectedTrade ? selectedTrade.pair : "Daily Journal"}
-                    {selectedTrade && (
-                      <span className={`text-base px-2 py-0.5 rounded-md ${selectedTrade.direction === "Long" ? "bg-profit/20 text-profit" : "bg-loss/20 text-loss"}`}>
-                        {selectedTrade.direction}
-                      </span>
-                    )}
-                  </h2>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                    <Clock className="w-3.5 h-3.5" />
-                    {selectedTrade ? new Date(selectedTrade.date).toLocaleString() : selectedDay?.dateStr}
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    setSelectedTrade(null);
-                    setSelectedDay(null);
-                  }}
-                  className="p-2 hover:bg-secondary rounded-full transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Content Scrollable */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-8">
-
-              {/* Quick Stats Banner */}
-              {selectedTrade ? (
-                <div className={`p-4 rounded-xl flex items-center justify-between text-foreground font-bold tracking-wide shadow-inner ${selectedTrade.profit >= 0 ? "bg-gradient-to-r from-green-600 to-profit" : "bg-gradient-to-r from-red-600 to-loss"}`}>
-                  <div className="flex flex-col">
-                    <span className="text-xs uppercase opacity-80 font-semibold text-foreground/80">Result</span>
-                    <span className="text-xl">{selectedTrade.outcome === "W" ? "WIN" : selectedTrade.outcome === "L" ? "LOSS" : "BREAK EVEN"}</span>
-                  </div>
-                  <div className="text-right flex flex-col text-foreground">
-                    <span className="text-xs uppercase opacity-80 font-semibold text-foreground/80">Profit / Loss</span>
-                    <span className="text-2xl">${selectedTrade.profit.toFixed(2)}</span>
-                  </div>
-                </div>
-              ) : selectedDay ? (
-                <div className={`p-4 rounded-xl flex items-center justify-between text-foreground font-bold tracking-wide shadow-inner ${(selectedDay.trades.reduce((sum, t) => sum + t.profit, 0) || 0) >= 0 ? "bg-gradient-to-r from-green-600 to-profit" : "bg-gradient-to-r from-red-600 to-loss"}`}>
-                  <div className="flex flex-col">
-                    <span className="text-xs uppercase opacity-80 font-semibold text-foreground/80">Total Trades</span>
-                    <span className="text-xl">{selectedDay.trades.length}</span>
-                  </div>
-                  <div className="text-right flex flex-col text-foreground">
-                    <span className="text-xs uppercase opacity-80 font-semibold text-foreground/80">Net Daily P&L</span>
-                    <span className="text-2xl">${(selectedDay.trades.reduce((sum, t) => sum + t.profit, 0) || 0).toFixed(2)}</span>
-                  </div>
-                </div>
-              ) : null}
-
-              {/* Day Trades List (Only in Day mode) */}
-              {!selectedTrade && selectedDay && selectedDay.trades.length > 0 && (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 font-semibold text-lg border-b border-border/50 pb-2">
-                    <List className="w-5 h-5 text-primary" />
-                    Trades from {selectedDay.dateStr}
-                    <span className="text-xs font-normal text-muted-foreground ml-2">(Click to journal individually)</span>
-                    <button
-                      onClick={() => setShowScreenshotModal(true)}
-                      className="ml-auto text-xs flex items-center gap-1 bg-violet-500/10 text-violet-400 border border-violet-500/20 hover:bg-violet-500/20 px-3 py-1.5 rounded-lg font-bold transition-all"
-                    >
-                      <Camera className="w-3 h-3" /> Auto-Capture Day
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
-                    {selectedDay.trades.map((trade) => {
-                      const hasJournal = !!localStorage.getItem(`journal_${trade.ticket || trade.id}`);
+                  <div className="space-y-4">
+                    {paginatedTrades.map((trade, idx) => {
+                      const isWin = trade.profit > 0;
+                      const isSelected = selectedTrade?.id === trade.id;
                       return (
-                        <div
+                        <motion.div
                           key={trade.id}
-                          onClick={() => setSelectedTrade(trade)}
-                          className={`flex items-center justify-between p-3 rounded-xl border border-border/50 cursor-pointer transition-all ${trade.profit >= 0 ? "bg-profit/5 hover:bg-profit/10" : "bg-loss/5 hover:bg-loss/10"}`}
+                          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.03 }}
+                          onClick={() => { setSelectedTrade(trade); setSelectedDay(null); }}
+                          className="group p-5 rounded-2xl border transition-all cursor-pointer backdrop-blur-md relative overflow-hidden"
+                          style={{
+                            background: isSelected ? "var(--bg-elevated)" : "var(--bg-card)",
+                            borderColor: isSelected ? "var(--accent)" : "var(--border)",
+                            boxShadow: isSelected ? "0 0 20px rgba(0, 212, 161, 0.1)" : "none"
+                          }}
                         >
-                          <div className="flex items-center gap-3">
-                            <span className={`px-2 py-0.5 rounded-md text-xs font-bold w-12 text-center ${trade.direction === "Long" ? "bg-profit/10 text-profit" : "bg-loss/10 text-loss"}`}>
-                              {trade.direction}
-                            </span>
-                            <span className="font-bold text-sm">{trade.pair}</span>
+                          <div className="absolute inset-0 opacity-0 group-hover:opacity-5 transition-opacity" style={{ background: isWin ? "var(--bull)" : "var(--bear)" }} />
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
+                            <div className="flex items-center gap-5">
+                              <div className="w-1.5 h-12 rounded-full" style={{ background: isWin ? "var(--bull)" : "var(--bear)" }} />
+                              <div>
+                                <div className="flex items-center gap-3">
+                                  <span className="font-bold text-[16px]" style={{ color: "var(--text-primary)" }}>{trade.pair}</span>
+                                  <span className="text-[10px] font-bold px-2 py-1 rounded uppercase tracking-widest" style={{ background: "var(--bg-input)", color: "var(--text-secondary)" }}>
+                                    {trade.direction}
+                                  </span>
+                                </div>
+                                <div className="text-[12px] font-mono mt-1.5 flex items-center gap-2" style={{ color: "var(--text-tertiary)" }}>
+                                  <Clock className="w-3 h-3" /> {new Date(trade.date).toLocaleString()}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-8 sm:gap-12 pl-6 sm:pl-0">
+                              <div>
+                                <div className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: "var(--text-tertiary)" }}>Entry</div>
+                                <div className="font-mono font-bold text-[14px]" style={{ color: "var(--text-primary)" }}>{trade.entry.toFixed(getPairDigits(trade.pair))}</div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: "var(--text-tertiary)" }}>P&L</div>
+                                <div className="font-mono font-black text-[18px] tracking-tight" style={{ color: isWin ? "var(--bull)" : "var(--bear)" }}>
+                                  {isWin ? "+" : ""}{trade.profit.toFixed(2)}
+                                </div>
+                              </div>
+                              <ChevronRight className="w-5 h-5 transition-transform group-hover:translate-x-1" style={{ color: "var(--text-tertiary)" }} />
+                            </div>
                           </div>
-                          <div className="flex items-center gap-3">
-                            {hasJournal && (
-                              <span title="Has Journal">
-                                <FileText className="w-3.5 h-3.5 text-primary" />
-                              </span>
-                            )}
-                            <span className={`font-mono text-sm font-bold ${trade.profit >= 0 ? "text-profit" : "text-loss"}`}>
-                              {trade.profit >= 0 ? "+" : ""}${trade.profit.toFixed(2)}
-                            </span>
-                          </div>
-                        </div>
+                        </motion.div>
                       );
+                    })}
+                    
+                    {totalPages > 1 && (
+                      <div className="flex justify-center items-center gap-4 pt-6">
+                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-2 rounded-xl disabled:opacity-50" style={{ background: "var(--bg-elevated)" }}>
+                          <ChevronLeft className="w-5 h-5" />
+                        </button>
+                        <span className="text-sm font-bold font-mono">{currentPage} / {totalPages}</span>
+                        <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-2 rounded-xl disabled:opacity-50" style={{ background: "var(--bg-elevated)" }}>
+                          <ChevronRight className="w-5 h-5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </motion.div>
+            ) : (
+              <motion.div key="calendar" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="rounded-3xl border backdrop-blur-xl p-6 shadow-2xl" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+                <JournalCalendar trades={filteredTrades} onDayClick={(dateStr, dayTrades) => { setSelectedTrade(null); setSelectedDay({ dateStr, trades: dayTrades }); }} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Floating Side Panel for Details */}
+        <AnimatePresence>
+          {(selectedTrade || selectedDay) && (
+            <motion.div 
+              initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 50 }}
+              className="w-[400px] shrink-0 rounded-3xl border backdrop-blur-2xl shadow-2xl sticky top-6 max-h-[calc(100vh-48px)] overflow-y-auto custom-scrollbar"
+              style={{ background: "rgba(20,20,20,0.8)", borderColor: "var(--border)" }}
+            >
+              <div className="p-6 space-y-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-bold tracking-tight" style={{ color: "var(--text-primary)", fontFamily: "var(--font-display, Syne, sans-serif)" }}>
+                    {selectedTrade ? "Trade Details" : "Daily Review"}
+                  </h3>
+                  <button onClick={() => { setSelectedTrade(null); setSelectedDay(null); }} className="p-2 rounded-full transition-colors hover:bg-white/10">
+                    <X className="w-5 h-5" style={{ color: "var(--text-tertiary)" }} />
+                  </button>
+                </div>
+
+                {selectedTrade && (
+                  <div className="p-4 rounded-2xl border flex items-center justify-between" style={{ background: "var(--bg-elevated)", borderColor: "var(--border-strong)" }}>
+                     <div>
+                        <div className="text-sm font-bold" style={{ color: "var(--text-secondary)" }}>{selectedTrade.pair} • {selectedTrade.direction}</div>
+                        <div className="text-xs font-mono mt-1" style={{ color: "var(--text-tertiary)" }}>{new Date(selectedTrade.date).toLocaleString()}</div>
+                     </div>
+                     <div className="text-right">
+                        <div className="text-xl font-black font-mono" style={{ color: selectedTrade.profit > 0 ? "var(--bull)" : "var(--bear)" }}>
+                           {selectedTrade.profit > 0 ? "+" : ""}{selectedTrade.profit.toFixed(2)}
+                        </div>
+                     </div>
+                  </div>
+                )}
+
+                {selectedDay && (
+                  <div className="p-4 rounded-2xl border" style={{ background: "var(--bg-elevated)", borderColor: "var(--border-strong)" }}>
+                     <div className="text-sm font-bold" style={{ color: "var(--text-secondary)" }}>{selectedDay.dateStr}</div>
+                     <div className="text-xs font-mono mt-1" style={{ color: "var(--text-tertiary)" }}>{selectedDay.trades.length} trades recorded</div>
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <label className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-2" style={{ color: "var(--text-tertiary)" }}>
+                    <Tag size={12} /> Playbook Strategy
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {STRATEGIES.map(s => {
+                       const active = entry.strategy?.includes(s);
+                       return (
+                         <button key={s} onClick={() => toggleStrategy(s)}
+                           className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all border hover:scale-105"
+                           style={{ 
+                             background: active ? "rgba(0,212,161,0.1)" : "transparent", 
+                             borderColor: active ? "var(--accent)" : "var(--border)", 
+                             color: active ? "var(--accent)" : "var(--text-secondary)" 
+                           }}>
+                           {s}
+                         </button>
+                       )
                     })}
                   </div>
                 </div>
-              )}
 
-              {/* Strategies Section */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 font-semibold text-lg border-b border-border/50 pb-2">
-                  <Tag className="w-5 h-5 text-primary" />
-                  Strategies Used
-                </div>
-                <div className="flex flex-wrap gap-2 pt-2">
-                  {STRATEGIES.map((strat) => {
-                    const currentStrats = entry.strategy ? entry.strategy.split(", ") : [];
-                    const isSelected = currentStrats.includes(strat);
-                    return (
-                      <TagPill
-                        key={strat}
-                        label={strat}
-                        selected={isSelected}
-                        onClick={() => toggleStrategy(strat)}
-                      />
-                    );
-                  })}
-                </div>
-                <div className="pt-2">
-                  <input
-                    type="text"
-                    placeholder="Or type a custom strategy (e.g., Pullback)..."
-                    value={entry.strategy || ""}
-                    onChange={(e) => saveEntry({ strategy: e.target.value })}
-                    className="w-full bg-secondary/50 border border-border/50 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-primary/50 outline-none transition-all"
-                  />
-                </div>
-              </div>
-
-              {/* Reason & Lessons Section */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 font-semibold text-lg border-b border-border/50 pb-2">
-                  <FileText className="w-5 h-5 text-primary" />
-                  Reason & Edge
-                </div>
-                <textarea
-                  placeholder={selectedTrade ? "Why did you take this trade? What did you do well? What could you improve?" : "How was today's trading? Did you follow your rules? What's your overall feel for the day?"}
-                  value={entry.reason || ""}
-                  onChange={(e) => saveEntry({ reason: e.target.value })}
-                  rows={5}
-                  className="w-full bg-secondary/30 border border-border/50 rounded-xl p-4 text-sm focus:ring-2 focus:ring-primary/50 outline-none transition-all resize-none font-medium leading-relaxed"
-                />
-              </div>
-
-              {/* Emotion & Plan Compliance Section */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 font-semibold text-lg border-b border-border/50 pb-2">
-                  <span>🧠</span> Mind State &amp; Discipline
-                </div>
-
-                {/* Emotion Selector */}
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--text-tertiary)" }}>Emotional State</label>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { label: "😌 Calm", value: "Calm", active: "rgba(34,197,94,0.15)", border: "rgba(34,197,94,0.4)", text: "#22c55e" },
-                      { label: "💪 Confident", value: "Confident", active: "rgba(59,130,246,0.15)", border: "rgba(59,130,246,0.4)", text: "#3b82f6" },
-                      { label: "😰 Anxious", value: "Anxious", active: "rgba(234,179,8,0.15)", border: "rgba(234,179,8,0.4)", text: "#eab308" },
-                      { label: "😱 Panicked", value: "Panicked", active: "rgba(239,68,68,0.15)", border: "rgba(239,68,68,0.4)", text: "#ef4444" },
-                      { label: "🤑 Greedy", value: "Greedy", active: "rgba(249,115,22,0.15)", border: "rgba(249,115,22,0.4)", text: "#f97316" },
-                      { label: "🔥 Revenge", value: "Revenge", active: "rgba(220,38,38,0.2)", border: "rgba(220,38,38,0.5)", text: "#dc2626" },
-                    ].map((em) => (
-                      <button
-                        key={em.value}
-                        onClick={() => saveEntry({ emotion: entry.emotion === em.value ? undefined : em.value })}
-                        className="px-3 py-1.5 rounded-full text-xs font-bold transition-all"
-                        style={{
-                          background: entry.emotion === em.value ? em.active : "transparent",
-                          border: `1px solid ${entry.emotion === em.value ? em.border : "var(--border)"}`,
-                          color: entry.emotion === em.value ? em.text : "var(--text-tertiary)",
-                        }}
-                      >
-                        {em.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Followed Plan */}
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--text-tertiary)" }}>Did you follow your plan?</label>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => saveEntry({ followedPlan: true, planDeviationReason: "" })}
-                      className="flex-1 py-2 rounded-xl text-sm font-bold transition-all"
-                      style={{
-                        background: entry.followedPlan === true ? "rgba(34,197,94,0.2)" : "transparent",
-                        border: `1px solid ${entry.followedPlan === true ? "rgba(34,197,94,0.5)" : "var(--border)"}`,
-                        color: entry.followedPlan === true ? "#22c55e" : "var(--text-tertiary)",
-                      }}
-                    >
-                      ✓ Yes
-                    </button>
-                    <button
-                      onClick={() => saveEntry({ followedPlan: false })}
-                      className="flex-1 py-2 rounded-xl text-sm font-bold transition-all"
-                      style={{
-                        background: entry.followedPlan === false ? "rgba(239,68,68,0.2)" : "transparent",
-                        border: `1px solid ${entry.followedPlan === false ? "rgba(239,68,68,0.5)" : "var(--border)"}`,
-                        color: entry.followedPlan === false ? "#ef4444" : "var(--text-tertiary)",
-                      }}
-                    >
-                      ✗ No — I deviated
-                    </button>
-                  </div>
-                  {entry.followedPlan === false && (
-                    <textarea
-                      placeholder="Why did you deviate? Be honest — this data will save you money later."
-                      value={entry.planDeviationReason || ""}
-                      onChange={(e) => saveEntry({ planDeviationReason: e.target.value })}
-                      rows={3}
-                      className="w-full rounded-xl p-3 text-sm resize-none focus:outline-none transition-all"
-                      style={{ background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.2)", color: "var(--text-primary)" }}
-                    />
-                  )}
-                </div>
-              </div>
-
-              {/* Pictures / Screenshots */}
-              <div className="space-y-4 pb-4">
-                <div className="flex items-center justify-between border-b border-border/50 pb-2">
-                  <div className="flex items-center gap-2 font-semibold text-lg">
-                    <ImageIcon className="w-5 h-5 text-primary" />
-                    Chart Screenshots
-                  </div>
+                <div className="space-y-3">
+                  <label className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-2" style={{ color: "var(--text-tertiary)" }}>
+                    <TrendingUp size={12} /> Emotional State
+                  </label>
                   <div className="flex gap-2">
-                    {selectedTrade && (
-                      <button
-                        onClick={() => setShowScreenshotModal(true)}
-                        className="text-xs flex items-center gap-1 bg-violet-500/10 text-violet-400 border border-violet-500/20 hover:bg-violet-500/20 px-3 py-1.5 rounded-lg font-bold transition-all shadow-[0_0_10px_rgba(139,92,246,0.1)] hover:shadow-[0_0_15px_rgba(139,92,246,0.3)]"
-                      >
-                        <Camera className="w-3.5 h-3.5" />
-                        Auto-Capture MT5
-                      </button>
-                    )}
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      className="text-xs flex items-center gap-1 bg-primary/10 text-primary hover:bg-primary/20 px-3 py-1.5 rounded-lg font-bold transition-colors"
-                    >
-                      <Upload className="w-3.5 h-3.5" />
-                      Upload
-                    </button>
+                    {(["Calm", "FOMO", "Revenge", "Anxious"] as const).map(e => {
+                       const active = entry.emotion === e;
+                       return (
+                         <button key={e} onClick={() => saveEntry({ emotion: e })}
+                           className="flex-1 py-2 rounded-lg text-xs font-bold transition-all border text-center"
+                           style={{ 
+                             background: active ? "rgba(255,255,255,0.1)" : "transparent", 
+                             borderColor: active ? "var(--text-primary)" : "var(--border)", 
+                             color: active ? "#fff" : "var(--text-secondary)" 
+                           }}>
+                           {e}
+                         </button>
+                       )
+                    })}
                   </div>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    ref={fileInputRef}
-                    className="hidden"
-                    onChange={handleImageUpload}
+                </div>
+
+                <div className="space-y-3">
+                  <label className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-2" style={{ color: "var(--text-tertiary)" }}>
+                    <FileText size={12} /> Notes & Analysis
+                  </label>
+                  <textarea
+                    value={entry.reason || ""}
+                    onChange={(e) => saveEntry({ reason: e.target.value })}
+                    placeholder="Why did you take this setup? Did you follow your protocol?"
+                    className="w-full h-32 p-4 rounded-xl text-sm resize-none focus:outline-none transition-all"
+                    style={{ background: "rgba(0,0,0,0.3)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
                   />
                 </div>
 
-                {(!entry.images || entry.images.length === 0) ? (
-                  <div
-                    onClick={() => fileInputRef.current?.click()}
-                    className="border-2 border-dashed border-border/60 rounded-xl p-8 flex flex-col items-center justify-center text-muted-foreground hover:bg-secondary/30 hover:border-primary/50 transition-all cursor-pointer group"
-                  >
-                    <div className="bg-secondary p-3 rounded-full mb-3 group-hover:scale-110 transition-transform">
-                      <ImageIcon className="w-6 h-6 opacity-60 group-hover:text-primary transition-colors" />
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-2" style={{ color: "var(--text-tertiary)" }}>
+                      <ImageIcon size={12} /> Chart Screenshots
+                    </label>
+                    <div className="flex gap-2">
+                       <button onClick={() => setShowScreenshotModal(true)} className="text-xs font-bold flex items-center gap-1 hover:text-[var(--accent)] transition-colors" style={{ color: "var(--text-secondary)" }}>
+                         <Camera size={12} /> Auto
+                       </button>
+                       <button onClick={() => fileInputRef.current?.click()} className="text-xs font-bold flex items-center gap-1 hover:text-[var(--accent)] transition-colors" style={{ color: "var(--text-secondary)" }}>
+                         <Upload size={12} /> Manual
+                       </button>
+                       <button onClick={() => {
+                         const url = prompt("Paste TradingView or Image URL:");
+                         if (url) saveEntry({ images: [...(entry.images || []), url] });
+                       }} className="text-xs font-bold flex items-center gap-1 hover:text-[var(--accent)] transition-colors" style={{ color: "var(--text-secondary)" }}>
+                         <ImageIcon size={12} /> Link
+                       </button>
                     </div>
-                    <p className="text-sm font-medium">Click to upload strategy screenshots, or use Auto-Capture</p>
-                    <p className="text-xs opacity-60 mt-1">(Max 2MB per image)</p>
                   </div>
-                ) : (
-                  <div className="grid grid-cols-1 gap-4">
-                    {entry.images.map((img, idx) => (
-                      <div key={idx} className="relative group rounded-xl overflow-hidden border border-border/50 shadow-md">
-                        <img src={img} alt={`Trade screenshot ${idx + 1}`} className="w-full object-cover" />
-                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <button
-                            onClick={() => {
-                              const newImages = [...entry.images];
-                              newImages.splice(idx, 1);
-                              saveEntry({ images: newImages });
-                            }}
-                            className="bg-red-500/90 text-foreground p-3 rounded-full hover:bg-red-600 hover:scale-110 transition-all"
-                            title="Delete screenshot"
-                          >
-                            <Trash2 className="w-5 h-5" />
+                  <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleImageUpload} />
+                  
+                  {entry.images && entry.images.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      {entry.images.map((img, i) => (
+                        <div key={i} className="relative group rounded-xl overflow-hidden border" style={{ borderColor: "var(--border)" }}>
+                          <img src={img} alt="Chart" className="w-full h-24 object-cover cursor-pointer hover:scale-110 transition-transform" onClick={() => window.open(img, "_blank")} />
+                          <button onClick={() => {
+                            const newImages = [...entry.images!];
+                            newImages.splice(i, 1);
+                            saveEntry({ images: newImages });
+                          }} className="absolute top-1 right-1 p-1.5 bg-black/70 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Trash2 className="w-3 h-3 text-red-400" />
                           </button>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-6 rounded-xl border border-dashed text-center text-xs font-bold" style={{ borderColor: "var(--border-strong)", color: "var(--text-tertiary)" }}>
+                      No charts attached. Connect TradingView or upload manually.
+                    </div>
+                  )}
+                </div>
+
               </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
-            </div>
-
-            {/* Footer */}
-            <div className="p-4 border-t border-border/50 bg-secondary/20 flex justify-end">
-              <button
-                onClick={() => {
-                  setSelectedTrade(null);
-                  setSelectedDay(null);
-                }}
-                className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-2.5 rounded-xl font-bold transition-all shadow-md shadow-primary/20 hover:shadow-primary/40 active:scale-95"
-              >
-                <Save className="w-4 h-4" />
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Auto Screenshot Modal — single trade */}
-      {showScreenshotModal && selectedTrade && (
+      {showScreenshotModal && (
         <AutoScreenshotModal
-          trades={[{
-            pair: selectedTrade.pair,
-            date: selectedTrade.date,
-            openTime: selectedTrade.openTime,
-            entry: selectedTrade.entry,
-            closePrice: selectedTrade.closePrice,
-            direction: selectedTrade.direction,
-          }]}
-          title={`Chart — ${selectedTrade.pair} (${selectedTrade.direction})`}
-          onCapture={(base64) => {
-            saveEntry({ images: [...(entry.images || []), base64] });
-          }}
+          trades={selectedTrade ? [selectedTrade as any] : selectedDay?.trades || []}
           onClose={() => setShowScreenshotModal(false)}
-        />
-      )}
-
-      {/* Auto Screenshot Modal — full day (calendar) */}
-      {showScreenshotModal && !selectedTrade && selectedDay && (
-        <AutoScreenshotModal
-          trades={selectedDay.trades.map(t => ({
-            pair: t.pair,
-            date: t.date,
-            openTime: t.openTime,
-            entry: t.entry,
-            closePrice: t.closePrice,
-            direction: t.direction,
-          }))}
-          title={`Day Capture — ${selectedDay.dateStr}`}
-          onCapture={(base64) => {
-            saveEntry({ images: [...(entry.images || []), base64] });
+          onCapture={(base64Str) => {
+            saveEntry({ images: [...(entry.images || []), base64Str] });
+            setShowScreenshotModal(false);
           }}
-          onClose={() => setShowScreenshotModal(false)}
         />
       )}
     </div>

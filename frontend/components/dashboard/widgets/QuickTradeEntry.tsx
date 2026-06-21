@@ -16,11 +16,11 @@ export function QuickTradeEntry() {
   const [lotSize, setLotSize] = useState("0.10");
   const [sl, setSl] = useState("");
   const [tp, setTp] = useState("");
-  const [comment, setComment] = useState("TradeKiller Dashboard");
+  const [comment, setComment] = useState("Journex Dashboard");
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<ToastMsg | null>(null);
 
-  const BRIDGE_URL = resolveLocalUrl(process.env.NEXT_PUBLIC_BRIDGE_URL ?? "http://localhost:5003");
+  const BRIDGE_URL = resolveLocalUrl(process.env.NEXT_PUBLIC_BRIDGE_URL ?? "/api/bridge");
   const API_URL = resolveLocalUrl(process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000");
 
   const handleSubmit = async (e: React.FormEvent) => {

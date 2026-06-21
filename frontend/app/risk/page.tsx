@@ -1,12 +1,14 @@
 "use client";
+
 import { useState, useEffect, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Calculator, DollarSign, TrendingDown, TrendingUp, AlertCircle,
-  CheckCircle2, Loader2, ChevronDown, Activity, Target, Zap,
+  CheckCircle2, Loader2, ChevronDown, Activity, Target, Zap, ShieldAlert
 } from "lucide-react";
 import { toast } from "sonner";
-
-const BRIDGE = process.env.NEXT_PUBLIC_BRIDGE_URL ?? "";
+import { getBackendUrl } from "@/lib/utils";
+import { getSession } from "@/lib/useSession";
 
 type InputKeys = "balance" | "leverage" | "riskPercent" | "stopLossPips" | "pipValue" | "sl" | "tp" | "rewardRatio";
 type Inputs = Record<InputKeys, number>;
@@ -18,21 +20,30 @@ function FieldInput({ label, value, onChange, suffix, highlighted = "none" }: {
   label: string; value: number; onChange: (v: string) => void;
   suffix?: string; highlighted?: "bull" | "bear" | "none";
 }) {
-  const borderColor = highlighted === "bull" ? "var(--bull)" : highlighted === "bear" ? "var(--bear)" : "var(--border)";
+  const [isFocused, setIsFocused] = useState(false);
+  const borderColor = highlighted === "bull" ? "var(--bull)" : highlighted === "bear" ? "var(--bear)" : "rgba(255, 255, 255, 0.1)";
+  const glowColor = highlighted === "bull" ? "rgba(0, 212, 161, 0.15)" : highlighted === "bear" ? "rgba(255, 77, 106, 0.15)" : "rgba(255, 255, 255, 0.05)";
+
   return (
-    <div>
-      <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: "var(--text-tertiary)" }}>
+    <div className="relative group">
+      <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5 transition-colors duration-300" 
+             style={{ color: isFocused ? "var(--accent)" : "var(--text-tertiary)" }}>
         {label}
       </label>
       <div className="relative">
         <input
           type="number" inputMode="decimal" value={value || ""}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full rounded-lg px-3 py-2.5 text-[13px] font-mono font-bold outline-none transition-all"
-          style={{ background: "var(--bg-input)", border: `1px solid ${borderColor}`, color: "var(--text-primary)" }}
+          className="w-full rounded-xl px-4 py-3 text-[13px] font-mono font-bold outline-none transition-all duration-300 bg-black/25 text-white"
+          style={{ 
+            border: `1px solid ${isFocused ? "var(--accent)" : borderColor}`, 
+            boxShadow: isFocused ? `0 0 15px ${glowColor}` : "none"
+          }}
         />
         {suffix && (
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold" style={{ color: "var(--text-tertiary)" }}>
+          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[11px] font-bold opacity-50 text-gray-400">
             {suffix}
           </span>
         )}
@@ -64,30 +75,59 @@ export default function RiskPage() {
     setInput((prev) => ({ ...prev, [key]: isNaN(n) ? 0 : n }));
   };
 
-  useEffect(() => {
-    fetch(`${BRIDGE}/api/calculations`, { headers: { "ngrok-skip-browser-warning": "true" },  signal: AbortSignal.timeout(3000) })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.error) { setMt5Connected(false); return; }
-        setMt5Connected(true);
-        if (data.account_balance > 0) {
-          setAccountBalance(data.account_balance);
-          setInput((prev) => ({ ...prev, balance: Math.round(data.account_balance) }));
-        }
-      }).catch(() => setMt5Connected(false));
+  const getHeaders = async () => {
+    const session = await getSession();
+    const token = session?.user?.email;
+    const headers: Record<string, string> = {
+      "ngrok-skip-browser-warning": "true",
+      "Content-Type": "application/json"
+    };
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+    return headers;
+  };
+
+  const checkConnection = useCallback(async () => {
+    try {
+      const headers = await getHeaders();
+      const res = await fetch(`${getBackendUrl()}/api/bridge/api/calculations`, { 
+        headers, 
+        signal: AbortSignal.timeout(3000) 
+      });
+      const data = await res.json();
+      if (data.error) { 
+        setMt5Connected(false); 
+        return; 
+      }
+      setMt5Connected(true);
+      if (data.account_balance > 0) {
+        setAccountBalance(data.account_balance);
+        setInput((prev) => ({ ...prev, balance: Math.round(data.account_balance) }));
+      }
+    } catch (err) {
+      setMt5Connected(false);
+    }
   }, []);
+
+  useEffect(() => {
+    checkConnection();
+  }, [checkConnection]);
 
   const fetchLivePrice = useCallback(async () => {
     if (mt5Connected === false) return;
     setFetchingPrice(true);
     try {
-      const res = await fetch(`${BRIDGE}/api/symbol-price?symbol=${symbol}`, { headers: { "ngrok-skip-browser-warning": "true" } });
+      const headers = await getHeaders();
+      const res = await fetch(`${getBackendUrl()}/api/bridge/api/symbol-price?symbol=${symbol}`, { headers });
       const data = await res.json();
       if (data.success) setLivePrice(data);
     } catch { } finally { setFetchingPrice(false); }
   }, [symbol, mt5Connected]);
 
-  useEffect(() => { fetchLivePrice(); }, [fetchLivePrice, symbol]);
+  useEffect(() => { 
+    fetchLivePrice(); 
+  }, [fetchLivePrice, symbol]);
 
   useEffect(() => {
     if (!autoRrEnabled || !livePrice || stopLossPips <= 0) return;
@@ -105,16 +145,30 @@ export default function RiskPage() {
     if (sl <= 0 || tp <= 0) { toast.error("Please enter SL and TP prices before executing"); return; }
     setExecuting(true);
     try {
-      const res = await fetch(`${BRIDGE}/api/execute-trade`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symbol, direction, lot_size: parseFloat(lotSize.toFixed(4)), sl, tp,
-          comment: `TradeDesk ${riskPercent}% Risk | 1:${rewardRatio} RR` }),
+      const headers = await getHeaders();
+      const res = await fetch(`${getBackendUrl()}/api/bridge/api/execute-trade`, {
+        method: "POST", 
+        headers,
+        body: JSON.stringify({ 
+          symbol, 
+          direction, 
+          lot_size: parseFloat(lotSize.toFixed(4)), 
+          sl, 
+          tp,
+          comment: `Journex ${riskPercent}% Risk | 1:${rewardRatio} RR` 
+        }),
       });
       const data = await res.json();
       if (data.success) {
         toast.success(`✅ Trade executed! Ticket #${data.ticket} | ${direction} ${data.lot_size} ${symbol} @ ${data.price}`, { duration: 8000 });
-      } else { toast.error(`❌ ${data.error}`, { duration: 7000 }); }
-    } catch { toast.error("Network error — is the MT5 bridge running?"); } finally { setExecuting(false); }
+      } else { 
+        toast.error(`❌ ${data.error}`, { duration: 7000 }); 
+      }
+    } catch { 
+      toast.error("Network error — is the MT5 bridge running?"); 
+    } finally { 
+      setExecuting(false); 
+    }
   };
 
   // Risk table data: 5 risk levels × 3 RR ratios
@@ -124,209 +178,270 @@ export default function RiskPage() {
   });
 
   return (
-    <div className="space-y-6 max-w-4xl pb-20">
+    <div className="space-y-8 max-w-5xl pb-20 mx-auto px-4 md:px-0">
+      
+      {/* Decorative Blur */}
+      <div className="absolute top-0 right-1/4 w-[400px] h-[400px] rounded-full blur-[150px] pointer-events-none opacity-10 bg-gradient-to-r from-[--accent] to-cyan-500 -z-10" />
+
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <motion.div 
+        initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+        className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+      >
         <div>
-          <h1 className="text-[28px] font-bold" style={{ fontFamily: "var(--font-display, Syne, sans-serif)", color: "var(--text-primary)" }}>
-            Risk Management
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold tracking-wider mb-3 bg-rose-500/10 border border-rose-500/20 text-red-400 uppercase">
+            <ShieldAlert size={12} />
+            Risk & Size Protocol
+          </div>
+          <h1 className="text-4xl font-black tracking-tight text-white" style={{ fontFamily: "var(--font-display, Syne, sans-serif)" }}>
+            Risk <span className="text-[--accent]">Management</span>
           </h1>
-          <p className="text-[12px] mt-0.5" style={{ color: "var(--text-tertiary)" }}>
-            Calculate optimal lot size, simulate risk profiles, and execute directly to MT5.
+          <p className="text-sm mt-1 text-[--text-secondary] max-w-xl leading-relaxed">
+            Calculate optimal position sizes, model portfolio risk tables, and deploy execution orders directly to MT5 terminal.
           </p>
         </div>
         <button
           onClick={fetchLivePrice}
           disabled={fetchingPrice || !mt5Connected}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-[12px] font-bold transition-all disabled:opacity-40"
-          style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all hover:bg-white/10 disabled:opacity-40 shadow-lg border border-white/5 bg-white/[0.02] text-white backdrop-blur-md"
         >
-          <Activity className={`w-3.5 h-3.5 ${fetchingPrice ? "animate-pulse" : ""}`} style={{ color: "var(--accent)" }} />
-          Refresh Price
+          <Activity className={`w-4 h-4 ${fetchingPrice ? "animate-pulse text-[--accent]" : "text-gray-400"}`} />
+          Refresh Live Price
         </button>
-      </div>
+      </motion.div>
 
-      {/* MT5 Status */}
+      {/* MT5 Status Alerts */}
       {mt5Connected === false && (
-        <div className="flex items-center gap-3 rounded-xl px-4 py-3 text-[12px]"
-          style={{ background: "rgba(245,166,35,0.08)", border: "1px solid rgba(245,166,35,0.3)", color: "var(--warning)" }}>
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          MT5 bridge not connected — trade execution disabled. Run <code className="font-mono">python mt5_bridge.py</code>.
-        </div>
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.98 }} 
+          animate={{ opacity: 1, scale: 1 }} 
+          className="flex items-center gap-3 rounded-2xl px-5 py-4 text-xs backdrop-blur-md font-bold bg-amber-500/10 border border-amber-500/20 text-amber-400"
+        >
+          <AlertCircle className="w-5 h-5 shrink-0" />
+          <span>MT5 bridge link is inactive. Trade execution disabled. Initialize the bridge by running:</span>
+          <code className="font-mono bg-black/35 border border-white/10 px-2 py-0.5 rounded text-white text-[11px]">python mt5_bridge.py</code>
+        </motion.div>
       )}
       {mt5Connected === true && accountBalance !== null && (
-        <div className="flex items-center gap-3 rounded-xl px-4 py-3 text-[12px]"
-          style={{ background: "rgba(0,200,150,0.08)", border: "1px solid rgba(0,200,150,0.3)", color: "var(--bull)" }}>
-          <CheckCircle2 className="w-4 h-4 shrink-0" />
-          MT5 connected — live balance <strong className="font-mono font-bold">${accountBalance.toLocaleString()}</strong> auto-loaded
-        </div>
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.98 }} 
+          animate={{ opacity: 1, scale: 1 }} 
+          className="flex items-center gap-3 rounded-2xl px-5 py-4 text-xs backdrop-blur-md font-bold bg-emerald-500/10 border border-emerald-500/20 text-[--accent] shadow-[0_0_20px_rgba(0,212,161,0.05)]"
+        >
+          <CheckCircle2 className="w-5 h-5 shrink-0" />
+          <span>MT5 link active. Live balance: <strong className="font-mono text-white text-sm">${accountBalance.toLocaleString()}</strong> synchronized</span>
+        </motion.div>
       )}
 
-      {/* Tabs */}
-      <div className="flex gap-1 p-1 rounded-xl w-fit" style={{ background: "var(--bg-elevated)" }}>
-        {([["calculate", "Calculate Risk"], ["table", "Risk Table"]] as const).map(([id, label]) => (
+      {/* Navigation Tabs */}
+      <div className="flex gap-1 p-1 rounded-xl w-fit border border-white/5 bg-black/40 backdrop-blur-md">
+        {([["calculate", "Lot Size Calculator"], ["table", "Risk Matrix Table"]] as const).map(([id, label]) => (
           <button
             key={id}
             onClick={() => setActiveTab(id)}
-            className="px-4 py-2 rounded-lg text-[12px] font-bold transition-all"
-            style={{
-              background: activeTab === id ? "var(--accent)" : "transparent",
-              color: activeTab === id ? "#000" : "var(--text-secondary)",
-            }}
+            className={`px-5 py-2 rounded-lg text-xs font-bold transition-all ${
+              activeTab === id 
+                ? "bg-[--accent] text-black shadow-[0_0_15px_rgba(0,212,161,0.3)]" 
+                : "text-gray-400 hover:text-white"
+            }`}
           >
             {label}
           </button>
         ))}
       </div>
 
-      {activeTab === "calculate" ? (
-        <>
-          {/* Main 2-column layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-            {/* Inputs: 3 cols */}
-            <div className="lg:col-span-3 space-y-4">
-              <div className="rounded-xl border p-5 space-y-4" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "var(--text-tertiary)" }}>Risk Parameters</span>
-                  <label className="flex items-center gap-2 text-[11px] cursor-pointer">
-                    <input type="checkbox" checked={autoRrEnabled} onChange={(e) => setAutoRrEnabled(e.target.checked)}
-                      className="rounded" style={{ accentColor: "var(--accent)" }} />
-                    <span style={{ color: "var(--text-secondary)" }}>Auto-Calculate SL/TP</span>
+      <AnimatePresence mode="wait">
+        {activeTab === "calculate" ? (
+          <motion.div 
+            key="calc"
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+            className="grid grid-cols-1 lg:grid-cols-5 gap-6"
+          >
+            {/* Input Form Panel */}
+            <div className="lg:col-span-3 space-y-6">
+              <div className="rounded-2xl p-6 md:p-8 space-y-6 backdrop-blur-xl shadow-2xl border border-white/5 bg-black/40 relative overflow-hidden">
+                
+                <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--accent)] opacity-[0.015] blur-[120px] pointer-events-none rounded-full" />
+
+                <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                  <span className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
+                    <Calculator size={14} className="text-[--accent]" /> 
+                    <span>Parameters Control</span>
+                  </span>
+                  <label className="flex items-center gap-2 text-xs cursor-pointer font-bold text-gray-400 hover:text-white transition-colors">
+                    <input 
+                      type="checkbox" 
+                      checked={autoRrEnabled} 
+                      onChange={(e) => setAutoRrEnabled(e.target.checked)}
+                      className="rounded border-white/10 text-[--accent] bg-black/45 focus:ring-0 w-4 h-4 cursor-pointer" 
+                    />
+                    <span>Auto-Calculate SL/TP Limits</span>
                   </label>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 relative z-10">
                   <FieldInput label="Account Balance" value={balance} onChange={(v) => handleChange("balance", v)} suffix="$" />
-                  <FieldInput label="Risk %" value={riskPercent} onChange={(v) => handleChange("riskPercent", v)} suffix="%" />
-                  <FieldInput label="SL Range (Pips)" value={stopLossPips} onChange={(v) => handleChange("stopLossPips", v)} suffix="pips" />
-                  <FieldInput label="Reward Ratio 1:X" value={rewardRatio} onChange={(v) => handleChange("rewardRatio", v)} suffix="R" />
-                  <FieldInput label="Pip Value (1 lot)" value={pipValue} onChange={(v) => handleChange("pipValue", v)} suffix="$" />
-                  <FieldInput label="Leverage" value={leverage} onChange={(v) => handleChange("leverage", v)} suffix="x" />
+                  <FieldInput label="Risk Exposure %" value={riskPercent} onChange={(v) => handleChange("riskPercent", v)} suffix="%" />
+                  <FieldInput label="Stop Loss (Pips)" value={stopLossPips} onChange={(v) => handleChange("stopLossPips", v)} suffix="Pips" highlighted="bear" />
+                  <FieldInput label="Target Reward Ratio" value={rewardRatio} onChange={(v) => handleChange("rewardRatio", v)} suffix="R" highlighted="bull" />
+                  <FieldInput label="Pip Value (standard lot)" value={pipValue} onChange={(v) => handleChange("pipValue", v)} suffix="$" />
+                  <FieldInput label="Leverage Scale" value={leverage} onChange={(v) => handleChange("leverage", v)} suffix="x" />
+                </div>
+              </div>
+            </div>
+
+            {/* Calculations & Execution */}
+            <div className="lg:col-span-2 space-y-6">
+              
+              {/* Output Panel */}
+              <div className="rounded-2xl p-6 md:p-8 space-y-5 backdrop-blur-xl shadow-2xl border border-white/5 bg-black/40">
+                <span className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2 border-b border-white/5 pb-4">
+                   <Target size={14} className="text-[--accent]" /> 
+                   <span>Target Distribution</span>
+                </span>
+                
+                <div className="space-y-4 pt-1">
+                  <div className="flex justify-between items-end">
+                    <span className="text-xs font-bold text-gray-400">Total Capital Risked</span>
+                    <span className="text-xl font-mono font-bold text-[--bear] shadow-sm">-${riskAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex justify-between items-end">
+                    <span className="text-xs font-bold text-gray-400">Target Protocol Yield</span>
+                    <span className="text-xl font-mono font-bold text-[--bull]">+${targetProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                  
+                  <div className="flex justify-between items-end pt-4 border-t border-white/5">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[--accent]">Lot Sizing</span>
+                    <span className="text-3xl font-black font-mono leading-none text-white">{lotSize.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-end">
+                    <span className="text-[10px] font-bold uppercase text-gray-500">Approx. Margin Commitment</span>
+                    <span className="text-xs font-mono font-bold text-gray-400">${((marginRequired * lotSize)/100).toFixed(2)}</span>
+                  </div>
+                </div>
+
+                {/* Styled Gradient RR Visual Bar */}
+                <div className="pt-2 space-y-2">
+                  <div className="flex justify-between text-[9px] font-bold font-mono">
+                    <span className="text-[--bear] uppercase tracking-wider">1.0R Risk Exposure</span>
+                    <span className="text-[--accent] uppercase tracking-wider">{rewardRatio.toFixed(1)}R Reward Target</span>
+                  </div>
+                  <div className="h-2.5 w-full rounded-full overflow-hidden flex bg-white/5 border border-white/5 shadow-inner">
+                    <motion.div 
+                      className="h-full bg-gradient-to-r from-rose-500 to-red-500" 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(1 / (1 + rewardRatio)) * 100}%` }}
+                      transition={{ duration: 0.5, ease: "easeOut" }}
+                    />
+                    <motion.div 
+                      className="h-full bg-gradient-to-r from-[--accent] to-teal-400" 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(rewardRatio / (1 + rewardRatio)) * 100}%` }}
+                      transition={{ duration: 0.5, ease: "easeOut", delay: 0.1 }}
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* Execution panel */}
-              <div className="rounded-xl border p-5 space-y-4" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "var(--text-tertiary)" }}>Execution Setup</span>
-                  {livePrice && (
-                    <span className="text-[11px] font-mono" style={{ color: "var(--accent)" }}>
-                      {direction === "BUY" ? "ASK" : "BID"} {direction === "BUY" ? livePrice.ask : livePrice.bid}
-                    </span>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Symbol */}
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: "var(--text-tertiary)" }}>Symbol</label>
-                    <div className="relative">
-                      <select value={symbol} onChange={(e) => setSymbol(e.target.value)}
-                        className="w-full appearance-none rounded-lg px-3 py-2.5 pr-8 text-[13px] font-bold outline-none"
-                        style={{ background: "var(--bg-input)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+              {/* Execution Block */}
+              <div className="rounded-2xl p-6 md:p-8 backdrop-blur-xl shadow-2xl border border-[--accent]/30 bg-black/40 relative overflow-hidden">
+                <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ background: "radial-gradient(circle at center, var(--accent) 0%, transparent 70%)" }} />
+                
+                <div className="relative z-10 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="relative w-full">
+                      <select
+                        value={symbol} onChange={(e) => setSymbol(e.target.value)}
+                        className="w-full appearance-none rounded-xl px-4 py-3 text-xs font-bold outline-none font-mono bg-black/40 border border-white/10 text-white"
+                      >
                         {SYMBOLS.map((s) => <option key={s} value={s}>{s}</option>)}
                       </select>
-                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: "var(--text-tertiary)" }} />
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 opacity-50 text-white pointer-events-none" />
                     </div>
                   </div>
 
-                  {/* Direction */}
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: "var(--text-tertiary)" }}>Direction</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button onClick={() => setDirection("BUY")}
-                        className="py-2.5 rounded-lg text-[12px] font-bold transition-all"
-                        style={{ background: direction === "BUY" ? "var(--bull)" : "var(--bg-elevated)", color: direction === "BUY" ? "#000" : "var(--text-secondary)", border: `1px solid ${direction === "BUY" ? "var(--bull)" : "var(--border)"}` }}>
-                        <TrendingUp className="inline w-3.5 h-3.5 mr-1 -mt-0.5" /> BUY
-                      </button>
-                      <button onClick={() => setDirection("SELL")}
-                        className="py-2.5 rounded-lg text-[12px] font-bold transition-all"
-                        style={{ background: direction === "SELL" ? "var(--bear)" : "var(--bg-elevated)", color: direction === "SELL" ? "#fff" : "var(--text-secondary)", border: `1px solid ${direction === "SELL" ? "var(--bear)" : "var(--border)"}` }}>
-                        <TrendingDown className="inline w-3.5 h-3.5 mr-1 -mt-0.5" /> SELL
-                      </button>
-                    </div>
+                  <div className="flex gap-3">
+                    <button 
+                      onClick={() => setDirection("SELL")}
+                      className={`flex-1 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all hover:scale-105 border ${
+                        direction === "SELL" 
+                          ? "bg-red-500 text-white border-transparent shadow-[0_0_15px_rgba(239,68,68,0.35)]" 
+                          : "bg-red-500/10 text-red-400 border-red-500/20"
+                      }`}
+                    >
+                      SELL
+                    </button>
+                    <button 
+                      onClick={() => setDirection("BUY")}
+                      className={`flex-1 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all hover:scale-105 border ${
+                        direction === "BUY" 
+                          ? "bg-[--accent] text-black border-transparent shadow-[0_0_15px_rgba(0,212,161,0.35)]" 
+                          : "bg-emerald-500/10 text-[--accent] border-emerald-500/20"
+                      }`}
+                    >
+                      BUY
+                    </button>
                   </div>
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <FieldInput label="Stop Loss Price" value={sl} onChange={(v) => { if (autoRrEnabled) setAutoRrEnabled(false); handleChange("sl", v); }} highlighted="bear" />
-                  <FieldInput label="Take Profit Price" value={tp} onChange={(v) => { if (autoRrEnabled) setAutoRrEnabled(false); handleChange("tp", v); }} highlighted="bull" />
-                </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <FieldInput label="SL Price Target" value={sl} onChange={(v) => handleChange("sl", v)} highlighted="bear" />
+                    <FieldInput label="TP Price Target" value={tp} onChange={(v) => handleChange("tp", v)} highlighted="bull" />
+                  </div>
 
-                {/* Execute */}
-                <button onClick={executeTrade} disabled={executing || mt5Connected === false || lotSize <= 0}
-                  className="w-full py-4 rounded-xl font-bold text-[15px] flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                  style={{ background: direction === "BUY" ? "var(--bull)" : "var(--bear)", color: "#000", boxShadow: `0 0 20px ${direction === "BUY" ? "rgba(0,200,150,0.25)" : "rgba(255,77,106,0.25)"}` }}>
-                  {executing ? (
-                    <><Loader2 className="w-5 h-5 animate-spin" /> Transmitting to MT5…</>
-                  ) : (
-                    <>
-                      <Zap className="w-4 h-4" />
-                      EXECUTE {direction} {symbol} ({lotSize.toFixed(2)} LOTS)
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Results: 2 cols */}
-            <div className="lg:col-span-2 space-y-3">
-              {/* Result cards */}
-              {[
-                { label: "Risk Amount", value: `$${riskAmount.toFixed(2)}`, color: "var(--bear)", sub: `${riskPercent}% of $${balance.toLocaleString()}` },
-                { label: "Target Profit", value: `$${targetProfit.toFixed(2)}`, color: "var(--bull)", sub: `1:${rewardRatio} reward ratio` },
-                { label: "Lot Size", value: `${lotSize.toFixed(4)} lots`, color: "var(--accent)", sub: `${lotSize.toFixed(2)} standard lots` },
-              ].map((r) => (
-                <div key={r.label} className="rounded-xl border p-4" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
-                  <div className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: "var(--text-tertiary)" }}>{r.label}</div>
-                  <div className="text-[26px] font-bold font-mono" style={{ color: r.color, fontFamily: "var(--font-display, Syne, sans-serif)" }}>{r.value}</div>
-                  <div className="text-[11px] mt-0.5" style={{ color: "var(--text-tertiary)" }}>{r.sub}</div>
-                </div>
-              ))}
-
-              {/* Visual RR bar */}
-              <div className="rounded-xl border p-4" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
-                <div className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: "var(--text-tertiary)" }}>Risk : Reward</div>
-                <div className="flex h-5 rounded-full overflow-hidden gap-0.5">
-                  <div className="h-full rounded-l-full" style={{ background: "var(--bear)", width: `${100 / (1 + rewardRatio)}%` }} />
-                  <div className="h-full rounded-r-full" style={{ background: "var(--bull)", width: `${100 * rewardRatio / (1 + rewardRatio)}%` }} />
-                </div>
-                <div className="flex justify-between mt-1.5 text-[10px] font-bold font-mono">
-                  <span style={{ color: "var(--bear)" }}>−${riskAmount.toFixed(0)}</span>
-                  <span style={{ color: "var(--bull)" }}>+${targetProfit.toFixed(0)}</span>
+                  <button
+                    onClick={executeTrade} 
+                    disabled={executing || !mt5Connected || lotSize <= 0}
+                    className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all disabled:opacity-30 hover:scale-[1.02] bg-white text-black shadow-md"
+                  >
+                    {executing ? <Loader2 className="animate-spin w-4 h-4" /> : <><Zap size={14} /> Send MT5 Order ({lotSize.toFixed(2)} Lots)</>}
+                  </button>
                 </div>
               </div>
+
             </div>
-          </div>
-        </>
-      ) : (
-        /* Risk Table Tab */
-        <div className="rounded-xl border overflow-x-auto scrollbar-none" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
-          <table className="w-full text-[12px] min-w-[500px]">
-            <thead>
-              <tr style={{ background: "var(--bg-elevated)", borderBottom: "1px solid var(--border)" }}>
-                {["Risk %", "Risk $", "Lots", "1:1 Target", "1:2 Target", "1:3 Target"].map((col) => (
-                  <th key={col} className="px-4 py-3 text-left font-bold uppercase tracking-wider" style={{ color: "var(--text-tertiary)", fontSize: 10 }}>
-                    {col}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {riskTableRows.map((row, i) => (
-                <tr key={i} className="transition-colors hover:bg-[--bg-elevated]" style={{ borderBottom: "1px solid var(--border)" }}>
-                  <td className="px-4 py-3 font-bold font-mono" style={{ color: "var(--text-primary)" }}>{row.pct}%</td>
-                  <td className="px-4 py-3 font-mono" style={{ color: "var(--bear)" }}>−${row.risk.toFixed(2)}</td>
-                  <td className="px-4 py-3 font-mono font-bold" style={{ color: "var(--accent)" }}>{row.lots.toFixed(4)}</td>
-                  <td className="px-4 py-3 font-mono" style={{ color: "var(--bull)" }}>+${row.r1.toFixed(2)}</td>
-                  <td className="px-4 py-3 font-mono" style={{ color: "var(--bull)" }}>+${row.r2.toFixed(2)}</td>
-                  <td className="px-4 py-3 font-mono" style={{ color: "var(--bull)" }}>+${row.r3.toFixed(2)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+          </motion.div>
+        ) : (
+          /* Risk Matrix Table */
+          <motion.div 
+            key="table"
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+            className="rounded-2xl overflow-hidden backdrop-blur-xl shadow-2xl border border-white/5 bg-black/40"
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs whitespace-nowrap">
+                <thead>
+                  <tr className="bg-white/[0.02] border-b border-white/5">
+                    <th className="px-6 py-4 font-bold uppercase tracking-wider text-gray-400">Risk Exposure</th>
+                    <th className="px-6 py-4 font-bold uppercase tracking-wider text-right text-red-400">Risk ($)</th>
+                    <th className="px-6 py-4 font-bold uppercase tracking-wider text-right text-[--accent]">Lot Allocation</th>
+                    <th className="px-6 py-4 font-bold uppercase tracking-wider text-right text-emerald-400">1.0R Reward</th>
+                    <th className="px-6 py-4 font-bold uppercase tracking-wider text-right text-emerald-400">2.0R Reward</th>
+                    <th className="px-6 py-4 font-bold uppercase tracking-wider text-right text-emerald-400">3.0R Reward</th>
+                  </tr>
+                </thead>
+                <tbody className="font-mono">
+                  {riskTableRows.map((r, i) => (
+                    <motion.tr 
+                      key={r.pct} 
+                      initial={{ opacity: 0, x: -10 }} 
+                      animate={{ opacity: 1, x: 0 }} 
+                      transition={{ delay: i * 0.05 }}
+                      className="border-b border-white/5 transition-colors hover:bg-white/[0.02]"
+                    >
+                      <td className="px-6 py-4 font-bold text-white">{r.pct}%</td>
+                      <td className="px-6 py-4 text-right text-red-400/80">${r.risk.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      <td className="px-6 py-4 text-right font-bold text-[14px] text-[--accent]">{r.lots.toFixed(2)}</td>
+                      <td className="px-6 py-4 text-right text-gray-400">${r.r1.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      <td className="px-6 py-4 text-right text-gray-300">${r.r2.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      <td className="px-6 py-4 text-right font-bold text-white">${r.r3.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    </motion.tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

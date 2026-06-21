@@ -18,7 +18,7 @@ interface Props {
   onClose: () => void;
 }
 
-const BRIDGE = process.env.NEXT_PUBLIC_BRIDGE_URL ?? "";
+const BRIDGE = process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge";
 
 // ── draw one chart in a given container div ──────────────────────────────────
 async function drawChart(
@@ -69,7 +69,7 @@ async function drawChart(
     countAfter = 40;
   }
 
-  const res = await fetch(`${BRIDGE}/api/historical-candles?symbol=${encodeURIComponent(firstTrade.pair)}&target_time=${minTs}&timeframe=${timeframe}&count_before=${countBefore}&count_after=${countAfter}`,
+  const res = await fetch(`${BRIDGE}/api/historical-candles-range?symbol=${encodeURIComponent(firstTrade.pair)}&target_time=${minTs}&timeframe=${timeframe}&count_before=${countBefore}&count_after=${countAfter}`,
     { headers: { "ngrok-skip-browser-warning": "true" } }
   );
   const data = await res.json();

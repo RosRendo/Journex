@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import { motion } from "framer-motion";
 import {
   TrendingUp,
   TrendingDown,
@@ -12,7 +13,8 @@ import {
   PieChart as PieChartIcon,
   Sparkles,
   ArrowRight,
-  Globe
+  Globe,
+  AlertTriangle
 } from "lucide-react";
 import {
   createChart,
@@ -24,6 +26,7 @@ import { useWebSocket } from "@/hooks/useWebSocket";
 import { useCsvTrades } from "@/hooks/useCsvTrades";
 import { useNews } from "@/hooks/useNews";
 import { calculateMetrics, getStrategyStats } from "@/lib/calculations";
+import { getBackendUrl } from "@/lib/utils";
 import { getPairDigits } from "@/lib/format";
 import {
   AreaChart,
@@ -49,6 +52,18 @@ import { EquityCurveChart } from "@/components/dashboard/widgets/EquityCurveChar
 import { StrategyPerformance } from "@/components/dashboard/widgets/StrategyPerformance";
 import { OpenPositionsList } from "@/components/dashboard/widgets/OpenPositionsList";
 import { EconomicNewsTicker } from "@/components/dashboard/widgets/EconomicNewsTicker";
+
+import { MarketHeatmapWidget } from "@/components/widgets/MarketHeatmapWidget";
+import { DailyBiasWidget } from "@/components/widgets/DailyBiasWidget";
+import { TradeDurationScatterPlot } from "@/components/widgets/TradeDurationScatterPlot";
+import { MistakeCostAnalyzer } from "@/components/widgets/MistakeCostAnalyzer";
+import { NewsCountdownWidget } from "@/components/widgets/NewsCountdownWidget";
+import { RetailSentimentGauge } from "@/components/widgets/RetailSentimentGauge";
+import { TiltMonitorWidget } from "@/components/widgets/TiltMonitorWidget";
+import { VisualPositionSizer } from "@/components/widgets/VisualPositionSizer";
+import SessionKillzones from "@/components/widgets/SessionKillzones";
+
+
 import { DailyRiskWidget } from "@/components/dashboard/widgets/DailyRiskWidget";
 import { QuickTradeEntry } from "@/components/dashboard/widgets/QuickTradeEntry";
 import { AlertsWidget } from "@/components/dashboard/widgets/AlertsWidget";
@@ -102,7 +117,7 @@ function StatCard({
 
 export default function Dashboard() {
   const { bridgeUrl } = useBridgeUrl();
-  const { trades, analytics, loading, error } = useCsvTrades();
+  const { trades, analytics, loading, error, refresh } = useCsvTrades();
   const { positions, loading: rootPosLoading } = usePositions();
   const [mt5Data, setMt5Data] = useState<{
     connected?: boolean;
@@ -151,6 +166,7 @@ export default function Dashboard() {
   const [slPrice, setSlPrice] = useState<number | null>(null);
   const [tpPrice, setTpPrice] = useState<number | null>(null);
   const [showChecklist, setShowChecklist] = useState(false);
+  const [activeTab, setActiveTab] = useState<"overview" | "analytics" | "macro" | "risk">("overview");
 
   const PAIRS = ["XAUUSD", "XAGUSD", "EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD"];
   const TIMEFRAMES = ["1m", "5m", "15m", "1h", "4h", "D"];
@@ -248,20 +264,46 @@ export default function Dashboard() {
     };
   }, [liveCandles]);
 
-  // News data for SetupScorer
-  const { news } = useNews();
+  const [nextNewsTimeLeft, setNextNewsTimeLeft] = useState<number | null>(null);
+  const [nextNewsEventName, setNextNewsEventName] = useState<string | null>(null);
+
+  // Fetch next high-impact news event
+  useEffect(() => {
+    const fetchNextNews = async () => {
+      try {
+        const res = await fetch(`${getBackendUrl()}/api/bridge/api/news/next-high-impact`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) {
+            setNextNewsEventName(data.event);
+            setNextNewsTimeLeft(Math.floor(data.time_left_seconds));
+          } else {
+            setNextNewsEventName(null);
+            setNextNewsTimeLeft(null);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch next high impact news:", e);
+      }
+    };
+    fetchNextNews();
+    const int = setInterval(fetchNextNews, 60000); // Poll every minute
+    return () => clearInterval(int);
+  }, []);
+
+  useEffect(() => {
+    if (nextNewsTimeLeft === null || nextNewsTimeLeft <= 0) return;
+    const timer = setInterval(() => {
+      setNextNewsTimeLeft(prev => (prev && prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [nextNewsTimeLeft]);
 
   // Calculate minutes until next high-impact news event
   const nextNewsMinutes = useMemo(() => {
-    if (!news || news.length === 0) return null;
-    const now = new Date().getTime();
-    for (const n of news) {
-      const newsTime = new Date(n.published).getTime();
-      const diff = (newsTime - now) / 60000;
-      if (diff > -30 && diff < 300) return Math.round(diff);
-    }
-    return 180; // No upcoming news in reasonable window
-  }, [news]);
+    if (nextNewsTimeLeft === null || nextNewsTimeLeft <= 0) return null;
+    return Math.round(nextNewsTimeLeft / 60);
+  }, [nextNewsTimeLeft]);
 
   // Save score to localStorage (called when trade is placed)
   const saveSetupScore = useCallback((direction: "buy" | "sell", score: number) => {
@@ -355,7 +397,7 @@ export default function Dashboard() {
       <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight" style={{ fontFamily: "'Syne', sans-serif", color: "var(--accent)" }}>
-            Good afternoon, Trader.
+            {(() => { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'; })()}, Trader.
           </h1>
           <p className="text-sm mt-1 flex items-center gap-2" style={{ color: "var(--text-secondary)" }}>
             <Sparkles className="w-4 h-4" style={{ color: "var(--accent)" }} />
@@ -368,314 +410,397 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ── AI MACRO DESK & FOR YOU ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-         {/* Left Col (AI Macro Cards) - Spans 8 cols */}
-         <div className="lg:col-span-8 flex flex-col gap-4">
-            <AIMacroDeskSection />
-         </div>
+      {/* ── TAB NAVIGATION ── */}
+      <div className="flex flex-wrap items-center justify-between gap-4 sticky top-4 z-50">
+        <div className="flex flex-wrap items-center gap-2 p-1.5 bg-[#0c0c0d]/80 border border-white/5 rounded-xl w-fit backdrop-blur-md shadow-lg">
+          {[
+            { id: "overview", label: "Overview", icon: Activity },
+            { id: "analytics", label: "Analytics", icon: BarChart3 },
+            { id: "macro", label: "Macro & AI", icon: Globe },
+            { id: "risk", label: "Risk & Execution", icon: Target }
+          ].map(tab => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex items-center gap-2 px-6 py-2.5 rounded-lg font-bold text-sm transition-all duration-300 ${
+                  isActive 
+                    ? "bg-white/10 text-white shadow-[0_0_15px_rgba(255,255,255,0.05)]" 
+                    : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+        
+        <button 
+          onClick={async () => {
+            try {
+              const res = await fetch("/api/trades/sync", { method: "POST" });
+              const data = await res.json();
+              if (data.success) {
+                await refresh();
+              } else {
+                console.error(`Failed to sync: ${data.error}`);
+              }
+            } catch (err) {
+              console.error("Error syncing trades", err);
+            }
+          }}
+          className="flex items-center gap-2 px-6 py-2.5 rounded-lg font-bold text-sm bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 border border-blue-500/30 transition-all shadow-lg backdrop-blur-md cursor-pointer"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21v-5h5"/></svg>
+          Sync MT5 Trades
+        </button>
+      </div>
 
-         {/* Right Col (For You & Capital Flow & Discipline) - Spans 4 cols */}
-         <div className="lg:col-span-4 flex flex-col gap-4">
-            {/* Discipline Score Widget */}
-            <DisciplineScoreWidget trades={trades} />
-            {/* For You Briefing */}
-            <div className="bg-[#0c0c0d]/90 border border-white/5 rounded-xl p-5 shadow-2xl backdrop-blur">
-               <div className="flex justify-between items-center mb-4">
-                 <div className="flex items-center gap-2">
-                    <div className="p-1 bg-white/10 rounded"><BarChart3 className="w-4 h-4 text-white"/></div>
-                    <span className="font-bold text-white tracking-wide">For You</span>
+      {/* ── TAB CONTENT ── */}
+      <div className="min-h-[800px] relative mt-8">
+        
+        {nextNewsMinutes !== null && nextNewsMinutes <= 15 && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }} 
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 rounded-xl border flex items-center gap-3 bg-red-950/40 border-red-500/50 text-red-200 shadow-[0_0_20px_rgba(239,68,68,0.1)]"
+          >
+            <AlertTriangle className="text-red-400 animate-pulse flex-shrink-0" size={20} />
+            <div className="flex-1 text-sm font-bold">
+              <span className="text-red-400 uppercase tracking-wide mr-1.5 font-extrabold">[NEWS RISK WARNING]</span>
+              High impact news event <span className="underline font-extrabold text-white">"{nextNewsEventName}"</span> is releasing in <span className="font-mono text-white text-base bg-red-500/20 px-2 py-0.5 rounded font-black">{nextNewsMinutes} minutes</span>. High slippage/liquidation hazard. Stand aside or protect positions!
+            </div>
+          </motion.div>
+        )}
+
+        {/* OVERVIEW TAB */}
+        {activeTab === "overview" && (
+          <div className="space-y-8 animate-fade-up">
+            <MarketHeatmapWidget />
+            {/* Account Pulse */}
+            <div>
+               <div className="flex items-center gap-3 mb-4">
+                  <Target className="w-5 h-5 text-gray-400" />
+                  <h2 className="text-lg font-semibold text-gray-200">Account Pulse <span className="text-xs text-gray-500 font-normal block">Live execution metrics</span></h2>
+               </div>
+               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                 <div className="p-4 bg-[#0c0c0d]/90 border border-white/5 rounded-xl shadow-lg relative overflow-hidden group hover:border-blue-500/30 transition-colors">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 blur-[20px] rounded-full pointer-events-none"></div>
+                    <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider relative z-10 flex items-center justify-between">
+                      Balance <span className={`w-2 h-2 rounded-full ${mt5Data?.connected ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)] animate-pulse" : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]"}`}></span>
+                    </div>
+                    <div className="relative z-10 mt-3 text-2xl font-bold font-mono text-white">${mt5Data?.connected && mt5Data?.balance != null ? mt5Data.balance.toFixed(2) : "—"}</div>
                  </div>
-                 <div className="flex items-center gap-3 text-xs">
-                    <span className="text-gray-500 font-mono">Wed, 11 Mar</span>
-                    <div className="flex items-center gap-1 bg-white/5 rounded-full px-2 py-0.5 border border-white/10">
-                       <span className="text-gray-400">Mood</span> 
-                       <span className="text-red-400 font-bold ml-1 flex items-center gap-1">Cautious <ArrowRight className="w-3 h-3"/></span>
+
+                 <div className="p-4 bg-[#0c0c0d]/90 border border-white/5 rounded-xl shadow-lg relative overflow-hidden group hover:border-green-500/30 transition-colors">
+                     <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider z-10 relative">Floating P&L</div>
+                     <div className="mt-3 relative z-10 flex items-baseline gap-2">
+                       {mt5Data?.connected ? (
+                         <>
+                           <span className={`text-2xl font-bold font-mono ${(mt5Data?.profit ?? 0) >= 0 ? 'text-[#00dc82]' : 'text-red-400'}`}>
+                             {(mt5Data?.profit ?? 0) >= 0 ? '+' : ''}${(mt5Data?.profit ?? 0).toFixed(2)}
+                           </span>
+                           {mt5Data?.balance && mt5Data.balance > 0 && (
+                             <span className={`text-[11px] font-mono ${(mt5Data?.profit ?? 0) >= 0 ? 'text-[#00dc82]/70' : 'text-red-400/70'}`}>
+                               {(((mt5Data.profit ?? 0) / mt5Data.balance) * 100).toFixed(2)}%
+                             </span>
+                           )}
+                         </>
+                       ) : (
+                         <span className="text-xl font-bold font-mono text-gray-500">—</span>
+                       )}
+                     </div>
+                  </div>
+
+                 <div className="p-4 bg-[#0c0c0d]/90 border border-white/5 rounded-xl shadow-lg group hover:border-yellow-500/30 transition-colors">
+                   <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Margin Level</div>
+                   <div className="mt-3 text-2xl font-bold font-mono text-white">
+                     {mt5Data?.connected && mt5Data?.margin_level != null
+                       ? `${mt5Data.margin_level.toFixed(1)}%`
+                       : <span className="text-gray-500">—</span>}
+                   </div>
+                 </div>
+
+                 <div className="p-4 bg-[#0c0c0d]/90 border border-white/5 rounded-xl shadow-lg group hover:border-red-500/30 transition-colors">
+                   <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Drawdown (Eq-Bal)</div>
+                   <div className="mt-3 flex items-center justify-between font-mono">
+                     {mt5Data?.connected && mt5Data?.balance && mt5Data?.equity != null ? (
+                       <>
+                         <span className={`text-2xl font-bold ${((mt5Data.balance - mt5Data.equity) / mt5Data.balance * 100) > 3 ? 'text-red-400' : 'text-white'}`}>
+                           {((mt5Data.balance - mt5Data.equity) / mt5Data.balance * 100).toFixed(2)}%
+                         </span>
+                         <span className="text-gray-500 text-xs">/ 10%</span>
+                       </>
+                     ) : (
+                       <span className="text-2xl font-bold text-gray-500">—</span>
+                     )}
+                   </div>
+                 </div>
+
+                 <div className="p-4 bg-[#0c0c0d]/90 border border-white/5 rounded-xl flex items-center gap-4 shadow-lg group hover:border-white/20 transition-colors">
+                    <div className="w-14 h-14 relative flex-shrink-0">
+                      <ResponsiveContainer width="100%" height="100%">
+                         <PieChart><Pie data={[{name: 'W', value: metrics.winningTrades || 1, fill: '#00dc82'}, {name: 'L', value: metrics.losingTrades || 0, fill: '#ef4444'}]} dataKey="value" startAngle={90} endAngle={-270} innerRadius="70%" outerRadius="100%" stroke="none"/></PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="flex flex-col">
+                       <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Win Rate</span>
+                       <span className="text-xl font-bold font-mono text-white">{metrics.winRate.toFixed(0)}%</span>
                     </div>
                  </div>
                </div>
-               
-               <h3 className="text-sm font-bold text-white leading-snug mb-3">
-                 Dollar softens into London as Copper drags the metals complex
-               </h3>
-               <p className="text-xs text-gray-400 leading-relaxed font-medium">
-                 The Dollar is seeing some early pressure with a -16 flow score, though Copper is the real outlier this morning, sliding toward a 23rd percentile low (z=-0.42) that signals some underlying nerves. While the London open shows a slight risk appetite for the Dow Jones and Nasdaq 100, our Macro Desk remains cautious.
-               </p>
-               <button className="text-[#00dc82] hover:text-[#00c574] text-xs font-bold mt-2 hover:underline">Read more</button>
-</div>
+            </div>
 
-            {/* Setup Quality Scorer */}
-            <SetupScorer
-              currentRSI={technicals?.rsi ?? null}
-              currentATR={technicals?.atr ?? null}
-              avgATR={(technicals?.atr ?? 0.001) * 1.2}
-              currentSpread={15}
-              avgSpread={12}
-              rrRatio={rrRatio}
-              nextNewsMinutes={nextNewsMinutes}
-              livePrice={livePrice}
-              sma50={technicals?.sma50 ?? technicals?.ema50 ?? null}
-              tradeDirection={tradeDirection}
-            />
-          </div>
-       </div>
-
-      {/* ── MARKET CONDITIONS ── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-         <ConditionMeter type="flow" />
-         <ConditionMeter type="bearing" />
-         <ConditionMeter type="pulse" />
-      </div>
-
-      <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent my-8"></div>
-
-      {/* ── ZONE 3 - ACCOUNT PULSE (From Previous Design) ── */}
-      <div>
-         <div className="flex items-center gap-3 mb-4">
-            <Target className="w-5 h-5 text-gray-400" />
-            <h2 className="text-lg font-semibold text-gray-200">Account Pulse <span className="text-xs text-gray-500 font-normal block">Live execution metrics</span></h2>
-         </div>
-         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-           {/* Legacy account cards ported to new dark aesthetic */}
-           <div className="p-4 bg-[#0c0c0d]/90 border border-white/5 rounded-xl shadow-lg relative overflow-hidden group hover:border-blue-500/30 transition-colors">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 blur-[20px] rounded-full pointer-events-none"></div>
-              <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider relative z-10 flex items-center justify-between">
-                Balance <span className={`w-2 h-2 rounded-full ${mt5Data?.connected ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)] animate-pulse" : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]"}`}></span>
+            {/* Live Chart & Playbook */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-9 rounded-xl border p-4 bg-[#0c0c0d]/90 backdrop-blur" style={{ borderColor: "var(--border)" }}>
+              <div className="flex flex-wrap gap-4 items-center justify-between mb-4">
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-[#00dc82]" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-gray-200">Live Chart</span>
+                    <div className={`w-2 h-2 rounded-full ${livePrice !== null ? "bg-[#00dc82] animate-pulse" : "bg-yellow-500"}`} />
+                  </div>
+                  <select
+                    value={selectedPair}
+                    onChange={(e) => setSelectedPair(e.target.value)}
+                    className="bg-[#18181b] border border-white/10 rounded-lg px-3 py-1.5 text-xs font-bold outline-none text-white focus:border-[#00dc82]/50 transition-colors"
+                  >
+                    {PAIRS.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                  <div className="flex gap-1 p-1 bg-[#18181b] rounded-lg border border-white/5">
+                    {TIMEFRAMES.map(tf => (
+                      <button
+                        key={tf}
+                        onClick={() => setSelectedTimeframe(tf)}
+                        className={`px-2 py-1 rounded text-[10px] font-bold uppercase transition-colors ${
+                          selectedTimeframe === tf
+                            ? "bg-[#00dc82] text-black"
+                            : "text-gray-400 hover:text-white"
+                        }`}
+                      >
+                        {tf}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2 p-1 bg-[#18181b] rounded-lg border border-white/5">
+                    <button
+                      onClick={() => setTradeDirection("buy")}
+                      className={`px-4 py-1 rounded text-xs font-bold uppercase transition-all ${
+                        tradeDirection === "buy"
+                          ? "bg-[#00dc82] text-black shadow-[0_0_10px_rgba(0,220,130,0.3)]"
+                          : "text-gray-400 hover:text-white"
+                      }`}
+                    >
+                      Buy
+                    </button>
+                    <button
+                      onClick={() => setTradeDirection("sell")}
+                      className={`px-4 py-1 rounded text-xs font-bold uppercase transition-all ${
+                        tradeDirection === "sell"
+                          ? "bg-[#ff4d6a] text-white shadow-[0_0_10px_rgba(255,77,106,0.3)]"
+                          : "text-gray-400 hover:text-white"
+                      }`}
+                    >
+                      Sell
+                    </button>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  {typeof livePrice === 'number' && (
+                    <span className="text-xl font-mono font-bold text-white tracking-tight">
+                      {livePrice.toFixed(getPairDigits(selectedPair))}
+                    </span>
+                  )}
+                  <button
+                    onClick={() => setShowChecklist(true)}
+                    disabled={!tradeDirection || !livePrice}
+                    className="px-5 py-2 rounded-lg text-xs font-bold uppercase bg-white text-black hover:bg-gray-200 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    Trade
+                  </button>
+                </div>
               </div>
-              <div className="relative z-10 mt-3 text-2xl font-bold font-mono text-white">${mt5Data?.connected && mt5Data?.balance != null ? mt5Data.balance.toFixed(2) : "—"}</div>
-           </div>
+              <div ref={chartContainerRef} className="h-[400px] w-full" />
+              </div>
+              <div className="lg:col-span-3 h-full">
+                 <DailyBiasWidget />
+              </div>
+            </div>
 
-           <div className="p-4 bg-[#0c0c0d]/90 border border-white/5 rounded-xl shadow-lg relative overflow-hidden group hover:border-green-500/30 transition-colors">
-               <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider z-10 relative">Floating P&L</div>
-               <div className="mt-3 relative z-10 flex items-baseline gap-2">
-                 {mt5Data?.connected ? (
-                   <>
-                     <span className={`text-2xl font-bold font-mono ${(mt5Data?.profit ?? 0) >= 0 ? 'text-[#00dc82]' : 'text-red-400'}`}>
-                       {(mt5Data?.profit ?? 0) >= 0 ? '+' : ''}${(mt5Data?.profit ?? 0).toFixed(2)}
-                     </span>
-                     {mt5Data?.balance && mt5Data.balance > 0 && (
-                       <span className={`text-[11px] font-mono ${(mt5Data?.profit ?? 0) >= 0 ? 'text-[#00dc82]/70' : 'text-red-400/70'}`}>
-                         {(((mt5Data.profit ?? 0) / mt5Data.balance) * 100).toFixed(2)}%
-                       </span>
-                     )}
-                   </>
-                 ) : (
-                   <span className="text-xl font-bold font-mono text-gray-500">—</span>
-                 )}
+            {/* Positions & Recent Trades */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+               <div className="lg:col-span-12 h-[450px]">
+                  <OpenPositionsList positions={positions} loading={rootPosLoading} />
+               </div>
+            </div>
+            
+            <div className="w-full max-w-full">
+              <RecentTradesTable trades={trades} loading={loading} onTradeUpdated={refresh} />
+            </div>
+          </div>
+        )}
+
+        {/* ANALYTICS TAB */}
+        {activeTab === "analytics" && (
+          <div className="space-y-8 animate-fade-up">
+            <PerformanceSummaryWidget trades={trades} />
+            
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+               <div className="lg:col-span-8 h-[350px]">
+                 <TradeDurationScatterPlot trades={trades} />
+               </div>
+               <div className="lg:col-span-4 h-[350px]">
+                 <MistakeCostAnalyzer />
+               </div>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+               <div className="lg:col-span-6 h-[400px]">
+                  <EquityCurveChart data={equityCurve} loading={loading} />
+               </div>
+               <div className="lg:col-span-6 h-[400px]">
+                  <StrategyPerformance data={strategyStats} loading={loading} />
                </div>
             </div>
 
-           <div className="p-4 bg-[#0c0c0d]/90 border border-white/5 rounded-xl shadow-lg group hover:border-yellow-500/30 transition-colors">
-             <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Margin Level</div>
-             <div className="mt-3 text-2xl font-bold font-mono text-white">
-               {mt5Data?.connected && mt5Data?.margin_level != null
-                 ? `${mt5Data.margin_level.toFixed(1)}%`
-                 : <span className="text-gray-500">—</span>}
-             </div>
-           </div>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+               <div className="lg:col-span-5 h-[320px]">
+                  <DrawdownVisualization trades={trades} />
+               </div>
+               <div className="lg:col-span-7">
+                  <SessionPerformanceGrid trades={trades} />
+               </div>
+            </div>
 
-           <div className="p-4 bg-[#0c0c0d]/90 border border-white/5 rounded-xl shadow-lg group hover:border-red-500/30 transition-colors">
-             <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Drawdown (Eq-Bal)</div>
-             <div className="mt-3 flex items-center justify-between font-mono">
-               {mt5Data?.connected && mt5Data?.balance && mt5Data?.equity != null ? (
-                 <>
-                   <span className={`text-2xl font-bold ${((mt5Data.balance - mt5Data.equity) / mt5Data.balance * 100) > 3 ? 'text-red-400' : 'text-white'}`}>
-                     {((mt5Data.balance - mt5Data.equity) / mt5Data.balance * 100).toFixed(2)}%
-                   </span>
-                   <span className="text-gray-500 text-xs">/ 10%</span>
-                 </>
-               ) : (
-                 <span className="text-2xl font-bold text-gray-500">—</span>
-               )}
-             </div>
-           </div>
+            <MonthlyPerformanceGrid trades={trades} />
+          </div>
+        )}
 
-           {/* Small Donut Winrate */}
-           <div className="p-4 bg-[#0c0c0d]/90 border border-white/5 rounded-xl flex items-center gap-4 shadow-lg group hover:border-white/20 transition-colors">
-              <div className="w-14 h-14 relative flex-shrink-0">
-                <ResponsiveContainer width="100%" height="100%">
-                   <PieChart><Pie data={[{name: 'W', value: metrics.winningTrades || 1, fill: '#00dc82'}, {name: 'L', value: metrics.losingTrades || 0, fill: '#ef4444'}]} dataKey="value" startAngle={90} endAngle={-270} innerRadius="70%" outerRadius="100%" stroke="none"/></PieChart>
-                </ResponsiveContainer>
+        {/* MACRO & AI TAB */}
+        {activeTab === "macro" && (
+          <div className="space-y-8 animate-fade-up">
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+               <div className="lg:col-span-4 h-[240px]">
+                  <NewsCountdownWidget />
+               </div>
+               <div className="lg:col-span-4 h-[240px]">
+                  <RetailSentimentGauge />
+               </div>
+               <div className="lg:col-span-4 h-[240px]">
+                  <SessionKillzones trades={trades} />
+               </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+               <ConditionMeter type="flow" />
+               <ConditionMeter type="bearing" />
+               <ConditionMeter type="pulse" />
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+               <div className="lg:col-span-8 flex flex-col gap-4">
+                  <AIMacroDeskSection />
+               </div>
+               <div className="lg:col-span-4 flex flex-col gap-4">
+                  <div className="bg-[#0c0c0d]/90 border border-white/5 rounded-xl p-5 shadow-2xl backdrop-blur">
+                     <div className="flex justify-between items-center mb-4">
+                       <div className="flex items-center gap-2">
+                          <div className="p-1 bg-white/10 rounded"><BarChart3 className="w-4 h-4 text-white"/></div>
+                          <span className="font-bold text-white tracking-wide">For You</span>
+                       </div>
+                       <div className="flex items-center gap-3 text-xs">
+                          <span className="text-gray-500 font-mono">{new Date().toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short" })}</span>
+                       </div>
+                     </div>
+                     
+                     <h3 className="text-sm font-bold text-white leading-snug mb-3">
+                       Dollar softens into London as Copper drags the metals complex
+                     </h3>
+                     <p className="text-xs text-gray-400 leading-relaxed font-medium">
+                       The Dollar is seeing some early pressure with a -16 flow score, though Copper is the real outlier this morning, sliding toward a 23rd percentile low (z=-0.42) that signals some underlying nerves. While the London open shows a slight risk appetite for the Dow Jones and Nasdaq 100, our Macro Desk remains cautious.
+                     </p>
+                     <button className="text-[#00dc82] hover:text-[#00c574] text-xs font-bold mt-2 hover:underline">Read more</button>
+                  </div>
+               </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+               <div className="lg:col-span-7">
+                  <CorrelationMatrix 
+                    openPositions={positions.map(p => ({ pair: p.pair, direction: (p.direction === "Long" ? "buy" : "sell") as "buy" | "sell" }))} 
+                  />
+               </div>
+               <div className="lg:col-span-5 h-[450px]">
+                  <EconomicNewsTicker />
+               </div>
+            </div>
+          </div>
+        )}
+
+        {/* RISK & EXECUTION TAB */}
+        {activeTab === "risk" && (
+          <div className="space-y-8 animate-fade-up">
+            
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-6 h-[250px]">
+                 <TiltMonitorWidget trades={trades} />
               </div>
-              <div className="flex flex-col">
-                 <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Win Rate</span>
-                 <span className="text-xl font-bold font-mono text-white">{metrics.winRate.toFixed(0)}%</span>
+              <div className="lg:col-span-6 h-[250px]">
+                 <VisualPositionSizer balance={mt5Data?.balance} />
               </div>
-           </div>
-         </div>
-      </div>
-
-      <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent my-8"></div>
-
-      {/* ── Live Candlestick Chart ── */}
-      <div className="rounded-xl border p-4" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Activity className="w-4 h-4 text-[--accent]" />
-              <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-primary)" }}>Live Chart</span>
-              <div className={`w-2 h-2 rounded-full ${livePrice !== null ? "bg-green-500 animate-pulse" : "bg-yellow-500"}`} />
             </div>
-            <select
-              value={selectedPair}
-              onChange={(e) => setSelectedPair(e.target.value)}
-              className="bg-[--bg-base] border rounded-lg px-3 py-1.5 text-xs font-bold outline-none"
-              style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
-            >
-              {PAIRS.map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
-            <div className="flex gap-1">
-              {TIMEFRAMES.map(tf => (
-                <button
-                  key={tf}
-                  onClick={() => setSelectedTimeframe(tf)}
-                  className={`px-2 py-1 rounded text-[10px] font-bold uppercase transition-colors ${
-                    selectedTimeframe === tf
-                      ? "bg-[--accent] text-black"
-                      : "bg-[--bg-base] text-[--text-secondary] hover:bg-[--bg-elevated]"
-                  }`}
-                  style={{ border: "1px solid var(--border)" }}
-                >
-                  {tf}
-                </button>
-              ))}
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-8 h-[560px]">
+                 <DailyRiskWidget
+                   trades={trades}
+                   balance={mt5Data?.balance}
+                   equity={mt5Data?.equity}
+                   maxDailyDrawdownPct={5}
+                   maxTotalDrawdownPct={10}
+                 />
+              </div>
+              <div className="lg:col-span-4 flex flex-col gap-6">
+                 <DisciplineScoreWidget trades={trades} />
+                 <SetupScorer
+                   currentRSI={technicals?.rsi ?? null}
+                   currentATR={technicals?.atr ?? null}
+                   avgATR={(technicals?.atr ?? 0.001) * 1.2}
+                   currentSpread={15}
+                   avgSpread={12}
+                   rrRatio={rrRatio}
+                   nextNewsMinutes={nextNewsMinutes}
+                   livePrice={livePrice}
+                   sma50={technicals?.sma50 ?? technicals?.ema50 ?? null}
+                   tradeDirection={tradeDirection}
+                 />
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setTradeDirection("buy")}
-                className={`px-3 py-1 rounded text-xs font-bold uppercase transition-colors ${
-                  tradeDirection === "buy"
-                    ? "bg-[--profit] text-black"
-                    : "bg-[--bg-base] text-[--text-secondary]"
-                }`}
-              >
-                Buy
-              </button>
-              <button
-                onClick={() => setTradeDirection("sell")}
-                className={`px-3 py-1 rounded text-xs font-bold uppercase transition-colors ${
-                  tradeDirection === "sell"
-                    ? "bg-[--loss] text-white"
-                    : "bg-[--bg-base] text-[--text-secondary]"
-                }`}
-              >
-                Sell
-              </button>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+               <div className="lg:col-span-6 h-[560px]">
+                  <QuickTradeEntry />
+               </div>
+               <div className="lg:col-span-6 h-[560px]">
+                  <AlertsWidget
+                    trades={trades}
+                    positions={positions}
+                    mt5Connected={mt5Data?.connected}
+                    balance={mt5Data?.balance}
+                    equity={mt5Data?.equity}
+                    maxDailyDrawdownPct={5}
+                  />
+               </div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            {livePrice !== null && (
-              <span className="text-lg font-mono font-bold" style={{ color: "var(--text-primary)" }}>
-                {livePrice.toFixed(getPairDigits(selectedPair))}
-              </span>
-            )}
-            <button
-              onClick={() => setShowChecklist(true)}
-              disabled={!tradeDirection || !livePrice}
-              className="px-4 py-2 rounded-lg text-xs font-bold uppercase bg-[--accent] text-black hover:shadow-[0_0_20px_rgba(0,212,161,0.4)] transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              Place Trade
-            </button>
-          </div>
-        </div>
-        <div ref={chartContainerRef} className="h-[300px] w-full" />
+        )}
+
       </div>
-
-      {/* ── SECTION 5.5: PERFORMANCE SUMMARY ── */}
-      <div className="mb-6">
-        <PerformanceSummaryWidget trades={trades} />
-      </div>
-
-      {/* ── SECTION 6: TRADING ACTIVITY ── */}
-      <div className="mb-8 w-full max-w-full">
-        <RecentTradesTable trades={recentTrades} loading={loading} />
-      </div>
-
-      {/* ── SECTION 7: PERFORMANCE ANALYTICS ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-6">
-         {/* Left Col (Equity Curve) - Spans 6 cols */}
-         <div className="lg:col-span-6 h-[400px]">
-            <EquityCurveChart data={equityCurve} loading={loading} />
-         </div>
-
-         {/* Right Col (Strategy Performance) - Spans 6 cols */}
-         <div className="lg:col-span-6 h-[400px]">
-            <StrategyPerformance data={strategyStats} loading={loading} />
-         </div>
-      </div>
-
-      {/* ── SECTION 7.5: DRAWDOWN + SESSION BREAKDOWN ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-8">
-         {/* Drawdown Underwater Plot - Spans 5 cols */}
-         <div className="lg:col-span-5 h-[320px]">
-            <DrawdownVisualization trades={trades} />
-         </div>
-
-         {/* Session Performance Grid - Spans 7 cols */}
-         <div className="lg:col-span-7">
-            <SessionPerformanceGrid trades={trades} />
-         </div>
-      </div>
-
-      {/* ── SECTION 7.8: MONTHLY P&L GRID ── */}
-      <div className="pb-8">
-        <MonthlyPerformanceGrid trades={trades} />
-      </div>
-
-      <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent my-8"></div>
-
-      {/* ── SECTION 8: MARKET & POSITIONS ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-8">
-         {/* Open Positions List - Spans 7 cols */}
-         <div className="lg:col-span-7 h-[450px]">
-            <OpenPositionsList positions={positions} loading={rootPosLoading} />
-         </div>
-
-         {/* Economic News Ticker - Spans 5 cols */}
-         <div className="lg:col-span-5 h-[450px]">
-            <EconomicNewsTicker />
-         </div>
-      </div>
-
-      {/* Correlation Matrix - Below Open Positions */}
-      <div className="mb-6">
-        <CorrelationMatrix 
-          openPositions={positions.map(p => ({ pair: p.pair, direction: (p.direction === "Long" ? "buy" : "sell") as "buy" | "sell" }))} 
-        />
-      </div>
-
-      <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent my-8"></div>
-
-      {/* ── SECTION 9: RISK + QUICK TRADE ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-8">
-         {/* Daily Risk Widget - Spans 4 cols */}
-         <div className="lg:col-span-4 h-[560px]">
-            <DailyRiskWidget
-              trades={trades}
-              balance={mt5Data?.balance}
-              equity={mt5Data?.equity}
-              maxDailyDrawdownPct={5}
-              maxTotalDrawdownPct={10}
-            />
-         </div>
-
-         {/* Quick Trade Entry - Spans 4 cols */}
-         <div className="lg:col-span-4 h-[560px]">
-            <QuickTradeEntry />
-         </div>
-
-{/* Alerts Widget - Spans 4 cols */}
-          <div className="lg:col-span-4 h-[560px]">
-             <AlertsWidget
-               trades={trades}
-               positions={positions}
-               mt5Connected={mt5Data?.connected}
-               balance={mt5Data?.balance}
-               equity={mt5Data?.equity}
-               maxDailyDrawdownPct={5}
-             />
-          </div>
-       </div>
 
       {/* Pre-Trade Checklist Modal */}
       <PreTradeChecklist

@@ -13,7 +13,7 @@ import ApiKeysSettings from "../../components/terminal/ApiKeysSettings";
 import { useTerminalData } from "../../hooks/useTerminalData";
 
 export default function TerminalPage() {
-  const [symbol, setSymbol] = useState("EURUSD");
+  const [symbol, setSymbol] = useState("XAUUSD");
   const [timeframe, setTimeframe] = useState("H4");
   const [orderOpen, setOrderOpen] = useState(false);
   const [brokerOpen, setBrokerOpen] = useState(false);

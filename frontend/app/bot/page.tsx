@@ -78,8 +78,8 @@ function BotSettingsTab({ activeTab }: BotSettingsTabProps) {
   useEffect(() => { fetchBots(); fetchSlaves(); }, []);
 
   const BRIDGE = typeof window !== "undefined" && window.location.hostname === "localhost"
-    ? "http://localhost:5003"
-    : (process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003");
+    ? "/api/bridge"
+    : (process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge");
 
   const fetchBots = async () => {
     try {

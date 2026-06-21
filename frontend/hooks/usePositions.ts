@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { getBackendUrl } from "@/lib/utils";
-import { getSession } from "next-auth/react";
+import { getSession } from "@/lib/useSession";
 
 export interface Position {
   ticket: number;

@@ -12,7 +12,7 @@ const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans", weight:
 const jetbrains = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains", weight: ["400", "500"] });
 
 export const metadata = {
-  title: "TradeDesk — Professional Trading Terminal",
+  title: "Journex — Professional Trading Terminal",
   description:
     "Real-time MT5 integration, live signals, news alerts, sentiment analysis, backtesting and more.",
 };

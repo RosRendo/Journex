@@ -3,6 +3,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import { ArrowLeft, Clock, MessageSquare, TrendingUp, TrendingDown, Activity, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, ReferenceLine } from "recharts";
 
 // ─── Market Sessions Swimlane (matches reference image) ──────────
@@ -51,7 +52,7 @@ function MarketSessionsBar() {
   }));
 
   return (
-    <div className="rounded-2xl border overflow-hidden" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+    <div className="rounded-3xl border overflow-hidden backdrop-blur-xl shadow-2xl transition-all hover:border-white/10" style={{ background: "rgba(12,12,13,0.7)", borderColor: "var(--border)" }}>
       {/* Header row */}
       <div className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: "var(--border)" }}>
         <span className="text-[11px] font-bold uppercase tracking-[0.15em]" style={{ color: "var(--text-tertiary)" }}>Market Sessions</span>
@@ -173,7 +174,7 @@ function RelativeStrengthChart({ pair }: { pair: string }) {
   const currentPair = data.at(-1)?.pair ?? 0;
   const currentBasket = data.at(-1)?.basket ?? 0;
   return (
-    <div className="rounded-2xl border overflow-hidden" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+    <div className="rounded-3xl border overflow-hidden backdrop-blur-xl shadow-2xl transition-all hover:border-white/10" style={{ background: "rgba(12,12,13,0.7)", borderColor: "var(--border)" }}>
       <div className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: "var(--border)" }}>
         <div className="flex items-center gap-2">
           <span className="text-[11px] font-bold uppercase tracking-[0.15em]" style={{ color: "var(--text-tertiary)" }}>Relative Strength</span>
@@ -228,7 +229,7 @@ function useMT5ChartData(pair: string, timeframe: string) {
     const fetchCandles = async () => {
       try {
         setLoading(true);
-        const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
+        const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge";
         // Fetch last 60 candles
         const res = await fetch(`${bridgeUrl}/api/historical-candles?symbol=${pair}&timeframe=${tfMap[timeframe] || "D1"}&count=60`, { headers: { "ngrok-skip-browser-warning": "true" } });
         if (!res.ok) throw new Error("Offline");
@@ -246,11 +247,7 @@ function useMT5ChartData(pair: string, timeframe: string) {
         }
       } catch (err) {
         // Mock fallback if bridge offline, so the UI doesn't completely break
-        let base = pair.includes("JPY") ? 150 : (pair.includes("USD") ? 1.05 : 24000);
-        setData(Array.from({ length: 48 }).map((_, i) => {
-          base += (Math.sin(i / 5) + (Math.random() - 0.5)) * (base * 0.005);
-          return { time: `${Math.floor(i/2)}:00`, price: Number(base.toFixed(5)) };
-        }));
+        setData([]);
       } finally {
         setLoading(false);
       }
@@ -267,7 +264,7 @@ function useRelativeStrength(pair: string) {
   useEffect(() => {
     const fetchRS = async () => {
       try {
-        const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
+        const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge";
         // Fetch pair and a basket proxy (US30 or SPX500 if available)
         const [pairRes, basketRes] = await Promise.all([
           fetch(`${bridgeUrl}/api/historical-candles?symbol=${pair}&timeframe=H1&count=48`, { headers: { "ngrok-skip-browser-warning": "true" } }),
@@ -297,13 +294,7 @@ function useRelativeStrength(pair: string) {
         throw new Error("No data");
       } catch (err) {
         // Fallback for visualization
-        const hash = pair.charCodeAt(0);
-        let pairVal = 0.025, basketVal = 0.01;
-        setData(Array.from({ length: 60 }).map((_, i) => {
-          pairVal += Math.sin(i / 6 + hash) * 0.002 + (Math.random() - 0.5) * 0.001;
-          basketVal += Math.sin(i / 10 + hash + 3) * 0.0005 + (Math.random() - 0.5) * 0.0004;
-          return { i, pair: +pairVal.toFixed(5), basket: +basketVal.toFixed(5) };
-        }));
+        setData([]);
       }
     };
     fetchRS();
@@ -320,7 +311,7 @@ function useAiAnalysis(pair: string) {
     const fetchAi = async () => {
       try {
         setLoading(true);
-        const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
+        const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge";
         const aiKey = typeof window !== "undefined" ? localStorage.getItem("ai_key") : null;
         const aiProvider = typeof window !== "undefined" ? localStorage.getItem("ai_provider") || "openai" : "openai";
         const res = await fetch(`${bridgeUrl}/api/ai-analysis?symbol=${pair}${aiKey ? `&ai_key=${aiKey}&provider=${aiProvider}` : ""}`, { headers: { "ngrok-skip-browser-warning": "true" } });
@@ -356,7 +347,7 @@ function usePairData(pair: string) {
 
   useEffect(() => {
     const fetchAll = async () => {
-      const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "http://localhost:5003";
+      const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge";
       
       // News
       try {
@@ -394,7 +385,18 @@ function usePairData(pair: string) {
         if (jLev.success) setLevels(jLev.levels);
       } catch (e) {}
 
-      setRetailSentiment(Math.floor(Math.random() * 40) + 30); 
+      // Sentiment
+      try {
+        const rSent = await fetch(`${bridgeUrl}/api/sentiment?symbol=${pair}`, { headers: { "ngrok-skip-browser-warning": "true" } });
+        const jSent = await rSent.json();
+        if (jSent.success) {
+          setRetailSentiment(jSent.long_pct);
+        } else {
+          setRetailSentiment(50); 
+        }
+      } catch (e) {
+        setRetailSentiment(50); 
+      }
     };
     fetchAll();
   }, [pair]);
@@ -424,7 +426,7 @@ function Gauge({ value, label, color, type = "semi" }: { value: number, label: s
 
 function TopCard({ title, value, gaugeValue, color }: { title: string, value: string, gaugeValue: number, color: string }) {
   return (
-    <div className="rounded-xl border p-3.5 flex flex-col justify-between" style={{ background: "var(--bg-card)", borderColor: "var(--border)", minWidth: "130px" }}>
+    <div className="rounded-2xl border p-4 flex flex-col justify-between backdrop-blur-xl shadow-2xl transition-all hover:border-white/20" style={{ background: "rgba(12,12,13,0.7)", borderColor: "var(--border-strong)", minWidth: "140px" }}>
       <div className="text-[11px] font-bold" style={{ color: "var(--text-tertiary)" }}>{title}</div>
       <div className="flex items-end justify-between mt-2">
         <div className="text-[16px] font-bold tracking-wide" style={{ color: "var(--text-primary)" }}>{value}</div>
@@ -546,7 +548,7 @@ export default function PairDeepDivePage() {
   const chartColor = isBullish ? "var(--bull)" : "var(--bear)";
 
   return (
-    <div className="space-y-5 max-w-[1400px] mx-auto pb-20">
+    <div className="space-y-6 max-w-[1400px] mx-auto pb-20">
 
       {/* Top Navigation */}
       <Link href="/dashboard" className="inline-flex items-center gap-2 text-[11px] font-bold hover:text-white transition-colors" style={{ color: "var(--text-tertiary)" }}>

@@ -16,7 +16,7 @@ import { EventPlaybook } from "@/components/ui/EventPlaybook";
 import { BiasSupportCard } from "@/components/ui/BiasSupportCard";
 import { LiveWireNewsItem } from "@/components/ui/LiveWireNewsItem";
 
-const BRIDGE = process.env.NEXT_PUBLIC_BRIDGE_URL ?? "http://localhost:5003";
+const BRIDGE = process.env.NEXT_PUBLIC_BRIDGE_URL ?? "/api/bridge";
 
 /* ── Types ── */
 interface NewsItem { id: string; title: string; summary?: string; time: string; isHot: boolean; impact: "high" | "medium" | "low"; sentiment: "bullish" | "bearish" | "neutral"; symbol: string; source: string; link?: string; }
@@ -66,17 +66,11 @@ export default function MacroDeskPage() {
            setFearGreed(Math.round(avgScore));
         } else {
            // Fallback drift if no bridge
-           setFearGreed(prev => {
-             const drift = Math.floor(Math.random() * 5) - 2;
-             return Math.min(100, Math.max(0, prev + drift));
-           });
+           setFearGreed(prev => prev);
         }
       } catch (e) {
           // Fallback drift if offline
-          setFearGreed(prev => {
-            const drift = Math.floor(Math.random() * 5) - 2;
-            return Math.min(100, Math.max(0, prev + drift));
-          });
+          setFearGreed(prev => prev);
       }
     };
     fetchVolatility();
@@ -242,7 +236,7 @@ export default function MacroDeskPage() {
                 isHot={n.isHot}
                 sentiment={n.sentiment}
                 tags={n.title.toUpperCase().includes("FED") ? ["Fed", "US Data"] : ["Macro", n.symbol || "XAUUSD"]}
-                heatScore={n.isHot ? Math.floor(Math.random() * 4) + 6 : 0} // mock heat score 6-9
+                heatScore={n.isHot ? 8 : 0} // mock heat score 6-9
                 selected={!!(selectedDeepDive && 'id' in selectedDeepDive && selectedDeepDive.id === n.id)}
                 onClick={() => setSelectedDeepDive(n)}
               />

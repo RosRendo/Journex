@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import prisma from "../config/database";
 import { Decimal } from "@prisma/client/runtime/library";
+import { adminGuard } from "../middleware/auth";
 
 const router = Router();
 
@@ -53,6 +54,21 @@ router.get("/supported", (req: Request, res: Response) => {
     });
   }
 });
+
+/**
+ * Health check (public)
+ */
+router.get("/health", (req: Request, res: Response) => {
+  res.json({
+    status: "OK",
+    mode: "CSV Import",
+    supportedBrokers: SUPPORTED_BROKERS.length,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// Secure all subsequent routes (register, accounts, analytics) behind the adminGuard
+router.use(adminGuard);
 
 /**
  * Register a broker account (track which broker uploaded CSV)
@@ -343,16 +359,5 @@ router.get("/analytics", async (req: Request, res: Response) => {
   }
 });
 
-/**
- * Health check
- */
-router.get("/health", (req: Request, res: Response) => {
-  res.json({
-    status: "OK",
-    mode: "CSV Import",
-    supportedBrokers: SUPPORTED_BROKERS.length,
-    timestamp: new Date().toISOString(),
-  });
-});
 
 export default router;

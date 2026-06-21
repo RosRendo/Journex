@@ -15,7 +15,7 @@ export default function LandingPage() {
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/25">
             <TrendingUp className="w-5 h-5 text-white" />
           </div>
-          <span className="text-xl font-bold text-white tracking-tight">TradeKiller Pro</span>
+          <span className="text-xl font-bold text-white tracking-tight">Journex Pro</span>
         </div>
         <div className="flex items-center gap-4">
           <Link
@@ -131,9 +131,9 @@ export default function LandingPage() {
       <footer className="relative z-10 border-t border-white/5 py-12 text-center text-sm text-gray-500 mt-auto">
         <div className="flex items-center justify-center gap-2 mb-4">
           <TrendingUp className="w-4 h-4" />
-          <span className="font-bold">TradeKiller Pro</span>
+          <span className="font-bold">Journex Pro</span>
         </div>
-        <p>&copy; {new Date().getFullYear()} TradeKiller Analytics. All rights reserved.</p>
+        <p>&copy; {new Date().getFullYear()} Journex Analytics. All rights reserved.</p>
       </footer>
     </div>
   );

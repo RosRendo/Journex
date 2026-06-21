@@ -10,7 +10,7 @@
  */
 "use client";
 import { useEffect, useRef } from "react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/lib/useSession";
 
 export function useAutoMT5Connect() {
   const { data: session } = useSession();

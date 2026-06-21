@@ -1,8 +1,12 @@
 import express from "express";
 import { PrismaClient } from "@prisma/client";
+import { adminGuard } from "../middleware/auth";
 
 const router = express.Router();
 const prisma = new PrismaClient();
+
+// Secure all checklist routes behind the adminGuard
+router.use(adminGuard);
 
 // GET /api/checklist/template
 router.get("/template", async (req, res) => {

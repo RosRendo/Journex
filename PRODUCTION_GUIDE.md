@@ -1,4 +1,4 @@
-# 🚀 DashboardKiller — Complete Production & Local Startup Guide
+# 🚀 Journex — Complete Production & Local Startup Guide
 
 ---
 
@@ -111,7 +111,7 @@ npm install -g @railway/cli
 railway login
 
 # Link your project:
-cd d:\Forex\dashboardkiller
+cd d:\Forex\journex
 railway init
 ```
 
@@ -146,7 +146,7 @@ Or connect your GitHub repo and Railway deploys on every `git push`.
 ## ☁️ Vercel Frontend Setup (One-Time)
 
 ```bash
-cd d:\Forex\dashboardkiller\frontend
+cd d:\Forex\journex\frontend
 npx vercel --prod
 ```
 

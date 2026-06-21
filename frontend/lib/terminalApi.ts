@@ -1,21 +1,23 @@
 import axios from "axios";
 import { getBackendUrl } from "./utils";
-import { getSession } from "next-auth/react";
+import { createClient } from "../utils/supabase/client";
 
 const BACKEND_URL = getBackendUrl();
 export const API = `${BACKEND_URL}/api`;
 
 export const api = axios.create({ baseURL: API, timeout: 30000 });
 
-// Inject current user email as Bearer token to authorize backend requests
+// Inject cryptographically signed JWT token to authorize backend requests securely
 api.interceptors.request.use(async (config) => {
   try {
-    const session = await getSession();
-    if (session?.user?.email) {
-      config.headers.Authorization = `Bearer ${session.user.email}`;
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
   } catch (err) {
-    console.warn("Failed to get NextAuth session in interceptor:", err);
+    console.warn("Failed to get Supabase session in interceptor:", err);
   }
   return config;
 }, (err) => {
@@ -54,6 +56,7 @@ export const closeOrder = (id: string) => api.post(`/orders/${id}/close`).then((
 export const getBroker = () => api.get("/settings/broker").then((r) => r.data);
 export const saveBroker = (cfg: any) => api.post("/settings/broker", cfg).then((r) => r.data);
 export const testBroker = () => api.post("/settings/broker/test").then((r) => r.data);
+export const syncBrokerTrades = () => api.post("/terminal/sync").then((r) => r.data);
 
 // Drawings
 export const listDrawings = (symbol: string) =>

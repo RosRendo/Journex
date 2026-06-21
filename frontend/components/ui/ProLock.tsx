@@ -1,7 +1,7 @@
 import React, { ReactNode } from "react";
 import { Lock } from "lucide-react";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/lib/useSession";
 
 interface ProLockProps {
   children: ReactNode;
