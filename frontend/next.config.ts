@@ -26,8 +26,8 @@ const nextConfig: NextConfig = {
                 "https://python.journex.online",
                 "wss://python.journex.online",
                 // Railway fallback (keep in case direct Railway access needed)
-                "https://dashboard-production-f374.up.railway.app",
-                "wss://dashboard-production-f374.up.railway.app",
+                "https://*.up.railway.app",
+                "wss://*.up.railway.app",
                 // Supabase
                 "https://*.supabase.co",
                 "wss://*.supabase.co",
