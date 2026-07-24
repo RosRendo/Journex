@@ -2,7 +2,7 @@ import {
   LayoutDashboard, BookOpen, CalendarDays, BarChart3, Wallet, Users, Library, Bell,
   Settings, ShieldAlert, Calculator, Percent, Grid, Award, Zap, Eye, BellRing, MapPin,
   Newspaper, Crosshair, FlipHorizontal2, RotateCcw, Code, Activity, TrendingUp, BarChart2, Target,
-  Shield, CheckCircle2, TrendingDown, AlertTriangle, Terminal
+  Shield, CheckCircle2, TrendingDown, AlertTriangle, Terminal, Radar
 } from "lucide-react";
 
 export type NavItem = {
@@ -27,6 +27,7 @@ export const SIDEBAR_GROUPS: NavGroup[] = [
     items: [
       { id: "dashboard", label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
       { id: "terminal", label: "Bloomberg Terminal", href: "/terminal", icon: Terminal },
+      { id: "signals", label: "Market Scanner", href: "/signals", icon: Radar },
       { id: "ai-journals", label: "AI Journals", href: "/journals", icon: BookOpen },
       { id: "journal", label: "Manual Journal", href: "/journal", icon: BookOpen },
       { id: "calendar", label: "Calendar", href: "/calendar", icon: CalendarDays },
@@ -35,7 +36,6 @@ export const SIDEBAR_GROUPS: NavGroup[] = [
       { id: "community", label: "Community", href: "/community", icon: Users },
       { id: "strategies", label: "Strategies", href: "/strategies", icon: Library },
       { id: "alerts", label: "Alerts", href: "/notificationandmonitor", icon: Bell },
-      { id: "livemonitor", label: "Live Monitor", href: "/livemonitorchart", icon: Activity },
       { id: "news", label: "Macro Desk", href: "/news", icon: Newspaper },
       { id: "settings", label: "Settings", href: "/settings", icon: Settings },
     ],

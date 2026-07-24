@@ -5,6 +5,7 @@ import { closeOrder } from "../../lib/terminalApi";
 import RiskCalculator from "./RiskCalculator";
 import CryptoStrip from "./CryptoStrip";
 import SignalWidget from "./SignalWidget";
+import { useWebSocket } from "../providers/WebSocketProvider";
 
 interface WidgetHeaderProps {
   title: string;
@@ -129,16 +130,21 @@ interface AccountStatusProps {
 }
 
 function AccountStatus({ data }: AccountStatusProps) {
+  const { liveEquity } = useWebSocket();
   if (!data) return null;
+  
+  const equity = liveEquity?.equity ?? data.equity;
+  const balance = liveEquity?.balance ?? data.balance;
+  
   return (
     <section data-testid="widget-account" className="border-b border-zinc-800">
       <WidgetHeader title="Account Status" />
       <div className="px-2 py-2 grid grid-cols-2 gap-y-1 gap-x-3 text-[11px] font-mono">
         <div className="text-zinc-500">Balance</div>
-        <div className="text-right text-zinc-100">{fmtMoney(data.balance, 0)}</div>
+        <div className="text-right text-zinc-100">{fmtMoney(balance, 0)}</div>
 
         <div className="text-zinc-500">Equity</div>
-        <div className="text-right text-emerald-500">{fmtMoney(data.equity, 0)}</div>
+        <div className="text-right text-emerald-500">{fmtMoney(equity, 0)}</div>
 
         <div className="text-zinc-500">Free Margin</div>
         <div className="text-right text-zinc-100">{fmtMoney(data.free_margin, 0)}</div>
@@ -217,6 +223,7 @@ interface WatchlistProps {
 }
 
 function Watchlist({ data }: WatchlistProps) {
+  const { livePrices } = useWebSocket();
   if (!data) return null;
   return (
     <section data-testid="widget-watchlist" className="flex-1 min-h-0 flex flex-col">
@@ -225,6 +232,7 @@ function Watchlist({ data }: WatchlistProps) {
         <table className="w-full text-[11px]">
           <tbody>
             {data.map((w) => {
+              const currentPrice = livePrices[w.symbol]?.mid ?? w.price;
               const up = (w.change_pips ?? 0) >= 0;
               return (
                 <tr
@@ -238,7 +246,7 @@ function Watchlist({ data }: WatchlistProps) {
                       up ? "text-emerald-500" : "text-red-500"
                     }`}
                   >
-                    {w.price.toFixed(w.digits)}
+                    {currentPrice.toFixed(w.digits)}
                   </td>
                   <td
                     className={`px-2 py-1.5 text-right font-mono text-[10px] ${

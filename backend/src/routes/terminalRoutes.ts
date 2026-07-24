@@ -967,6 +967,28 @@ router.get("/terminal/signals", async (req, res) => {
   }
 });
 
+// GET /api/terminal/alert-config
+router.get("/terminal/alert-config", async (req, res) => {
+  try {
+    const response = await axios.get("http://127.0.0.1:5003/api/alert-config");
+    res.json(response.data);
+  } catch (error: any) {
+    console.error("[Bridge API Error] Failed to fetch alert config:", error.message);
+    res.status(500).json({ success: false, error: "Failed to fetch alert config from bridge" });
+  }
+});
+
+// POST /api/terminal/alert-config
+router.post("/terminal/alert-config", async (req, res) => {
+  try {
+    const response = await axios.post("http://127.0.0.1:5003/api/alert-config", req.body);
+    res.json(response.data);
+  } catch (error: any) {
+    console.error("[Bridge API Error] Failed to update alert config:", error.message);
+    res.status(500).json({ success: false, error: "Failed to update alert config" });
+  }
+});
+
 // GET /api/terminal/journal
 router.get("/terminal/journal", async (req, res) => {
   try {

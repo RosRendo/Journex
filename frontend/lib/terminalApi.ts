@@ -73,3 +73,7 @@ export const closeBridgePosition = (ticket: number) =>
 export const modifyBridgePosition = (ticket: number, sl?: number, tp?: number) =>
   api.post("/bridge/api/modify-position", { ticket, sl, tp }).then((r) => r.data);
 
+// Alerts config
+export const fetchAlertConfig = () => api.get("/terminal/alert-config").then((r) => r.data);
+export const updateAlertConfig = (cfg: any) => api.post("/terminal/alert-config", cfg).then((r) => r.data);
+

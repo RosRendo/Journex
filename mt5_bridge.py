@@ -4805,14 +4805,15 @@ def api_generate_chart(req: ChartRequest):
         return {"success": True, "path": str(out_path)}
     except Exception as e:
         return {"success": False, "error": str(e)}
+_global_signal_history = []
 
 @app.get("/api/signals")
 def get_signals():
+    global _global_signal_history
     try:
         from datetime import datetime, timedelta
         
         symbols = ["XAUUSD", "EURUSD", "GBPUSD", "USDJPY"]
-        signals = []
         
         if not mt5.initialize():
             return {"success": False, "error": "MT5 not initialized"}
@@ -4883,12 +4884,13 @@ def get_signals():
             atr = sum(tr[-14:]) / 14 if len(tr) >= 14 else (highs[-1] - lows[-1])
             
             signal = None
+            candle_time = rates[-1]['time']
             if last_ema9 > last_ema21 and prev_ema9 <= prev_ema21:
                 if current_rsi < 70:
                     sl = last_close - (atr * 1.5)
                     tp = last_close + (atr * 3.0)
                     signal = {
-                        "id": f"{symbol}-{int(datetime.now().timestamp())}",
+                        "id": f"{symbol}-{candle_time}",
                         "symbol": symbol,
                         "type": "BUY",
                         "entry_price": round(last_close, 5),
@@ -4903,7 +4905,7 @@ def get_signals():
                     sl = last_close + (atr * 1.5)
                     tp = last_close - (atr * 3.0)
                     signal = {
-                        "id": f"{symbol}-{int(datetime.now().timestamp())}",
+                        "id": f"{symbol}-{candle_time}",
                         "symbol": symbol,
                         "type": "SELL",
                         "entry_price": round(last_close, 5),
@@ -4915,32 +4917,91 @@ def get_signals():
                     }
                     
             if signal:
-                signals.append(signal)
+                # Check if this exact signal is already in history
+                if not any(s['id'] == signal['id'] for s in _global_signal_history):
+                    _global_signal_history.append(signal)
+                    # --- DISCORD SIGNAL ALERT ---
+                    if not _alert_config.get("alerts_paused", True):
+                        discord_msg = f"🔔 **NEW SIGNAL** 🔔\n**Pair**: {symbol}\n**Type**: {signal['type']}\n**Entry**: {signal['entry_price']}\n**SL**: {signal['sl']}\n**TP**: {signal['tp']}\n**Reason**: {signal['reason']}"
+                        webhook = _alert_config.get("discord_signals_webhook", "")
+                        if webhook:
+                            try: 
+                                import requests
+                                requests.post(webhook, json={"content": discord_msg}, timeout=3)
+                            except Exception as e: print("Discord signal alert err:", e)
+                    # ------------------------------------------------
                 
-        if not signals and len(symbols) > 0:
-            sym = symbols[0]
-            rates = mt5.copy_rates_from_pos(sym, mt5.TIMEFRAME_M15, 0, 1)
-            if rates and len(rates) > 0:
-                c = rates[0]['close']
-                signals.append({
-                    "id": f"{sym}-demo-{int(datetime.now().timestamp())}",
-                    "symbol": sym,
-                    "type": "BUY",
-                    "entry_price": round(c, 5),
-                    "sl": round(c * 0.995, 5),
-                    "tp": round(c * 1.01, 5),
-                    "confidence": 65,
-                    "reason": "Strong momentum detected (Demo fallback)",
-                    "timestamp": datetime.now().isoformat()
-                })
-                
-        return {"success": True, "signals": signals}
+        # Keep only the last 50 signals
+        if len(_global_signal_history) > 50:
+            _global_signal_history = _global_signal_history[-50:]
+            
+        # Return reversed history so newest is first
+        return {"success": True, "signals": _global_signal_history[::-1]}
     except Exception as e:
         import traceback
         traceback.print_exc()
         return {"success": False, "error": str(e)}
 
-if __name__ == "__main__":
+import threading
+import time
 
+def live_data_loop():
+    # Wait for MT5 initialization
+    time.sleep(5) 
+    
+    last_equity = None
+    last_ticks = {}
+    symbols_to_monitor = ["XAUUSD", "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "NZDUSD", "USDCHF", "USDCAD"]
+    
+    import requests
+    sess = requests.Session()
+    
+    while True:
+        try:
+            updates = []
+            
+            # Ticks
+            for sym in symbols_to_monitor:
+                tick = mt5.symbol_info_tick(sym)
+                if tick:
+                    mid = (tick.bid + tick.ask) / 2
+                    if sym not in last_ticks or last_ticks[sym] != mid:
+                        last_ticks[sym] = mid
+                        updates.append({
+                            "type": "tick",
+                            "symbol": sym,
+                            "bid": tick.bid,
+                            "ask": tick.ask,
+                            "mid": mid,
+                            "time": tick.time,
+                            "source": "mt5_bridge"
+                        })
+                        
+            # Equity
+            acc = mt5.account_info()
+            if acc and last_equity != acc.equity:
+                last_equity = acc.equity
+                updates.append({
+                    "type": "equity",
+                    "equity": acc.equity,
+                    "balance": acc.balance,
+                    "profit": acc.profit
+                })
+                
+            if updates:
+                for u in updates:
+                    try:
+                        sess.post("http://127.0.0.1:5000/api/internal/bridge-push", json=u, timeout=0.2)
+                    except:
+                        pass
+        except Exception as e:
+            pass
+            
+        time.sleep(0.2)
+
+t = threading.Thread(target=live_data_loop, daemon=True)
+t.start()
+
+if __name__ == "__main__":
     import uvicorn
     uvicorn.run("mt5_bridge:app", host="0.0.0.0", port=5003)

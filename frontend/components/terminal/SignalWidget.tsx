@@ -74,7 +74,7 @@ export default function SignalWidget({ onExecute }: SignalWidgetProps) {
         </span>
       </div>
       <div className="p-2 space-y-2">
-        {signals.map((sig) => {
+        {signals.slice(0, 3).map((sig) => {
           const isBuy = sig.type === "BUY";
           return (
             <div

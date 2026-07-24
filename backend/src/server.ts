@@ -77,7 +77,12 @@ const limiter = rateLimit({
   legacyHeaders: false,
   message: { success: false, error: "Too many requests from this IP. Please try again later." },
 });
-app.use("/api/", limiter);
+app.use("/api/", (req, res, next) => {
+  if (req.path.startsWith("/internal/bridge-push")) {
+    return next(); // Exempt the high-frequency internal webhook from rate limits
+  }
+  limiter(req, res, next);
+});
 
 
 function isAdminRequest(req: any): boolean {
@@ -105,7 +110,7 @@ app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 // Routes
 app.use("/api/backend-auth", authRoutes);
 app.use("/api", (req, res, next) => {
-  if (req.path.startsWith("/bridge")) {
+  if (req.path.startsWith("/bridge") || req.path.startsWith("/internal")) {
     return next();
   }
   requireAuth(req, res, next);
@@ -251,6 +256,23 @@ const server = app.listen(Number(PORT), '0.0.0.0', () => {
   }
 });
 
+// --- INTERNAL BRIDGE WEBHOOK ---
+app.post("/api/internal/bridge-push", (req, res) => {
+  const payload = req.body;
+  if (wss) {
+    let count = 0;
+    wss.clients.forEach((client) => {
+      if (client.readyState === 1) { // OPEN
+        client.send(JSON.stringify(payload));
+        count++;
+      }
+    });
+    res.json({ success: true, broadcasted: count });
+  } else {
+    res.status(500).json({ success: false, error: "WebSocket server not initialized" });
+  }
+});
+
 // --- WEBSOCKET PRICING STREAM SYSTEM ---
 import { WebSocketServer } from "ws";
 import url from "url";
@@ -343,38 +365,10 @@ wss.on("connection", (ws, request) => {
   }
 
   function startMt5Interval() {
-    if (mockInterval) return;
-    const baseUrl = (process.env.MT5_BRIDGE_URL || broker.base_url || "http://localhost:5003").replace(/\/$/, "");
-    
-    mockInterval = setInterval(async () => {
-      if (ws.readyState !== 1) {
-        clearInterval(mockInterval!);
-        return;
-      }
-      for (const s of subscribedSymbols) {
-        try {
-          // Fire and forget requests to get latest price for each symbol
-          axios.get(`${baseUrl}/api/symbol-price`, { params: { symbol: s }, timeout: 800 })
-            .then(res => {
-              if (res.data && res.data.success) {
-                const tick = {
-                  type: "tick",
-                  symbol: s,
-                  bid: res.data.bid,
-                  ask: res.data.ask,
-                  mid: (res.data.bid + res.data.ask) / 2,
-                  time: new Date().toISOString(),
-                  source: "mt5_bridge",
-                };
-                if (ws.readyState === 1) {
-                  ws.send(JSON.stringify(tick));
-                }
-              }
-            })
-            .catch(() => {});
-        } catch (err) {}
-      }
-    }, 1000); // 1s polling interval
+    // We no longer poll MT5. Instead, the MT5 Python bridge will push live updates
+    // via POST /api/internal/bridge-push, which are immediately broadcasted to all connected clients.
+    // This allows sub-second latency and zero redundant HTTP requests.
+    console.log("[WS] Client connected to MT5 Bridge event stream.");
   }
 
   function startMockInterval() {
