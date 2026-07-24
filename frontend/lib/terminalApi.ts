@@ -49,7 +49,7 @@ export const deleteTrade = (id: string) => api.delete(`/journal/trades/${id}`).t
 
 // Orders
 export const submitOrder = (o: any) => api.post("/orders", o).then((r) => r.data);
-export const closeOrder = (id: string) => api.post(`/orders/${id}/close`).then((r) => r.data);
+export const closeOrder = (id: string, volume?: number) => api.post(`/orders/${id}/close`, { volume }).then((r) => r.data);
 
 // Broker settings
 export const getBroker = () => api.get("/settings/broker").then((r) => r.data);

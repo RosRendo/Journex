@@ -8,6 +8,7 @@ import { buildAdapter, SYMBOLS, generateCandles } from "../services/terminalBrok
 import { fetchTECalendar, fetchCommunityOutlook, getRealNews } from "../services/externalFeedsService";
 import { dispatchAlert, fmtTradeOpen, fmtTradeClose } from "../services/alertsService";
 import { syncBrokerTrades } from "../services/syncService";
+import { executeCopyTrade } from "../services/copyTrader";
 
 const router = express.Router();
 
@@ -1023,6 +1024,29 @@ router.get("/heatmap", (req, res) => {
   res.json({ symbols: HEATMAP_SYMBOLS, matrix });
 });
 
+// GET /api/crypto/prices
+router.get("/crypto/prices", async (req, res) => {
+  const bridgeUrl = process.env.MT5_BRIDGE_URL || process.env.LOCAL_MT5_URL || "http://127.0.0.1:5003";
+  const cryptoSymbols = ["BTCUSD", "ETHUSD", "XRPUSD", "BNBUSD", "SOLUSD"];
+  try {
+    const r = await axios.get(`${bridgeUrl}/api/live-data`, { timeout: 2000, headers: { "ngrok-skip-browser-warning": "true" } });
+    const data: any[] = r.data?.data || [];
+    const cryptoData = data.filter((d: any) => cryptoSymbols.includes(d.symbol));
+    if (cryptoData.length > 0) {
+      return res.json(cryptoData.map((d: any) => ({
+        symbol: d.symbol.replace("USD",""),
+        price: (d.bid + d.ask) / 2,
+        change_pct: 0, // bridge doesn't give 24h change
+        source: "mt5_bridge"
+      })));
+    }
+  } catch (_) {
+    // bridge unreachable — fall through to empty
+  }
+  // No crypto in MT5 or bridge offline — return empty gracefully
+  return res.json([]);
+});
+
 // GET /api/sentiment-gauge
 router.get("/sentiment-gauge", async (req, res) => {
   try {
@@ -1453,14 +1477,44 @@ router.get("/journal/stats", async (req, res) => {
 // POST /api/orders
 router.post("/orders", async (req, res) => {
   try {
-    const { symbol, side, volume, sl, tp } = req.body;
+    const { symbol, side, volume, sl, tp, order_type, entry, copyTrade } = req.body;
+
+    if (copyTrade && order_type === "MARKET") {
+      const results = await executeCopyTrade(symbol, side, Number(volume), sl ? Number(sl) : undefined, tp ? Number(tp) : undefined);
+      
+      // Since it's a multi-account batch, we return the master account's result to satisfy the frontend format
+      const masterResult = results.find(r => r.account === "Personal Real");
+      
+      if (!masterResult || !masterResult.success) {
+         return res.status(500).json({ error: masterResult?.error || "Master account copy trade failed" });
+      }
+
+      // Format a dummy result based on master success
+      const result = {
+         success: true,
+         order_id: masterResult.order_id,
+         symbol,
+         side,
+         volume: Number(volume),
+         entry: entry ? Number(entry) : 0,
+         sl: sl ? Number(sl) : undefined,
+         tp: tp ? Number(tp) : undefined,
+         msg: "Copy trade executed across " + results.length + " accounts."
+      };
+      
+      res.json(result);
+      return;
+    }
+
     const adapter = getActiveAdapter(req);
     const result = await adapter.submitOrder(
       symbol,
       side,
       Number(volume),
       sl ? Number(sl) : undefined,
-      tp ? Number(tp) : undefined
+      tp ? Number(tp) : undefined,
+      order_type,
+      entry ? Number(entry) : undefined
     );
 
     // Async dispatch trade alert
@@ -1483,8 +1537,9 @@ router.post("/orders", async (req, res) => {
 router.post("/orders/:trade_id/close", async (req, res) => {
   try {
     const ticket = req.params.trade_id;
+    const { volume } = req.body || {}; // Optional volume for partial closes
     const adapter = getActiveAdapter(req);
-    const result = await adapter.closeTrade(ticket);
+    const result = await adapter.closeTrade(ticket, volume ? Number(volume) : undefined);
 
     // Async dispatch trade close alert
     try {

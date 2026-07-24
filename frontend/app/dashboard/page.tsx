@@ -48,6 +48,7 @@ import { AIMacroDeskSection } from "@/components/ui/MacroDeskCard";
 import { ConditionMeter } from "@/components/ui/ConditionMeter";
 import DisciplineScoreWidget from "@/components/ui/DisciplineScoreWidget";
 import { RecentTradesTable } from "@/components/dashboard/widgets/RecentTradesTable";
+import { AiCoachWidget } from "@/components/dashboard/widgets/AiCoachWidget";
 import { EquityCurveChart } from "@/components/dashboard/widgets/EquityCurveChart";
 import { StrategyPerformance } from "@/components/dashboard/widgets/StrategyPerformance";
 import { OpenPositionsList } from "@/components/dashboard/widgets/OpenPositionsList";
@@ -151,6 +152,29 @@ export default function Dashboard() {
     const int = setInterval(fetchMt5Account, 5000);
     return () => clearInterval(int);
   }, [bridgeUrl]);
+
+  // Dashboard Stats
+  const [dashboardStats, setDashboardStats] = useState<{
+    winRate: number;
+    profitFactor: number;
+    maxDrawdown: number;
+    capitalFlow: { label: string, value: number }[];
+  } | null>(null);
+
+  useEffect(() => {
+    const fetchDashboardStats = async () => {
+      try {
+        const res = await fetchWithAuth(`${getBackendUrl()}/api/dashboard/stats`);
+        if (res.ok) {
+          const data = await res.json();
+          setDashboardStats(data);
+        }
+      } catch (e) {
+        console.error("Failed to fetch dashboard stats", e);
+      }
+    };
+    fetchDashboardStats();
+  }, []);
 
   // Live Chart State
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -653,7 +677,7 @@ export default function Dashboard() {
                  <TradeDurationScatterPlot trades={trades} />
                </div>
                <div className="lg:col-span-4 h-[350px]">
-                 <MistakeCostAnalyzer />
+                 <AiCoachWidget />
                </div>
             </div>
             
@@ -676,6 +700,15 @@ export default function Dashboard() {
             </div>
 
             <MonthlyPerformanceGrid trades={trades} />
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+               <div className="lg:col-span-8 h-[500px]">
+                  <RecentTradesTable trades={trades} loading={loading} />
+               </div>
+               <div className="lg:col-span-4 h-[500px]">
+                  <CapitalFlow data={dashboardStats?.capitalFlow || []} loading={!dashboardStats} />
+               </div>
+            </div>
           </div>
         )}
 

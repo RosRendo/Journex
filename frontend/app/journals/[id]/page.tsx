@@ -4,9 +4,10 @@ import React, { useState, useEffect } from 'react';
 import { useSession } from "next-auth/react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Brain, TrendingUp, TrendingDown, Clock, Activity, Target } from "lucide-react";
+import { ArrowLeft, Brain, TrendingUp, TrendingDown, Clock, Activity, Target, Camera } from "lucide-react";
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import AutoScreenshotModal from '@/components/AutoScreenshotModal';
 
 export default function JournalDetailPage() {
   const params = useParams();
@@ -15,6 +16,8 @@ export default function JournalDetailPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showScreenshotModal, setShowScreenshotModal] = useState(false);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const { data: sess } = useSession();
   const MT5_URL = process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge";
 
@@ -178,15 +181,23 @@ export default function JournalDetailPage() {
           )}
 
           <Card className="bg-slate-900 border-slate-800">
-            <CardHeader className="pb-2">
+            <CardHeader className="pb-2 flex flex-row items-center justify-between">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Activity className="w-5 h-5 text-purple-400" />
                 Trade Chart at Execution
               </CardTitle>
+              <button 
+                onClick={() => setShowScreenshotModal(true)}
+                className="text-xs font-bold flex items-center gap-1 hover:text-blue-400 transition-colors bg-blue-500/10 px-3 py-1.5 rounded-lg text-blue-500"
+              >
+                <Camera size={14} /> Auto Capture
+              </button>
             </CardHeader>
             <CardContent>
               <div className="rounded-lg overflow-hidden border border-slate-800 bg-black aspect-video flex items-center justify-center">
-                {trade.media?.chart_image ? (
+                {capturedImage ? (
+                  <img src={capturedImage} alt="Auto Captured Chart" className="w-full h-full object-contain" />
+                ) : trade.media?.chart_image ? (
                   <img 
                     src={`${MT5_URL}/journals/${trade.trade_id}/${trade.media.chart_image}`} 
                     alt="Trade Chart" 
@@ -207,6 +218,26 @@ export default function JournalDetailPage() {
         </div>
 
       </div>
+
+      {showScreenshotModal && (
+        <AutoScreenshotModal
+          trades={[
+            {
+              pair: trade.symbol,
+              direction: trade.position_type === 'BUY' ? 'Long' : 'Short',
+              entry: Number(trade.entry?.price),
+              closePrice: Number(trade.close?.price),
+              openTime: trade.entry?.time || trade.metadata?.created_at,
+              date: trade.close?.time || new Date().toISOString(),
+            }
+          ]}
+          onCapture={(base64) => {
+            setCapturedImage(base64);
+            setShowScreenshotModal(false);
+          }}
+          onClose={() => setShowScreenshotModal(false)}
+        />
+      )}
     </div>
   );
 }

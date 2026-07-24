@@ -8,11 +8,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Upload, RefreshCw, X, Image as ImageIcon, Tag,
   FileText, Clock, TrendingUp, TrendingDown, Trash2,
-  List, Calendar as CalendarIcon, ChevronLeft, Camera, Download, ChevronRight,
+  List, Calendar as CalendarIcon, ChevronLeft, Camera, Download, ChevronRight, Play,
 } from "lucide-react";
 import { useJournalData } from "@/hooks/useJournalData";
 import JournalCalendar from "@/components/JournalCalendar";
 import AutoScreenshotModal from "@/components/AutoScreenshotModal";
+import { TradeReplayModal } from "@/components/journal/TradeReplayModal";
 
 const STRATEGIES = [
   "Trend Following", "Breakout", "Reversal", "SMC",
@@ -28,6 +29,7 @@ export default function JournalPage() {
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [showUpload, setShowUpload] = useState(false);
   const [selectedTrade, setSelectedTrade] = useState<TradeData | null>(null);
+  const [replayTradeId, setReplayTradeId] = useState<number | null>(null);
   const [selectedDay, setSelectedDay] = useState<{ dateStr: string; trades: TradeData[] } | null>(null);
   const [showScreenshotModal, setShowScreenshotModal] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -330,16 +332,24 @@ export default function JournalPage() {
                 </div>
 
                 {selectedTrade && (
-                  <div className="p-4 rounded-2xl border flex items-center justify-between" style={{ background: "var(--bg-elevated)", borderColor: "var(--border-strong)" }}>
-                     <div>
-                        <div className="text-sm font-bold" style={{ color: "var(--text-secondary)" }}>{selectedTrade.pair} • {selectedTrade.direction}</div>
-                        <div className="text-xs font-mono mt-1" style={{ color: "var(--text-tertiary)" }}>{new Date(selectedTrade.date).toLocaleString()}</div>
+                  <div className="p-4 rounded-2xl border flex flex-col gap-2" style={{ background: "var(--bg-elevated)", borderColor: "var(--border-strong)" }}>
+                     <div className="flex items-center justify-between">
+                         <div>
+                            <div className="text-sm font-bold" style={{ color: "var(--text-secondary)" }}>{selectedTrade.pair} • {selectedTrade.direction}</div>
+                            <div className="text-xs font-mono mt-1" style={{ color: "var(--text-tertiary)" }}>{new Date(selectedTrade.date).toLocaleString()}</div>
+                         </div>
+                         <div className="text-right">
+                            <div className="text-xl font-black font-mono" style={{ color: selectedTrade.profit > 0 ? "var(--bull)" : "var(--bear)" }}>
+                               {selectedTrade.profit > 0 ? "+" : ""}{selectedTrade.profit.toFixed(2)}
+                            </div>
+                         </div>
                      </div>
-                     <div className="text-right">
-                        <div className="text-xl font-black font-mono" style={{ color: selectedTrade.profit > 0 ? "var(--bull)" : "var(--bear)" }}>
-                           {selectedTrade.profit > 0 ? "+" : ""}{selectedTrade.profit.toFixed(2)}
-                        </div>
-                     </div>
+                     <button
+                        onClick={() => setReplayTradeId(selectedTrade.id)}
+                        className="w-full flex items-center justify-center gap-2 py-2 mt-2 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/30 hover:bg-blue-500/20 font-bold transition-all text-xs tracking-wider"
+                     >
+                        <Play className="w-4 h-4" /> REPLAY TRADE
+                     </button>
                   </div>
                 )}
 
@@ -456,6 +466,11 @@ export default function JournalPage() {
           )}
         </AnimatePresence>
       </div>
+
+      <TradeReplayModal 
+        tradeId={replayTradeId} 
+        onClose={() => setReplayTradeId(null)} 
+      />
 
       {showScreenshotModal && (
         <AutoScreenshotModal

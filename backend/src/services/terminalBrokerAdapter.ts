@@ -106,8 +106,8 @@ export interface BrokerAdapter {
   getPricing(symbols: string[]): Promise<Record<string, { bid: number; ask: number; mid: number }>>;
   getAccount(): Promise<any>;
   getPositions(): Promise<any[]>;
-  submitOrder(symbol: string, side: "BUY" | "SELL", volume: number, sl?: number, tp?: number): Promise<any>;
-  closeTrade(tradeId: string): Promise<any>;
+  submitOrder(symbol: string, side: "BUY" | "SELL", volume: number, sl?: number, tp?: number, order_type?: string, entry?: number): Promise<any>;
+  closeTrade(tradeId: string, volume?: number): Promise<any>;
 }
 
 // ----------------------------------------------------
@@ -250,7 +250,7 @@ export class MockAdapter implements BrokerAdapter {
     };
   }
 
-  async closeTrade(tradeId: string) {
+  async closeTrade(tradeId: string, volume?: number) {
     const trade = await prisma.trade.findFirst({
       where: {
         OR: [
@@ -308,7 +308,7 @@ export class Mt5BridgeAdapter implements BrokerAdapter {
   private baseUrl: string;
 
   constructor(baseUrl: string) {
-    this.baseUrl = baseUrl.replace(/\/$/, "");
+    this.baseUrl = baseUrl.replace(/\/$/, "").replace("localhost", "127.0.0.1");
   }
 
   async ping() {
@@ -343,25 +343,32 @@ export class Mt5BridgeAdapter implements BrokerAdapter {
   }
 
   async getPricing(symbols: string[]) {
-    // Redo fallback logic, streaming bids/asks based on live quotes or mock walk
     const out: Record<string, { bid: number; ask: number; mid: number }> = {};
-    for (const s of symbols) {
-      try {
-        const res = await axios.get(`${this.baseUrl}/api/symbol-price`, { params: { symbol: s }, timeout: 2000 });
-        if (res.data && res.data.success) {
-          out[s] = {
-            bid: res.data.bid,
-            ask: res.data.ask,
-            mid: (res.data.bid + res.data.ask) / 2
-          };
-          continue;
+    try {
+      // Single batch call — much faster than one request per symbol
+      const res = await axios.get(`${this.baseUrl}/api/live-data`, { timeout: 3000 });
+      if (res.data?.success && Array.isArray(res.data.data)) {
+        for (const t of res.data.data) {
+          if (symbols.includes(t.symbol)) {
+            out[t.symbol] = {
+              bid: t.bid,
+              ask: t.ask,
+              mid: (t.bid + t.ask) / 2
+            };
+          }
         }
-      } catch {}
-      // fallback
-      const data = SYMBOLS[s];
-      if (data) {
-        const tick = Math.pow(10, -data.digits);
-        out[s] = { bid: data.price - tick, ask: data.price + tick, mid: data.price };
+      }
+    } catch {
+      // bridge unreachable — fall through to SYMBOLS defaults
+    }
+    // Fill any missing symbols with the last known SYMBOLS mock price
+    for (const s of symbols) {
+      if (!out[s]) {
+        const data = SYMBOLS[s];
+        if (data) {
+          const tick = Math.pow(10, -data.digits);
+          out[s] = { bid: data.price - tick, ask: data.price + tick, mid: data.price };
+        }
       }
     }
     return out;
@@ -432,15 +439,17 @@ export class Mt5BridgeAdapter implements BrokerAdapter {
     }
   }
 
-  async submitOrder(symbol: string, side: "BUY" | "SELL", volume: number, sl?: number, tp?: number) {
+  async submitOrder(symbol: string, side: "BUY" | "SELL", volume: number, sl?: number, tp?: number, order_type?: string, entry?: number) {
     try {
       const payload = {
         symbol,
         direction: side,
         lot_size: volume,
-        sl: sl || 0.0,
-        tp: tp || 0.0,
-        comment: "Bloomberg QuickTrade"
+        sl: sl || 0,
+        tp: tp || 0,
+        order_type: order_type || "MARKET",
+        entry: entry || null,
+        comment: "Journex Terminal"
       };
       const res = await axios.post(`${this.baseUrl}/api/trade`, payload, { timeout: 6000 });
       if (res.data && res.data.success) {
@@ -461,11 +470,11 @@ export class Mt5BridgeAdapter implements BrokerAdapter {
     }
   }
 
-  async closeTrade(tradeId: string) {
+  async closeTrade(tradeId: string, volume?: number) {
     try {
       const payload = {
         ticket: parseInt(tradeId),
-        volume: null // full close
+        volume: volume || null // if volume is provided, partial close; otherwise full close
       };
       const res = await axios.post(`${this.baseUrl}/api/close-position`, payload, { timeout: 6000 });
       if (res.data && res.data.success) {
@@ -680,7 +689,7 @@ export class OandaAdapter implements BrokerAdapter {
     };
   }
 
-  async closeTrade(tradeId: string) {
+  async closeTrade(tradeId: string, volume?: number) {
     const res = await this.request("PUT", `/v3/accounts/${this.accountId}/trades/${tradeId}/close`, {
       units: "ALL"
     });
@@ -815,7 +824,7 @@ export class AlpacaAdapter implements BrokerAdapter {
     };
   }
 
-  async closeTrade(tradeId: string) {
+  async closeTrade(tradeId: string, volume?: number) {
     const data = await this.request("DELETE", `/v2/positions/${tradeId}`);
     return {
       id: tradeId,
@@ -960,7 +969,7 @@ export class MetaApiAdapter implements BrokerAdapter {
     return order;
   }
 
-  async closeTrade(tradeId: string) {
+  async closeTrade(tradeId: string, volume?: number) {
     const conn = await this.getConnection();
     const res = await conn.closePosition(tradeId);
     return res;

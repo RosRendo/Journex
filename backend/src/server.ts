@@ -19,6 +19,9 @@ import tradingPlanRoutes from "./routes/tradingPlanRoutes";
 import terminalRoutes, { getSettings } from "./routes/terminalRoutes";
 import paymentRoutes from "./routes/paymentRoutes";
 import authRoutes from "./routes/authRoutes";
+import dashboardRoutes from "./routes/dashboardRoutes";
+import aiRoutes from "./routes/aiRoutes";
+import replayRoutes from "./routes/replayRoutes";
 import { buildAdapter } from "./services/terminalBrokerAdapter";
 import { errorHandler } from "./middleware/errorHandler";
 import { verifyAdminToken } from "./middleware/auth";
@@ -69,10 +72,24 @@ app.use((req, res, next) => {
   next();
 });
 
-// API Gateway Rate Limiting (generous 300 requests per 15 minutes per IP)
+// Middleware
+app.use(helmet({ crossOriginResourcePolicy: false }));
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "ngrok-skip-browser-warning"],
+  })
+);
+app.use(compression());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// API Gateway Rate Limiting (generous 5000 requests per 15 minutes per IP)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 mins
-  max: 300,
+  max: 5000,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, error: "Too many requests from this IP. Please try again later." },
@@ -89,20 +106,6 @@ function isAdminRequest(req: any): boolean {
   const auth: string = req?.headers?.authorization || "";
   return verifyAdminToken(auth).valid;
 }
-
-// Middleware
-app.use(helmet({ crossOriginResourcePolicy: false }));
-app.use(
-  cors({
-    origin: true,
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "ngrok-skip-browser-warning"],
-  })
-);
-app.use(compression());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
 // Serve uploaded files
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
@@ -127,6 +130,9 @@ app.use("/api/checklist", checklistRoutes);
 app.use("/api/trading-plan", tradingPlanRoutes);
 app.use("/api", terminalRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/ai", aiRoutes);
+app.use("/api/replay", replayRoutes);
 
 // Mock subscription route to prevent 404s on the frontend
 app.get("/api/subscription/status", (req, res) => {
@@ -358,17 +364,79 @@ wss.on("connection", (ws, request) => {
       console.error(`[OANDA STREAM START FAILED] ${err.message}`);
       startMockInterval();
     }
-  } else if (callerIsAdmin && broker.provider === "mt5_bridge" && broker.connected) {
-    startMt5Interval();
-  } else {
-    startMockInterval();
-  }
+  } else if (callerIsAdmin && broker.provider === "mt5_bridge") {
+    // Probe the bridge — if alive, use it; if not, start mock and keep trying
+    const targetUrl = localMt5Url.replace("localhost", "127.0.0.1");
+    let bridgeWatchdog: NodeJS.Timeout | null = null;
 
-  function startMt5Interval() {
-    // We no longer poll MT5. Instead, the MT5 Python bridge will push live updates
-    // via POST /api/internal/bridge-push, which are immediately broadcasted to all connected clients.
-    // This allows sub-second latency and zero redundant HTTP requests.
-    console.log("[WS] Client connected to MT5 Bridge event stream.");
+    let mt5Interval: NodeJS.Timeout | null = null;
+
+    const tryConnectBridge = () => {
+      fetch(`${targetUrl}/api/live-data`, { signal: AbortSignal.timeout(2000) })
+        .then(r => r.json())
+        .then((json: any) => {
+          if (mockInterval) {
+            clearInterval(mockInterval);
+            mockInterval = null;
+          }
+          if (bridgeWatchdog) {
+            clearInterval(bridgeWatchdog);
+            bridgeWatchdog = null;
+          }
+          
+          if (!mt5Interval) {
+            mt5Interval = setInterval(() => {
+              if (ws.readyState !== 1) {
+                clearInterval(mt5Interval!);
+                return;
+              }
+              fetch(`${targetUrl}/api/live-data`, { signal: AbortSignal.timeout(2000) })
+                .then(r => r.json())
+                .then((res: any) => {
+                  if (res.success && res.data && ws.readyState === 1) {
+                    res.data.forEach((t: any) => {
+                      ws.send(JSON.stringify({
+                        type: "tick",
+                        symbol: t.symbol,
+                        bid: t.bid,
+                        ask: t.ask,
+                        mid: (t.bid + t.ask) / 2,
+                        time: new Date(t.time * 1000).toISOString(),
+                        source: "mt5_bridge"
+                      }));
+                    });
+                  }
+                })
+                .catch(() => {
+                   // Ignore temporary fetch failures inside the interval
+                });
+            }, 500);
+          }
+        })
+        .catch(() => {
+          // Bridge unreachable — fall back to mock and retry
+          if (mt5Interval) {
+            clearInterval(mt5Interval);
+            mt5Interval = null;
+          }
+          console.warn("[WS] MT5 Bridge unreachable — starting mock feed, will retry...");
+          if (!mockInterval) startMockInterval();
+          if (!bridgeWatchdog) {
+            bridgeWatchdog = setInterval(tryConnectBridge, 8000);
+          }
+        });
+    };
+
+    tryConnectBridge();
+
+    // Clean up intervals on disconnect
+    ws.on("close", () => {
+      if (bridgeWatchdog) clearInterval(bridgeWatchdog);
+      if (mt5Interval) clearInterval(mt5Interval);
+    });
+  } else {
+    // No live broker configured — use mock feed
+    startMockInterval();
   }
 
   function startMockInterval() {

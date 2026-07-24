@@ -5,7 +5,7 @@
     "api_key": "98c931a8b85c5288dcf373eb7a36a5f3-c382b60af9bcedb3f49815834feae859",
     "api_secret": "",
     "account_id": "101-011-39362416-001",
-    "base_url": "http://localhost:5003",
+    "base_url": "http://127.0.0.1:5003",
     "connected": true,
     "_oanda_backup": {
       "provider": "oanda",

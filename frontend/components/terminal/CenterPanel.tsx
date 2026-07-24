@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { usePriceStream } from "../../hooks/usePriceStream";
+import { useWebSocket } from "../providers/WebSocketProvider";
 import Chart from "./Chart";
 import VolumeProfile from "./VolumeProfile";
 import MultiChartCompare from "./MultiChartCompare";
@@ -107,8 +107,9 @@ export default function CenterPanel({ symbol, timeframe, onTimeframeChange, snap
     setDrawings([]);
   };
 
-  // Live price via WebSocket (reconnects automatically once session resolves)
-  const { lastTick } = usePriceStream(symbol);
+  // Live price via global WebSocket provider (shared single connection)
+  const { livePrices } = useWebSocket();
+  const lastTick = livePrices[symbol] ?? null;
 
   const candles = snapshot?.candles || [];
   const last = candles[candles.length - 1];

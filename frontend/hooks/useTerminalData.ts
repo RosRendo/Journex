@@ -102,7 +102,6 @@ export function useTerminalData(symbol: string, timeframe: string) {
   // widgets — positions/account/news/etc.). Polling faster causes the chart
   // to snap back on every setData call.
   useEffect(() => {
-    if (!snapshot?.status?.live) return undefined;
     const id = setInterval(() => {
       api
         .get<TerminalSnapshot>("/terminal/snapshot", { params: { symbol, timeframe } })
@@ -110,7 +109,7 @@ export function useTerminalData(symbol: string, timeframe: string) {
         .catch(() => {});
     }, 5000);
     return () => clearInterval(id);
-  }, [snapshot?.status?.live, symbol, timeframe]);
+  }, [symbol, timeframe]);
 
   // Simulated streaming tick: drift watchlist prices + positions P&L (only mock)
   useEffect(() => {

@@ -1,14 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api } from "../../lib/terminalApi";
+import { getBackendUrl } from "@/lib/utils";
 
-interface WidgetHeaderProps {
-  title: string;
-  right?: React.ReactNode;
-}
-
-function WidgetHeader({ title, right }: WidgetHeaderProps) {
+function WidgetHeader({ title, right }: { title: string; right?: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between px-2 h-7 bg-zinc-900 border-b border-zinc-800 shrink-0">
       <span className="text-[10px] font-bold tracking-[0.18em] uppercase text-amber-500">
@@ -22,23 +17,18 @@ function WidgetHeader({ title, right }: WidgetHeaderProps) {
 export default function CryptoStrip() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     const load = () =>
-      api
-        .get("/crypto/prices")
-        .then((r) => {
+      fetch(`${getBackendUrl()}/api/crypto/prices`)
+        .then(r => r.json())
+        .then((data) => {
           if (cancelled) return;
-          setItems(r.data || []);
-          setError(null);
+          setItems(Array.isArray(data) ? data : []);
         })
-        .catch((e) => {
-          if (cancelled) return;
-          setError(e?.message || "failed");
-        })
-        .finally(() => !cancelled && setLoading(false));
+        .catch(() => { if (!cancelled) setItems([]); })
+        .finally(() => { if (!cancelled) setLoading(false); });
     load();
     const id = setInterval(load, 30000);
     return () => {
@@ -57,12 +47,9 @@ export default function CryptoStrip() {
           </span>
         }
       />
-      {error && (
-        <div className="px-2 py-1 text-[10px] text-red-500 font-mono">{error}</div>
-      )}
-      {!loading && !error && items.length === 0 && (
+      {!loading && items.length === 0 && (
         <div className="px-2 py-1.5 text-[10px] text-zinc-500 font-mono">
-          ○ Rate-limited by CoinGecko — retrying in 30s
+          ○ No crypto symbols in MT5 — add BTCUSD/ETHUSD to enable
         </div>
       )}
       <table className="w-full text-[11px]">

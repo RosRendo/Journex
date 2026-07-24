@@ -241,10 +241,12 @@ export default function SignalsPage() {
       <OrderTicket
         open={orderOpen}
         onOpenChange={setOrderOpen}
-        symbol={orderSymbol}
-        side={orderSide}
-        sl={orderSl}
-        tp={orderTp}
+        initialData={{
+          symbol: orderSymbol,
+          side: orderSide as "BUY" | "SELL",
+          sl: Number(orderSl),
+          tp: Number(orderTp)
+        }}
         onSubmitted={() => {
           // Could show a toast or notification here
         }}

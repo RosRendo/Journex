@@ -182,7 +182,7 @@ def init_mt5():
 init_mt5()
 
 @app.get("/health")
-def health_check():
+async def health_check():
     # Attempt reconnect if dropped
     global connected
     if not connected or mt5.terminal_info() is None:
@@ -199,7 +199,7 @@ def health_check():
     }
 
 @app.get("/api/account")
-def get_account():
+async def get_account():
     """Return full MT5 account details (balance, equity, profit, margin_level, etc.)"""
     global connected
     if not connected or mt5.terminal_info() is None:
@@ -223,7 +223,7 @@ def get_account():
     }
 
 @app.get("/api/positions")
-def get_positions():
+async def get_positions():
     """Return all active open positions"""
     global connected
     if not connected or mt5.terminal_info() is None:
@@ -258,9 +258,13 @@ def get_positions():
 class QuickTradeModel(BaseModel):
     symbol: str
     direction: str        # "BUY" or "SELL"
+    order_type: Optional[str] = "MARKET" # "MARKET", "LIMIT", "STOP"
     lot_size: float
+    entry: Optional[float] = None
     sl: Optional[float] = 0.0
     tp: Optional[float] = 0.0
+    auto_be: Optional[bool] = False
+    trailing_stop: Optional[bool] = False
     comment: Optional[str] = "Journex Dashboard"
 
 @app.post("/api/trade")
@@ -277,12 +281,46 @@ def place_quick_trade(req: QuickTradeModel):
     if info is None:
         return {"success": False, "error": f"Symbol {symbol} not found"}
 
+    # --- PORTFOLIO MANAGEMENT: DAILY DRAWDOWN LIMIT ---
+    # Check if the account has exceeded the daily drawdown limit (-3% by default)
+    # If so, physically lock out the terminal from placing new manual trades.
+    acc = mt5.account_info()
+    if acc and acc.balance > 0:
+        # Calculate true daily P&L (Realized Closed + Open Floating)
+        today = datetime.now()
+        start_of_day = datetime(today.year, today.month, today.day)
+        deals = mt5.history_deals_get(start_of_day, today + timedelta(days=1))
+        realized_pnl = sum(d.profit for d in deals if d.entry == mt5.DEAL_ENTRY_OUT) if deals else 0.0
+        total_daily_pnl = realized_pnl + acc.profit
+        
+        loss_pct = (total_daily_pnl / acc.balance) * 100
+        if loss_pct <= -3.0:
+            return {
+                "success": False, 
+                "error": f"Gap 1: Daily Drawdown Limit Exceeded ({loss_pct:.1f}% / -3.0%). Terminal Locked."
+            }
+
     direction = req.direction.upper()
-    order_type = mt5.ORDER_TYPE_BUY if direction == "BUY" else mt5.ORDER_TYPE_SELL
-    price = mt5.symbol_info_tick(symbol).ask if direction == "BUY" else mt5.symbol_info_tick(symbol).bid
+    order_type_str = (req.order_type or "MARKET").upper()
+    
+    # Map to MT5 constants
+    if order_type_str == "MARKET":
+        action = mt5.TRADE_ACTION_DEAL
+        order_type = mt5.ORDER_TYPE_BUY if direction == "BUY" else mt5.ORDER_TYPE_SELL
+        price = mt5.symbol_info_tick(symbol).ask if direction == "BUY" else mt5.symbol_info_tick(symbol).bid
+    elif order_type_str == "LIMIT":
+        action = mt5.TRADE_ACTION_PENDING
+        order_type = mt5.ORDER_TYPE_BUY_LIMIT if direction == "BUY" else mt5.ORDER_TYPE_SELL_LIMIT
+        price = req.entry
+    elif order_type_str == "STOP":
+        action = mt5.TRADE_ACTION_PENDING
+        order_type = mt5.ORDER_TYPE_BUY_STOP if direction == "BUY" else mt5.ORDER_TYPE_SELL_STOP
+        price = req.entry
+    else:
+        return {"success": False, "error": f"Invalid order_type: {order_type_str}"}
 
     request = {
-        "action": mt5.TRADE_ACTION_DEAL,
+        "action": action,
         "symbol": symbol,
         "volume": req.lot_size,
         "type": order_type,
@@ -293,7 +331,7 @@ def place_quick_trade(req: QuickTradeModel):
         "magic": 234001,
         "comment": req.comment,
         "type_time": mt5.ORDER_TIME_GTC,
-        "type_filling": mt5.ORDER_FILLING_IOC,
+        "type_filling": mt5.ORDER_FILLING_IOC if action == mt5.TRADE_ACTION_DEAL else mt5.ORDER_FILLING_RETURN,
     }
 
     result = mt5.order_send(request)
@@ -328,7 +366,7 @@ class ClosePositionModel(BaseModel):
     volume: Optional[float] = None  # If None, close full position
 
 @app.post("/api/close-position")
-def close_position(req: ClosePositionModel):
+async def close_position(req: ClosePositionModel):
     """Close an open position by ticket number."""
     global connected
     if not connected or mt5.terminal_info() is None:
@@ -1066,7 +1104,7 @@ _TF_MAP = {
 }
 
 @app.get("/api/historical-candles")
-def get_historical_candles(symbol: str, timeframe: str = "H1", count: int = 60):
+async def get_historical_candles(symbol: str, timeframe: str = "H1", count: int = 60):
     """Return historical OHLCV candles for a given symbol from MT5."""
     global connected
     if not connected or mt5.terminal_info() is None:
@@ -2284,7 +2322,14 @@ async def health_monitor_loop():
         # Track daily P&L
         account_info = mt5.account_info() if connected else None
         if account_info:
-            daily_pnl = account_info.profit
+            # Get REALIZED daily P&L from closed deals today
+            today = datetime.now()
+            start_of_day = datetime(today.year, today.month, today.day)
+            deals = mt5.history_deals_get(start_of_day, today + timedelta(days=1))
+            realized_pnl = sum(d.profit for d in deals if d.entry == mt5.DEAL_ENTRY_OUT) if deals else 0.0
+            
+            # Total Daily P&L = Realized Closed + Floating Open
+            daily_pnl = realized_pnl + account_info.profit
             equity = account_info.equity
             balance = account_info.balance
             
@@ -2806,7 +2851,7 @@ TF_MAP = {
 }
 
 @app.get("/api/candles")
-def get_candles(symbol: str = "XAUUSD", timeframe: str = "M5", count: int = 150):
+async def get_candles(symbol: str = "XAUUSD", timeframe: str = "M5", count: int = 150):
     """
     Return OHLC candles from MT5 for the given symbol and timeframe.
     timeframe: M1 | M5 | M15 | M30 | H1 | H4 | D1 | W1
@@ -2968,7 +3013,7 @@ def bot2_status():
     }
 
 @app.get("/api/history")
-def get_history():
+async def get_history():
     global connected
     if not connected or mt5.terminal_info() is None:
         init_mt5()
@@ -4808,7 +4853,7 @@ def api_generate_chart(req: ChartRequest):
 _global_signal_history = []
 
 @app.get("/api/signals")
-def get_signals():
+async def get_signals():
     global _global_signal_history
     try:
         from datetime import datetime, timedelta

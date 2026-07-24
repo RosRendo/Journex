@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { calcRisk } from "../../lib/terminalApi";
+import { useWebSocket } from "../providers/WebSocketProvider";
 
 interface WidgetHeaderProps {
   title: string;
@@ -58,13 +59,20 @@ interface RiskResult {
 }
 
 export default function RiskCalculator({ accountBalance }: { accountBalance?: number }) {
-  const [balance, setBalance] = useState(accountBalance || 100000);
+  const { liveEquity, livePrices } = useWebSocket();
+  const balance = liveEquity?.balance || accountBalance || 100000;
+  
   const [riskPct, setRiskPct] = useState(1);
   const [slPips, setSlPips] = useState(30);
   const [entry, setEntry] = useState(1.0950);
   const [leverage, setLeverage] = useState(100);
   const [result, setResult] = useState<RiskResult | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Auto-recalculate when balance, risk, or SL changes
+  useEffect(() => {
+    run();
+  }, [balance, riskPct, slPips, leverage, entry]);
 
   const run = async () => {
     setLoading(true);
@@ -98,7 +106,12 @@ export default function RiskCalculator({ accountBalance }: { accountBalance?: nu
         }
       />
       <div className="px-2 py-2 grid grid-cols-1 gap-1">
-        <NumberField label="Balance" value={balance} onChange={setBalance} suffix="$" step={1000} testId="risk-balance" />
+        <div className="flex items-center gap-1 text-[10px]">
+          <span className="text-zinc-500 uppercase tracking-widest w-16">Balance</span>
+          <div className="flex-1 px-1.5 py-0.5 font-mono text-[11px] text-zinc-400">
+            ${balance.toLocaleString()}
+          </div>
+        </div>
         <NumberField label="Risk" value={riskPct} onChange={setRiskPct} suffix="%" step={0.1} testId="risk-pct" />
         <NumberField label="SL Pips" value={slPips} onChange={setSlPips} suffix="p" step={1} testId="risk-sl" />
         <NumberField label="Entry" value={entry} onChange={setEntry} step={0.00001} testId="risk-entry" />

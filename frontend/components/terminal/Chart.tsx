@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { createChart } from "lightweight-charts";
-import { usePriceStream } from "../../hooks/usePriceStream";
+import { useWebSocket } from "../providers/WebSocketProvider";
 
 const COLORS = {
   bg: "#000000",
@@ -45,12 +45,12 @@ function computeEMA(data: any[], period: number, key = "close") {
 function computeMACD(data: any[], fast = 12, slow = 26, signal = 9) {
   const fEma = computeEMA(data, fast);
   const sEma = computeEMA(data, slow);
-  const macdLine = [];
+  const macdLine: Array<{ time: any; value: number }> = [];
   for (let i = 0; i < data.length; i++) {
     macdLine.push({ time: data[i].time, value: fEma[i].value - sEma[i].value });
   }
   const sigEma = computeEMA(macdLine, signal, "value");
-  const hist = [];
+  const hist: Array<{ time: any; value: number; color: string }> = [];
   for (let i = 0; i < data.length; i++) {
     const val = macdLine[i].value - sigEma[i].value;
     hist.push({
@@ -116,7 +116,8 @@ export default function Chart({ candles, indicators, drawingMode, drawings, onDr
   const pendingPointsRef = useRef<any[]>([]);
   const modeRef = useRef<string | null>(drawingMode);
   const lastCandleRef = useRef<any>(null);
-  const { lastTick, status: streamStatus } = usePriceStream(symbol);
+  const { livePrices, isConnected } = useWebSocket();
+  const lastTick = livePrices[symbol] ?? null;
 
   useEffect(() => {
     modeRef.current = drawingMode;
@@ -126,7 +127,6 @@ export default function Chart({ candles, indicators, drawingMode, drawings, onDr
   // Tick-by-tick chart animation: when a new tick arrives, update the last candle's close
   useEffect(() => {
     if (!lastTick || !seriesRef.current.candle || !lastCandleRef.current) return;
-    if (lastTick.symbol !== symbol) return;
     const last = lastCandleRef.current;
     const newClose = Number(lastTick.mid);
     if (!newClose || Number.isNaN(newClose)) return;
@@ -142,7 +142,7 @@ export default function Chart({ candles, indicators, drawingMode, drawings, onDr
     } catch (_) {
       /* ignore stale chart */
     }
-  }, [lastTick, symbol]);
+  }, [lastTick]);
 
   useEffect(() => {
     if (!containerRef.current) return undefined;
@@ -212,7 +212,7 @@ export default function Chart({ candles, indicators, drawingMode, drawings, onDr
     // Sub-pane style via priceScale configuration
     const rsiSeries = chart.addLineSeries({
       color: "#8b5cf6",
-      lineWidth: 1.5,
+      lineWidth: 2,
       priceLineVisible: false,
       lastValueVisible: false,
       priceScaleId: "rsi",
@@ -227,14 +227,14 @@ export default function Chart({ candles, indicators, drawingMode, drawings, onDr
     });
     const macdSeries = chart.addLineSeries({
       color: "#3b82f6",
-      lineWidth: 1.5,
+      lineWidth: 2,
       priceScaleId: "macd",
       priceLineVisible: false,
       lastValueVisible: false,
     });
     const macdSignal = chart.addLineSeries({
       color: "#f59e0b",
-      lineWidth: 1.5,
+      lineWidth: 2,
       priceScaleId: "macd",
       priceLineVisible: false,
       lastValueVisible: false,
@@ -294,7 +294,7 @@ export default function Chart({ candles, indicators, drawingMode, drawings, onDr
       currentLast.time === incomingLast.time &&
       // Heuristic: keep WS-driven state if streaming is open (we already have
       // ticks flowing). Only refresh when a new bar appears or on first load.
-      streamStatus === "open";
+      isConnected;
 
     if (!sameBar) {
       s.candle.setData(candles);
@@ -343,7 +343,7 @@ export default function Chart({ candles, indicators, drawingMode, drawings, onDr
       chartRef.current.timeScale().fitContent();
       lastCandleRef.current = incomingLast;
     }
-  }, [candles, indicators, streamStatus]);
+  }, [candles, indicators, isConnected]);
 
   // Render persisted drawings
   useEffect(() => {
@@ -358,7 +358,7 @@ export default function Chart({ candles, indicators, drawingMode, drawings, onDr
       const created: any[] = [];
       if (d.type === "trendline" && d.points?.length >= 2) {
         const s = chart.addLineSeries({
-          color: "#f59e0b", lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+          color: "#f59e0b", lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
         });
         const pts = [...d.points].sort((a, b) => a.time - b.time).map((p) => ({ time: p.time, value: p.price }));
         s.setData(pts);
@@ -415,14 +415,12 @@ export default function Chart({ candles, indicators, drawingMode, drawings, onDr
       <div
         data-testid="stream-status"
         className={`absolute top-1 right-1 z-10 text-[9px] font-mono uppercase tracking-widest px-1.5 py-0.5 ${
-          streamStatus === "open"
+          isConnected
             ? "text-emerald-500 border border-emerald-500/50"
-            : streamStatus === "connecting"
-            ? "text-amber-500 border border-amber-500/50"
-            : "text-zinc-500 border border-zinc-700"
+            : "text-amber-500 border border-amber-500/50"
         }`}
       >
-        {streamStatus === "open" ? "● Streaming" : streamStatus === "connecting" ? "○ Connecting" : "○ Polling"}
+        {isConnected ? "● Streaming" : "○ Connecting"}
       </div>
     </div>
   );

@@ -4,36 +4,15 @@ import { resolveLocalUrl } from "@/lib/utils";
 
 const BRIDGE = resolveLocalUrl(process.env.NEXT_PUBLIC_BRIDGE_URL ?? "/api/bridge");
 
-export function CapitalFlow() {
+interface CapitalFlowProps {
+  data?: { label: string, value: number }[];
+  loading?: boolean;
+}
+
+export function CapitalFlow({ data = [], loading = false }: CapitalFlowProps) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
-  const [assets, setAssets] = useState<{ label: string, value: number }[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchFlow = async () => {
-      try {
-        const res = await fetch(`${BRIDGE}/api/capital-flow`, {
-          headers: {
-            "ngrok-skip-browser-warning": "true"
-          }
-        });
-        const json = await res.json();
-        if (json.success && json.flows) {
-          setAssets(json.flows);
-        }
-      } catch (e) {
-        console.error("Failed to fetch capital flow", e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchFlow();
-    const interval = setInterval(fetchFlow, 60000); // Poll every minute
-    return () => clearInterval(interval);
-  }, []);
-
-  const MAX_VAL = assets.length > 0 ? Math.max(...assets.map((a) => Math.abs(a.value)), 1) : 1;
+  const MAX_VAL = data.length > 0 ? Math.max(...data.map((a) => Math.abs(a.value)), 1) : 1;
 
   return (
     <div
@@ -65,12 +44,12 @@ export function CapitalFlow() {
           <div className="flex-1 flex items-center justify-center">
             <Loader2 className="w-5 h-5 text-[--text-tertiary] animate-spin" />
           </div>
-        ) : assets.length === 0 ? (
+        ) : data.length === 0 ? (
           <div className="flex-1 flex items-center justify-center text-[11px] text-[--text-tertiary]">
-            Bridge Offline
+            No data available
           </div>
         ) : (
-          assets.map((asset, i) => {
+          data.map((asset, i) => {
             const pct = (Math.abs(asset.value) / MAX_VAL) * 100;
             const isPos = asset.value >= 0;
             const isHovered = hoveredIdx === i;

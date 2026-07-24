@@ -29,9 +29,14 @@ interface OrderTicketProps {
 export default function OrderTicket({ open, onOpenChange, defaultSymbol, initialData, onSubmitted }: OrderTicketProps) {
   const [symbol, setSymbol] = useState(initialData?.symbol || defaultSymbol || "EURUSD");
   const [side, setSide] = useState(initialData?.side || "BUY");
+  const [orderType, setOrderType] = useState<"MARKET" | "LIMIT" | "STOP">("MARKET");
+  const [entry, setEntry] = useState("");
   const [volume, setVolume] = useState<string | number>(0.1);
   const [sl, setSl] = useState(initialData?.sl ? String(initialData.sl) : "");
   const [tp, setTp] = useState(initialData?.tp ? String(initialData.tp) : "");
+  const [autoBe, setAutoBe] = useState(false);
+  const [trailingStop, setTrailingStop] = useState(false);
+  const [copyTrade, setCopyTrade] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,9 +56,14 @@ export default function OrderTicket({ open, onOpenChange, defaultSymbol, initial
       const payload = {
         symbol,
         side,
+        order_type: orderType,
+        entry: orderType !== "MARKET" && entry !== "" ? Number(entry) : undefined,
         volume: Number(volume),
         sl: sl !== "" ? Number(sl) : null,
         tp: tp !== "" ? Number(tp) : null,
+        auto_be: autoBe,
+        trailing_stop: trailingStop,
+        copyTrade
       };
       const trade = await submitOrder(payload);
       onSubmitted?.(trade);
@@ -96,6 +106,21 @@ export default function OrderTicket({ open, onOpenChange, defaultSymbol, initial
               ))}
             </select>
           </label>
+          <div className="col-span-2 grid grid-cols-3 gap-1 mb-1">
+            {(["MARKET", "LIMIT", "STOP"] as const).map((type) => (
+              <button
+                key={type}
+                onClick={() => setOrderType(type)}
+                className={`py-1 text-[10px] uppercase tracking-widest border transition-colors ${
+                  orderType === type
+                    ? "border-amber-500 text-amber-500 bg-amber-500/10"
+                    : "border-zinc-800 text-zinc-500 hover:border-zinc-700"
+                }`}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
           <div className="col-span-2 grid grid-cols-2 gap-2">
             <button
               data-testid="order-side-buy"
@@ -131,6 +156,19 @@ export default function OrderTicket({ open, onOpenChange, defaultSymbol, initial
               className="bg-black border border-zinc-700 focus:border-amber-500 outline-none px-2 py-1 font-mono text-[12px] text-zinc-100"
             />
           </label>
+          {orderType !== "MARKET" && (
+            <label className="flex flex-col gap-1 text-[10px] col-span-2">
+              <span className="text-zinc-500 uppercase tracking-widest">Entry Price</span>
+              <input
+                type="number"
+                step="0.00001"
+                value={entry}
+                onChange={(e) => setEntry(e.target.value)}
+                placeholder="Required for Limit/Stop"
+                className="bg-black border border-zinc-700 focus:border-amber-500 outline-none px-2 py-1 font-mono text-[12px] text-zinc-100"
+              />
+            </label>
+          )}
           <label className="flex flex-col gap-1 text-[10px]">
             <span className="text-zinc-500 uppercase tracking-widest">Stop Loss</span>
             <input
@@ -155,6 +193,22 @@ export default function OrderTicket({ open, onOpenChange, defaultSymbol, initial
               className="bg-black border border-zinc-700 focus:border-amber-500 outline-none px-2 py-1 font-mono text-[12px] text-zinc-100"
             />
           </label>
+          <div className="col-span-2 flex flex-wrap items-center justify-between gap-4 mt-2 px-1">
+            <label className="flex items-center gap-2 text-[10px] text-zinc-400 cursor-pointer">
+              <input type="checkbox" checked={autoBe} onChange={(e) => setAutoBe(e.target.checked)} className="accent-amber-500" />
+              <span className="uppercase tracking-widest">Auto Break-Even</span>
+            </label>
+            <label className="flex items-center gap-2 text-[10px] text-zinc-400 cursor-pointer">
+              <input type="checkbox" checked={trailingStop} onChange={(e) => setTrailingStop(e.target.checked)} className="accent-amber-500" />
+              <span className="uppercase tracking-widest">Trailing Stop</span>
+            </label>
+            {orderType === "MARKET" && (
+              <label className="flex items-center gap-2 text-[10px] text-amber-500 cursor-pointer font-bold w-full mt-1 border border-amber-500/20 bg-amber-500/5 p-2 rounded">
+                <input type="checkbox" checked={copyTrade} onChange={(e) => setCopyTrade(e.target.checked)} className="accent-amber-500" />
+                <span className="uppercase tracking-widest">Enable Multi-Account Copy Trading</span>
+              </label>
+            )}
+          </div>
         </div>
 
         {error && (
@@ -178,7 +232,7 @@ export default function OrderTicket({ open, onOpenChange, defaultSymbol, initial
                 : "border-red-500 text-red-500 hover:bg-red-500/10"
             }`}
           >
-            {submitting ? "Sending…" : `${side} ${symbol} @ Market`}
+            {submitting ? "Sending…" : `${side} ${symbol} @ ${orderType === "MARKET" ? "Market" : entry || "..."}`}
           </button>
         </DialogFooter>
       </DialogContent>
