@@ -9,7 +9,8 @@ interface TradeEntry {
 }
 
 interface DisciplineScoreWidgetProps {
-  trades: TradeEntry[];
+  trades?: TradeEntry[];
+  compact?: boolean;
 }
 
 interface JournalData {
@@ -29,7 +30,7 @@ function readJournalEntry(tradeId: string | number): JournalData | null {
   }
 }
 
-export default function DisciplineScoreWidget({ trades }: DisciplineScoreWidgetProps) {
+export default function DisciplineScoreWidget({ trades = [], compact }: DisciplineScoreWidgetProps) {
   const stats = useMemo(() => {
     const last30 = trades.slice(0, 30);
     let total = 0, planFollowed = 0, planDeviated = 0, deviationLosses = 0;

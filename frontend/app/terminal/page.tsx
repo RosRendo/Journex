@@ -17,6 +17,8 @@ export default function TerminalPage() {
   const [timeframe, setTimeframe] = useState("H4");
   const [orderOpen, setOrderOpen] = useState(false);
   const [orderInitialData, setOrderInitialData] = useState<any>(null);
+  const [isLeftOpen, setIsLeftOpen] = useState(true);
+  const [isRightOpen, setIsRightOpen] = useState(true);
   
   const handleOpenOrder = (initialData?: any) => {
     setOrderInitialData(initialData || null);
@@ -41,19 +43,35 @@ export default function TerminalPage() {
         onOpenApiKeys={() => setApiKeysOpen(true)}
         isLive={snapshot?.status?.live === true}
         provider={snapshot?.status?.provider || "mock"}
+        onPresetChange={(preset: string) => {
+          if (preset === "Scalping") {
+            setIsLeftOpen(false);
+            setIsRightOpen(true);
+            setTimeframe("M1");
+          } else if (preset === "Swing") {
+            setIsLeftOpen(true);
+            setIsRightOpen(true);
+            setTimeframe("H4");
+          } else if (preset === "Focus") {
+            setIsLeftOpen(false);
+            setIsRightOpen(false);
+          }
+        }}
       />
 
-      <div className="flex-1 flex min-h-0">
+      <div className="flex-1 flex min-h-0 transition-all duration-300">
         <aside
           data-testid="left-panel"
-          className="w-[22%] min-w-[260px] border-r border-zinc-800 flex flex-col min-h-0"
+          className={`border-r border-zinc-800 flex flex-col min-h-0 transition-all duration-300 overflow-hidden ${
+            isLeftOpen ? "w-[18%] min-w-[240px]" : "w-12 min-w-[48px]"
+          }`}
         >
-          <LeftPanel snapshot={snapshot} loading={loading} />
+          <LeftPanel snapshot={snapshot} loading={loading} isOpen={isLeftOpen} onToggle={() => setIsLeftOpen(!isLeftOpen)} />
         </aside>
 
         <main
           data-testid="center-panel"
-          className="w-[54%] flex flex-col min-h-0 border-r border-zinc-800"
+          className="flex-1 flex flex-col min-h-0 border-r border-zinc-800 transition-all duration-300 overflow-hidden"
         >
           <CenterPanel
             symbol={symbol}
@@ -65,13 +83,17 @@ export default function TerminalPage() {
 
         <aside
           data-testid="right-panel"
-          className="w-[24%] min-w-[280px] flex flex-col min-h-0"
+          className={`flex flex-col min-h-0 transition-all duration-300 overflow-hidden ${
+            isRightOpen ? "w-[18%] min-w-[240px]" : "w-12 min-w-[48px]"
+          }`}
         >
           <RightPanel
             snapshot={snapshot}
             loading={loading}
             onNewOrder={handleOpenOrder}
             onPositionsChanged={refetch}
+            isOpen={isRightOpen}
+            onToggle={() => setIsRightOpen(!isRightOpen)}
           />
         </aside>
       </div>

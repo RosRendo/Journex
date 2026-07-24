@@ -6,6 +6,7 @@ import RiskCalculator from "./RiskCalculator";
 import CryptoStrip from "./CryptoStrip";
 import SignalWidget from "./SignalWidget";
 import { useWebSocket } from "../providers/WebSocketProvider";
+import { ChevronRight, ChevronLeft } from "lucide-react";
 
 interface WidgetHeaderProps {
   title: string;
@@ -271,22 +272,39 @@ interface RightPanelProps {
   loading: boolean;
   onNewOrder?: (initialData?: any) => void;
   onPositionsChanged?: () => void;
+  isOpen?: boolean;
+  onToggle?: () => void;
 }
 
-export default function RightPanel({ snapshot, loading, onNewOrder, onPositionsChanged }: RightPanelProps) {
+export default function RightPanel({ snapshot, loading, onNewOrder, onPositionsChanged, isOpen = true, onToggle }: RightPanelProps) {
   if (loading || !snapshot)
     return (
       <div className="p-3 text-[11px] text-zinc-500 font-mono">Loading execution feeds…</div>
     );
   return (
-    <div className="flex-1 overflow-y-auto scroll-thin flex flex-col">
-      <SignalWidget onExecute={(sig) => onNewOrder?.(sig)} />
-      <OpenPositions data={snapshot.positions} onNewOrder={onNewOrder} onChanged={onPositionsChanged} />
-      <AccountStatus data={snapshot.account} />
-      <RiskCalculator accountBalance={snapshot.account?.balance} />
-      <Positioning data={snapshot.positioning} />
-      <CryptoStrip />
-      <Watchlist data={snapshot.watchlist} />
+    <div className="flex flex-col h-full bg-zinc-950">
+      <div className="flex items-center justify-between p-2 border-b border-zinc-800 shrink-0 h-10">
+        <button onClick={onToggle} className="p-1 hover:bg-zinc-800 rounded text-zinc-500 hover:text-zinc-300 transition-colors mx-auto">
+          {isOpen ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+        </button>
+        {isOpen && (
+           <span className="text-[10px] font-bold tracking-[0.18em] uppercase text-zinc-100">
+             Execution
+           </span>
+        )}
+      </div>
+      
+      {isOpen && (
+        <div className="flex-1 overflow-y-auto scroll-thin flex flex-col">
+          <SignalWidget onExecute={(sig) => onNewOrder?.(sig)} />
+          <OpenPositions data={snapshot.positions} onNewOrder={onNewOrder} onChanged={onPositionsChanged} />
+          <AccountStatus data={snapshot.account} />
+          <RiskCalculator accountBalance={snapshot.account?.balance} />
+          <Positioning data={snapshot.positioning} />
+          <CryptoStrip />
+          <Watchlist data={snapshot.watchlist} />
+        </div>
+      )}
     </div>
   );
 }

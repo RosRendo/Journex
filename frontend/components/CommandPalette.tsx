@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useFavorites } from "@/hooks/useFavorites";
 import {
   Search, LayoutDashboard, Terminal, Radar, BookOpen, BarChart3,
   ShieldAlert, Settings, Calculator, TrendingUp, Newspaper,
   Bell, Users, Wallet, LogOut, Zap, RotateCcw, Target,
-  ChevronRight, Command, X, Activity
+  ChevronRight, Command, X, Activity, Cpu, Layers, DollarSign, Bot, FileText, Bookmark, CreditCard, Code, Star
 } from "lucide-react";
 
 interface Command {
@@ -29,6 +30,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const [selected, setSelected] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+  const { favorites, toggleFavorite } = useFavorites();
 
   const navigate = useCallback((href: string) => {
     router.push(href);
@@ -51,6 +53,32 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
     { id: "accounts", label: "Accounts", description: "Manage your trading accounts", icon: Wallet, category: "Navigate", action: () => navigate("/accounts") },
     { id: "sentiment", label: "Sentiment", description: "Market mood & bias", icon: Activity, category: "Navigate", action: () => navigate("/sentiment") },
     { id: "backtesting", label: "Backtesting", description: "Replay & test strategies", icon: RotateCcw, category: "Navigate", action: () => navigate("/backtesting") },
+    { id: "ai-desk", label: "AI Desk", description: "Unified AI home", icon: Cpu, category: "Navigate", action: () => navigate("/ai-desk") },
+    { id: "ai-journals", label: "AI Journals", description: "AI-analyzed trade entries", icon: Cpu, category: "Navigate", action: () => navigate("/journals") },
+    { id: "ai-report", label: "AI Report", description: "Weekly AI coaching report", icon: Cpu, category: "Navigate", action: () => navigate("/ai-report") },
+    { id: "table", label: "Risk Table", description: "Risk % vs SL distance matrix", icon: Activity, category: "Navigate", action: () => navigate("/RiskTableCalculation") },
+    { id: "lot-pair", label: "Lot Per Pair", description: "Optimal lot per instrument", icon: Layers, category: "Navigate", action: () => navigate("/loteachpair") },
+    { id: "wrandrr", label: "Win Rate & RR", description: "Statistical edge analysis", icon: BarChart3, category: "Navigate", action: () => navigate("/wrandrr") },
+    { id: "exposure", label: "Portfolio Exposure", description: "Gold, USD, EUR exposure limits", icon: DollarSign, category: "Navigate", action: () => navigate("/exposure") },
+    { id: "drawdown", label: "Drawdown Guard", description: "Daily & weekly drawdown limits", icon: TrendingUp, category: "Navigate", action: () => navigate("/drawdown") },
+    { id: "funded", label: "Funded Rules", description: "Prop firm risk compliance", icon: ShieldAlert, category: "Navigate", action: () => navigate("/fundedrequire") },
+    { id: "bot", label: "Trading Bot", description: "Automated trading", icon: Bot, category: "Navigate", action: () => navigate("/bot") },
+    { id: "calendar", label: "Economic Calendar", description: "Upcoming macro events", icon: Newspaper, category: "Navigate", action: () => navigate("/calendar") },
+    { id: "indicator", label: "Custom Indicators", description: "Your custom scripts", icon: Search, category: "Navigate", action: () => navigate("/indicator") },
+    { id: "macro", label: "Macro Dashboard", description: "In-depth economic data", icon: Activity, category: "Navigate", action: () => navigate("/macro/XAUUSD") },
+    { id: "notifications", label: "Notifications & Monitor", description: "Global alert history", icon: Bell, category: "Navigate", action: () => navigate("/notificationandmonitor") },
+    { id: "pip", label: "Pip Reference", description: "Pip value calculator", icon: Calculator, category: "Navigate", action: () => navigate("/pipreference") },
+    { id: "positions", label: "Positions Log", description: "Historical positions", icon: Activity, category: "Navigate", action: () => navigate("/positions") },
+    { id: "pricing", label: "Pricing", description: "Plan & limits", icon: CreditCard, category: "Navigate", action: () => navigate("/pricing") },
+    { id: "profile", label: "User Profile", description: "Your account details", icon: Users, category: "Navigate", action: () => navigate("/profile") },
+    { id: "script", label: "MT5 Scripts", description: "Expert Advisors", icon: Code, category: "Navigate", action: () => navigate("/script") },
+    { id: "subscription", label: "Subscription", description: "Manage billing", icon: CreditCard, category: "Navigate", action: () => navigate("/subscription") },
+    { id: "trading-plan", label: "Trading Plan", description: "Your written plan", icon: FileText, category: "Navigate", action: () => navigate("/trading-plan") },
+    { id: "tradingstyle", label: "Trading Style", description: "Your strategy profile", icon: Bookmark, category: "Navigate", action: () => navigate("/tradingstyle") },
+    { id: "fixed-gold", label: "Fixed Gold Simulator", description: "Gold trading simulation", icon: Activity, category: "Simulators", action: () => navigate("/FixedGoldSimulator") },
+    { id: "flex-gold", label: "Flexible Gold Simulator", description: "Dynamic margin simulation", icon: Activity, category: "Simulators", action: () => navigate("/FlexibleGoldSimulator") },
+    { id: "gold-sim", label: "Gold Simulator", description: "Standard simulation", icon: Activity, category: "Simulators", action: () => navigate("/GoldTradingSimulator") },
+    
     // Quick Actions
     { id: "validation", label: "Pre-Trade Checklist", description: "Run setup quality score", icon: ShieldAlert, category: "Quick Actions", action: () => navigate("/validation"), keywords: ["check", "validate", "setup"] },
     { id: "daily-review", label: "Daily Review", description: "Grade today's trading session", icon: TrendingUp, category: "Quick Actions", action: () => navigate("/review/daily"), keywords: ["review", "grade", "today"] },
@@ -158,11 +186,22 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
                     <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${isSelected ? "bg-blue-500/30" : "bg-zinc-800"}`}>
                       <Icon className="w-3.5 h-3.5" />
                     </div>
-                    <div className="flex-1 text-left">
-                      <div className="font-medium">{cmd.label}</div>
-                      {cmd.description && <div className="text-xs text-zinc-500">{cmd.description}</div>}
+                    <div className="flex flex-col flex-1">
+                      <span className="text-[13px] font-medium text-white">{cmd.label}</span>
+                      {cmd.description && <span className="text-[11px] text-zinc-500">{cmd.description}</span>}
                     </div>
-                    {isSelected && <ChevronRight className="w-4 h-4 text-blue-400 flex-shrink-0" />}
+                    
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFavorite(cmd.id);
+                      }}
+                      className="p-1.5 rounded hover:bg-zinc-700/50 transition-colors"
+                    >
+                      <Star className={`w-4 h-4 ${favorites.includes(cmd.id) ? "fill-yellow-500 text-yellow-500" : "text-zinc-600 hover:text-zinc-400"}`} />
+                    </button>
+                    
+                    <ChevronRight className={`w-4 h-4 ${isSelected ? "text-zinc-400" : "text-zinc-700"}`} />
                   </button>
                 );
               })}

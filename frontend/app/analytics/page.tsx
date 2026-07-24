@@ -5,30 +5,42 @@ import type { TradeData } from "@/hooks/useCsvTrades";
 import { useMemo, useState } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
-  PieChart, Pie, AreaChart, Area, ScatterChart, Scatter, ZAxis
+  PieChart, Pie, AreaChart, Area, ScatterChart, Scatter, ZAxis, CartesianGrid
 } from "recharts";
 import { motion, AnimatePresence } from "framer-motion";
 import { CalendarHeatmap } from "@/components/widgets/CalendarHeatmap";
 import { RiskRewardMatrix } from "@/components/widgets/RiskRewardMatrix";
 import { RetailSentimentGauge } from "@/components/widgets/RetailSentimentGauge";
+import { MistakeCostAnalyzer } from "@/components/widgets/MistakeCostAnalyzer";
+import { CapitalFlow } from "@/components/ui/CapitalFlow";
+import { TradeDurationScatterPlot } from "@/components/widgets/TradeDurationScatterPlot";
+import { MonthlyPerformanceGrid } from "@/components/dashboard/widgets/MonthlyPerformanceGrid";
+import { SessionPerformanceGrid } from "@/components/dashboard/widgets/SessionPerformanceGrid";
+import { useEffect } from "react";
+import { getBackendUrl, fetchWithAuth } from "@/lib/utils";
 
 const TOOLTIP_STYLE = {
   contentStyle: {
-    background: "rgba(12, 12, 13, 0.9)",
-    backdropFilter: "blur(8px)",
+    background: "rgba(5, 5, 5, 0.9)",
+    backdropFilter: "blur(12px)",
     border: "1px solid rgba(255,255,255,0.1)",
     borderRadius: 12,
     fontSize: 12,
     color: "#e8e8f0",
-    boxShadow: "0 8px 32px rgba(0,0,0,0.4)"
+    boxShadow: "0 8px 32px rgba(0,0,0,0.6)"
   },
 };
 
 function SectionCard({ title, children, className = "" }: { title: string; children: React.ReactNode; className?: string }) {
   return (
-    <div className={`relative rounded-xl border p-5 overflow-hidden group hover:border-white/20 transition-all duration-300 ${className}`} style={{ background: "rgba(12, 12, 13, 0.6)", backdropFilter: "blur(12px)", borderColor: "rgba(255,255,255,0.05)" }}>
-      <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-      <div className="text-[10px] font-bold uppercase tracking-widest mb-4 relative z-10" style={{ color: "var(--text-tertiary)" }}>{title}</div>
+    <div className={`relative rounded-2xl border border-[--border] bg-[#050505] p-5 overflow-hidden group shadow-2xl transition-all duration-300 hover:border-white/10 ${className}`}>
+      {/* Subtle ambient glow */}
+      <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none" />
+      <div className="absolute -top-[50px] -right-[50px] w-[150px] h-[150px] bg-white/[0.02] blur-[50px] rounded-full pointer-events-none group-hover:bg-white/[0.04] transition-colors" />
+      
+      <div className="text-[10px] font-bold uppercase tracking-widest mb-4 relative z-10 text-gray-400 group-hover:text-gray-300 transition-colors">
+        {title}
+      </div>
       <div className="relative z-10 h-full flex flex-col">
         {children}
       </div>
@@ -61,6 +73,24 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
 export default function Analytics() {
   const { trades: allTrades, analytics: allAnalytics, loading, error } = useCsvTrades();
   const [timeFilter, setTimeFilter] = useState<"1W" | "1M" | "3M" | "YTD" | "ALL">("ALL");
+  const [dashboardStats, setDashboardStats] = useState<{
+    capitalFlow: { label: string, value: number }[];
+  } | null>(null);
+
+  useEffect(() => {
+    const fetchDashboardStats = async () => {
+      try {
+        const res = await fetchWithAuth(`${getBackendUrl()}/api/dashboard/stats`);
+        if (res.ok) {
+          const data = await res.json();
+          setDashboardStats(data);
+        }
+      } catch (e) {
+        console.error("Failed to fetch dashboard stats", e);
+      }
+    };
+    fetchDashboardStats();
+  }, []);
 
   // Filter trades based on time horizon
   const trades = useMemo(() => {
@@ -174,18 +204,34 @@ export default function Analytics() {
 
   if (error || allTrades.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 gap-4">
-        <div className="text-[--text-tertiary] text-center max-w-sm">
-          <div className="text-[40px] mb-3">{error ? "⚠️" : "📊"}</div>
-          <div className="font-bold text-[--text-primary] mb-1">{error ? "Bridge Connection Error" : "No live trade data"}</div>
-          <div className="text-[13px]">
-            {error ? (
-              <span className="text-[--loss]">{error}</span>
-            ) : (
-              "Live MT5 synchronization is active, but your account has zero closed deals in the last 90 days."
-            )}
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 px-4 text-center">
+        {/* Premium Wireframe Empty State */}
+        <div className="w-full max-w-[300px] mb-6 relative">
+          <div className="absolute inset-0 bg-gradient-to-t from-[#050505] to-transparent z-10" />
+          <div className="absolute inset-0 flex items-end justify-center pb-4 pointer-events-none opacity-[0.05]">
+             <svg viewBox="0 0 100 50" className="w-[100%] h-[80%] preserve-3d" preserveAspectRatio="none">
+               <path d="M0,50 Q20,40 40,30 T80,20 T100,5" fill="none" stroke="white" strokeWidth="2" />
+               <path d="M0,50 Q20,40 40,30 T80,20 T100,5 L100,50 L0,50 Z" fill="white" opacity="0.5" />
+             </svg>
           </div>
         </div>
+        <div className="text-gray-500 mb-2">
+          {error ? (
+            <span className="text-4xl">⚠️</span>
+          ) : (
+            <span className="text-4xl opacity-50">📉</span>
+          )}
+        </div>
+        <h2 className="text-sm uppercase tracking-widest font-bold text-gray-200">
+          {error ? "Bridge Connection Error" : "Awaiting Trade Data"}
+        </h2>
+        <p className="text-[11px] text-gray-500 max-w-[300px] leading-relaxed">
+          {error ? (
+            <span className="text-[--bear]">{error}</span>
+          ) : (
+            "Live MT5 synchronization is active. Execute trades in the terminal or wait for your algorithm to log deals to see analytics."
+          )}
+        </p>
       </div>
     );
   }
@@ -193,26 +239,26 @@ export default function Analytics() {
   return (
     <div className="space-y-6 pb-20">
       {/* Header & Filters */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
         <div>
-          <h1 className="text-[28px] font-bold" style={{ fontFamily: "var(--font-display, Syne, sans-serif)", color: "var(--text-primary)" }}>
-            Analytics
+          <h1 className="text-4xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-gray-100 to-gray-500 font-display">
+            ANALYTICS
           </h1>
-          <p className="text-[12px] mt-0.5" style={{ color: "var(--text-tertiary)" }}>
-            {allTrades.length} lifetime trades imported · Live performance breakdown
+          <p className="text-[12px] mt-2 font-medium text-gray-400">
+            {allTrades.length} lifetime trades imported <span className="mx-2 opacity-30">|</span> Live performance breakdown
           </p>
         </div>
 
         {/* Time Horizon Filter */}
-        <div className="flex p-1 rounded-xl bg-[#0c0c0d]/80 border border-white/5 backdrop-blur-md shadow-lg w-fit">
+        <div className="flex p-1 rounded-xl bg-[#050505] border border-white/10 shadow-[inset_0_2px_10px_rgba(255,255,255,0.02)] w-fit backdrop-blur-xl">
           {["1W", "1M", "3M", "YTD", "ALL"].map((opt) => (
             <button
               key={opt}
               onClick={() => setTimeFilter(opt as any)}
-              className={`relative px-4 py-1.5 text-xs font-bold rounded-lg transition-colors ${timeFilter === opt ? "text-white" : "text-gray-500 hover:text-gray-300"}`}
+              className={`relative px-5 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-colors ${timeFilter === opt ? "text-white" : "text-gray-500 hover:text-gray-300"}`}
             >
               {timeFilter === opt && (
-                <motion.div layoutId="activeFilter" className="absolute inset-0 bg-white/10 rounded-lg shadow-[0_0_10px_rgba(255,255,255,0.05)]" />
+                <motion.div layoutId="activeFilter" className="absolute inset-0 bg-white/10 rounded-lg shadow-[0_0_15px_rgba(255,255,255,0.05)] border border-white/10" />
               )}
               <span className="relative z-10">{opt}</span>
             </button>
@@ -230,34 +276,52 @@ export default function Analytics() {
           className="space-y-6"
         >
           {/* Top KPI strip */}
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
             {[
-              { label: "Win Rate", value: `${(analytics?.winRate || 0).toFixed(1)}%`, color: (analytics?.winRate || 0) >= 50 ? "#00c896" : "#ff4d6a" },
-              { label: "Sharpe Ratio", value: `${sharpeRatio.toFixed(2)}`, color: sharpeRatio >= 1 ? "#00c896" : "#ff4d6a" },
-              { label: "Profit Factor", value: `${(analytics?.profitFactor || 0).toFixed(2)}`, color: (analytics?.profitFactor || 0) >= 1 ? "#00c896" : "#ff4d6a" },
-              { label: "Total Trades", value: `${analytics?.totalTrades || 0}`, color: "#ffffff" },
-              { label: "Avg Win", value: `$${(analytics?.avgWin || 0).toFixed(2)}`, color: "#00c896" },
-              { label: "Avg Loss", value: `-$${Math.abs(analytics?.avgLoss || 0).toFixed(2)}`, color: "#ff4d6a" },
-              { label: "Expectancy", value: `$${expectancy.toFixed(2)}`, color: expectancy >= 0 ? "#00c896" : "#ff4d6a" },
-              { label: "Net P&L", value: `$${((analytics?.totalProfit || 0)).toFixed(2)}`, color: (analytics?.totalProfit || 0) >= 0 ? "#00c896" : "#ff4d6a", sparklineData: pnlHistory },
-            ].map((kpi, i) => (
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: i * 0.05 }}
-                key={kpi.label} 
-                className="relative overflow-hidden rounded-xl border p-4 flex flex-col justify-center" 
-                style={{ background: "rgba(12, 12, 13, 0.6)", backdropFilter: "blur(12px)", borderColor: "rgba(255,255,255,0.05)" }}
-              >
-                <div className="text-[9px] font-bold uppercase tracking-widest mb-1.5 relative z-10" style={{ color: "var(--text-tertiary)" }}>{kpi.label}</div>
-                <div className="text-[20px] font-bold font-mono whitespace-nowrap relative z-10" style={{ color: kpi.color }}>{kpi.value}</div>
-                
-                {/* Sparkline for P&L or others if provided */}
-                {kpi.sparklineData && (
-                   <Sparkline data={kpi.sparklineData} color={kpi.color} />
-                )}
-              </motion.div>
-            ))}
+              { label: "Win Rate", value: `${(analytics?.winRate || 0).toFixed(1)}%`, isProfit: (analytics?.winRate || 0) >= 50 },
+              { label: "Sharpe Ratio", value: `${sharpeRatio.toFixed(2)}`, isProfit: sharpeRatio >= 1 },
+              { label: "Profit Factor", value: `${(analytics?.profitFactor || 0).toFixed(2)}`, isProfit: (analytics?.profitFactor || 0) >= 1 },
+              { label: "Total Trades", value: `${analytics?.totalTrades || 0}`, isNeutral: true },
+              { label: "Avg Win", value: `$${(analytics?.avgWin || 0).toFixed(2)}`, isProfit: true },
+              { label: "Avg Loss", value: `-$${Math.abs(analytics?.avgLoss || 0).toFixed(2)}`, isProfit: false },
+              { label: "Expectancy", value: `$${expectancy.toFixed(2)}`, isProfit: expectancy >= 0 },
+              { label: "Net P&L", value: `$${((analytics?.totalProfit || 0)).toFixed(2)}`, isProfit: (analytics?.totalProfit || 0) >= 0, sparklineData: pnlHistory },
+            ].map((kpi, i) => {
+              const bgStyle = kpi.isNeutral 
+                ? "bg-[#050505] border-[--border]" 
+                : kpi.isProfit 
+                  ? "bg-gradient-to-br from-[#00dc82]/10 to-transparent border-[#00dc82]/30 shadow-[inset_0_1px_10px_rgba(0,220,130,0.1)]" 
+                  : "bg-gradient-to-br from-[#ef4444]/10 to-transparent border-[#ef4444]/30 shadow-[inset_0_1px_10px_rgba(239,68,68,0.1)]";
+              
+              const textColor = kpi.isNeutral 
+                ? "text-gray-100" 
+                : kpi.isProfit 
+                  ? "text-[--bull] drop-shadow-[0_0_8px_rgba(0,220,130,0.4)]" 
+                  : "text-[--bear] drop-shadow-[0_0_8px_rgba(239,68,68,0.4)]";
+
+              const colorHex = kpi.isNeutral ? "#ffffff" : kpi.isProfit ? "#00dc82" : "#ef4444";
+
+              return (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: i * 0.05 }}
+                  key={kpi.label} 
+                  className={`relative overflow-hidden rounded-2xl border p-4 flex flex-col justify-center min-h-[90px] group transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl ${bgStyle}`} 
+                >
+                  <div className="text-[9px] font-black uppercase tracking-widest mb-1.5 relative z-10 text-gray-500 group-hover:text-gray-400 transition-colors">{kpi.label}</div>
+                  <div className={`text-lg font-bold font-mono whitespace-nowrap relative z-10 tracking-tight ${textColor}`}>{kpi.value}</div>
+                  
+                  {/* Decorative corner glow */}
+                  <div className="absolute -bottom-4 -right-4 w-10 h-10 bg-white/5 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+
+                  {/* Sparkline for P&L or others if provided */}
+                  {kpi.sparklineData && (
+                     <Sparkline data={kpi.sparklineData} color={colorHex} />
+                  )}
+                </motion.div>
+              );
+            })}
           </div>
 
           {/* Heatmap & Retail Sentiment Row */}
@@ -272,39 +336,65 @@ export default function Analytics() {
             </div>
           </div>
 
-          {/* 2-col: Equity curve + Matrix */}
+            {/* 2-col: Equity curve + Matrix */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="lg:col-span-2 space-y-4">
               <SectionCard title="Equity Curve (Cumulative P&L)">
                 <ResponsiveContainer width="100%" height={240}>
-                  <AreaChart data={cumPnl} syncId="analyticsCharts">
+                  <AreaChart data={cumPnl} syncId="analyticsCharts" margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                     <defs>
-                      <linearGradient id="equityGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#00c896" stopOpacity={0.3} />
-                        <stop offset="100%" stopColor="#00c896" stopOpacity={0} />
+                      <linearGradient id="equityGradBull" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#00dc82" stopOpacity={0.3} />
+                        <stop offset="100%" stopColor="#00dc82" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="equityGradBear" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#ef4444" stopOpacity={0.3} />
+                        <stop offset="100%" stopColor="#ef4444" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#555568" }} tickLine={false} axisLine={false} minTickGap={30} />
-                    <YAxis tick={{ fontSize: 10, fill: "#555568" }} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v}`} width={60} />
-                    <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [`$${v.toFixed(2)}`, "Equity"]} />
-                    <Area type="monotone" dataKey="cumPnl" stroke="#00c896" strokeWidth={2} fill="url(#equityGrad)" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
+                    <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#6b7280", fontFamily: 'monospace' }} tickLine={false} axisLine={false} minTickGap={30} />
+                    <YAxis tick={{ fontSize: 10, fill: "#6b7280", fontFamily: 'monospace' }} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v}`} width={60} />
+                    <Tooltip {...TOOLTIP_STYLE} cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1, strokeDasharray: '4 4' }} formatter={(v: number) => [`$${v.toFixed(2)}`, "Equity"]} />
+                    {(() => {
+                      const finalPnl = cumPnl.length > 0 ? cumPnl[cumPnl.length - 1].cumPnl : 0;
+                      const isProfit = finalPnl >= 0;
+                      return (
+                        <Area 
+                          type="monotone" 
+                          dataKey="cumPnl" 
+                          stroke={isProfit ? "#00dc82" : "#ef4444"} 
+                          strokeWidth={2} 
+                          fill={isProfit ? "url(#equityGradBull)" : "url(#equityGradBear)"} 
+                          activeDot={{ r: 5, strokeWidth: 0, fill: '#fff', style: { filter: `drop-shadow(0 0 8px ${isProfit ? '#00dc82' : '#ef4444'})` } }}
+                        />
+                      )
+                    })()}
                   </AreaChart>
                 </ResponsiveContainer>
               </SectionCard>
               
               <SectionCard title="Drawdown Curve">
                 <ResponsiveContainer width="100%" height={160}>
-                  <AreaChart data={drawdownData} syncId="analyticsCharts">
+                  <AreaChart data={drawdownData} syncId="analyticsCharts" margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                     <defs>
                       <linearGradient id="ddGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#ff4d6a" stopOpacity={0.4} />
-                        <stop offset="100%" stopColor="#ff4d6a" stopOpacity={0} />
+                        <stop offset="0%" stopColor="#ef4444" stopOpacity={0.4} />
+                        <stop offset="100%" stopColor="#ef4444" stopOpacity={0} />
                       </linearGradient>
                     </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
                     <XAxis dataKey="date" hide />
-                    <YAxis reversed={true} tick={{ fontSize: 10, fill: "#555568" }} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v}`} width={60} />
-                    <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [`$${v.toFixed(2)}`, "Drawdown"]} />
-                    <Area type="monotone" dataKey="drawdown" stroke="#ff4d6a" strokeWidth={2} fill="url(#ddGrad)" />
+                    <YAxis reversed={true} tick={{ fontSize: 10, fill: "#6b7280", fontFamily: 'monospace' }} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v}`} width={60} />
+                    <Tooltip {...TOOLTIP_STYLE} cursor={{ stroke: 'rgba(239,68,68,0.3)', strokeWidth: 1, strokeDasharray: '4 4' }} formatter={(v: number) => [`$${v.toFixed(2)}`, "Drawdown"]} />
+                    <Area 
+                      type="monotone" 
+                      dataKey="drawdown" 
+                      stroke="#ef4444" 
+                      strokeWidth={2} 
+                      fill="url(#ddGrad)" 
+                      activeDot={{ r: 5, strokeWidth: 0, fill: '#fff', style: { filter: 'drop-shadow(0 0 8px #ef4444)' } }}
+                    />
                   </AreaChart>
                 </ResponsiveContainer>
               </SectionCard>
@@ -328,6 +418,27 @@ export default function Analytics() {
               </BarChart>
             </ResponsiveContainer>
           </SectionCard>
+
+          {/* Deep Dive Widgets */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+             <div className="h-[400px]">
+                <TradeDurationScatterPlot trades={trades} />
+             </div>
+             <div className="h-[400px]">
+                <MistakeCostAnalyzer />
+             </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+             <div className="lg:col-span-8">
+                <SessionPerformanceGrid trades={trades} />
+             </div>
+             <div className="lg:col-span-4 h-[450px]">
+                <CapitalFlow data={dashboardStats?.capitalFlow || []} loading={!dashboardStats} />
+             </div>
+          </div>
+
+          <MonthlyPerformanceGrid trades={trades} />
 
         </motion.div>
       </AnimatePresence>

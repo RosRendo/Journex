@@ -1,17 +1,20 @@
 import { useState, useMemo, useRef } from "react";
-import { TradeData } from "@/hooks/useCsvTrades";
+import { TradeData, useCsvTrades } from "@/hooks/useCsvTrades";
 import { Filter, ChevronDown, ChevronUp, Image, Link, Upload, Check, AlertCircle, Trash2, Loader2 } from "lucide-react";
 import { getPairDigits } from "@/lib/format";
 import { getBackendUrl } from "@/lib/utils";
 import { getSession } from "@/lib/useSession";
 
 interface RecentTradesTableProps {
-  trades: TradeData[];
+  trades?: TradeData[];
   loading?: boolean;
   onTradeUpdated?: () => void;
 }
 
-export function RecentTradesTable({ trades, loading, onTradeUpdated }: RecentTradesTableProps) {
+export function RecentTradesTable({ trades: externalTrades, loading: externalLoading, onTradeUpdated }: RecentTradesTableProps = {}) {
+  const { trades: internalTrades, loading: internalLoading } = useCsvTrades();
+  const trades = externalTrades || internalTrades;
+  const loading = externalLoading ?? internalLoading;
   const [outcomeFilter, setOutcomeFilter] = useState<"All" | "W" | "L">("All");
   const [pairFilter, setPairFilter] = useState("All");
 

@@ -8,10 +8,12 @@ import { AuthProvider } from "@/src/context/AuthContext";
 import { Toaster } from "sonner";
 import { SessionProvider } from "next-auth/react";
 import { WebSocketProvider } from "@/components/providers/WebSocketProvider";
+import { WorkspaceProvider } from "@/src/context/WorkspaceContext";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
+      <WorkspaceProvider>
       <ThemeProvider
         attribute="class"
         defaultTheme="system"
@@ -30,6 +32,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           </AccountProvider>
         </AuthProvider>
       </ThemeProvider>
+      </WorkspaceProvider>
     </SessionProvider>
   );
 }

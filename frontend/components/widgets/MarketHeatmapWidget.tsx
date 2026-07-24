@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { TrendingUp, TrendingDown, Loader2 } from "lucide-react";
+import { TrendingUp, TrendingDown, Loader2, Activity } from "lucide-react";
 import { getBackendUrl, fetchWithAuth } from "@/lib/utils";
 
 const INITIAL_PAIRS = [
@@ -42,31 +42,74 @@ export function MarketHeatmapWidget() {
   }, []);
 
   return (
-    <div className="bg-[#0c0c0d]/90 border border-white/5 rounded-xl shadow-lg overflow-hidden backdrop-blur">
-      <div className="flex flex-wrap items-center gap-1 p-2 min-h-[60px]">
-        {loading && <div className="w-full flex justify-center text-gray-500 text-xs"><Loader2 className="w-4 h-4 animate-spin mr-2"/> Syncing with MT5...</div>}
-        
-        {!loading && data.map((item) => {
-          const isPositive = item.change >= 0;
-          return (
-            <div 
-              key={item.pair} 
-              className={`flex-1 min-w-[120px] p-2 rounded-lg flex items-center justify-between border ${
-                isPositive ? "bg-green-500/10 border-green-500/20" : "bg-red-500/10 border-red-500/20"
-              } transition-colors duration-500`}
-            >
-              <div className="flex flex-col">
-                <span className="text-xs font-bold text-gray-200">{item.pair}</span>
-                <span className="text-[10px] font-mono text-gray-400">{item.price.toFixed(item.price > 100 ? 2 : 4)}</span>
+    <div className="bg-[#050505] border border-[--border] rounded-2xl shadow-2xl overflow-hidden relative group">
+      
+      {/* Subtle ambient background glow */}
+      <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none" />
+
+      {/* Header */}
+      <div className="px-5 py-4 flex items-center justify-between border-b border-[--border] bg-white/[0.01]">
+        <div className="flex items-center gap-2">
+           <Activity className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors duration-500" />
+           <h3 className="text-xs font-bold uppercase tracking-widest text-gray-200">Market Heatmap</h3>
+        </div>
+        {loading && (
+          <div className="flex items-center gap-2 text-[10px] uppercase font-bold tracking-widest text-emerald-400 animate-pulse">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            Syncing
+          </div>
+        )}
+      </div>
+
+      <div className="p-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 min-h-[80px]">
+          {data.map((item) => {
+            const isPositive = item.change >= 0;
+            const absChange = Math.abs(item.change);
+            
+            // Calculate intensity based on change (capped at 1.5% for visual scaling)
+            const intensity = Math.min(1, absChange / 1.5);
+            
+            // Determine exact gradient and border based on polarity and intensity
+            const gradientStyle = isPositive
+              ? `linear-gradient(135deg, rgba(0, 220, 130, ${0.1 + (intensity * 0.2)}) 0%, rgba(0, 220, 130, ${0.05 + (intensity * 0.1)}) 100%)`
+              : `linear-gradient(135deg, rgba(239, 68, 68, ${0.1 + (intensity * 0.2)}) 0%, rgba(239, 68, 68, ${0.05 + (intensity * 0.1)}) 100%)`;
+
+            const borderColor = isPositive
+              ? `rgba(0, 220, 130, ${0.2 + (intensity * 0.3)})`
+              : `rgba(239, 68, 68, ${0.2 + (intensity * 0.3)})`;
+
+            return (
+              <div 
+                key={item.pair} 
+                className="relative rounded-xl flex flex-col justify-between p-3 overflow-hidden cursor-default transition-all duration-300 hover:scale-[1.02] hover:-translate-y-0.5 hover:shadow-xl group/tile"
+                style={{ 
+                  background: gradientStyle,
+                  borderColor: borderColor,
+                  borderWidth: "1px",
+                  borderStyle: "solid",
+                  boxShadow: `inset 0 1px 1px rgba(255,255,255,0.05), inset 0 -5px 15px rgba(0,0,0,0.2)`
+                }}
+              >
+                {/* Tile Header */}
+                <div className="flex items-start justify-between mb-2">
+                  <span className="text-xs font-bold text-white tracking-wide">{item.pair}</span>
+                  <div className={`flex items-center gap-1 font-mono text-[10px] font-bold ${isPositive ? "text-[--bull]" : "text-[--bear]"}`}>
+                    {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                    {isPositive ? "+" : ""}{item.change.toFixed(2)}%
+                  </div>
+                </div>
+
+                {/* Price */}
+                <div className="text-sm font-mono font-medium text-gray-300 group-hover/tile:text-white transition-colors">
+                  {item.price.toFixed(item.price > 100 ? 2 : 4)}
+                </div>
               </div>
-              <div className={`flex items-center gap-1 font-mono text-sm font-bold ${isPositive ? "text-green-400" : "text-red-400"}`}>
-                {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                {isPositive ? "+" : ""}{item.change.toFixed(2)}%
-              </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );
 }
+

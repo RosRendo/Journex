@@ -57,8 +57,9 @@ export const getAllTrades = async (req: Request, res: Response, next: NextFuncti
 
     const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
     const take = parseInt(limit as string);
-
-    const where: any = { userId: req.userId };
+    const where: any = { 
+      userId: { in: [req.userId, "default-user"] } 
+    };
 
     if (strategy) where.strategy = strategy;
     if (outcome) where.outcome = outcome;
@@ -80,6 +81,21 @@ export const getAllTrades = async (req: Request, res: Response, next: NextFuncti
       }),
       prisma.trade.count({ where }),
     ]);
+
+    if (total === 0) {
+      const { seedDemoTradesIfEmpty } = require('../routes/terminalRoutes');
+      await seedDemoTradesIfEmpty();
+      
+      const [newTrades, newTotal] = await Promise.all([
+        prisma.trade.findMany({ where, skip, take, orderBy: { [sortBy as string]: sortOrder } }),
+        prisma.trade.count({ where }),
+      ]);
+      return res.json({
+        success: true,
+        data: newTrades,
+        pagination: { page: parseInt(page as string), limit: parseInt(limit as string), total: newTotal, pages: Math.ceil(newTotal / take) },
+      });
+    }
 
     res.json({
       success: true,
@@ -105,7 +121,7 @@ export const getTrade = async (req: Request, res: Response, next: NextFunction) 
       include: { profitLoss: true },
     });
 
-    if (!trade || trade.userId !== req.userId) {
+    if (!trade || (trade.userId !== req.userId && trade.userId !== "default-user")) {
       throw new AppError('Trade not found', 404);
     }
 

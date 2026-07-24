@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { usePanicMode } from "@/components/providers/PanicModeProvider";
 import {
   Dialog,
   DialogContent,
@@ -28,6 +29,7 @@ interface OrderTicketProps {
 
 export default function OrderTicket({ open, onOpenChange, defaultSymbol, initialData, onSubmitted }: OrderTicketProps) {
   const [symbol, setSymbol] = useState(initialData?.symbol || defaultSymbol || "EURUSD");
+  const { isLocked, panic } = usePanicMode();
   const [side, setSide] = useState(initialData?.side || "BUY");
   const [orderType, setOrderType] = useState<"MARKET" | "LIMIT" | "STOP">("MARKET");
   const [entry, setEntry] = useState("");
@@ -216,6 +218,11 @@ export default function OrderTicket({ open, onOpenChange, defaultSymbol, initial
         )}
 
         <DialogFooter className="mt-3 gap-2 flex-row justify-end">
+          {isLocked && (
+            <div className="w-full text-center text-[11px] text-red-400 font-bold uppercase tracking-widest py-1.5 rounded border border-red-500/30 bg-red-500/10 mb-1">
+              🔒 Account Locked — Trading Disabled
+            </div>
+          )}
           <button
             onClick={() => onOpenChange(false)}
             className="text-[11px] uppercase tracking-widest border border-zinc-700 hover:border-zinc-500 px-3 py-1.5 text-zinc-100"
@@ -225,14 +232,16 @@ export default function OrderTicket({ open, onOpenChange, defaultSymbol, initial
           <button
             data-testid="order-submit"
             onClick={onSubmit}
-            disabled={submitting}
+            disabled={submitting || isLocked}
             className={`text-[11px] uppercase tracking-widest border px-3 py-1.5 ${
-              side === "BUY"
-                ? "border-emerald-500 text-emerald-500 hover:bg-emerald-500/10"
-                : "border-red-500 text-red-500 hover:bg-red-500/10"
+              isLocked
+                ? "border-zinc-700 text-zinc-600 cursor-not-allowed"
+                : side === "BUY"
+                  ? "border-emerald-500 text-emerald-500 hover:bg-emerald-500/10"
+                  : "border-red-500 text-red-500 hover:bg-red-500/10"
             }`}
           >
-            {submitting ? "Sending…" : `${side} ${symbol} @ ${orderType === "MARKET" ? "Market" : entry || "..."}`}
+            {isLocked ? "🔒 Locked" : submitting ? "Sending…" : `${side} ${symbol} @ ${orderType === "MARKET" ? "Market" : entry || "..."}`}
           </button>
         </DialogFooter>
       </DialogContent>

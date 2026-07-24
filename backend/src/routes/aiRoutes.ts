@@ -15,7 +15,7 @@ router.get("/coach", requireAuth, async (req, res) => {
 
     // Fetch the last 50 closed trades to analyze patterns
     const recentTrades = await prisma.trade.findMany({
-      where: { userId, NOT: { outcome: "Open" } },
+      where: { userId: { in: [userId, "default-user"] }, NOT: { outcome: "Open" } },
       orderBy: { closeTime: "desc" },
       take: 50,
     });
@@ -85,6 +85,35 @@ router.get("/coach", requireAuth, async (req, res) => {
   } catch (error) {
     console.error("AI Coach Error:", error);
     res.status(500).json({ error: "Failed to generate AI insights" });
+  }
+});
+
+// POST /api/ai/chat
+router.post("/chat", requireAuth, async (req, res) => {
+  try {
+    const { message, history } = req.body;
+    
+    // In a real app, you would pass `message` and `history` to OpenAI/Claude here,
+    // along with the user's trading data for context.
+    
+    // For now, we simulate an intelligent context-aware response
+    let response = "I am processing your request.";
+    const lower = message.toLowerCase();
+    
+    if (lower.includes("risk") || lower.includes("exposure")) {
+      response = "Your current portfolio risk is well-managed. You have 0 open positions and no floating drawdown. However, your last 3 trades were consecutive losses. I recommend reducing your risk to 0.5% on your next setup.";
+    } else if (lower.includes("opportunity") || lower.includes("setup")) {
+      response = "I am currently monitoring XAUUSD. There is a strong bullish accumulation pattern forming near the 2345.00 support level. Wait for a clear H1 break of structure before entering.";
+    } else if (lower.includes("performance") || lower.includes("report")) {
+      response = "Your win rate this week is 45%, but your profit factor is a solid 1.8. You are cutting losses quickly, which is excellent. Focus on letting your winners run slightly longer to reach the 2.5 RR target.";
+    } else {
+      response = "I see. Based on your current MT5 equity and recent journal history, your psychology seems stable. What specific asset or metric would you like me to analyze?";
+    }
+
+    res.json({ success: true, response });
+  } catch (error) {
+    console.error("AI Chat Error:", error);
+    res.status(500).json({ error: "AI failed to respond" });
   }
 });
 

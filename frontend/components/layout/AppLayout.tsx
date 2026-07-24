@@ -8,7 +8,9 @@ import SubscriptionGate from "@/components/SubscriptionGate";
 import { useAutoMT5Connect } from "@/hooks/useAutoMT5Connect";
 import { usePathname } from "next/navigation";
 import { FocusModeProvider } from "@/components/providers/FocusModeProvider";
+import { PanicModeProvider } from "@/components/providers/PanicModeProvider";
 import CommandPalette from "@/components/CommandPalette";
+import PanicModeOverlay from "@/components/PanicModeOverlay";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -74,66 +76,72 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   if (isStandalonePage) {
     return (
-      <FocusModeProvider>
-        <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} />
-        <div className="min-h-screen flex flex-col" style={{ background: "var(--bg-base)", color: "var(--text-primary)" }}>
-          {pathname.startsWith("/subscription") && <Navbar />}
-          <main className="flex-1 w-full">{children}</main>
-        </div>
-      </FocusModeProvider>
+      <PanicModeProvider>
+        <FocusModeProvider>
+          <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} />
+          <PanicModeOverlay />
+          <div className="min-h-screen flex flex-col" style={{ background: "var(--bg-base)", color: "var(--text-primary)" }}>
+            {pathname.startsWith("/subscription") && <Navbar />}
+            <main className="flex-1 w-full">{children}</main>
+          </div>
+        </FocusModeProvider>
+      </PanicModeProvider>
     );
   }
 
   return (
-    <FocusModeProvider>
-      <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} />
-      <div className="flex flex-col h-screen overflow-hidden" style={{ background: "var(--bg-base)", color: "var(--text-primary)" }}>
-        {/* Top Bar */}
-        <Navbar onMenuToggle={() => setIsMobileMenuOpen(true)} />
+    <PanicModeProvider>
+      <FocusModeProvider>
+        <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} />
+        <PanicModeOverlay />
+        <div className="flex flex-col h-screen overflow-hidden" style={{ background: "var(--bg-base)", color: "var(--text-primary)" }}>
+          {/* Top Bar */}
+          <Navbar onMenuToggle={() => setIsMobileMenuOpen(true)} />
 
-        {/* Body */}
-        <div className="flex flex-1 overflow-hidden relative">
-          {/* Desktop Sidebar */}
-          <div className="hidden lg:flex flex-shrink-0">
-            <Sidebar onOpenCommandPalette={() => setCommandOpen(true)} />
-          </div>
-
-          {/* Mobile Sidebar Overlay */}
-          {isMobileMenuOpen && (
-            <div className="fixed inset-0 z-50 lg:hidden flex">
-              <div
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
-                onClick={() => setIsMobileMenuOpen(false)}
-              />
-              <div className="relative w-[240px] h-full shadow-2xl animate-in slide-in-from-left duration-200">
-                <Sidebar onOpenCommandPalette={() => { setCommandOpen(true); setIsMobileMenuOpen(false); }} />
-              </div>
+          {/* Body */}
+          <div className="flex flex-1 overflow-hidden relative">
+            {/* Desktop Sidebar */}
+            <div className="hidden lg:flex flex-shrink-0">
+              <Sidebar onOpenCommandPalette={() => setCommandOpen(true)} />
             </div>
-          )}
 
-          {/* Main Content */}
-          <main
-            className="flex-1 overflow-y-auto p-3 sm:p-5"
-            style={{ background: "var(--bg-base)" }}
-          >
-            <SubscriptionGate>
-              <div className="mx-auto w-full max-w-[1600px]">
-                {children}
+            {/* Mobile Sidebar Overlay */}
+            {isMobileMenuOpen && (
+              <div className="fixed inset-0 z-50 lg:hidden flex">
+                <div
+                  className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                />
+                <div className="relative w-[240px] h-full shadow-2xl animate-in slide-in-from-left duration-200">
+                  <Sidebar onOpenCommandPalette={() => { setCommandOpen(true); setIsMobileMenuOpen(false); }} />
+                </div>
               </div>
-            </SubscriptionGate>
-          </main>
+            )}
 
-          {/* Right Sidebar */}
-          <div className="flex-shrink-0 z-40">
-            <RightSidebar />
+            {/* Main Content */}
+            <main
+              className="flex-1 overflow-y-auto p-3 sm:p-5"
+              style={{ background: "var(--bg-base)" }}
+            >
+              <SubscriptionGate>
+                <div className="mx-auto w-full max-w-[1600px]">
+                  {children}
+                </div>
+              </SubscriptionGate>
+            </main>
+
+            {/* Right Sidebar */}
+            <div className="flex-shrink-0 z-40">
+              <RightSidebar />
+            </div>
+          </div>
+
+          {/* Bottom Status Bar */}
+          <div className="overflow-x-auto scrollbar-none">
+            <StatusBar />
           </div>
         </div>
-
-        {/* Bottom Status Bar */}
-        <div className="overflow-x-auto scrollbar-none">
-          <StatusBar />
-        </div>
-      </div>
-    </FocusModeProvider>
+      </FocusModeProvider>
+    </PanicModeProvider>
   );
 }

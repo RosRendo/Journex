@@ -15,7 +15,7 @@ import {
 
 const POPULAR = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "NZDUSD", "USDCHF", "USDCAD", "XAUUSD", "AUDJPY", "EURJPY"];
 
-export default function TerminalHeader({ symbol, onSymbolChange, connected, symbols, onOpenOrderTicket, onOpenBrokerSettings, onOpenApiKeys, isLive, provider }) {
+export default function TerminalHeader({ symbol, onSymbolChange, connected, symbols, onOpenOrderTicket, onOpenBrokerSettings, onOpenApiKeys, isLive, provider, onPresetChange }: any) {
   const { data: session } = useSession();
   const isPro = (session?.user as any)?.isPro === true;
   const now = useUtcClock();
@@ -85,7 +85,13 @@ export default function TerminalHeader({ symbol, onSymbolChange, connected, symb
         </span>
       </div>
 
-      <div className="flex-1 flex items-center justify-center">
+      <div className="flex-1 flex items-center justify-center gap-6">
+        <div className="flex bg-zinc-900 border border-zinc-700 p-0.5 rounded-sm">
+           <button onClick={() => onPresetChange?.("Scalping")} className="px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-zinc-400 hover:text-amber-500 hover:bg-zinc-800 transition-colors">Scalping</button>
+           <button onClick={() => onPresetChange?.("Swing")} className="px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-zinc-400 hover:text-amber-500 hover:bg-zinc-800 transition-colors">Swing</button>
+           <button onClick={() => onPresetChange?.("Focus")} className="px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-zinc-400 hover:text-amber-500 hover:bg-zinc-800 transition-colors">Focus</button>
+        </div>
+
         {!isPro && (
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full">

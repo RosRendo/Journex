@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { getBackendUrl } from "@/lib/utils";
 import { getSession } from "@/lib/useSession";
+import { useWorkspace, WorkspaceType } from "@/src/context/WorkspaceContext";
 
 export interface Position {
   ticket: number;
@@ -20,6 +21,12 @@ export function usePositions(accountId?: string, autoRefreshMs: number = 2000) {
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  let activeWorkspace: WorkspaceType = "Global";
+  try {
+    const wsContext = useWorkspace();
+    activeWorkspace = wsContext.activeWorkspace;
+  } catch (e) {}
 
   useEffect(() => {
     let mounted = true;
@@ -42,7 +49,18 @@ export function usePositions(accountId?: string, autoRefreshMs: number = 2000) {
         if (!mounted) return;
 
         if (data.success && data.positions) {
-          setPositions(data.positions);
+          let filtered = data.positions as Position[];
+          if (activeWorkspace !== "Global" && activeWorkspace !== "Funded Challenge" && activeWorkspace !== "Scalping" && activeWorkspace !== "Swing") {
+            filtered = filtered.filter((p) => {
+              if (!p || !p.pair) return false;
+              const pair = p.pair.toUpperCase();
+              if (activeWorkspace === "Gold") return pair.includes("XAU");
+              if (activeWorkspace === "Crypto") return pair.includes("BTC") || pair.includes("ETH") || pair.includes("SOL");
+              if (activeWorkspace === "Forex") return pair.length >= 6 && !pair.includes("XAU") && !pair.includes("BTC") && !pair.includes("ETH") && !pair.includes("SOL");
+              return true;
+            });
+          }
+          setPositions(filtered);
           setError(null);
         } else {
           setError(data.error || "Failed to fetch positions");
@@ -65,10 +83,8 @@ export function usePositions(accountId?: string, autoRefreshMs: number = 2000) {
       };
     }
 
-    return () => {
-      mounted = false;
-    };
-  }, [accountId, autoRefreshMs]);
+    return () => { mounted = false; };
+  }, [autoRefreshMs, activeWorkspace]);
 
   return { positions, loading, error };
 }

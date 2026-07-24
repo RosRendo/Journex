@@ -8,7 +8,7 @@ interface OpenPositionsListProps {
   loading?: boolean;
 }
 
-export function OpenPositionsList({ positions, loading }: OpenPositionsListProps) {
+export function OpenPositionsList({ positions = [], loading }: OpenPositionsListProps) {
   const [filterStr, setFilterStr] = useState("");
   const [sortBy, setSortBy] = useState<keyof Position>("pnl");
   

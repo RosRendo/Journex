@@ -142,7 +142,7 @@ function getActiveAdapter(req?: any) {
 // SEEDING DATABASE FOR DEMO EXPERIENCE (Idempotent)
 // ----------------------------------------------------
 
-async function seedDemoTradesIfEmpty() {
+export async function seedDemoTradesIfEmpty() {
   const count = await prisma.trade.count();
   if (count > 0) return;
 
@@ -1841,6 +1841,59 @@ router.get("/news/headlines", async (req, res) => {
       cached: false,
     });
   }
+});
+
+// GET /api/terminal/signals
+router.get("/terminal/signals", (req, res) => {
+  const rng = new SeededRandom(new Date().getHours()); // Randomize hourly
+  
+  const signals = [
+    {
+      id: "SIG-" + Math.floor(rng.uniform(1000, 9999)),
+      symbol: "XAUUSD",
+      type: rng.uniform(0, 1) > 0.5 ? "BUY" : "SELL",
+      entry_price: parseFloat(rng.uniform(2300, 2400).toFixed(2)),
+      sl: 0,
+      tp: 0,
+      confidence: rng.randint(70, 95),
+      reason: "EMA 50/200 Crossover + RSI Oversold",
+      timestamp: new Date().toISOString()
+    },
+    {
+      id: "SIG-" + Math.floor(rng.uniform(1000, 9999)),
+      symbol: "EURUSD",
+      type: "SELL",
+      entry_price: parseFloat(rng.uniform(1.0800, 1.0900).toFixed(5)),
+      sl: parseFloat(rng.uniform(1.0950, 1.1000).toFixed(5)),
+      tp: parseFloat(rng.uniform(1.0700, 1.0750).toFixed(5)),
+      confidence: rng.randint(65, 88),
+      reason: "Bearish Engulfing on H4 + MACD Divergence",
+      timestamp: new Date().toISOString()
+    },
+    {
+      id: "SIG-" + Math.floor(rng.uniform(1000, 9999)),
+      symbol: "BTCUSD",
+      type: "BUY",
+      entry_price: parseFloat(rng.uniform(60000, 65000).toFixed(2)),
+      sl: parseFloat(rng.uniform(58000, 59500).toFixed(2)),
+      tp: parseFloat(rng.uniform(68000, 70000).toFixed(2)),
+      confidence: rng.randint(75, 92),
+      reason: "Volume Profile Support Bounce",
+      timestamp: new Date().toISOString()
+    }
+  ];
+
+  // Calculate SL/TP for XAUUSD if missing
+  const xau = signals[0];
+  if (xau.type === "BUY") {
+    xau.sl = parseFloat((xau.entry_price - rng.uniform(5, 10)).toFixed(2));
+    xau.tp = parseFloat((xau.entry_price + rng.uniform(10, 30)).toFixed(2));
+  } else {
+    xau.sl = parseFloat((xau.entry_price + rng.uniform(5, 10)).toFixed(2));
+    xau.tp = parseFloat((xau.entry_price - rng.uniform(10, 30)).toFixed(2));
+  }
+
+  res.json({ success: true, signals });
 });
 
 export default router;

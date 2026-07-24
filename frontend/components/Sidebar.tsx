@@ -5,12 +5,14 @@ import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import {
   LayoutDashboard, Terminal, Radar, BarChart3, ShieldAlert,
-  Settings, Calculator, Activity, ChevronDown, ChevronRight,
+  Settings, Calculator, Activity, ChevronDown,
   BookOpen, CalendarDays, TrendingUp, CheckCircle2, AlertTriangle,
-  Percent, BarChart2, Grid, Target, Zap, RotateCcw, Code, Newspaper,
+  Percent, BarChart2, Grid, Target, RotateCcw, Code, Newspaper,
   Bell, Users, Wallet, Eye, Crosshair, Shield, Command, Maximize2,
 } from "lucide-react";
 import { useFocusMode } from "./providers/FocusModeProvider";
+import { useFavorites } from "@/hooks/useFavorites";
+import { NAVIGATION } from "./layout/navigation";
 
 interface NavChild { href: string; label: string; }
 interface NavItem {
@@ -22,64 +24,14 @@ interface NavItem {
   children?: NavChild[];
 }
 
-// TOP-LEVEL: 8 items max
+// TOP-LEVEL OS NAVIGATION
 const TOP_NAV: NavItem[] = [
   { id: "dashboard", label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { id: "terminal", label: "Terminal", href: "/terminal", icon: Terminal },
   { id: "signals", label: "Scanner", href: "/signals", icon: Radar },
-  {
-    id: "performance",
-    label: "Performance",
-    icon: BarChart3,
-    children: [
-      { href: "/analytics", label: "Analytics" },
-      { href: "/journal", label: "Trade Journal" },
-      { href: "/journals", label: "AI Journals" },
-      { href: "/review", label: "Trade Review" },
-      { href: "/review/daily", label: "Daily Review" },
-      { href: "/progress", label: "Challenge Tracker" },
-      { href: "/strategies", label: "Strategies" },
-      { href: "/wrandrr", label: "Win Rate & RR" },
-    ],
-  },
-  {
-    id: "risk",
-    label: "Risk",
-    icon: ShieldAlert,
-    children: [
-      { href: "/risk", label: "Risk Calculator" },
-      { href: "/RiskTableCalculation", label: "Risk Table" },
-      { href: "/loteachpair", label: "Lot Per Pair" },
-      { href: "/fundedrequire", label: "Funded Rules" },
-      { href: "/validation", label: "Pre-Trade Check" },
-    ],
-  },
-  {
-    id: "analysis",
-    label: "Analysis",
-    icon: Activity,
-    children: [
-      { href: "/sentiment", label: "Market Sentiment" },
-      { href: "/news", label: "Macro Desk" },
-      { href: "/calendar", label: "Economic Calendar" },
-      { href: "/indicator", label: "Indicators" },
-      { href: "/tradingstyle", label: "Trading Style" },
-    ],
-  },
-  {
-    id: "tools",
-    label: "Tools",
-    icon: Zap,
-    children: [
-      { href: "/backtesting", label: "Backtesting" },
-      { href: "/GoldTradingSimulator", label: "Gold Simulator" },
-      { href: "/bot", label: "Trading Bots" },
-      { href: "/accounts", label: "Accounts" },
-      { href: "/community", label: "Community" },
-      { href: "/alerts", label: "Alerts" },
-      { href: "/script", label: "Scripts" },
-    ],
-  },
+  { id: "ai-desk", label: "AI Desk", href: "/ai-desk", icon: Target },
+  { id: "performance", label: "Performance", href: "/performance", icon: TrendingUp },
+  { id: "risk-hub", label: "Risk", href: "/risk-hub", icon: ShieldAlert },
   { id: "settings", label: "Settings", href: "/settings", icon: Settings },
 ];
 
@@ -90,6 +42,7 @@ interface SidebarProps {
 const Sidebar = ({ onOpenCommandPalette }: SidebarProps) => {
   const pathname = usePathname();
   const { focusMode, toggleFocusMode } = useFocusMode();
+  const { favorites } = useFavorites();
   const [expanded, setExpanded] = useState<string[]>([]);
 
   // Auto-expand the group that contains the current route
@@ -137,18 +90,16 @@ const Sidebar = ({ onOpenCommandPalette }: SidebarProps) => {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-2 py-1 space-y-0.5">
-        {TOP_NAV.map(item => {
-          const Icon = item.icon;
-          const active = item.href ? isActive(item.href) : false;
-          const groupActive = isGroupActive(item.children);
-          const isExpanded = expanded.includes(item.id);
-
-          if (item.href && !item.children) {
-            // Simple link
+        {/* Core Nav */}
+        <div className="mb-4">
+          <p className="px-3 text-[10px] font-bold text-zinc-600 tracking-wider mb-2 mt-2">CORE OS</p>
+          {TOP_NAV.map(item => {
+            const Icon = item.icon;
+            const active = item.href ? isActive(item.href) : false;
             return (
               <Link
                 key={item.id}
-                href={item.href}
+                href={item.href || "#"}
                 className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 ${
                   active
                     ? "bg-blue-500/15 text-blue-300 border border-blue-500/25"
@@ -160,45 +111,37 @@ const Sidebar = ({ onOpenCommandPalette }: SidebarProps) => {
                 {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />}
               </Link>
             );
-          }
+          })}
+        </div>
 
-          // Group with children
-          return (
-            <div key={item.id}>
-              <button
-                onClick={() => toggle(item.id)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 ${
-                  groupActive
-                    ? "text-blue-300 bg-blue-500/10"
-                    : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60"
-                }`}
-              >
-                <Icon className="w-4 h-4 flex-shrink-0" />
-                <span className="flex-1 text-left">{item.label}</span>
-                {groupActive && !isExpanded && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />}
-                <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 text-zinc-600 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
-              </button>
-
-              {isExpanded && (
-                <div className="ml-3 mt-0.5 mb-1 pl-3 border-l border-zinc-800 space-y-0.5">
-                  {item.children?.map(child => (
-                    <Link
-                      key={child.href}
-                      href={child.href}
-                      className={`block px-2.5 py-1.5 rounded-md text-[12px] transition-all duration-150 ${
-                        isActive(child.href)
-                          ? "text-blue-300 bg-blue-500/15 font-medium"
-                          : "text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/50"
-                      }`}
-                    >
-                      {child.label}
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
+        {/* Dynamic Favorites */}
+        {favorites.length > 0 && (
+          <div className="mb-4">
+            <p className="px-3 text-[10px] font-bold text-zinc-600 tracking-wider mb-2">PINNED TOOLS</p>
+            {favorites.map(favId => {
+              const navItem = NAVIGATION.find(n => n.id === favId);
+              if (!navItem || !navItem.href) return null;
+              const Icon = navItem.icon;
+              const active = isActive(navItem.href);
+              
+              return (
+                <Link
+                  key={navItem.id}
+                  href={navItem.href}
+                  className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 ${
+                    active
+                      ? "bg-blue-500/15 text-blue-300 border border-blue-500/25"
+                      : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60"
+                  }`}
+                >
+                  <Icon className="w-4 h-4 flex-shrink-0" />
+                  <span>{navItem.label}</span>
+                  {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />}
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </nav>
 
       {/* Footer Actions */}

@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { getBackendUrl, fetchWithAuth } from "@/lib/utils";
 import { getSession } from "@/lib/useSession";
+import { useWorkspace, WorkspaceType } from "@/src/context/WorkspaceContext";
 
 // Use getBackendUrl() — returns NEXT_PUBLIC_BACKEND_URL or localhost:5000.
 // Never uses resolveLocalUrl() which was blindly replacing 'localhost' with
@@ -48,12 +49,19 @@ export interface Analytics {
  * Hook to fetch trades and analytics from CSV imports
  * Replaces the MT5 Bridge connection hook
  */
-export function useCsvTrades(accountId?: number, autoRefreshMs: number = 0) {
+export function useCsvTrades(accountId?: string, autoRefreshMs: number = 0) {
   const [trades, setTrades] = useState<TradeData[]>([]);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+
+  // Safe workspace retrieval (fallback to 'Global' if context not available, e.g. some layouts)
+  let activeWorkspace: WorkspaceType = "Global";
+  try {
+    const wsContext = useWorkspace();
+    activeWorkspace = wsContext.activeWorkspace;
+  } catch (e) {}
 
   // Calculate analytics from trades
   const calculateAnalytics = useCallback((tradesList: TradeData[]) => {
@@ -98,6 +106,26 @@ export function useCsvTrades(accountId?: number, autoRefreshMs: number = 0) {
         losses.length > 0 ? Math.min(...tradesList.map((t) => t.profit)) : 0,
     };
   }, []);
+
+  const filterByWorkspace = useCallback((unfiltered: TradeData[]) => {
+    if (activeWorkspace === "Global" || activeWorkspace === "Funded Challenge" || activeWorkspace === "Scalping" || activeWorkspace === "Swing") {
+      return unfiltered;
+    }
+    return unfiltered.filter((t) => {
+      if (!t || !t.pair) return false;
+      const pair = t.pair.toUpperCase();
+      if (activeWorkspace === "Gold") {
+        return pair.includes("XAU");
+      }
+      if (activeWorkspace === "Crypto") {
+        return pair.includes("BTC") || pair.includes("ETH") || pair.includes("SOL");
+      }
+      if (activeWorkspace === "Forex") {
+        return pair.length >= 6 && !pair.includes("XAU") && !pair.includes("BTC") && !pair.includes("ETH") && !pair.includes("SOL");
+      }
+      return true;
+    });
+  }, [activeWorkspace]);
 
   const API_BASE = BRIDGE_URL;
   const DB_API = DB_API_URL;
@@ -151,15 +179,15 @@ export function useCsvTrades(accountId?: number, autoRefreshMs: number = 0) {
           const dbTrades = dbData.data || [];
           
           // Merge and dedupe by ticket
-          const ticketMap = new Map<number, TradeData>();
-          normalized.forEach(t => { if (t.ticket) ticketMap.set(Number(t.ticket), t); });
+          const ticketMap = new Map<string, TradeData>();
+          normalized.forEach(t => { if (t.ticket) ticketMap.set(String(t.ticket), t); });
           
           dbTrades.forEach((t: any) => {
-            const ticketNum = t.ticket ? Number(t.ticket) : null;
-            if (ticketNum) {
-              if (ticketMap.has(ticketNum)) {
+            const ticketStr = t.ticket ? String(t.ticket) : null;
+            if (ticketStr) {
+              if (ticketMap.has(ticketStr)) {
                 // If it is in both, copy the database details onto the bridge trade object
-                const existing = ticketMap.get(ticketNum)!;
+                const existing = ticketMap.get(ticketStr)!;
                 existing.id = t.id; // DB auto-increment integer ID
                 existing.notes = t.notes || "";
                 existing.imageUrl = t.imageUrl || "";
@@ -169,7 +197,7 @@ export function useCsvTrades(accountId?: number, autoRefreshMs: number = 0) {
                 existing.emotion = t.emotion || "";
               } else {
                 // If only in DB, add it
-                ticketMap.set(ticketNum, {
+                ticketMap.set(ticketStr, {
                   id: t.id,
                   date: t.closeTime || t.date,
                   openTime: t.date,
@@ -193,8 +221,9 @@ export function useCsvTrades(accountId?: number, autoRefreshMs: number = 0) {
           });
           
           const merged = Array.from(ticketMap.values());
-          setTrades(merged.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-          const calculatedAnalytics = calculateAnalytics(merged);
+          const filteredMerged = filterByWorkspace(merged);
+          setTrades(filteredMerged.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+          const calculatedAnalytics = calculateAnalytics(filteredMerged);
           setAnalytics(calculatedAnalytics);
           setLastUpdated(new Date().toISOString());
           setLoading(false);
@@ -204,8 +233,9 @@ export function useCsvTrades(accountId?: number, autoRefreshMs: number = 0) {
         console.warn("Failed to fetch trades from DB:", dbErr);
       }
 
-      setTrades(normalized);
-      const calculatedAnalytics = calculateAnalytics(normalized);
+      const filteredNormalized = filterByWorkspace(normalized);
+      setTrades(filteredNormalized);
+      const calculatedAnalytics = calculateAnalytics(filteredNormalized);
       setAnalytics(calculatedAnalytics);
       setLastUpdated(new Date().toISOString());
     } catch (err: any) {
@@ -233,7 +263,7 @@ export function useCsvTrades(accountId?: number, autoRefreshMs: number = 0) {
       }, 30000);
       return () => clearInterval(interval);
     }
-  }, [fetchTrades, autoRefreshMs]);
+  }, [fetchTrades, autoRefreshMs]); // Dependency on fetchTrades which now depends on activeWorkspace
 
   return {
     trades,

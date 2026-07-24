@@ -6,7 +6,7 @@
   "entry": {
     "price": 4056.686,
     "time": "2026-07-08T16:35:28Z",
-    "session": "London",
+    "session": "NewYork",
     "spread": 40,
     "timestamp_ms": 1783503328000
   },
@@ -30,11 +30,11 @@
   "tags": {
     "strategy": [],
     "emotion": [],
-    "session": "London"
+    "session": "NewYork"
   },
   "metadata": {
-    "created_at": "2026-07-24T10:08:20.705028Z",
-    "updated_at": "2026-07-24T10:08:20.705028Z",
+    "created_at": "2026-07-24T15:40:19.923840Z",
+    "updated_at": "2026-07-24T15:40:19.923840Z",
     "ai_version": "claude-3.5-sonnet",
     "version": "1.0",
     "ticket": 2165049307

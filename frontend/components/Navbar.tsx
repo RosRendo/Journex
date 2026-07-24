@@ -11,6 +11,7 @@ import Link from "next/link";
 import { HEADER_GROUPS } from "@/components/layout/navigation";
 import { useTheme } from "next-themes";
 import { getBackendUrl } from "@/lib/utils";
+import { useWorkspace, WorkspaceType } from "@/src/context/WorkspaceContext";
 
 function DualClock() {
   const [now, setNow] = useState(new Date());
@@ -34,6 +35,44 @@ function DualClock() {
         <span className="text-[--text-secondary] font-bold">{utcTime}</span>
         <span className="text-[--text-tertiary]">UTC</span>
       </div>
+    </div>
+  );
+}
+
+function WorkspaceSelector() {
+  const { activeWorkspace, setActiveWorkspace } = useWorkspace();
+  const [isOpen, setIsOpen] = useState(false);
+  const workspaces: WorkspaceType[] = ["Global", "Forex", "Gold", "Crypto", "Scalping", "Swing", "Funded Challenge"];
+
+  return (
+    <div className="relative">
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[11px] font-bold uppercase tracking-widest transition-colors"
+        style={{ borderColor: "var(--border)", background: "var(--bg-elevated)", color: "var(--accent)" }}
+      >
+        <span className="text-[--text-secondary]">WS:</span> {activeWorkspace}
+        <ChevronDown className="w-3 h-3 text-[--text-tertiary]" />
+      </button>
+
+      {isOpen && (
+        <div 
+          className="absolute top-full left-0 mt-2 w-48 rounded-xl shadow-2xl border py-2 z-50 animate-in fade-in"
+          style={{ background: "var(--bg-card)", borderColor: "var(--border-strong)" }}
+        >
+          {workspaces.map(ws => (
+            <button
+              key={ws}
+              onClick={() => { setActiveWorkspace(ws); setIsOpen(false); }}
+              className={`w-full text-left px-4 py-2 text-[11px] font-bold uppercase tracking-wider transition-colors ${
+                activeWorkspace === ws ? "text-[--accent] bg-[--bg-elevated]" : "text-[--text-secondary] hover:text-[--text-primary] hover:bg-[--bg-elevated]"
+              }`}
+            >
+              {ws}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -224,8 +263,11 @@ export default function Navbar({ onMenuToggle }: { onMenuToggle?: () => void }) 
         </div>
       </div>
 
-      {/* Center: Dual clock */}
-      <DualClock />
+      {/* Center: Dual clock & Workspace */}
+      <div className="flex items-center gap-6">
+        <WorkspaceSelector />
+        <DualClock />
+      </div>
 
       {/* Right: Actions */}
       <div className="flex items-center gap-2">

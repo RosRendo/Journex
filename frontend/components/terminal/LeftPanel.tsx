@@ -7,7 +7,7 @@ import {
   countdown,
   impactColor,
 } from "../../lib/format";
-import { CheckCircle2, HelpCircle, AlertTriangle, AlertOctagon } from "lucide-react";
+import { CheckCircle2, HelpCircle, AlertTriangle, AlertOctagon, ChevronLeft, ChevronRight } from "lucide-react";
 import SentimentGauge from "./SentimentGauge";
 import Heatmap from "./Heatmap";
 
@@ -335,9 +335,11 @@ function CorrelationMatrix({ data }: CorrelationMatrixProps) {
 interface LeftPanelProps {
   snapshot: any;
   loading: boolean;
+  isOpen?: boolean;
+  onToggle?: () => void;
 }
 
-export default function LeftPanel({ snapshot, loading }: LeftPanelProps) {
+export default function LeftPanel({ snapshot, loading, isOpen = true, onToggle }: LeftPanelProps) {
   const content = useMemo(() => {
     if (loading || !snapshot)
       return (
@@ -358,8 +360,23 @@ export default function LeftPanel({ snapshot, loading }: LeftPanelProps) {
   }, [snapshot, loading]);
 
   return (
-    <div data-testid="left-panel-scroll" className="flex-1 overflow-y-auto scroll-thin">
-      {content}
+    <div className="flex flex-col h-full bg-zinc-950">
+      <div className="flex items-center justify-between p-2 border-b border-zinc-800 shrink-0 h-10">
+        {isOpen && (
+           <span className="text-[10px] font-bold tracking-[0.18em] uppercase text-zinc-100">
+             Research
+           </span>
+        )}
+        <button onClick={onToggle} className="p-1 hover:bg-zinc-800 rounded text-zinc-500 hover:text-zinc-300 transition-colors mx-auto">
+          {isOpen ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+        </button>
+      </div>
+
+      {isOpen && (
+        <div data-testid="left-panel-scroll" className="flex-1 overflow-y-auto scroll-thin">
+          {content}
+        </div>
+      )}
     </div>
   );
 }
