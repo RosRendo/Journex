@@ -128,7 +128,7 @@ export default function Navbar({ onMenuToggle }: { onMenuToggle?: () => void }) 
         const authHeaders: HeadersInit = {
           "Content-Type": "application/json",
           "ngrok-skip-browser-warning": "true",
-          ...(sess?.user?.email ? { "Authorization": `Bearer ${sess.user.email}` } : {}),
+          ...((sess?.user as any)?.apiToken ? { "Authorization": `Bearer ${(sess?.user as any).apiToken}` } : {}),
         };
 
         const res = await fetch(`${backendUrl}/api/bridge/api/news`, { headers: authHeaders });

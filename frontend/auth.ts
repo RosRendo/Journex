@@ -27,6 +27,8 @@ providers.push(
     credentials: {
       email: { label: "Email", type: "email" },
       password: { label: "Password", type: "password" },
+      name: { label: "Name", type: "text" },
+      isRegister: { label: "Is Register", type: "text" },
     },
     async authorize(credentials) {
       if (!credentials?.email || !credentials?.password) return null;
@@ -34,15 +36,35 @@ providers.push(
       const email = (credentials.email as string).toLowerCase().trim();
       const password = credentials.password as string;
 
-      // In production, restrict credentials login to only the admin email and a secure ADMIN_PASSWORD
-      const adminPassword = process.env.ADMIN_PASSWORD || "rousrendo123";
-      if (email === ADMIN_EMAIL && password === adminPassword) {
-        return {
-          id: "admin-user",
-          name: "Ros Rendo",
-          email: ADMIN_EMAIL,
-          image: null,
-        };
+      try {
+        const baseUrl = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+        const endpoint = credentials.isRegister === "true" ? "/api/backend-auth/register" : "/api/backend-auth/login";
+        
+        // If registering, we should also pass the name
+        const bodyPayload: any = { email, password };
+        if (credentials.isRegister === "true" && credentials.name) {
+          bodyPayload.name = credentials.name;
+        }
+
+        const res = await fetch(`${baseUrl}${endpoint}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(bodyPayload),
+        });
+
+        const user = await res.json();
+        
+        if (res.ok && user) {
+          return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            image: null,
+            role: user.role,
+          };
+        }
+      } catch (error) {
+        console.error("Auth error:", error);
       }
       return null;
     },
@@ -80,7 +102,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (token.email) {
         try {
           const secret = new TextEncoder().encode(process.env.API_SECRET_KEY || "dev-api-secret-key-change-in-prod");
-          token.apiToken = await new SignJWT({ email: token.email })
+          token.apiToken = await new SignJWT({ email: token.email, isPro: token.isPro })
             .setProtectedHeader({ alg: "HS256" })
             .setIssuedAt()
             .setExpirationTime("1d")

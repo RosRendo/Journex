@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { useSession } from "next-auth/react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { TradeJournalCard } from "@/components/ui/TradeJournalCard";
 import { Input } from "@/components/ui/input";
@@ -14,24 +15,31 @@ export default function JournalsPage() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState("ALL");
   const [search, setSearch] = useState("");
+  const { data: sess } = useSession();
   const MT5_URL = process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge";
 
   useEffect(() => {
+    if (sess === undefined) return; // Wait for session to load
     fetchJournals();
     const interval = setInterval(fetchJournals, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [sess]);
 
   const fetchJournals = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${MT5_URL}/api/journals`, { headers: { "ngrok-skip-browser-warning": "true" } });
+      const token = (sess?.user as any)?.apiToken;
+      const headers: HeadersInit = { "ngrok-skip-browser-warning": "true" };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      const res = await fetch(`${MT5_URL}/api/journals`, { headers });
       if (!res.ok) {
         throw new Error(`Server error: ${res.status}`);
       }
       const data = await res.json();
       if (data.success) {
-        setJournals(data.journals);
+        setJournals(data.journals || data.data || []);
       } else {
         setError(data.error || 'Failed to load journals');
       }
@@ -43,9 +51,11 @@ export default function JournalsPage() {
     }
   };
 
-  const filteredJournals = journals.filter(j => {
+  const filteredJournals = (journals || [])
+    .filter((j: any) => j && j.trade_id)
+    .filter((j: any) => {
     const matchesFilter = filter === "ALL" || j.results?.result === filter || (filter === "OPEN" && j.results?.trade_status === "OPEN");
-    const matchesSearch = j.symbol?.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = !search || j.symbol?.toLowerCase().includes(search.toLowerCase());
     return matchesFilter && matchesSearch;
   });
 

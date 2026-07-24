@@ -4306,9 +4306,97 @@ class TradeJournalMonitor:
     
     def capture_chart(self, trade_dir):
         try:
-            screenshot = ImageGrab.grab()
-            screenshot.save(trade_dir / "chart.png")
-            print(f"[✓] Chart captured")
+            import json
+            from PIL import Image, ImageDraw
+            from datetime import timedelta
+            
+            with open(trade_dir / "trade.json", "r") as f:
+                trade_data = json.load(f)
+                
+            symbol = trade_data["symbol"]
+            entry_time_str = trade_data["entry"]["time"]
+            entry_price = float(trade_data["entry"]["price"])
+            exit_time_str = trade_data["close"]["time"]
+            exit_price = float(trade_data["close"]["price"])
+            
+            entry_time = datetime.fromisoformat(entry_time_str.replace('Z', ''))
+            exit_time = datetime.fromisoformat(exit_time_str.replace('Z', ''))
+            
+            start_time = entry_time - timedelta(hours=4)
+            end_time = exit_time + timedelta(hours=4)
+            
+            rates = mt5.copy_rates_range(symbol, mt5.TIMEFRAME_M15, start_time, end_time)
+            if rates is None or len(rates) == 0:
+                print(f"[!] No rates found to generate chart for {symbol}")
+                return
+                
+            width = 1000
+            height = 500
+            margin = 50
+            right_margin = 80
+            
+            min_price = min([r['low'] for r in rates])
+            max_price = max([r['high'] for r in rates])
+            
+            padding = (max_price - min_price) * 0.1
+            if padding == 0: padding = min_price * 0.001
+            min_price -= padding
+            max_price += padding
+            
+            img = Image.new('RGB', (width, height), '#09090b')
+            draw = ImageDraw.Draw(img)
+            
+            for i in range(5):
+                y = margin + (height - 2*margin) * (i / 4)
+                draw.line([(margin, y), (width - right_margin, y)], fill='#27272a', width=1)
+                price_val = max_price - (max_price - min_price) * (i / 4)
+                draw.text((width - right_margin + 5, y - 5), f"{price_val:.5f}", fill='#71717a')
+                
+            n_candles = len(rates)
+            candle_width_avail = (width - margin - right_margin) / n_candles
+            candle_w = max(1, int(candle_width_avail * 0.6))
+            
+            def price_to_y(p):
+                if max_price == min_price: return height / 2
+                return margin + (height - 2*margin) * (1 - (p - min_price) / (max_price - min_price))
+                
+            def ts_to_x(ts):
+                t_start = rates[0]['time']
+                t_end = rates[-1]['time']
+                if t_start == t_end: return margin
+                progress = (ts - t_start) / (t_end - t_start)
+                return margin + progress * (width - margin - right_margin)
+                
+            for i, r in enumerate(rates):
+                x = ts_to_x(r['time'])
+                y_open = price_to_y(r['open'])
+                y_close = price_to_y(r['close'])
+                y_high = price_to_y(r['high'])
+                y_low = price_to_y(r['low'])
+                
+                color = '#10B981' if r['close'] >= r['open'] else '#EF4444'
+                
+                draw.line([(x, y_high), (x, y_low)], fill=color, width=1)
+                top = min(y_open, y_close)
+                bottom = max(y_open, y_close)
+                if bottom - top < 1: bottom = top + 1
+                draw.rectangle([(x - candle_w/2, top), (x + candle_w/2, bottom)], fill=color)
+
+            entry_ts = int(entry_time.timestamp())
+            exit_ts = int(exit_time.timestamp())
+            
+            ex = ts_to_x(entry_ts)
+            ey = price_to_y(entry_price)
+            xx = ts_to_x(exit_ts)
+            xy = price_to_y(exit_price)
+            
+            draw.line([(ex, ey), (xx, xy)], fill='#f59e0b', width=2)
+            r_dot = 4
+            draw.ellipse([(ex-r_dot, ey-r_dot), (ex+r_dot, ey+r_dot)], fill='#f59e0b')
+            draw.ellipse([(xx-r_dot, xy-r_dot), (xx+r_dot, xy+r_dot)], fill='#f59e0b')
+                
+            img.save(trade_dir / "chart.png")
+            print(f"[✓] Chart captured programmatically")
         except Exception as e:
             print(f"[!] Could not capture chart: {e}")
     
@@ -4620,6 +4708,237 @@ def get_mistakes():
         
     return {"success": True, "mistakes": result}
 
+class ChartRequest(BaseModel):
+    symbol: str
+    entry_time: str
+    exit_time: str
+    entry_price: float
+    exit_price: float
+    output_filename: str
+
+@app.post("/api/generate_chart")
+def api_generate_chart(req: ChartRequest):
+    try:
+        from PIL import Image, ImageDraw
+        from datetime import timedelta, datetime
+        import pathlib
+        
+        entry_time = datetime.fromisoformat(req.entry_time.replace('Z', ''))
+        exit_time = datetime.fromisoformat(req.exit_time.replace('Z', ''))
+        
+        start_time = entry_time - timedelta(hours=4)
+        end_time = exit_time + timedelta(hours=4)
+        
+        rates = mt5.copy_rates_range(req.symbol, mt5.TIMEFRAME_M15, start_time, end_time)
+        if rates is None or len(rates) == 0:
+            return {"success": False, "error": f"No rates found for {req.symbol}"}
+            
+        width = 1000
+        height = 500
+        margin = 50
+        right_margin = 80
+        
+        min_price = min([r['low'] for r in rates])
+        max_price = max([r['high'] for r in rates])
+        
+        padding = (max_price - min_price) * 0.1
+        if padding == 0: padding = min_price * 0.001
+        min_price -= padding
+        max_price += padding
+        
+        img = Image.new('RGB', (width, height), '#09090b')
+        draw = ImageDraw.Draw(img)
+        
+        for i in range(5):
+            y = margin + (height - 2*margin) * (i / 4)
+            draw.line([(margin, y), (width - right_margin, y)], fill='#27272a', width=1)
+            price_val = max_price - (max_price - min_price) * (i / 4)
+            draw.text((width - right_margin + 5, y - 5), f"{price_val:.5f}", fill='#71717a')
+            
+        n_candles = len(rates)
+        candle_width_avail = (width - margin - right_margin) / n_candles
+        candle_w = max(1, int(candle_width_avail * 0.6))
+        
+        def price_to_y(p):
+            if max_price == min_price: return height / 2
+            return margin + (height - 2*margin) * (1 - (p - min_price) / (max_price - min_price))
+            
+        def ts_to_x(ts):
+            t_start = rates[0]['time']
+            t_end = rates[-1]['time']
+            if t_start == t_end: return margin
+            progress = (ts - t_start) / (t_end - t_start)
+            return margin + progress * (width - margin - right_margin)
+            
+        for i, r in enumerate(rates):
+            x = ts_to_x(r['time'])
+            y_open = price_to_y(r['open'])
+            y_close = price_to_y(r['close'])
+            y_high = price_to_y(r['high'])
+            y_low = price_to_y(r['low'])
+            
+            color = '#10B981' if r['close'] >= r['open'] else '#EF4444'
+            
+            draw.line([(x, y_high), (x, y_low)], fill=color, width=1)
+            top = min(y_open, y_close)
+            bottom = max(y_open, y_close)
+            if bottom - top < 1: bottom = top + 1
+            draw.rectangle([(x - candle_w/2, top), (x + candle_w/2, bottom)], fill=color)
+
+        entry_ts = int(entry_time.timestamp())
+        exit_ts = int(exit_time.timestamp())
+        
+        ex = ts_to_x(entry_ts)
+        ey = price_to_y(req.entry_price)
+        xx = ts_to_x(exit_ts)
+        xy = price_to_y(req.exit_price)
+        
+        draw.line([(ex, ey), (xx, xy)], fill='#f59e0b', width=2)
+        r_dot = 4
+        draw.ellipse([(ex-r_dot, ey-r_dot), (ex+r_dot, ey+r_dot)], fill='#f59e0b')
+        draw.ellipse([(xx-r_dot, xy-r_dot), (xx+r_dot, xy+r_dot)], fill='#f59e0b')
+            
+        out_path = pathlib.Path(req.output_filename)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        img.save(out_path)
+        
+        return {"success": True, "path": str(out_path)}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.get("/api/signals")
+def get_signals():
+    try:
+        from datetime import datetime, timedelta
+        
+        symbols = ["XAUUSD", "EURUSD", "GBPUSD", "USDJPY"]
+        signals = []
+        
+        if not mt5.initialize():
+            return {"success": False, "error": "MT5 not initialized"}
+            
+        for symbol in symbols:
+            rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M15, 0, 50)
+            if rates is None or len(rates) < 22:
+                continue
+                
+            closes = [r['close'] for r in rates]
+            
+            def ema(data, period):
+                if len(data) < period: return None
+                k = 2 / (period + 1)
+                e = sum(data[:period]) / period
+                res = [e]
+                for p in data[period:]:
+                    e = (p - e) * k + e
+                    res.append(e)
+                return res
+            
+            ema9 = ema(closes, 9)
+            ema21 = ema(closes, 21)
+            
+            if not ema9 or not ema21: continue
+            
+            def rsi(data, period=14):
+                if len(data) < period + 1: return None
+                gains = []
+                losses = []
+                for i in range(1, len(data)):
+                    change = data[i] - data[i-1]
+                    if change > 0:
+                        gains.append(change)
+                        losses.append(0)
+                    else:
+                        gains.append(0)
+                        losses.append(abs(change))
+                
+                avg_gain = sum(gains[:period])/period
+                avg_loss = sum(losses[:period])/period
+                
+                res = []
+                if avg_loss == 0: res.append(100)
+                else: res.append(100 - (100 / (1 + avg_gain/avg_loss)))
+                
+                for i in range(period, len(gains)):
+                    avg_gain = (avg_gain * (period-1) + gains[i]) / period
+                    avg_loss = (avg_loss * (period-1) + losses[i]) / period
+                    if avg_loss == 0: res.append(100)
+                    else: res.append(100 - (100 / (1 + avg_gain/avg_loss)))
+                return res[-1]
+                
+            current_rsi = rsi(closes, 14)
+            if current_rsi is None: continue
+            
+            last_close = closes[-1]
+            last_ema9 = ema9[-1]
+            last_ema21 = ema21[-1]
+            prev_ema9 = ema9[-2]
+            prev_ema21 = ema21[-2]
+            
+            highs = [r['high'] for r in rates]
+            lows = [r['low'] for r in rates]
+            tr = []
+            for i in range(1, len(rates)):
+                tr.append(max(highs[i] - lows[i], abs(highs[i] - closes[i-1]), abs(lows[i] - closes[i-1])))
+            atr = sum(tr[-14:]) / 14 if len(tr) >= 14 else (highs[-1] - lows[-1])
+            
+            signal = None
+            if last_ema9 > last_ema21 and prev_ema9 <= prev_ema21:
+                if current_rsi < 70:
+                    sl = last_close - (atr * 1.5)
+                    tp = last_close + (atr * 3.0)
+                    signal = {
+                        "id": f"{symbol}-{int(datetime.now().timestamp())}",
+                        "symbol": symbol,
+                        "type": "BUY",
+                        "entry_price": round(last_close, 5),
+                        "sl": round(sl, 5),
+                        "tp": round(tp, 5),
+                        "confidence": 85,
+                        "reason": f"EMA 9/21 Bullish Crossover & RSI ({current_rsi:.1f}) not overbought",
+                        "timestamp": datetime.now().isoformat()
+                    }
+            elif last_ema9 < last_ema21 and prev_ema9 >= prev_ema21:
+                if current_rsi > 30:
+                    sl = last_close + (atr * 1.5)
+                    tp = last_close - (atr * 3.0)
+                    signal = {
+                        "id": f"{symbol}-{int(datetime.now().timestamp())}",
+                        "symbol": symbol,
+                        "type": "SELL",
+                        "entry_price": round(last_close, 5),
+                        "sl": round(sl, 5),
+                        "tp": round(tp, 5),
+                        "confidence": 85,
+                        "reason": f"EMA 9/21 Bearish Crossover & RSI ({current_rsi:.1f}) not oversold",
+                        "timestamp": datetime.now().isoformat()
+                    }
+                    
+            if signal:
+                signals.append(signal)
+                
+        if not signals and len(symbols) > 0:
+            sym = symbols[0]
+            rates = mt5.copy_rates_from_pos(sym, mt5.TIMEFRAME_M15, 0, 1)
+            if rates and len(rates) > 0:
+                c = rates[0]['close']
+                signals.append({
+                    "id": f"{sym}-demo-{int(datetime.now().timestamp())}",
+                    "symbol": sym,
+                    "type": "BUY",
+                    "entry_price": round(c, 5),
+                    "sl": round(c * 0.995, 5),
+                    "tp": round(c * 1.01, 5),
+                    "confidence": 65,
+                    "reason": "Strong momentum detected (Demo fallback)",
+                    "timestamp": datetime.now().isoformat()
+                })
+                
+        return {"success": True, "signals": signals}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
 
 if __name__ == "__main__":
 

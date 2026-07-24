@@ -16,7 +16,7 @@ export async function syncBrokerTrades(userId: string) {
   let newTradesCount = 0;
 
   if (provider === "mt5_bridge") {
-    newTradesCount = await syncMT5Trades(userId, base_url || "http://localhost:5003");
+    newTradesCount = await syncMT5Trades(userId, process.env.MT5_BRIDGE_URL || base_url || "http://localhost:5003");
   } else if (provider === "oanda") {
     newTradesCount = await syncOandaTrades(userId, api_key, account_id, base_url || "https://api-fxpractice.oanda.com");
   } else {
@@ -107,18 +107,18 @@ async function processImportedTrades(userId: string, trades: any[], brokerName: 
         data: {
           userId: userId,
           date: t.date ? new Date(t.date) : new Date(),
-          pair: t.symbol,
+          pair: t.symbol || t.pair || "Unknown",
           direction: t.direction,
           entry: parseFloat(t.entry) || 0,
-          closePrice: parseFloat(t.close_price) || 0,
+          closePrice: parseFloat(t.close_price || t.closePrice) || 0,
           profit: profit,
-          lotSize: parseFloat(t.lot_size) || 0,
+          lotSize: parseFloat(t.lot_size || t.lotSize) || 0,
           strategy: `${brokerName} Sync`,
           setupType: `${brokerName} Sync`,
           ticket: String(t.ticket),
           commission: parseFloat(t.commission) || 0,
-          openTime: t.open_time ? new Date(t.open_time * 1000) : null,
-          closeTime: t.close_time ? new Date(t.close_time * 1000) : null,
+          openTime: t.openTime ? new Date(t.openTime) : (t.open_time ? new Date(t.open_time * 1000) : null),
+          closeTime: t.closeTime ? new Date(t.closeTime) : (t.close_time ? new Date(t.close_time * 1000) : (t.date ? new Date(t.date) : null)),
           outcome: outcome
         }
       });

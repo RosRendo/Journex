@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Users, Loader2, TrendingUp, TrendingDown, ChevronDown } from "lucide-react";
 import { motion } from "framer-motion";
-import { getBackendUrl } from "@/lib/utils";
+import { getBackendUrl, fetchWithAuth } from "@/lib/utils";
 
 const PAIRS = ["XAUUSD", "EURUSD", "GBPUSD", "USDJPY", "US30", "NAS100"];
 
@@ -17,7 +17,7 @@ export function RetailSentimentGauge() {
   const fetchSentiment = async (currentSymbol: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`${getBackendUrl()}/api/bridge/api/sentiment?symbol=${currentSymbol}`);
+      const res = await fetchWithAuth(`${getBackendUrl()}/api/bridge/api/sentiment?symbol=${currentSymbol}`);
       const json = await res.json();
       if (json.success) {
         setLongPct(json.long_pct);

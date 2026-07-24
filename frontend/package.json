@@ -10,8 +10,6 @@
   },
   "dependencies": {
     "@polar-sh/sdk": "^0.22.0",
-    "@supabase/ssr": "^0.12.0",
-    "@supabase/supabase-js": "^2.86.0",
     "axios": "^1.10.0",
     "chart": "^0.1.2",
     "chart.js": "^4.5.0",

@@ -192,7 +192,7 @@ export function AIMacroDeskSection() {
   const [pairs, setPairs] = useState<PairCard[]>(FALLBACK_PAIRS);
   const [loading, setLoading] = useState(true);
   const { data: session } = useSession();
-  const userEmail = session?.user?.email || "";
+  const userEmail = (session?.user as any)?.apiToken || "";
 
   React.useEffect(() => {
     const fetchTechnicals = async () => {

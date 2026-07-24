@@ -4,6 +4,7 @@ import { fmtSignedMoney, fmtMoney, fmtPct } from "../../lib/format";
 import { closeOrder } from "../../lib/terminalApi";
 import RiskCalculator from "./RiskCalculator";
 import CryptoStrip from "./CryptoStrip";
+import SignalWidget from "./SignalWidget";
 
 interface WidgetHeaderProps {
   title: string;
@@ -260,7 +261,7 @@ function Watchlist({ data }: WatchlistProps) {
 interface RightPanelProps {
   snapshot: any;
   loading: boolean;
-  onNewOrder?: () => void;
+  onNewOrder?: (initialData?: any) => void;
   onPositionsChanged?: () => void;
 }
 
@@ -271,6 +272,7 @@ export default function RightPanel({ snapshot, loading, onNewOrder, onPositionsC
     );
   return (
     <div className="flex-1 overflow-y-auto scroll-thin flex flex-col">
+      <SignalWidget onExecute={(sig) => onNewOrder?.(sig)} />
       <OpenPositions data={snapshot.positions} onNewOrder={onNewOrder} onChanged={onPositionsChanged} />
       <AccountStatus data={snapshot.account} />
       <RiskCalculator accountBalance={snapshot.account?.balance} />

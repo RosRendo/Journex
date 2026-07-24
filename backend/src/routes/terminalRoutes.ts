@@ -120,15 +120,16 @@ function saveSettings(settings: Record<string, any>) {
 import { verifyAdminToken } from "../middleware/auth";
 const ADMIN_EMAIL = "rousrendo@gmail.com";
 
-function isAdmin(req: any): boolean {
+function isUserPro(req: any): boolean {
   const auth: string = req?.headers?.authorization || "";
-  return verifyAdminToken(auth).valid;
+  const token = verifyAdminToken(auth);
+  return token.valid && token.isPro === true;
 }
 
 function getActiveAdapter(req?: any) {
-  // Non-admin callers always get the safe mock adapter — zero leakage of live
-  // broker credentials, positions, or orders to guests / friends.
-  if (req && !isAdmin(req)) {
+  // Non-pro callers always get the safe mock adapter — zero leakage of live
+  // broker credentials, positions, or orders to guests / free tier users.
+  if (req && !isUserPro(req)) {
     return buildAdapter({ provider: "mock" });
   }
   const currentSettings = getSettings();
@@ -955,6 +956,17 @@ router.get("/terminal/technical-signals", (req, res) => {
   res.json(getTechnicalSignals());
 });
 
+// GET /api/terminal/signals
+router.get("/terminal/signals", async (req, res) => {
+  try {
+    const response = await axios.get("http://127.0.0.1:5003/api/signals");
+    res.json(response.data);
+  } catch (error: any) {
+    console.error("[Bridge API Error] Failed to fetch signals:", error.message);
+    res.status(500).json({ success: false, error: "Failed to fetch signals from bridge" });
+  }
+});
+
 // GET /api/terminal/journal
 router.get("/terminal/journal", async (req, res) => {
   try {
@@ -1255,6 +1267,34 @@ router.post("/journal/trades", async (req, res) => {
   try {
     const { symbol, side, volume, entry, exit, sl, tp, pnl, tag, notes } = req.body;
 
+    const ticketId = `T-${Date.now()}`;
+    const openTime = new Date();
+    const closeTime = exit ? new Date() : null;
+    let imageUrl = null;
+
+    if (exit && entry) {
+      try {
+        const outName = `${ticketId}.png`;
+        // Put in public uploads dir
+        const outPath = path.join(__dirname, "../../uploads/charts", outName);
+        
+        const chartRes = await axios.post("http://127.0.0.1:5003/api/generate_chart", {
+          symbol,
+          entry_time: openTime.toISOString(),
+          exit_time: closeTime?.toISOString() || openTime.toISOString(),
+          entry_price: Number(entry),
+          exit_price: Number(exit),
+          output_filename: outPath
+        });
+        
+        if (chartRes.data && chartRes.data.success) {
+          imageUrl = `/uploads/charts/${outName}`;
+        }
+      } catch (err) {
+        console.error("[Manual Journal] Snapshot failed:", err);
+      }
+    }
+
     const trade = await prisma.trade.create({
       data: {
         date: new Date(),
@@ -1269,10 +1309,11 @@ router.post("/journal/trades", async (req, res) => {
         strategy: tag || "Manual",
         setupType: tag || "Manual",
         notes: notes || "Added from terminal journal",
-        ticket: `T-${Date.now()}`,
-        openTime: new Date(),
-        closeTime: exit ? new Date() : null,
+        ticket: ticketId,
+        openTime: openTime,
+        closeTime: closeTime,
         lotSize: Number(volume),
+        imageUrl: imageUrl,
       },
     });
 
@@ -1442,7 +1483,7 @@ router.post("/orders/:trade_id/close", async (req, res) => {
 // GET /api/settings/broker
 router.get("/settings/broker", (req, res) => {
   // Guests receive a safe empty config — never expose real API keys
-  if (!isAdmin(req)) {
+  if (!isUserPro(req)) {
     return res.json({
       provider: "mock",
       environment: "practice",
@@ -1467,8 +1508,8 @@ router.get("/settings/broker", (req, res) => {
 });
 
 // POST /api/terminal/sync (Sync Historical Trades from Broker)
-router.post("/sync", async (req, res) => {
-  if (!isAdmin(req)) {
+router.post("/terminal/sync", async (req, res) => {
+  if (!isUserPro(req)) {
     return res.status(403).json({ success: false, error: "Unauthorized. Read-only mode." });
   }
 
@@ -1485,7 +1526,7 @@ router.post("/sync", async (req, res) => {
 router.post("/settings/broker", (req, res) => {
   const payload = req.body;
   // Guests cannot overwrite the admin's broker config
-  if (!isAdmin(req)) {
+  if (!isUserPro(req)) {
     return res.json({
       ...payload,
       connected: false,
@@ -1509,7 +1550,7 @@ router.post("/settings/broker", (req, res) => {
 // POST /api/settings/broker/test
 router.post("/settings/broker/test", async (req, res) => {
   // Guests get a simulated mock success — they never test live credentials
-  if (!isAdmin(req)) {
+  if (!isUserPro(req)) {
     return res.json({
       success: true,
       connected: true,
@@ -1552,7 +1593,7 @@ router.post("/settings/broker/test", async (req, res) => {
 // GET /api/settings/api-keys
 router.get("/settings/api-keys", (req, res) => {
   // Guests see no real keys
-  if (!isAdmin(req)) {
+  if (!isUserPro(req)) {
     return res.json({
       marketaux: "", newsapi: "", tradingeconomics: "",
       discord_webhook: "", telegram_bot_token: "", telegram_chat_id: "",
@@ -1591,7 +1632,7 @@ router.get("/settings/api-keys", (req, res) => {
 // POST /api/settings/api-keys
 router.post("/settings/api-keys", (req, res) => {
   // Guests cannot overwrite the admin's API keys
-  if (!isAdmin(req)) {
+  if (!isUserPro(req)) {
     return res.json({ saved: false, configured: [], _guest: true });
   }
   const keys = req.body;

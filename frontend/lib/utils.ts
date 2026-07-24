@@ -1,8 +1,24 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { getSession } from "next-auth/react"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
+}
+
+export async function fetchWithAuth(url: string, options: RequestInit = {}) {
+  const headers = new Headers(options.headers || {});
+  headers.set("ngrok-skip-browser-warning", "true");
+  try {
+    const session = await getSession();
+    const token = (session?.user as any)?.apiToken;
+    if (token) {
+      headers.set("Authorization", `Bearer ${token}`);
+    }
+  } catch (err) {
+    console.warn("Failed to get session for fetchWithAuth", err);
+  }
+  return fetch(url, { ...options, headers });
 }
 
 export function resolveLocalUrl(url: string): string {

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { AlertTriangle, Clock, Loader2, Calendar } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { getBackendUrl } from "@/lib/utils";
+import { getBackendUrl, fetchWithAuth } from "@/lib/utils";
 
 export function NewsCountdownWidget() {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
@@ -13,7 +13,7 @@ export function NewsCountdownWidget() {
 
   const fetchNews = async () => {
     try {
-      const res = await fetch(`${getBackendUrl()}/api/bridge/api/news/next-high-impact`);
+      const res = await fetchWithAuth(`${getBackendUrl()}/api/bridge/api/news/next-high-impact`);
       const json = await res.json();
       if (json.success) {
         setEventName(json.event);

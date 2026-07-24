@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -17,17 +17,32 @@ interface OrderTicketProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   defaultSymbol?: string;
+  initialData?: {
+    symbol?: string;
+    side?: "BUY" | "SELL";
+    sl?: number;
+    tp?: number;
+  };
   onSubmitted?: (trade: any) => void;
 }
 
-export default function OrderTicket({ open, onOpenChange, defaultSymbol, onSubmitted }: OrderTicketProps) {
-  const [symbol, setSymbol] = useState(defaultSymbol || "EURUSD");
-  const [side, setSide] = useState("BUY");
+export default function OrderTicket({ open, onOpenChange, defaultSymbol, initialData, onSubmitted }: OrderTicketProps) {
+  const [symbol, setSymbol] = useState(initialData?.symbol || defaultSymbol || "EURUSD");
+  const [side, setSide] = useState(initialData?.side || "BUY");
   const [volume, setVolume] = useState<string | number>(0.1);
-  const [sl, setSl] = useState("");
-  const [tp, setTp] = useState("");
+  const [sl, setSl] = useState(initialData?.sl ? String(initialData.sl) : "");
+  const [tp, setTp] = useState(initialData?.tp ? String(initialData.tp) : "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialData && open) {
+      if (initialData.symbol) setSymbol(initialData.symbol);
+      if (initialData.side) setSide(initialData.side);
+      if (initialData.sl !== undefined) setSl(String(initialData.sl));
+      if (initialData.tp !== undefined) setTp(String(initialData.tp));
+    }
+  }, [initialData, open]);
 
   const onSubmit = async () => {
     setSubmitting(true);

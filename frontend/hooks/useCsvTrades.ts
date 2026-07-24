@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { getBackendUrl } from "@/lib/utils";
+import { getBackendUrl, fetchWithAuth } from "@/lib/utils";
 import { getSession } from "@/lib/useSession";
 
 // Use getBackendUrl() — returns NEXT_PUBLIC_BACKEND_URL or localhost:5000.
@@ -110,11 +110,7 @@ export function useCsvTrades(accountId?: number, autoRefreshMs: number = 0) {
 
       // 1. Fetch from MT5 bridge history
       const url = `${API_BASE}/api/history`;
-      const response = await fetch(url, {
-        headers: {
-          "ngrok-skip-browser-warning": "true"
-        }
-      });
+      const response = await fetchWithAuth(url);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch MT5 history (${response.status})`);
@@ -141,8 +137,9 @@ export function useCsvTrades(accountId?: number, autoRefreshMs: number = 0) {
       try {
         const session = await getSession();
         const headers: Record<string, string> = { "ngrok-skip-browser-warning": "true" };
-        if (session?.user?.email) {
-          headers["Authorization"] = `Bearer ${session.user.email}`;
+        const apiToken = (session?.user as any)?.apiToken;
+        if (apiToken) {
+          headers["Authorization"] = `Bearer ${apiToken}`;
         }
 
         const fetchUrl = DB_API_URL === "http://localhost:5000" ? `${DB_API}/api/trades?limit=100&sortBy=date&order=DESC` : `/api/trades?limit=100&sortBy=date&order=DESC`;

@@ -31,8 +31,9 @@ export function usePositions(accountId?: string, autoRefreshMs: number = 2000) {
         const backendUrl = getBackendUrl();
         const session = await getSession();
         const headers: Record<string, string> = { "Content-Type": "application/json" };
-        if (session?.user?.email) {
-          headers["Authorization"] = `Bearer ${session.user.email}`;
+        const apiToken = (session?.user as any)?.apiToken;
+        if (apiToken) {
+          headers["Authorization"] = `Bearer ${apiToken}`;
         }
         const res = await fetch(`${backendUrl}/api/bridge/api/positions`, { headers });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);

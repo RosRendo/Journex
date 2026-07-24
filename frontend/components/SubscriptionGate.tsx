@@ -44,8 +44,8 @@ export default function SubscriptionGate({
     return <>{children}</>;
   }
 
-  // Trial expired, not pro — show the gate (but not on /subscription itself)
-  if (pathname.includes("/subscription")) {
+  // Trial expired, not pro — show the gate (but not on /subscription or /terminal itself)
+  if (pathname.includes("/subscription") || pathname.includes("/terminal")) {
     return <>{children}</>;
   }
 

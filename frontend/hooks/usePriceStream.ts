@@ -12,7 +12,7 @@ export interface Tick {
 
 export function usePriceStream(symbol: string) {
   const { data: session, status: sessionStatus } = useSession();
-  const userEmail = session?.user?.email || "";
+  const apiToken = (session?.user as any)?.apiToken || "";
   const [lastTick, setLastTick] = useState<Tick | null>(null);
   const [status, setStatus] = useState<string>("connecting"); // connecting | open | closed | error
   const wsRef = useRef<WebSocket | null>(null);
@@ -25,7 +25,7 @@ export function usePriceStream(symbol: string) {
     let cancelled = false;
 
     const open = () => {
-      const url = getWebSocketUrl(`api/ws/prices?symbol=${encodeURIComponent(symbol)}&token=${encodeURIComponent(userEmail)}`);
+      const url = getWebSocketUrl(`api/ws/prices?symbol=${encodeURIComponent(symbol)}&token=${encodeURIComponent(apiToken)}`);
       try {
         const ws = new WebSocket(url);
         wsRef.current = ws;
@@ -66,10 +66,11 @@ export function usePriceStream(symbol: string) {
       cancelled = true;
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
       if (wsRef.current) {
-        try { wsRef.current.close(); } catch (_) { /* ignore */ }
+        wsRef.current.onclose = null; // prevent reconnect logic on unmount
+        wsRef.current.close();
       }
     };
-  }, [symbol, userEmail, sessionStatus]);
+  }, [symbol, apiToken, sessionStatus]);
 
   return { lastTick, status };
 }

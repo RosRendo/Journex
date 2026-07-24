@@ -22,7 +22,7 @@ export function TradeJournalCard({ journal }: { journal: any }) {
                   {journal.position_type}
                 </Badge>
               </CardTitle>
-              <div className="text-xs text-slate-400 mt-1 flex items-center gap-1">
+              <div suppressHydrationWarning className="text-xs text-slate-400 mt-1 flex items-center gap-1">
                 <CalendarIcon className="w-3 h-3" />
                 {new Date(journal.entry?.time || journal.metadata?.created_at).toLocaleString()}
               </div>

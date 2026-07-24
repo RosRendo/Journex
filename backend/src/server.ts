@@ -3,6 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import compression from "compression";
 import dotenv from "dotenv";
+import axios from "axios";
 import path from "path";
 import { createProxyMiddleware } from "http-proxy-middleware";
 import tradeRoutes from "./routes/tradeRoutes";
@@ -17,6 +18,7 @@ import checklistRoutes from "./routes/checklistRoutes";
 import tradingPlanRoutes from "./routes/tradingPlanRoutes";
 import terminalRoutes, { getSettings } from "./routes/terminalRoutes";
 import paymentRoutes from "./routes/paymentRoutes";
+import authRoutes from "./routes/authRoutes";
 import { buildAdapter } from "./services/terminalBrokerAdapter";
 import { errorHandler } from "./middleware/errorHandler";
 import { verifyAdminToken } from "./middleware/auth";
@@ -28,6 +30,7 @@ import fs from "fs";
 dotenv.config();
 
 const app = express();
+app.set("trust proxy", 1);
 const PORT = process.env.PORT || 5000;
 const ADMIN_EMAIL = "rousrendo@gmail.com";
 
@@ -83,7 +86,7 @@ function isAdminRequest(req: any): boolean {
 }
 
 // Middleware
-app.use(helmet());
+app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(
   cors({
     origin: true,
@@ -100,7 +103,13 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 // Routes
-app.use("/api", requireAuth);
+app.use("/api/backend-auth", authRoutes);
+app.use("/api", (req, res, next) => {
+  if (req.path.startsWith("/bridge")) {
+    return next();
+  }
+  requireAuth(req, res, next);
+});
 app.use("/api/trades", tradeRoutes);
 app.use("/api/accounts", accountRoutes);
 app.use("/api/upload", uploadRoutes);
@@ -126,7 +135,7 @@ app.get("/api/subscription/status", (req, res) => {
 // If TRADE_MODE = 'cloud', route to MetaApi REST endpoints.
 // If TRADE_MODE = 'local', proxy to the local Python script (port 5003).
 const tradeMode = process.env.TRADE_MODE || "local";
-const localMt5Url = process.env.LOCAL_MT5_URL || "http://localhost:5003";
+const localMt5Url = process.env.MT5_BRIDGE_URL || process.env.LOCAL_MT5_URL || "http://localhost:5003";
 
 // Mock bridge responses for non-admin callers (guests / friends)
 const MOCK_BRIDGE_RESPONSES: Record<string, any> = {
@@ -136,6 +145,7 @@ const MOCK_BRIDGE_RESPONSES: Record<string, any> = {
   "/api/close-position": { success: true, message: "Paper trade closed" },
   "/api/modify-position": { success: true, message: "Paper trade modified" },
   "/api/trade": { success: true, ticket: 0, price: 0, message: "Paper trade placed" },
+  "/api/journals": { success: true, journals: [] },
 };
 
 // Custom handler for bridge endpoints if using MetaApi
@@ -326,8 +336,45 @@ wss.on("connection", (ws, request) => {
       console.error(`[OANDA STREAM START FAILED] ${err.message}`);
       startMockInterval();
     }
+  } else if (callerIsAdmin && broker.provider === "mt5_bridge" && broker.connected) {
+    startMt5Interval();
   } else {
     startMockInterval();
+  }
+
+  function startMt5Interval() {
+    if (mockInterval) return;
+    const baseUrl = (process.env.MT5_BRIDGE_URL || broker.base_url || "http://localhost:5003").replace(/\/$/, "");
+    
+    mockInterval = setInterval(async () => {
+      if (ws.readyState !== 1) {
+        clearInterval(mockInterval!);
+        return;
+      }
+      for (const s of subscribedSymbols) {
+        try {
+          // Fire and forget requests to get latest price for each symbol
+          axios.get(`${baseUrl}/api/symbol-price`, { params: { symbol: s }, timeout: 800 })
+            .then(res => {
+              if (res.data && res.data.success) {
+                const tick = {
+                  type: "tick",
+                  symbol: s,
+                  bid: res.data.bid,
+                  ask: res.data.ask,
+                  mid: (res.data.bid + res.data.ask) / 2,
+                  time: new Date().toISOString(),
+                  source: "mt5_bridge",
+                };
+                if (ws.readyState === 1) {
+                  ws.send(JSON.stringify(tick));
+                }
+              }
+            })
+            .catch(() => {});
+        } catch (err) {}
+      }
+    }, 1000); // 1s polling interval
   }
 
   function startMockInterval() {

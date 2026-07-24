@@ -6,9 +6,11 @@ import { TradeProvider } from "@/src/context/TradeContext";
 import { AccountProvider } from "@/src/context/AccountContext";
 import { AuthProvider } from "@/src/context/AuthContext";
 import { Toaster } from "sonner";
+import { SessionProvider } from "next-auth/react";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
+    <SessionProvider>
       <ThemeProvider
         attribute="class"
         defaultTheme="system"
@@ -25,5 +27,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
           </AccountProvider>
         </AuthProvider>
       </ThemeProvider>
+    </SessionProvider>
   );
 }

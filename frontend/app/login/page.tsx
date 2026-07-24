@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/utils/supabase/client';
+import { signIn } from '@/lib/useSession';
 import { Terminal, Lock, Mail, ArrowRight } from 'lucide-react';
 
 export default function LoginPage() {
@@ -12,20 +12,19 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   
   const router = useRouter();
-  const supabase = createClient();
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     
-    const { error } = await supabase.auth.signInWithPassword({
+    const result: any = await signIn('credentials', {
       email,
       password,
+      redirect: false
     });
 
-    if (error) {
-      setError(error.message);
+    if (result?.error) {
+      setError(result.error);
     } else {
       router.push('/');
       router.refresh();
@@ -38,19 +37,36 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/`,
-      }
-    });
+    try {
+      const res = await fetch('/api/backend-auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
 
-    if (error) {
-      setError(error.message);
-    } else {
-      setError('Check your email for the confirmation link.');
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || 'Failed to create account');
+      } else {
+        // Automatically log in after successful registration
+        const loginResult: any = await signIn('credentials', {
+          email,
+          password,
+          redirect: false
+        });
+
+        if (loginResult?.error) {
+          setError(loginResult.error);
+        } else {
+          router.push('/');
+          router.refresh();
+        }
+      }
+    } catch (err) {
+      setError('Network error occurred. Please try again.');
     }
+    
     setLoading(false);
   };
 

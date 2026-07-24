@@ -1,65 +1,40 @@
 @echo off
-title 🚀 Journex — LOCAL DEV STARTUP
-color 0A
-
-REM ═══════════════════════════════════════════════════════════════════════
-REM  LOCAL DEV STARTUP SCRIPT
-REM  Opens: Local Frontend (localhost:3000) + Local Backend + MT5 Bridge
-REM
-REM  ▶ SETUP (one-time):
-REM    1. Copy this file to your Windows Desktop or any convenient folder
-REM    2. Adjust the paths at the top of this file if your project is
-REM       in a different location.
-REM    3. Double-click to run — or press Win+R, type shell:startup,
-REM       and put a shortcut here to auto-run on every boot.
-REM ═══════════════════════════════════════════════════════════════════════
-
-REM ── PATHS (edit these if your project lives elsewhere) ─────────────────
-set PROJECT_WIN=d:\Forex\journex
-set FRONTEND_DIR=%PROJECT_WIN%\frontend
-set PROJECT_WSL=/mnt/d/Forex/journex
-REM If you moved the project into WSL native fs, change the line above:
-REM set PROJECT_WSL=/home/%USERNAME%/journex
-REM ───────────────────────────────────────────────────────────────────────
+title 🚀 Journex — LOCAL DEV STARTUP (Optimized)
+color 0B
 
 echo.
 echo  ┌──────────────────────────────────────────────────────────┐
-echo  │   Journex — Local Development Startup            │
-echo  │   Frontend  → http://localhost:3000                      │
-echo  │   Backend   → http://localhost:5000                      │
-echo  │   MT5 Brdg  → http://localhost:5003                      │
+echo  │   Journex — Local Optimized Startup (Docker + PM2)       │
+echo  │   Frontend  -^> http://localhost:3000                      │
+echo  │   Backend   -^> http://localhost:5000                      │
+echo  │   MT5 Brdg  -^> http://localhost:5003                      │
 echo  └──────────────────────────────────────────────────────────┘
 echo.
 
-REM ── [1/3] Start Express Backend ───────────────────────────────────────
-echo [1/3] Starting Express Backend (npm run dev)...
-start "Backend (Express)" cmd /k "cd /d %PROJECT_WIN%\backend && npm run dev"
+set PROJECT_WIN=d:\FOR RENDO (ONLY )\Personal Project\Dashboard
 
-REM Wait 3 seconds for backend server to start
-echo       Waiting 3 seconds for backend to start...
-timeout /t 3 /nobreak > nul
-
-REM ── [2/3] Start MT5 Python Bridge on Windows ──────────────────────────
-echo [2/3] Starting MT5 Bridge (Python)...
-start "MT5 Bridge" cmd /k "cd /d %PROJECT_WIN% && python mt5_bridge.py"
-
-REM Wait 3 seconds for bridge to come up
-timeout /t 3 /nobreak > nul
-
-REM ── [3/3] Start Next.js Frontend (local dev server) ───────────────────
-echo [3/3] Starting Next.js frontend (localhost:3000)...
-start "Frontend (Next.js)" cmd /k "cd /d %FRONTEND_DIR% && npm run dev"
-
-REM Wait 5 seconds for Next.js to compile, then open the browser
-echo       Waiting 5 seconds for Next.js to compile...
-timeout /t 5 /nobreak > nul
-
+REM ── [1/3] Start Docker Compose (Database, Backend, Frontend) ──────────
 echo.
-echo  Opening dashboard in browser...
+echo [1/3] Starting Database, Backend, and Frontend in Docker...
+cd /d "%PROJECT_WIN%"
+docker-compose -f docker-compose-full.yml up -d
+
+REM ── [2/3] Start MT5 Python Bridge (PM2) ───────────────────────────────
+echo.
+echo [2/3] Starting MT5 Bridge with PM2...
+call pm2 start ecosystem.config.js
+call pm2 save
+
+REM ── [3/3] Open Browser ────────────────────────────────────────────────
+echo.
+echo [3/3] Opening dashboard in browser...
+timeout /t 3 /nobreak > nul
 start http://localhost:3000/dashboard
 
 echo.
-echo  ✅ All services started!
-echo     Close any of the opened terminal windows to stop that service.
+echo  ✅ All optimized services started in the background!
+echo     To view logs, you can run:
+echo     - Docker: docker-compose -f docker-compose-full.yml logs -f
+echo     - PM2:    pm2 logs mt5-bridge-dev
 echo.
 pause

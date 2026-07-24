@@ -274,7 +274,7 @@ function TradeReviewPanel({ trade, onUpdated }: TradeReviewPanelProps) {
 
     try {
       const session = await getSession();
-      const token = session?.user?.email;
+      const token = (session?.user as any)?.apiToken;
       const res = await fetch(`${getBackendUrl()}/api/upload`, {
         method: "POST",
         headers: {
@@ -303,7 +303,7 @@ function TradeReviewPanel({ trade, onUpdated }: TradeReviewPanelProps) {
     setSyncing(true);
     try {
       const session = await getSession();
-      const token = session?.user?.email;
+      const token = (session?.user as any)?.apiToken;
       const res = await fetch(`${getBackendUrl()}/api/trades/sync`, {
         method: "POST",
         headers: {
@@ -335,7 +335,7 @@ function TradeReviewPanel({ trade, onUpdated }: TradeReviewPanelProps) {
     setSaving(true);
     try {
       const session = await getSession();
-      const token = session?.user?.email;
+      const token = (session?.user as any)?.apiToken;
       const payload = {
         notes,
         emotion,

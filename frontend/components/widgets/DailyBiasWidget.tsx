@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Target, Save, CheckCircle2, ChevronRight, PenTool } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { getBackendUrl } from "@/lib/utils";
+import { getBackendUrl, fetchWithAuth } from "@/lib/utils";
 
 export function DailyBiasWidget() {
   const [biasText, setBiasText] = useState("");
@@ -11,7 +11,7 @@ export function DailyBiasWidget() {
   const [isFocused, setIsFocused] = useState(false);
 
   useEffect(() => {
-    fetch(`${getBackendUrl()}/api/bridge/api/dailybias`)
+    fetchWithAuth(`${getBackendUrl()}/api/bridge/api/dailybias`)
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.bias) {
@@ -23,7 +23,7 @@ export function DailyBiasWidget() {
 
   const handleSave = async () => {
     try {
-      await fetch(`${getBackendUrl()}/api/bridge/api/dailybias`, {
+      await fetchWithAuth(`${getBackendUrl()}/api/bridge/api/dailybias`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bias: biasText }),

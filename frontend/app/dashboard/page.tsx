@@ -26,7 +26,7 @@ import { useWebSocket } from "@/hooks/useWebSocket";
 import { useCsvTrades } from "@/hooks/useCsvTrades";
 import { useNews } from "@/hooks/useNews";
 import { calculateMetrics, getStrategyStats } from "@/lib/calculations";
-import { getBackendUrl } from "@/lib/utils";
+import { getBackendUrl, fetchWithAuth } from "@/lib/utils";
 import { getPairDigits } from "@/lib/format";
 import {
   AreaChart,
@@ -131,7 +131,7 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchMt5Account = async () => {
       try {
-        const res = await fetch(`${bridgeUrl}/api/account`, { headers: { "ngrok-skip-browser-warning": "true" } });
+        const res = await fetchWithAuth(`${bridgeUrl}/api/account`);
         if (res.ok) {
           const data = await res.json();
           setMt5Data({
@@ -175,7 +175,7 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchTechnicals = async () => {
       try {
-        const res = await fetch(`${bridgeUrl}/api/technicals?symbol=${selectedPair}`, { headers: { "ngrok-skip-browser-warning": "true" } });
+        const res = await fetchWithAuth(`${bridgeUrl}/api/technicals?symbol=${selectedPair}`);
         if (res.ok) {
           const data = await res.json();
           setTechnicals({
@@ -198,9 +198,8 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchCandles = async () => {
       try {
-        const res = await fetch(
-          `${bridgeUrl}/api/candles?symbol=${selectedPair}&timeframe=${selectedTimeframe}&count=200`,
-          { headers: { "ngrok-skip-browser-warning": "true" } }
+        const res = await fetchWithAuth(
+          `${bridgeUrl}/api/candles?symbol=${selectedPair}&timeframe=${selectedTimeframe}&count=200`
         );
         if (res.ok) {
           const data = await res.json();
@@ -271,7 +270,7 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchNextNews = async () => {
       try {
-        const res = await fetch(`${getBackendUrl()}/api/bridge/api/news/next-high-impact`);
+        const res = await fetchWithAuth(`${getBackendUrl()}/api/bridge/api/news/next-high-impact`);
         if (res.ok) {
           const data = await res.json();
           if (data.success) {
@@ -441,7 +440,7 @@ export default function Dashboard() {
         <button 
           onClick={async () => {
             try {
-              const res = await fetch("/api/trades/sync", { method: "POST" });
+              const res = await fetchWithAuth("/api/trades/sync", { method: "POST" });
               const data = await res.json();
               if (data.success) {
                 await refresh();

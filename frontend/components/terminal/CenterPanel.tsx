@@ -126,7 +126,7 @@ export default function CenterPanel({ symbol, timeframe, onTimeframeChange, snap
     <div className="flex flex-col h-full min-h-0">
       {/* Chart header */}
       <div className="shrink-0 border-b border-zinc-800 bg-zinc-950">
-        <div className="flex items-center gap-3 px-3 h-9">
+        <div className="flex items-center gap-3 px-3 min-h-9 py-1 flex-wrap">
           <div className="flex items-baseline gap-2">
             <span data-testid="chart-symbol" className="text-sm font-bold tracking-wider text-zinc-100">
               {symbol}
@@ -137,19 +137,19 @@ export default function CenterPanel({ symbol, timeframe, onTimeframeChange, snap
           </div>
           <span
             data-testid="chart-last-price"
-            className={`font-mono text-sm tabular-nums ${
+            className={`font-mono text-sm tabular-nums whitespace-nowrap ${
               change >= 0 ? "text-emerald-500" : "text-red-500"
             }`}
           >
             {lastPrice ? lastPrice.toFixed(digits) : "—"}
           </span>
           <span
-            className={`font-mono text-[11px] ${change >= 0 ? "text-emerald-500" : "text-red-500"}`}
+            className={`font-mono text-[11px] whitespace-nowrap ${change >= 0 ? "text-emerald-500" : "text-red-500"}`}
           >
             {change >= 0 ? "▲" : "▼"} {Math.abs(change).toFixed(digits)} ({changePct.toFixed(2)}%)
           </span>
-          <div className="flex-1" />
-          <div className="flex items-center gap-1">
+          <div className="flex-1 min-w-[20px]" />
+          <div className="flex items-center gap-1 flex-wrap">
             {TIMEFRAMES.map((tf) => (
               <TogglePill
                 key={tf}
@@ -161,7 +161,7 @@ export default function CenterPanel({ symbol, timeframe, onTimeframeChange, snap
               </TogglePill>
             ))}
           </div>
-          <div className="flex items-center gap-1 pl-2 ml-2 border-l border-zinc-800">
+          <div className="flex items-center gap-1 pl-2 ml-2 border-l border-zinc-800 flex-wrap">
             {["Line", "Candles"].map((t) => (
               <TogglePill
                 key={t}
@@ -188,7 +188,7 @@ export default function CenterPanel({ symbol, timeframe, onTimeframeChange, snap
             </TogglePill>
           </div>
         </div>
-        <div className="flex items-center gap-3 px-3 h-8 border-t border-zinc-900">
+        <div className="flex items-center gap-3 px-3 min-h-8 py-1 flex-wrap border-t border-zinc-900">
           <span className="text-[10px] uppercase tracking-widest text-zinc-500">Indicators</span>
           <div className="flex gap-1 flex-wrap">
             {INDICATOR_DEFS.map((ind) => (

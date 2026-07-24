@@ -47,6 +47,8 @@ export async function checkMT5Connection(): Promise<boolean> {
   }
 }
 
+import { fetchWithAuth } from "@/lib/utils";
+
 /**
  * Fetch data with retry logic
  */
@@ -60,7 +62,7 @@ export async function fetchWithRetry(
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const response = await fetch(url, {
+      const response = await fetchWithAuth(url, {
         timeout: 5000,
         ...options,
       } as RequestInit);

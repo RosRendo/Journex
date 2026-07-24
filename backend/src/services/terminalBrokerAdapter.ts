@@ -327,7 +327,18 @@ export class Mt5BridgeAdapter implements BrokerAdapter {
   }
 
   async getCandles(symbol: string, timeframe: string, limit: number) {
-    // mt5_bridge.py does not expose a candles endpoint, so we fallback to mock candles
+    try {
+      const res = await axios.get(`${this.baseUrl}/api/historical-candles`, {
+        params: { symbol, timeframe, count: limit },
+        timeout: 5000,
+      });
+      if (res.data && res.data.success && res.data.data.length > 0) {
+        return res.data.data;
+      }
+    } catch (err: any) {
+      console.warn(`[Mt5BridgeAdapter] getCandles failed for ${symbol} ${timeframe}:`, err.message);
+    }
+    // fallback to mock candles if MT5 fails or no data
     return generateCandles(symbol, timeframe, limit);
   }
 
@@ -976,7 +987,7 @@ export function buildAdapter(cfg: any): BrokerAdapter {
     return new AlpacaAdapter(api_key, api_secret, base_url || undefined);
   }
   if (provider === "mt5_bridge") {
-    return new Mt5BridgeAdapter(base_url || "http://localhost:5003");
+    return new Mt5BridgeAdapter(process.env.MT5_BRIDGE_URL || base_url || "http://localhost:5003");
   }
   return new MockAdapter();
 }

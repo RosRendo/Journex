@@ -38,7 +38,7 @@ const DEFAULT_BASE_URL: Record<string, string> = {
   oanda_practice: "https://api-fxpractice.oanda.com",
   oanda_live: "https://api-fxtrade.oanda.com",
   alpaca: "https://paper-api.alpaca.markets",
-  mt5_bridge: "http://localhost:8765",
+  mt5_bridge: "http://localhost:5003",
 };
 
 export default function BrokerSettings({ open, onOpenChange, onConnected }: BrokerSettingsProps) {

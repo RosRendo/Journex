@@ -16,6 +16,12 @@ export default function TerminalPage() {
   const [symbol, setSymbol] = useState("XAUUSD");
   const [timeframe, setTimeframe] = useState("H4");
   const [orderOpen, setOrderOpen] = useState(false);
+  const [orderInitialData, setOrderInitialData] = useState<any>(null);
+  
+  const handleOpenOrder = (initialData?: any) => {
+    setOrderInitialData(initialData || null);
+    setOrderOpen(true);
+  };
   const [brokerOpen, setBrokerOpen] = useState(false);
   const [apiKeysOpen, setApiKeysOpen] = useState(false);
   const { snapshot, loading, refetch } = useTerminalData(symbol, timeframe);
@@ -64,7 +70,7 @@ export default function TerminalPage() {
           <RightPanel
             snapshot={snapshot}
             loading={loading}
-            onNewOrder={() => setOrderOpen(true)}
+            onNewOrder={handleOpenOrder}
             onPositionsChanged={refetch}
           />
         </aside>
@@ -78,7 +84,11 @@ export default function TerminalPage() {
         open={orderOpen}
         onOpenChange={setOrderOpen}
         defaultSymbol={symbol}
-        onSubmitted={() => refetch()}
+        initialData={orderInitialData}
+        onSubmitted={() => {
+          setOrderOpen(false);
+          refetch();
+        }}
       />
       <BrokerSettings open={brokerOpen} onOpenChange={setBrokerOpen} onConnected={refetch} />
       <ApiKeysSettings open={apiKeysOpen} onOpenChange={setApiKeysOpen} onSaved={refetch} />

@@ -2,7 +2,8 @@
 
 import { useUtcClock } from "../../hooks/useTerminalData";
 import { utcClock } from "../../lib/format";
-import { ChevronDown, Activity, Settings, Plus, Key, Crosshair } from "lucide-react";
+import { ChevronDown, Activity, Settings, Plus, Key, Crosshair, Lock } from "lucide-react";
+import { useSession } from "next-auth/react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -15,6 +16,8 @@ import {
 const POPULAR = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "NZDUSD", "USDCHF", "USDCAD", "XAUUSD", "AUDJPY", "EURJPY"];
 
 export default function TerminalHeader({ symbol, onSymbolChange, connected, symbols, onOpenOrderTicket, onOpenBrokerSettings, onOpenApiKeys, isLive, provider }) {
+  const { data: session } = useSession();
+  const isPro = (session?.user as any)?.isPro === true;
   const now = useUtcClock();
   const list = symbols && symbols.length > 0 ? symbols.map((s) => s.symbol) : POPULAR;
 
@@ -82,7 +85,23 @@ export default function TerminalHeader({ symbol, onSymbolChange, connected, symb
         </span>
       </div>
 
-      <div className="flex-1" />
+      <div className="flex-1 flex items-center justify-center">
+        {!isPro && (
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+              <span className="text-[10px] font-bold tracking-widest uppercase text-amber-500">Mock Data (Free Tier)</span>
+            </div>
+            <button
+              onClick={() => (window.location.href = "/subscription")}
+              className="flex items-center gap-1 px-3 py-1 bg-zinc-900 border border-zinc-700 hover:border-zinc-500 transition-colors text-[10px] font-bold tracking-widest uppercase text-zinc-300 rounded-full"
+            >
+              <Lock size={10} className="text-zinc-500" />
+              Upgrade for Live Data
+            </button>
+          </div>
+        )}
+      </div>
 
       <div className="flex items-center gap-2">
         <button

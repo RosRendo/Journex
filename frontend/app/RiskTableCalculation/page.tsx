@@ -21,6 +21,7 @@ import {
   checkMT5Connection,
   getServiceErrorMessage,
 } from "@/utils/serviceStatus";
+import { fetchWithAuth } from "@/lib/utils";
 
 interface Calculation {
   symbol: string;
@@ -127,7 +128,7 @@ export default function ForexRiskDashboard() {
   const startCalculator = async () => {
     setIsLoading(true);
     try {
-      await fetch(`${MT5_API}/api/start`, { headers: { "ngrok-skip-browser-warning": "true" },  method: "POST" });
+      await fetchWithAuth(`${MT5_API}/api/start`, { method: "POST" });
       setData((prev) => ({ ...prev, is_running: true }));
       await fetchData();
     } catch {
@@ -141,7 +142,7 @@ export default function ForexRiskDashboard() {
   const stopCalculator = async () => {
     setIsLoading(true);
     try {
-      await fetch(`${MT5_API}/api/stop`, { headers: { "ngrok-skip-browser-warning": "true" },  method: "POST" });
+      await fetchWithAuth(`${MT5_API}/api/stop`, { method: "POST" });
       setData((prev) => ({ ...prev, is_running: false }));
     } catch {
       alert("Error stopping calculator");
@@ -176,7 +177,7 @@ export default function ForexRiskDashboard() {
       `Sending ${direction} order for ${symbol}...`,
     );
     try {
-      const res = await fetch(`${MT5_API}/api/execute-trade`, {
+      const res = await fetchWithAuth(`${MT5_API}/api/execute-trade`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

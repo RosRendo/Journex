@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { useSession } from "next-auth/react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Brain, TrendingUp, TrendingDown, Clock, Activity, Target } from "lucide-react";
@@ -14,16 +15,23 @@ export default function JournalDetailPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { data: sess } = useSession();
   const MT5_URL = process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge";
 
   useEffect(() => {
+    if (sess === undefined) return; // Wait for session
     fetchJournal();
-  }, [id]);
+  }, [id, sess]);
 
   const fetchJournal = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${MT5_URL}/api/journals/${id}`, { headers: { "ngrok-skip-browser-warning": "true" } });
+      const token = (sess?.user as any)?.apiToken;
+      const headers: HeadersInit = { "ngrok-skip-browser-warning": "true" };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      const res = await fetch(`${MT5_URL}/api/journals/${id}`, { headers });
       if (!res.ok) {
         throw new Error(`Server error: ${res.status}`);
       }
@@ -45,6 +53,8 @@ export default function JournalDetailPage() {
   if (error || !data) return <div className="p-10 text-center text-red-400">{error || 'Journal not found'}</div>;
 
   const { trade, analysis } = data;
+  if (!trade) return <div className="p-10 text-center text-red-400">Journal data missing or invalid format.</div>;
+
   const isWin = trade.results?.result === "W";
   const isLoss = trade.results?.result === "L";
 

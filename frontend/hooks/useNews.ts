@@ -22,8 +22,9 @@ export function useNews(autoRefreshMs: number = 300000) { // Default 5 minutes
         const backendUrl = getBackendUrl();
         const session = await getSession();
         const headers: Record<string, string> = { "Content-Type": "application/json" };
-        if (session?.user?.email) {
-          headers["Authorization"] = `Bearer ${session.user.email}`;
+        const apiToken = (session?.user as any)?.apiToken;
+        if (apiToken) {
+          headers["Authorization"] = `Bearer ${apiToken}`;
         }
         
         const res = await fetch(`${backendUrl}/api/bridge/api/news`, { headers });

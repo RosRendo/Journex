@@ -1,30 +1,13 @@
 module.exports = {
   apps: [
     {
-      name: "dashboard-frontend",
-      cwd: "./frontend",
-      script: "node_modules/next/dist/bin/next",
-      args: "start",
-      env: {
-        NODE_ENV: "production",
-        PORT: 3000,
-        AUTH_TRUST_HOST: "true"
-      }
-    },
-    {
-      name: "dashboard-backend",
-      cwd: "./backend",
-      script: "dist/server.js",
-      env: {
-        NODE_ENV: "production",
-        PORT: 5000
-      }
-    },
-    {
-      name: "mt5-bridge",
+      name: "mt5-bridge-dev",
       cwd: ".",
       script: "mt5_bridge.py",
-      interpreter: "python"
+      interpreter: "C:\\Users\\ROS RENDO\\.pyenv\\pyenv-win\\versions\\3.12.0\\python.exe",
+      env: {
+        NODE_ENV: "development"
+      }
     }
   ]
 };

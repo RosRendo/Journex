@@ -34,11 +34,11 @@ export default function AuthPage() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    const res = await signIn("credentials", {
+    const res: any = await signIn("credentials", {
       email, password, name, isRegister: mode === "register", redirect: false,
     });
     setLoading(false);
-    if (res?.ok) {
+    if (!res?.error) {
       router.push("/dashboard");
     } else {
       setError("Invalid credentials. Try any email and password in demo mode.");

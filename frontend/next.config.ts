@@ -17,7 +17,7 @@ const nextConfig: NextConfig = {
               "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://s3.tradingview.com https://www.tradingview.com",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
-              "img-src 'self' data: blob: https: http://localhost:5003 http://127.0.0.1:5003",
+              "img-src 'self' data: blob: https: http://localhost:5003 http://127.0.0.1:5003 http://localhost:5000 http://127.0.0.1:5000",
               [
                 "connect-src 'self'",
                 // Cloudflare tunnel custom domains (production)
@@ -28,12 +28,8 @@ const nextConfig: NextConfig = {
                 // Railway fallback (keep in case direct Railway access needed)
                 "https://*.up.railway.app",
                 "wss://*.up.railway.app",
-                // Supabase
-                "https://*.supabase.co",
-                "wss://*.supabase.co",
                 // Local development
                 "http://localhost:5000",
-                "/api/bridge",
                 "ws://localhost:5000",
                 "ws://localhost:5003",
                 "http://0.0.0.0:5003",

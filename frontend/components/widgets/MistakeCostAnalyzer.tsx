@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { AlertOctagon, TrendingDown, Crosshair, AlertTriangle, ShieldAlert } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { getBackendUrl } from "@/lib/utils";
+import { getBackendUrl, fetchWithAuth } from "@/lib/utils";
 
 interface Mistake {
   tag: string;
@@ -16,7 +16,7 @@ export function MistakeCostAnalyzer() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${getBackendUrl()}/api/bridge/api/mistakes`)
+    fetchWithAuth(`${getBackendUrl()}/api/bridge/api/mistakes`)
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.mistakes) {

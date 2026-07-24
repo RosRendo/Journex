@@ -73,7 +73,7 @@ router.post('/webhook', async (req: Request, res: Response, next: NextFunction) 
           const metadata = payload.data?.metadata;
           
           if (metadata && metadata.userId) {
-            // Find the user in our Supabase DB via Prisma, and mark them as premium!
+            // Find the user in our DB via Prisma, and mark them as premium!
             console.log(`Upgrading user ${metadata.userId} to premium!`);
             
             // Ensure you add a 'tier' or 'subscriptionStatus' column to your Prisma schema 

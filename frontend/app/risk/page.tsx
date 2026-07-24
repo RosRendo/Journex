@@ -77,7 +77,7 @@ export default function RiskPage() {
 
   const getHeaders = async () => {
     const session = await getSession();
-    const token = session?.user?.email;
+    const token = (session?.user as any)?.apiToken;
     const headers: Record<string, string> = {
       "ngrok-skip-browser-warning": "true",
       "Content-Type": "application/json"

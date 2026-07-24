@@ -30,6 +30,63 @@ function sma(data: any[], period: number) {
   return out;
 }
 
+function computeEMA(data: any[], period: number, key = "close") {
+  if (data.length === 0) return [];
+  const k = 2 / (period + 1);
+  let ema = data[0][key];
+  const out = [{ time: data[0].time, value: ema }];
+  for (let i = 1; i < data.length; i++) {
+    ema = data[i][key] * k + ema * (1 - k);
+    out.push({ time: data[i].time, value: ema });
+  }
+  return out;
+}
+
+function computeMACD(data: any[], fast = 12, slow = 26, signal = 9) {
+  const fEma = computeEMA(data, fast);
+  const sEma = computeEMA(data, slow);
+  const macdLine = [];
+  for (let i = 0; i < data.length; i++) {
+    macdLine.push({ time: data[i].time, value: fEma[i].value - sEma[i].value });
+  }
+  const sigEma = computeEMA(macdLine, signal, "value");
+  const hist = [];
+  for (let i = 0; i < data.length; i++) {
+    const val = macdLine[i].value - sigEma[i].value;
+    hist.push({
+      time: data[i].time,
+      value: val,
+      color: val >= 0 ? "rgba(16,185,129,0.5)" : "rgba(239,68,68,0.5)",
+    });
+  }
+  return { macd: macdLine, signal: sigEma, hist };
+}
+
+function computeRSI(data: any[], period = 14) {
+  if (data.length <= period) return [];
+  const out: any[] = [];
+  let avgGain = 0;
+  let avgLoss = 0;
+  for (let i = 1; i <= period; i++) {
+    const change = data[i].close - data[i - 1].close;
+    if (change > 0) avgGain += change;
+    else avgLoss -= change;
+  }
+  avgGain /= period;
+  avgLoss /= period;
+  out.push({ time: data[period].time, value: 100 - 100 / (1 + avgGain / (avgLoss || 1e-10)) });
+  
+  for (let i = period + 1; i < data.length; i++) {
+    const change = data[i].close - data[i - 1].close;
+    const gain = change > 0 ? change : 0;
+    const loss = change < 0 ? -change : 0;
+    avgGain = (avgGain * (period - 1) + gain) / period;
+    avgLoss = (avgLoss * (period - 1) + loss) / period;
+    out.push({ time: data[i].time, value: 100 - 100 / (1 + avgGain / (avgLoss || 1e-10)) });
+  }
+  return out;
+}
+
 interface Point {
   time: number;
   price: number;
@@ -152,12 +209,48 @@ export default function Chart({ candles, indicators, drawingMode, drawings, onDr
       lastValueVisible: false,
     });
 
+    // Sub-pane style via priceScale configuration
+    const rsiSeries = chart.addLineSeries({
+      color: "#8b5cf6",
+      lineWidth: 1.5,
+      priceLineVisible: false,
+      lastValueVisible: false,
+      priceScaleId: "rsi",
+    });
+    rsiSeries.priceScale().applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
+
+    const macdHist = chart.addHistogramSeries({
+      priceFormat: { type: "volume" },
+      priceScaleId: "macd",
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+    const macdSeries = chart.addLineSeries({
+      color: "#3b82f6",
+      lineWidth: 1.5,
+      priceScaleId: "macd",
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+    const macdSignal = chart.addLineSeries({
+      color: "#f59e0b",
+      lineWidth: 1.5,
+      priceScaleId: "macd",
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+    macdHist.priceScale().applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
+
     seriesRef.current = {
       candle: candleSeries,
       vol: volumeSeries,
       ma20: ma20Series,
       ma50: ma50Series,
       ma200: ma200Series,
+      rsi: rsiSeries,
+      macd: macdSeries,
+      macdSignal,
+      macdHist,
     };
 
     // Click handler for drawing tools
@@ -215,6 +308,24 @@ export default function Chart({ candles, indicators, drawingMode, drawings, onDr
       s.ma20.setData(indicators?.ma20 ? sma(candles, 20) : []);
       s.ma50.setData(indicators?.ma50 ? sma(candles, 50) : []);
       s.ma200.setData(indicators?.ma200 ? sma(candles, 200) : []);
+      
+      if (indicators?.rsi) {
+        s.rsi.setData(computeRSI(candles));
+        // Add RSI 30/70 levels if possible, or just let users view it
+      } else {
+        s.rsi.setData([]);
+      }
+      
+      if (indicators?.macd) {
+        const { macd, signal, hist } = computeMACD(candles);
+        s.macd.setData(macd);
+        s.macdSignal.setData(signal);
+        s.macdHist.setData(hist);
+      } else {
+        s.macd.setData([]);
+        s.macdSignal.setData([]);
+        s.macdHist.setData([]);
+      }
 
       const last = candles[candles.length - 1];
       if (last) {

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { TrendingUp, TrendingDown, Loader2 } from "lucide-react";
-import { getBackendUrl } from "@/lib/utils";
+import { getBackendUrl, fetchWithAuth } from "@/lib/utils";
 
 const INITIAL_PAIRS = [
   { pair: "XAUUSD", change: 0, price: 0 },
@@ -18,7 +18,7 @@ export function MarketHeatmapWidget() {
 
   const fetchHeatmap = async () => {
     try {
-      const res = await fetch(`${getBackendUrl()}/api/bridge/api/heatmap`);
+      const res = await fetchWithAuth(`${getBackendUrl()}/api/bridge/api/heatmap`);
       const json = await res.json();
       if (json.success && json.data) {
         // map json.data into expected format

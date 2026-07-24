@@ -1,11 +1,12 @@
 import axios from "axios";
 import { Trade } from "../types/trade";
 
-import { createClient } from "../utils/supabase/client";
+import { getSession } from "next-auth/react";
 
 import { getBackendUrl } from "./utils";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || getBackendUrl() || "/api";
+const backendBase = process.env.NEXT_PUBLIC_API_URL || getBackendUrl();
+const API_URL = backendBase ? `${backendBase}/api` : "/api";
 
 const api = axios.create({
   baseURL: API_URL,
@@ -14,14 +15,14 @@ const api = axios.create({
 // Inject cryptographically signed JWT token to authorize backend requests securely
 api.interceptors.request.use(async (config) => {
   try {
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token;
+    const session = await getSession();
+    // Assuming the API token is injected into the user session by next-auth (as configured in auth.ts)
+    const token = (session?.user as any)?.apiToken;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
   } catch (err) {
-    console.warn("Failed to get Supabase session in interceptor:", err);
+    console.warn("Failed to get NextAuth session in interceptor:", err);
   }
   return config;
 }, (err) => {
