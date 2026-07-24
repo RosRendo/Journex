@@ -204,3 +204,35 @@
   background-color: var(--accent);
   animation: pulse-glow 2s infinite;
 }
+
+/* ── Focus Mode ───────────────────────────────────────────────────────────── */
+/* When .focus-mode is on <html>, dim all sidebar/nav noise and hide non-core panels */
+html.focus-mode [data-testid="left-panel"] {
+  opacity: 0;
+  pointer-events: none;
+  width: 0 !important;
+  min-width: 0 !important;
+  overflow: hidden;
+  transition: opacity 0.3s ease, width 0.3s ease;
+}
+
+html.focus-mode [data-testid="center-panel"] {
+  width: 75% !important;
+  transition: width 0.3s ease;
+}
+
+html.focus-mode nav,
+html.focus-mode header {
+  opacity: 0.15;
+  transition: opacity 0.3s ease;
+}
+
+html.focus-mode nav:hover,
+html.focus-mode header:hover {
+  opacity: 1;
+}
+
+/* Focus mode amber pulse border on the main trading area */
+html.focus-mode [data-testid="center-panel"] {
+  border-left: 1px solid rgba(251, 191, 36, 0.2) !important;
+}

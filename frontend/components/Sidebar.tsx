@@ -2,276 +2,223 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
-  LayoutDashboard,
-  BookOpen,
-  CalendarDays,
-  BarChart3,
-  Wallet,
-  Crosshair,
-  Settings,
-  TrendingUp,
-  PieChart,
-  Eye,
-  Bell,
-  Zap,
-  Code,
-  RotateCcw,
-  LucideIcon,
-  ChevronDown,
-  Users,
-  Shield,
-  Target,
-  Trophy,
-  CheckCircle2,
-  AlertTriangle,
+  LayoutDashboard, Terminal, Radar, BarChart3, ShieldAlert,
+  Settings, Calculator, Activity, ChevronDown, ChevronRight,
+  BookOpen, CalendarDays, TrendingUp, CheckCircle2, AlertTriangle,
+  Percent, BarChart2, Grid, Target, Zap, RotateCcw, Code, Newspaper,
+  Bell, Users, Wallet, Eye, Crosshair, Shield, Command, Maximize2,
 } from "lucide-react";
-import { useEffect } from "react";
+import { useFocusMode } from "./providers/FocusModeProvider";
 
+interface NavChild { href: string; label: string; }
 interface NavItem {
-  href: string;
+  id: string;
   label: string;
-  icon: LucideIcon;
+  icon: any;
+  href?: string;
+  badge?: string;
+  children?: NavChild[];
 }
 
-interface NavGroup {
-  title: string;
-  icon: LucideIcon;
-  items: Array<{ href: string; label: string }>;
+// TOP-LEVEL: 8 items max
+const TOP_NAV: NavItem[] = [
+  { id: "dashboard", label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { id: "terminal", label: "Terminal", href: "/terminal", icon: Terminal },
+  { id: "signals", label: "Scanner", href: "/signals", icon: Radar },
+  {
+    id: "performance",
+    label: "Performance",
+    icon: BarChart3,
+    children: [
+      { href: "/analytics", label: "Analytics" },
+      { href: "/journal", label: "Trade Journal" },
+      { href: "/journals", label: "AI Journals" },
+      { href: "/review", label: "Trade Review" },
+      { href: "/review/daily", label: "Daily Review" },
+      { href: "/progress", label: "Challenge Tracker" },
+      { href: "/strategies", label: "Strategies" },
+      { href: "/wrandrr", label: "Win Rate & RR" },
+    ],
+  },
+  {
+    id: "risk",
+    label: "Risk",
+    icon: ShieldAlert,
+    children: [
+      { href: "/risk", label: "Risk Calculator" },
+      { href: "/RiskTableCalculation", label: "Risk Table" },
+      { href: "/loteachpair", label: "Lot Per Pair" },
+      { href: "/fundedrequire", label: "Funded Rules" },
+      { href: "/validation", label: "Pre-Trade Check" },
+    ],
+  },
+  {
+    id: "analysis",
+    label: "Analysis",
+    icon: Activity,
+    children: [
+      { href: "/sentiment", label: "Market Sentiment" },
+      { href: "/news", label: "Macro Desk" },
+      { href: "/calendar", label: "Economic Calendar" },
+      { href: "/indicator", label: "Indicators" },
+      { href: "/tradingstyle", label: "Trading Style" },
+    ],
+  },
+  {
+    id: "tools",
+    label: "Tools",
+    icon: Zap,
+    children: [
+      { href: "/backtesting", label: "Backtesting" },
+      { href: "/GoldTradingSimulator", label: "Gold Simulator" },
+      { href: "/bot", label: "Trading Bots" },
+      { href: "/accounts", label: "Accounts" },
+      { href: "/community", label: "Community" },
+      { href: "/alerts", label: "Alerts" },
+      { href: "/script", label: "Scripts" },
+    ],
+  },
+  { id: "settings", label: "Settings", href: "/settings", icon: Settings },
+];
+
+interface SidebarProps {
+  onOpenCommandPalette?: () => void;
 }
 
-const Sidebar = () => {
+const Sidebar = ({ onOpenCommandPalette }: SidebarProps) => {
   const pathname = usePathname();
-
-  const [expandedGroups, setExpandedGroups] = useState<string[]>([
-    "Validation Hub",
-    "Risk Management",
-    "Trading Bots",
-    "Live Monitoring",
-    "Analysis & Trading",
-    "Funded Account",
-  ]);
-
-  // Auto-expand groups on initial load
-  useEffect(() => {
-    tradingTools.forEach(group => {
-      if (isActiveGroup(group.items)) {
-        setExpandedGroups(prev => 
-          prev.includes(group.title) ? prev : [...prev, group.title]
-        );
-      }
-    });
-  }, []);
-
-  const toggleGroup = (groupId: string) => {
-    setExpandedGroups((prev) =>
-      prev.includes(groupId)
-        ? prev.filter((id) => id !== groupId)
-        : [...prev, groupId],
-    );
-  };
+  const { focusMode, toggleFocusMode } = useFocusMode();
+  const [expanded, setExpanded] = useState<string[]>([]);
 
   // Auto-expand the group that contains the current route
-  const isActiveHref = (href: string) => pathname === href;
-  const isActiveGroup = (items: Array<{ href: string }>) =>
-    items.some((item) => pathname === item.href);
+  useEffect(() => {
+    TOP_NAV.forEach(item => {
+      if (item.children?.some(c => c.href === pathname)) {
+        setExpanded(prev => prev.includes(item.id) ? prev : [...prev, item.id]);
+      }
+    });
+  }, [pathname]);
 
-  // Main Quick Navigation
-  const mainNav: NavItem[] = [
-    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/journals", label: "AI Journals", icon: BookOpen },
-    { href: "/journal", label: "Manual Journal", icon: BookOpen },
-    { href: "/calendar", label: "Calendar", icon: CalendarDays },
-    { href: "/analytics", label: "Analytics", icon: BarChart3 },
-    { href: "/accounts", label: "Accounts", icon: Wallet },
-    { href: "/community", label: "Community", icon: Users },
-    { href: "/strategies", label: "Strategies", icon: Crosshair },
-    { href: "/alerts", label: "Alerts", icon: Bell },
-    { href: "/settings", label: "Settings", icon: Settings },
-  ];
+  const toggle = (id: string) => {
+    setExpanded(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
 
-  // Trading Tools Groups
-  const tradingTools: NavGroup[] = [
-    {
-      title: "Validation Hub",
-      icon: Shield,
-      items: [
-        { href: "/validation", label: "Pre-Trade Checks" },
-        { href: "/review", label: "Trade Review" },
-        { href: "/review/daily", label: "Daily Review" },
-        { href: "/progress", label: "Challenge Tracker" },
-      ],
-    },
-    {
-      title: "Risk Management",
-      icon: PieChart,
-      items: [
-        { href: "/risk", label: "Calculate Risk" },
-        { href: "/wrandrr", label: "Win Rate & RR Analysis" },
-        { href: "/loteachpair", label: "Lot Each Pair" },
-        { href: "/RiskTableCalculation", label: "Risk Table Calculation" },
-      ],
-    },
-    {
-      title: "Funded Account",
-      icon: Wallet,
-      items: [
-        { href: "/fundedrequire", label: "Funded Requirements" },
-      ],
-    },
-    {
-      title: "Trading Bots",
-      icon: Zap,
-      items: [
-        { href: "/bot", label: "BOT (Trading)" },
-      ],
-    },
-    {
-      title: "Analysis & Trading",
-      icon: TrendingUp,
-      items: [
-        { href: "/sentiment", label: "Sentiment Data" },
-        { href: "/pipreference", label: "PIP Movement Table" },
-        { href: "/tradingstyle", label: "Trading Style & Planning" },
-        { href: "/indicator", label: "Indicators & Tools" },
-      ],
-    },
-    {
-      title: "Live Monitoring",
-      icon: Eye,
-      items: [
-        { href: "/livemonitorchart", label: "Live Monitor Chart" },
-        { href: "/notificationandmonitor", label: "Notifications & Alerts" },
-        { href: "/positions", label: "Active Positions" },
-        { href: "/news", label: "News & Macro Insights" },
-      ],
-    },
-    {
-      title: "Trading Simulators",
-      icon: Crosshair,
-      items: [
-        { href: "/GoldTradingSimulator", label: "Gold Simulator" },
-        { href: "/FlexibleGoldSimulator", label: "Flexible Simulator" },
-      ],
-    },
-    {
-      title: "Advanced Tools",
-      icon: Code,
-      items: [
-        { href: "/script", label: "Scripts" },
-        { href: "/layout", label: "Custom Layout" },
-      ],
-    },
-    {
-      title: "Backtesting",
-      icon: RotateCcw,
-      items: [{ href: "/backtesting", label: "Backtesting & Replay" }],
-    },
-  ];
+  const isActive = (href: string) => pathname === href;
+  const isGroupActive = (children?: NavChild[]) => children?.some(c => pathname === c.href);
 
   return (
-    <aside className="w-72 h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 text-foreground overflow-y-auto border-r border-slate-700 dark:border-border flex flex-col flex-shrink-0">
-      {/* Header */}
-      <div className="sticky top-0 bg-slate-900/95 dark:bg-gray-950/95 p-6 border-b border-slate-700 dark:border-border backdrop-blur-sm z-10">
-        <h1 className="text-2xl font-bold tracking-wide flex items-center gap-2">
-          📊 TradeZella
-        </h1>
-        <p className="text-xs text-slate-400 dark:text-muted-foreground mt-1">
-          Trading Journal & Tools
-        </p>
-      </div>
-
-      {/* Main Navigation */}
-      <nav className="flex-1 overflow-y-auto">
-        {/* Quick Access */}
-        <div className="p-4 border-b border-slate-700 dark:border-border">
-          <p className="text-xs font-semibold text-slate-400 dark:text-muted-foreground mb-3 px-2 uppercase tracking-wider">
-            Quick Access
-          </p>
-          <div className="space-y-1">
-            {mainNav.map(({ href, label, icon: Icon }) => {
-              const active = isActiveHref(href);
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-all duration-200 ${active
-                    ? "bg-blue-600/20 text-blue-400 border border-blue-500/30"
-                    : "text-slate-300 dark:text-muted-foreground hover:text-blue-400 dark:hover:text-blue-300 hover:bg-slate-700/50 dark:hover:bg-muted border border-border/50 text-foreground/30"
-                    }`}
-                >
-                  <Icon className="w-4 h-4 flex-shrink-0" />
-                  <span className="truncate">{label}</span>
-                  {active && (
-                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400" />
-                  )}
-                </Link>
-              );
-            })}
+    <aside className={`w-[220px] h-screen bg-[#0A0C10] border-r border-zinc-800/60 flex flex-col flex-shrink-0 transition-all duration-300 ${focusMode ? "opacity-30 pointer-events-none" : ""}`}>
+      {/* Logo */}
+      <div className="px-5 py-4 border-b border-zinc-800/60">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-blue-500/20 border border-blue-500/40 flex items-center justify-center">
+            <span className="text-blue-400 text-xs font-bold">T</span>
+          </div>
+          <div>
+            <p className="text-sm font-bold text-white tracking-tight">TradeZella</p>
+            <p className="text-[10px] text-zinc-500">Institutional Terminal</p>
           </div>
         </div>
+      </div>
 
-        {/* Trading Tools Groups */}
-        <div className="p-4 space-y-1">
-          <p className="text-xs font-semibold text-slate-400 dark:text-muted-foreground mb-3 px-2 uppercase tracking-wider">
-            Trading Tools
-          </p>
-          {tradingTools.map((group) => {
-            const groupActive = isActiveGroup(group.items);
-            const isExpanded = expandedGroups.includes(group.title);
+      {/* Ctrl+K Search Bar */}
+      <div className="px-3 pt-3 pb-2">
+        <button
+          onClick={onOpenCommandPalette}
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-500 text-xs hover:border-zinc-600 hover:text-zinc-300 transition-all group"
+        >
+          <Command className="w-3.5 h-3.5" />
+          <span className="flex-1 text-left">Search or jump to...</span>
+          <kbd className="px-1.5 py-0.5 text-[9px] font-mono bg-zinc-800 border border-zinc-700 rounded opacity-70 group-hover:opacity-100">⌘K</kbd>
+        </button>
+      </div>
 
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto px-2 py-1 space-y-0.5">
+        {TOP_NAV.map(item => {
+          const Icon = item.icon;
+          const active = item.href ? isActive(item.href) : false;
+          const groupActive = isGroupActive(item.children);
+          const isExpanded = expanded.includes(item.id);
+
+          if (item.href && !item.children) {
+            // Simple link
             return (
-              <div key={group.title} className="mb-1">
-                {/* Group Header */}
-                <button
-                  onClick={() => toggleGroup(group.title)}
-                  className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg transition-colors duration-200 text-sm font-semibold ${groupActive
-                    ? "bg-blue-600/10 text-blue-400"
-                    : "text-slate-200 dark:text-foreground/80 hover:text-blue-400 dark:hover:text-blue-400 hover:bg-slate-700/50 dark:hover:bg-muted border border-border/50 text-foreground/30"
-                    }`}
-                >
-                  <span className="flex items-center gap-2">
-                    <group.icon className="w-4 h-4 flex-shrink-0" />
-                    <span className="truncate">{group.title}</span>
-                  </span>
-                  <ChevronDown
-                    className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""
-                      }`}
-                  />
-                </button>
-
-                {/* Group Items */}
-                {isExpanded && (
-                  <div className="ml-4 mt-1 space-y-0.5 border-l-2 border-slate-700 dark:border-border pl-3">
-                    {group.items.map(({ href, label }) => {
-                      const active = isActiveHref(href);
-                      return (
-                        <Link
-                          key={href}
-                          href={href}
-                          className={`block px-4 py-2 rounded-md text-sm transition-all duration-150 ${active
-                            ? "bg-blue-600/20 text-blue-400 border-l-2 border-blue-500 -ml-px pl-[calc(1rem-1px)]"
-                            : "text-slate-300 dark:text-muted-foreground hover:text-blue-400 dark:hover:text-blue-300 hover:bg-slate-700/50 dark:hover:bg-muted border border-border/50 text-foreground/30 hover:translate-x-0.5"
-                            }`}
-                        >
-                          {label}
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+              <Link
+                key={item.id}
+                href={item.href}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 ${
+                  active
+                    ? "bg-blue-500/15 text-blue-300 border border-blue-500/25"
+                    : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60"
+                }`}
+              >
+                <Icon className="w-4 h-4 flex-shrink-0" />
+                <span>{item.label}</span>
+                {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />}
+              </Link>
             );
-          })}
-        </div>
+          }
+
+          // Group with children
+          return (
+            <div key={item.id}>
+              <button
+                onClick={() => toggle(item.id)}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 ${
+                  groupActive
+                    ? "text-blue-300 bg-blue-500/10"
+                    : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60"
+                }`}
+              >
+                <Icon className="w-4 h-4 flex-shrink-0" />
+                <span className="flex-1 text-left">{item.label}</span>
+                {groupActive && !isExpanded && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />}
+                <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 text-zinc-600 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
+              </button>
+
+              {isExpanded && (
+                <div className="ml-3 mt-0.5 mb-1 pl-3 border-l border-zinc-800 space-y-0.5">
+                  {item.children?.map(child => (
+                    <Link
+                      key={child.href}
+                      href={child.href}
+                      className={`block px-2.5 py-1.5 rounded-md text-[12px] transition-all duration-150 ${
+                        isActive(child.href)
+                          ? "text-blue-300 bg-blue-500/15 font-medium"
+                          : "text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/50"
+                      }`}
+                    >
+                      {child.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </nav>
 
-      {/* Footer */}
-      <div className="border-t border-slate-700 dark:border-border p-4 bg-slate-900/50 dark:bg-gray-950/50">
-        <p className="text-xs text-slate-500 dark:text-gray-600 text-center">
-          🚀 TradeZella v1.0
-        </p>
+      {/* Footer Actions */}
+      <div className="border-t border-zinc-800/60 p-3 space-y-1">
+        {/* Focus Mode Toggle */}
+        <button
+          onClick={toggleFocusMode}
+          title="Focus Mode (Ctrl+Shift+F)"
+          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] font-medium transition-all duration-150 ${
+            focusMode
+              ? "bg-amber-500/15 text-amber-300 border border-amber-500/25"
+              : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60"
+          }`}
+        >
+          <Maximize2 className="w-3.5 h-3.5 flex-shrink-0" />
+          <span>{focusMode ? "Exit Focus Mode" : "Focus Mode"}</span>
+          <kbd className="ml-auto text-[9px] font-mono text-zinc-600 bg-zinc-800/80 px-1 py-0.5 rounded">⌃⇧F</kbd>
+        </button>
+
+        <div className="px-3 py-1.5 text-[10px] text-zinc-700 text-center">TradeZella v1.0</div>
       </div>
     </aside>
   );
