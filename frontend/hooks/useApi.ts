@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { apiClient, Trade } from "../src/services/apiClient";
 
 // ==================== TRADING JOURNAL HOOKS ====================
@@ -15,6 +16,7 @@ export interface UseTradesOptions {
 }
 
 export function useTrades(options?: UseTradesOptions) {
+  const { data: session } = useSession();
   const [data, setData] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +40,7 @@ export function useTrades(options?: UseTradesOptions) {
       const interval = setInterval(fetchTrades, options.autoRefresh);
       return () => clearInterval(interval);
     }
-  }, [fetchTrades, options?.autoRefresh]);
+  }, [fetchTrades, options?.autoRefresh, session]);
 
   return { data, loading, error, refetch: fetchTrades };
 }

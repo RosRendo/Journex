@@ -27,7 +27,7 @@ export default function AIDeskPage() {
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
+    endRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [messages]);
 
   const handleSend = async () => {
@@ -131,7 +131,7 @@ export default function AIDeskPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className={`p-4 rounded-2xl text-sm leading-relaxed shadow-sm ${
+                  <div className={`p-4 rounded-2xl text-sm leading-relaxed shadow-sm whitespace-pre-wrap ${
                     msg.role === "user" 
                       ? "bg-emerald-600 text-white rounded-tr-sm" 
                       : "bg-zinc-900/80 border border-zinc-800/80 text-zinc-200 rounded-tl-sm"

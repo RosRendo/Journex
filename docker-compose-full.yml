@@ -1,5 +1,4 @@
 # Full Stack Setup: Postgres + Backend + Frontend
-version: "3.8"
 
 services:
   # PostgreSQL Database
@@ -31,7 +30,7 @@ services:
       DIRECT_URL: postgresql://postgres:zipmu3-cEcsak-jifqyf@postgres:5432/trading_journal?schema=public
       NODE_ENV: production
       PORT: 5000
-      FRONTEND_URL: http://localhost:3000
+      FRONTEND_URL: http://192.168.100.171:3000
       MT5_BRIDGE_URL: http://host.docker.internal:5003
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -48,19 +47,25 @@ services:
 
   # Frontend (Next.js)
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        # Baked at BUILD TIME into the Next.js JS bundle
+        NEXT_PUBLIC_API_URL: http://192.168.100.171:5000
     container_name: trading-frontend
     environment:
       NODE_ENV: production
       PORT: 3000
-      NEXT_PUBLIC_API_URL: http://localhost:5000
-      NEXT_PUBLIC_BRIDGE_URL: http://localhost:5000/api/bridge
+      NEXT_PUBLIC_API_URL: http://192.168.100.171:5000
+      NEXT_PUBLIC_BRIDGE_URL: http://192.168.100.171:5000/api/bridge
       INTERNAL_API_URL: http://backend:5000
-      # We need NextAuth to know its URL
-      NEXTAUTH_URL: http://localhost:3000
-      AUTH_URL: http://localhost:3000
+      # NextAuth needs the public-facing URL
+      NEXTAUTH_URL: http://192.168.100.171:3000
+      AUTH_URL: http://192.168.100.171:3000
       AUTH_TRUST_HOST: "true"
-      # Pass through the API secret if needed
+      # Server-side only — used by /api/bridge-status route.
+      # resolveLocalUrl() in browser auto-replaces localhost → phone IP.
+      BRIDGE_URL: http://localhost:5003
       API_SECRET_KEY: ${API_SECRET_KEY:-dev-api-secret-key-change-in-prod}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-dev-fallback-secret-change-in-production}
       AUTH_SECRET: ${NEXTAUTH_SECRET:-dev-fallback-secret-change-in-production}
@@ -71,6 +76,7 @@ services:
     networks:
       - trading_network
     restart: unless-stopped
+
 
 volumes:
   postgres_data:

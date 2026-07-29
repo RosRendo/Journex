@@ -60,7 +60,7 @@ const DEFAULT_PROFILE: UserProfile = {
     tradeStyle: "Day Trader",
 };
 
-const BACKEND_URL = resolveLocalUrl(process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000");
+const BACKEND_URL = resolveLocalUrl(process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
 const BRIDGE_URL = resolveLocalUrl(process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge");
 
 export default function CommunityPage() {

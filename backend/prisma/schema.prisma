@@ -252,3 +252,28 @@ model Community {
 
   @@map("communities")
 }
+
+model Lesson {
+  id        Int      @id @default(autoincrement())
+  userId    String   @map("user_id") // Links to Auth
+  title     String   @db.VarChar(255)
+  concept   String?  @db.VarChar(100) // For grouping (e.g., "ICT Concept", "Break of Structure")
+  notes     String?  @db.Text         // Detailed notes
+  images    Json     @default("[]")   // Array of { id, url, note }
+  orderIndex Int     @default(0) @map("order_index")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("lessons")
+}
+
+model UserSettings {
+  id        Int      @id @default(autoincrement())
+  userId    String   @unique @map("user_id")
+  strategies Json    @default("[]")
+  emotions   Json    @default("[]")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("user_settings")
+}

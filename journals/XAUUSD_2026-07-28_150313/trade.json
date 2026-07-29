@@ -1,0 +1,42 @@
+{
+  "trade_id": "XAUUSD_2026-07-28_150313",
+  "trade_number": 7,
+  "symbol": "XAUUSD",
+  "position_type": "BUY",
+  "entry": {
+    "price": 4050.975,
+    "time": "2026-07-28T15:03:13Z",
+    "session": "NewYork",
+    "spread": 40,
+    "timestamp_ms": 1785225793000
+  },
+  "position": {
+    "lot_size": 0.01,
+    "risk_amount": 0,
+    "stop_loss": 0.0,
+    "take_profit": 0.0,
+    "risk_pips": 0,
+    "reward_pips": 0,
+    "rr_ratio": 0
+  },
+  "close": {},
+  "results": {
+    "trade_status": "OPEN"
+  },
+  "media": {
+    "chart_image": "chart.png",
+    "analysis_file": "analysis.txt"
+  },
+  "tags": {
+    "strategy": [],
+    "emotion": [],
+    "session": "NewYork"
+  },
+  "metadata": {
+    "created_at": "2026-07-29T14:27:27.641210Z",
+    "updated_at": "2026-07-29T14:27:27.641210Z",
+    "ai_version": "claude-3.5-sonnet",
+    "version": "1.0",
+    "ticket": 2219047770
+  }
+}

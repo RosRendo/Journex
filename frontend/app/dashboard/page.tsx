@@ -135,7 +135,7 @@ export default function DashboardOS() {
           <MarketHeatmapWidget />
           <EconomicNewsTicker />
         </div>
-        <div className="space-y-6">
+        <div className="h-full flex flex-col">
           <DailyBiasWidget />
         </div>
       </div>

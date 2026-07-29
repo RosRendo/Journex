@@ -5,8 +5,10 @@ import { ChevronLeft, ChevronRight, Loader2, CalendarDays, Globe } from "lucide-
 import { Button } from "@/components/ui/button";
 import type { TradeData } from "@/hooks/useCsvTrades";
 import { EconomicCalendar } from "@/components/ui/EconomicCalendar";
+import { useRouter } from "next/navigation";
 
 export default function CalendarPage() {
+  const router = useRouter();
   const { trades, loading } = useCsvTrades();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [activeTab, setActiveTab] = useState<"trading" | "economic">("trading");
@@ -167,12 +169,13 @@ export default function CalendarPage() {
                 return (
                   <div
                     key={i}
-                    className={`aspect-square rounded-md flex flex-col items-center justify-center text-sm transition-colors ${data
+                    onClick={() => router.push(`/journal/day/${dateStr}`)}
+                    className={`aspect-square rounded-md flex flex-col items-center justify-center text-sm cursor-pointer transition-colors ${data
                         ? data.pnl >= 0
-                          ? "bg-profit-muted border border-profit/20"
-                          : "bg-loss-muted border border-loss/20"
+                          ? "bg-profit-muted border border-profit/20 hover:bg-profit/20"
+                          : "bg-loss-muted border border-loss/20 hover:bg-loss/20"
                         : isToday
-                          ? "border border-primary/30 bg-primary/5"
+                          ? "border border-primary/30 bg-primary/5 hover:bg-primary/10"
                           : "border border-transparent hover:bg-secondary/50"
                       }`}
                   >

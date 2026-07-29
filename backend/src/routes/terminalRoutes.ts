@@ -1844,7 +1844,7 @@ router.get("/news/headlines", async (req, res) => {
 });
 
 // GET /api/terminal/signals
-router.get("/terminal/signals", (req, res) => {
+router.get("/signals", (req, res) => {
   const rng = new SeededRandom(new Date().getHours()); // Randomize hourly
   
   const signals = [
@@ -1894,6 +1894,15 @@ router.get("/terminal/signals", (req, res) => {
   }
 
   res.json({ success: true, signals });
+});
+
+let mockAlertsPaused = false;
+router.get("/alert-config", (req, res) => {
+  res.json({ alerts_paused: mockAlertsPaused });
+});
+router.post("/alert-config", (req, res) => {
+  mockAlertsPaused = req.body.alerts_paused;
+  res.json({ success: true, alerts_paused: mockAlertsPaused });
 });
 
 export default router;

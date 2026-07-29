@@ -284,7 +284,7 @@ export default function RightPanel({ snapshot, loading, onNewOrder, onPositionsC
   return (
     <div className="flex flex-col h-full bg-zinc-950">
       <div className="flex items-center justify-between p-2 border-b border-zinc-800 shrink-0 h-10">
-        <button onClick={onToggle} className="p-1 hover:bg-zinc-800 rounded text-zinc-500 hover:text-zinc-300 transition-colors mx-auto">
+        <button onClick={onToggle} className="p-1 hover:bg-zinc-800 rounded text-zinc-500 hover:text-zinc-300 transition-colors mr-auto relative z-50 cursor-pointer">
           {isOpen ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>
         {isOpen && (

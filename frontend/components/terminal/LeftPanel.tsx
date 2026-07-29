@@ -367,7 +367,7 @@ export default function LeftPanel({ snapshot, loading, isOpen = true, onToggle }
              Research
            </span>
         )}
-        <button onClick={onToggle} className="p-1 hover:bg-zinc-800 rounded text-zinc-500 hover:text-zinc-300 transition-colors mx-auto">
+        <button onClick={onToggle} className="p-1 hover:bg-zinc-800 rounded text-zinc-500 hover:text-zinc-300 transition-colors ml-auto relative z-50 cursor-pointer">
           {isOpen ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
         </button>
       </div>

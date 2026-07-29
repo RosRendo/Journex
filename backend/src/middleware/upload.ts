@@ -33,7 +33,7 @@ const fileFilter = (req: Express.Request, file: Express.Multer.File, cb: multer.
 export const upload = multer({
   storage: storage,
   limits: {
-    fileSize: parseInt(process.env.MAX_FILE_SIZE || '5242880'), // 5MB
+    fileSize: parseInt(process.env.MAX_FILE_SIZE || '52428800'), // 50MB
   },
   fileFilter: fileFilter,
 });

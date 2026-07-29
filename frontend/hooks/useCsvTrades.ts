@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { getBackendUrl, fetchWithAuth } from "@/lib/utils";
-import { getSession } from "@/lib/useSession";
+import { useSession } from "next-auth/react";
 import { useWorkspace, WorkspaceType } from "@/src/context/WorkspaceContext";
 
 // Use getBackendUrl() — returns NEXT_PUBLIC_BACKEND_URL or localhost:5000.
@@ -62,6 +62,8 @@ export function useCsvTrades(accountId?: string, autoRefreshMs: number = 0) {
     const wsContext = useWorkspace();
     activeWorkspace = wsContext.activeWorkspace;
   } catch (e) {}
+
+  const { data: session } = useSession();
 
   // Calculate analytics from trades
   const calculateAnalytics = useCallback((tradesList: TradeData[]) => {
@@ -133,7 +135,7 @@ export function useCsvTrades(accountId?: string, autoRefreshMs: number = 0) {
   // Fetch true history from Live MT5 bridge (bypassing node backend)
   const fetchTrades = useCallback(async () => {
     try {
-      setLoading(true);
+      // Don't set loading to true here during polling to prevent UI flicker and scroll resets
       setError(null);
 
       // 1. Fetch from MT5 bridge history
@@ -163,7 +165,6 @@ export function useCsvTrades(accountId?: string, autoRefreshMs: number = 0) {
 
       // 2. ALSO fetch from database API for recently placed trades
       try {
-        const session = await getSession();
         const headers: Record<string, string> = { "ngrok-skip-browser-warning": "true" };
         const apiToken = (session?.user as any)?.apiToken;
         if (apiToken) {
@@ -244,7 +245,7 @@ export function useCsvTrades(accountId?: string, autoRefreshMs: number = 0) {
     } finally {
       setLoading(false);
     }
-  }, [accountId, calculateAnalytics]);
+  }, [accountId, calculateAnalytics, session]);
 
   // Fetch trades when component mounts
   useEffect(() => {

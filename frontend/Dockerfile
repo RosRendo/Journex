@@ -12,9 +12,9 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Environment variables must be present at build time for Next.js to bake them in if they are NEXT_PUBLIC_
-# You can override them at runtime in docker-compose.
-ENV NEXT_PUBLIC_API_URL=http://localhost:5000
+# Single canonical env var — baked at build time via docker-compose build args
+ARG NEXT_PUBLIC_API_URL=http://localhost:5000
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
 RUN npm run build
 

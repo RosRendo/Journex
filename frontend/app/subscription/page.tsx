@@ -104,7 +104,7 @@ export default function SubscriptionPage() {
     setLoading(plan);
     try {
       const backendUrl =
-        process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
+        process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
       const res = await fetch(`${backendUrl}/api/polar/checkout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

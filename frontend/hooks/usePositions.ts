@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { getBackendUrl } from "@/lib/utils";
-import { getSession } from "@/lib/useSession";
+import { useSession } from "next-auth/react";
 import { useWorkspace, WorkspaceType } from "@/src/context/WorkspaceContext";
 
 export interface Position {
@@ -17,6 +17,7 @@ export interface Position {
   openTime: string;
 }
 
+
 export function usePositions(accountId?: string, autoRefreshMs: number = 2000) {
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,6 +29,8 @@ export function usePositions(accountId?: string, autoRefreshMs: number = 2000) {
     activeWorkspace = wsContext.activeWorkspace;
   } catch (e) {}
 
+  const { data: session } = useSession();
+
   useEffect(() => {
     let mounted = true;
 
@@ -36,7 +39,6 @@ export function usePositions(accountId?: string, autoRefreshMs: number = 2000) {
         // Always route through the backend proxy — never hit the bridge directly from the browser.
         // The backend enforces admin auth and returns mock data for non-admin callers.
         const backendUrl = getBackendUrl();
-        const session = await getSession();
         const headers: Record<string, string> = { "Content-Type": "application/json" };
         const apiToken = (session?.user as any)?.apiToken;
         if (apiToken) {
@@ -84,7 +86,7 @@ export function usePositions(accountId?: string, autoRefreshMs: number = 2000) {
     }
 
     return () => { mounted = false; };
-  }, [autoRefreshMs, activeWorkspace]);
+  }, [autoRefreshMs, activeWorkspace, session]);
 
   return { positions, loading, error };
 }

@@ -47,6 +47,7 @@ export const SIDEBAR_GROUPS: NavGroup[] = [
       { id: "calculator", label: "Calculator", href: "/risk", icon: Calculator },
       { id: "validation", label: "Validation", href: "/validation", icon: ShieldAlert },
       { id: "journal", label: "Journal", href: "/journal", icon: BookOpen },
+      { id: "lessons", label: "Lessons", href: "/lessons", icon: Library },
     ],
   },
   {

@@ -31,8 +31,17 @@ const nextConfig: NextConfig = {
                 // Local development
                 "http://localhost:5000",
                 "ws://localhost:5000",
+                "http://localhost:5003",
                 "ws://localhost:5003",
                 "http://0.0.0.0:5003",
+                "http://192.168.100.171:5000",
+                "ws://192.168.100.171:5000",
+                "http://192.168.100.171:5003",
+                "ws://192.168.100.171:5003",
+                "http://192.168.0.108:5000",
+                "ws://192.168.0.108:5000",
+                "http://192.168.0.108:5003",
+                "ws://192.168.0.108:5003",
               ].join(" "),
               "frame-src 'self' https://www.tradingview.com https://s3.tradingview.com",
               "worker-src 'self' blob:",
@@ -64,6 +73,10 @@ const nextConfig: NextConfig = {
         {
           source: "/api/:path*",
           destination: "http://127.0.0.1:5000/api/:path*", // Proxy to Express backend
+        },
+        {
+          source: "/uploads/:path*",
+          destination: "http://127.0.0.1:5000/uploads/:path*", // Proxy to Express backend for uploads
         },
       ]
     };

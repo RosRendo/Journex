@@ -22,6 +22,8 @@ import authRoutes from "./routes/authRoutes";
 import dashboardRoutes from "./routes/dashboardRoutes";
 import aiRoutes from "./routes/aiRoutes";
 import replayRoutes from "./routes/replayRoutes";
+import lessonRoutes from "./routes/lessonRoutes";
+import settingsRoutes from "./routes/settingsRoutes";
 import { buildAdapter } from "./services/terminalBrokerAdapter";
 import { errorHandler } from "./middleware/errorHandler";
 import { verifyAdminToken } from "./middleware/auth";
@@ -133,6 +135,8 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/replay", replayRoutes);
+app.use("/api/lessons", lessonRoutes);
+app.use("/api/settings", settingsRoutes);
 
 // Mock subscription route to prevent 404s on the frontend
 app.get("/api/subscription/status", (req, res) => {

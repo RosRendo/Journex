@@ -5,22 +5,20 @@ import { useMemo, useState, useEffect, useRef } from "react";
 import { getPairDigits } from "@/lib/format";
 import CsvUploadComponent from "@/components/CsvUploadComponent";
 import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
 import {
   Search, Upload, RefreshCw, X, Image as ImageIcon, Tag,
   FileText, Clock, TrendingUp, TrendingDown, Trash2,
-  List, Calendar as CalendarIcon, ChevronLeft, Camera, Download, ChevronRight, Play,
+  List, Calendar as CalendarIcon, ChevronLeft, Camera, Download, ChevronRight, Play, Plus, BookOpen
 } from "lucide-react";
 import { useJournalData } from "@/hooks/useJournalData";
 import JournalCalendar from "@/components/JournalCalendar";
 import AutoScreenshotModal from "@/components/AutoScreenshotModal";
 import { TradeReplayModal } from "@/components/journal/TradeReplayModal";
-
-const STRATEGIES = [
-  "Trend Following", "Breakout", "Reversal", "SMC",
-  "Support / Resistance", "Supply / Demand", "News Trading",
-];
-
+import { fetchWithAuth, getBackendUrl } from "@/lib/utils";
+import { toast } from "sonner";
 export default function JournalPage() {
+  const router = useRouter();
   const { trades, analytics, loading, error, refresh } = useCsvTrades();
   const [searchSymbol, setSearchSymbol] = useState("");
   const [filterDirection, setFilterDirection] = useState<"all" | "Long" | "Short">("all");
@@ -34,6 +32,84 @@ export default function JournalPage() {
   const [showScreenshotModal, setShowScreenshotModal] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
+
+  const [strategies, setStrategies] = useState<string[]>([
+    "Trend Following", "Breakout", "Reversal", "SMC",
+    "Support / Resistance", "Supply / Demand", "News Trading",
+  ]);
+  const [availableLessons, setAvailableLessons] = useState<any[]>([]);
+  const [emotions, setEmotions] = useState<string[]>([
+    "Calm", "FOMO", "Revenge", "Anxious", "Greedy", "Frustrated"
+  ]);
+
+  useEffect(() => {
+    fetchWithAuth(`${getBackendUrl()}/api/settings`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.data) {
+          if (data.data.strategies?.length) setStrategies(data.data.strategies);
+          if (data.data.emotions?.length) setEmotions(data.data.emotions);
+        }
+      })
+      .catch(console.error);
+
+    fetchWithAuth(`${getBackendUrl()}/api/lessons`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.lessons) {
+          setAvailableLessons(data.lessons);
+        }
+      })
+      .catch(console.error);
+  }, []);
+
+  const handleAddStrategy = async () => {
+    const newVal = prompt("Enter new Strategy name:");
+    if (!newVal || !newVal.trim()) return;
+    const updated = [...strategies, newVal.trim()];
+    setStrategies(updated);
+    await fetchWithAuth(`${getBackendUrl()}/api/settings`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ strategies: updated })
+    });
+  };
+
+  const handleAddEmotion = async () => {
+    const newVal = prompt("Enter new Emotional State:");
+    if (!newVal || !newVal.trim()) return;
+    const updated = [...emotions, newVal.trim()];
+    setEmotions(updated);
+    await fetchWithAuth(`${getBackendUrl()}/api/settings`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ emotions: updated })
+    });
+  };
+
+  const handleDeleteStrategy = async (strat: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm(`Are you sure you want to remove the strategy "${strat}"?`)) return;
+    const updated = strategies.filter(s => s !== strat);
+    setStrategies(updated);
+    await fetchWithAuth(`${getBackendUrl()}/api/settings`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ strategies: updated })
+    });
+  };
+
+  const handleDeleteEmotion = async (emotion: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm(`Are you sure you want to remove the emotion "${emotion}"?`)) return;
+    const updated = emotions.filter(eItem => eItem !== emotion);
+    setEmotions(updated);
+    await fetchWithAuth(`${getBackendUrl()}/api/settings`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ emotions: updated })
+    });
+  };
 
   const tradeIdToUse = selectedTrade ? (selectedTrade.ticket || selectedTrade.id) : (selectedDay ? `day_${selectedDay.dateStr}` : undefined);
   const { entry, saveEntry } = useJournalData(tradeIdToUse?.toString());
@@ -64,19 +140,72 @@ export default function JournalPage() {
     return filtered;
   }, [trades, searchSymbol, filterDirection, filterOutcome, dateFilter]);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const syncUrlToLesson = async (url: string, showToast = true) => {
+    if (!entry.linkedLessonId) return;
+    const lesson = availableLessons.find(l => l.id === entry.linkedLessonId);
+    if (!lesson) return;
+    const newImages = [...(lesson.images || []), {
+      id: Date.now().toString() + Math.random().toString(),
+      url: url,
+      note: `Journal Trade: ${selectedTrade?.pair || ''} ${selectedTrade?.direction || ''}`,
+      uploadedAt: new Date().toISOString(),
+      profit: selectedTrade?.profit,
+      tradeDate: selectedTrade?.date,
+      pair: selectedTrade?.pair,
+      direction: selectedTrade?.direction,
+      strategy: entry.strategy,
+      emotion: entry.emotion
+    }];
+    try {
+      await fetchWithAuth(`${getBackendUrl()}/api/lessons/${entry.linkedLessonId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ images: newImages })
+      });
+      setAvailableLessons(prev => prev.map(l => l.id === entry.linkedLessonId ? { ...l, images: newImages } : l));
+      if (showToast) toast.success("Image added to Lesson!");
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const uploadAndSyncImageFile = async (file: File) => {
+    const toastId = toast.loading("Uploading image...");
+    const formData = new FormData();
+    formData.append("image", file);
+    try {
+      const uploadRes = await fetchWithAuth(`${getBackendUrl()}/api/upload`, {
+        method: "POST",
+        body: formData,
+        headers: { "Accept": "application/json" }
+      });
+      if (uploadRes.ok) {
+        const data = await uploadRes.json();
+        const url = data.data.url;
+        saveEntry({ images: [...(entry.images || []), url] });
+        if (entry.linkedLessonId) {
+          await syncUrlToLesson(url, false);
+          toast.success("Image uploaded to Journal and Lesson!", { id: toastId });
+        } else {
+          toast.success("Image uploaded", { id: toastId });
+        }
+      } else {
+        throw new Error("Upload failed");
+      }
+    } catch (err) {
+      console.error("Failed to upload image", err);
+      toast.error("Failed to upload image", { id: toastId });
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) {
-      alert("Image is too large. Please use an image under 2MB.");
+      toast.error("Image is too large. Please use an image under 2MB.");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64Str = event.target?.result as string;
-      saveEntry({ images: [...(entry.images || []), base64Str] });
-    };
-    reader.readAsDataURL(file);
+    await uploadAndSyncImageFile(file);
   };
 
   const toggleStrategy = (strat: string) => {
@@ -317,16 +446,24 @@ export default function JournalPage() {
         <AnimatePresence>
           {(selectedTrade || selectedDay) && (
             <motion.div 
+              key="sidebar"
               initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 50 }}
               className="w-[400px] shrink-0 rounded-3xl border backdrop-blur-2xl shadow-2xl sticky top-6 max-h-[calc(100vh-48px)] overflow-y-auto custom-scrollbar"
               style={{ background: "rgba(20,20,20,0.8)", borderColor: "var(--border)" }}
             >
               <div className="p-6 space-y-6">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold tracking-tight" style={{ color: "var(--text-primary)", fontFamily: "var(--font-display, Syne, sans-serif)" }}>
-                    {selectedTrade ? "Trade Details" : "Daily Review"}
-                  </h3>
-                  <button onClick={() => { setSelectedTrade(null); setSelectedDay(null); }} className="p-2 rounded-full transition-colors hover:bg-white/10">
+                  <div className="flex items-center gap-2">
+                    {selectedTrade && selectedDay && (
+                       <button onClick={() => setSelectedTrade(null)} className="p-1.5 -ml-2 rounded-full transition-colors hover:bg-white/10">
+                         <ChevronLeft className="w-5 h-5" style={{ color: "var(--text-tertiary)" }} />
+                       </button>
+                    )}
+                    <h3 className="text-xl font-bold tracking-tight" style={{ color: "var(--text-primary)", fontFamily: "var(--font-display, Syne, sans-serif)" }}>
+                      {selectedTrade ? "Trade Details" : "Daily Review"}
+                    </h3>
+                  </div>
+                  <button onClick={() => { setSelectedTrade(null); setSelectedDay(null); }} className="p-2 rounded-full transition-colors hover:bg-white/10 cursor-pointer relative z-50">
                     <X className="w-5 h-5" style={{ color: "var(--text-tertiary)" }} />
                   </button>
                 </div>
@@ -353,51 +490,123 @@ export default function JournalPage() {
                   </div>
                 )}
 
-                {selectedDay && (
-                  <div className="p-4 rounded-2xl border" style={{ background: "var(--bg-elevated)", borderColor: "var(--border-strong)" }}>
-                     <div className="text-sm font-bold" style={{ color: "var(--text-secondary)" }}>{selectedDay.dateStr}</div>
-                     <div className="text-xs font-mono mt-1" style={{ color: "var(--text-tertiary)" }}>{selectedDay.trades.length} trades recorded</div>
+                {selectedDay && !selectedTrade && (
+                  <div className="space-y-4">
+                    <div className="p-4 rounded-2xl border" style={{ background: "var(--bg-elevated)", borderColor: "var(--border-strong)" }}>
+                       <div className="text-sm font-bold" style={{ color: "var(--text-secondary)" }}>{selectedDay.dateStr}</div>
+                       <div className="text-xs font-mono mt-1" style={{ color: "var(--text-tertiary)" }}>{selectedDay.trades.length} trades recorded</div>
+                    </div>
+                    {selectedDay.trades.length > 0 && (
+                      <div className="space-y-2 mt-4">
+                        <div className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: "var(--text-tertiary)" }}>Trades on this day</div>
+                        {selectedDay.trades.slice(0, 3).map(trade => (
+                          <div 
+                            key={trade.id}
+                            onClick={() => setSelectedTrade(trade)}
+                            className="p-3 rounded-xl border flex items-center justify-between cursor-pointer hover:border-[var(--accent)] transition-all group"
+                            style={{ background: "var(--bg-card)", borderColor: "var(--border-strong)" }}
+                          >
+                            <div>
+                               <div className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+                                 {trade.pair} 
+                                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5" style={{ color: "var(--text-secondary)" }}>{trade.direction}</span>
+                               </div>
+                               <div className="text-[10px] font-mono mt-1" style={{ color: "var(--text-tertiary)" }}>{new Date(trade.date).toLocaleTimeString()}</div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className="font-mono text-sm font-bold" style={{ color: trade.profit > 0 ? "var(--bull)" : "var(--bear)" }}>
+                                 {trade.profit > 0 ? "+" : ""}{trade.profit.toFixed(2)}
+                              </div>
+                              <ChevronRight className="w-4 h-4 opacity-50 group-hover:opacity-100 transition-opacity" style={{ color: "var(--text-tertiary)" }} />
+                            </div>
+                          </div>
+                        ))}
+                        
+                        <button
+                          onClick={() => router.push('/journal/day/' + selectedDay.dateStr)}
+                          className="w-full mt-4 py-3 rounded-xl border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer relative z-50"
+                        >
+                          {selectedDay.trades.length > 3 ? `View all ${selectedDay.trades.length} trades` : "Open Full Daily Review"} <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 <div className="space-y-3">
-                  <label className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-2" style={{ color: "var(--text-tertiary)" }}>
-                    <Tag size={12} /> Playbook Strategy
+                  <label className="text-[10px] font-bold uppercase tracking-widest flex items-center justify-between" style={{ color: "var(--text-tertiary)" }}>
+                    <span className="flex items-center gap-2"><Tag size={12} /> Playbook Strategy</span>
+                    <button onClick={handleAddStrategy} className="text-blue-400 hover:text-blue-300 flex items-center gap-1"><Plus size={10} /> Add New</button>
                   </label>
                   <div className="flex flex-wrap gap-2">
-                    {STRATEGIES.map(s => {
+                    {strategies.map(s => {
                        const active = entry.strategy?.includes(s);
                        return (
                          <button key={s} onClick={() => toggleStrategy(s)}
-                           className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all border hover:scale-105"
+                           className="group relative px-3 py-1.5 rounded-lg text-xs font-bold transition-all border hover:scale-105"
                            style={{ 
                              background: active ? "rgba(0,212,161,0.1)" : "transparent", 
                              borderColor: active ? "var(--accent)" : "var(--border)", 
                              color: active ? "var(--accent)" : "var(--text-secondary)" 
                            }}>
                            {s}
+                           <div 
+                             onClick={(e) => handleDeleteStrategy(s, e)} 
+                             className="absolute -top-1.5 -right-1.5 bg-red-500/80 hover:bg-red-500 text-white p-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                           >
+                             <X size={10} />
+                           </div>
                          </button>
                        )
                     })}
                   </div>
                 </div>
 
+                {availableLessons.length > 0 && (
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-bold uppercase tracking-widest flex items-center justify-between" style={{ color: "var(--text-tertiary)" }}>
+                      <span className="flex items-center gap-2"><BookOpen size={12} /> Linked Lesson</span>
+                    </label>
+                    <div className="flex flex-col gap-2">
+                      <select 
+                        value={entry.linkedLessonId || ""} 
+                        onChange={(e) => saveEntry({ linkedLessonId: e.target.value ? Number(e.target.value) : undefined })}
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-blue-500/50"
+                      >
+                        <option value="">-- No Lesson Linked --</option>
+                        {availableLessons.map(l => (
+                          <option key={l.id} value={l.id}>
+                            {l.concept ? `[${l.concept}] ` : ""}{l.title}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-3">
-                  <label className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-2" style={{ color: "var(--text-tertiary)" }}>
-                    <TrendingUp size={12} /> Emotional State
+                  <label className="text-[10px] font-bold uppercase tracking-widest flex items-center justify-between" style={{ color: "var(--text-tertiary)" }}>
+                    <span className="flex items-center gap-2"><TrendingUp size={12} /> Emotional State</span>
+                    <button onClick={handleAddEmotion} className="text-blue-400 hover:text-blue-300 flex items-center gap-1"><Plus size={10} /> Add New</button>
                   </label>
-                  <div className="flex gap-2">
-                    {(["Calm", "FOMO", "Revenge", "Anxious"] as const).map(e => {
+                  <div className="flex flex-wrap gap-2">
+                    {emotions.map(e => {
                        const active = entry.emotion === e;
                        return (
                          <button key={e} onClick={() => saveEntry({ emotion: e })}
-                           className="flex-1 py-2 rounded-lg text-xs font-bold transition-all border text-center"
+                           className="group relative flex-1 py-2 rounded-lg text-xs font-bold transition-all border text-center"
                            style={{ 
                              background: active ? "rgba(255,255,255,0.1)" : "transparent", 
                              borderColor: active ? "var(--text-primary)" : "var(--border)", 
                              color: active ? "#fff" : "var(--text-secondary)" 
                            }}>
                            {e}
+                           <div 
+                             onClick={(ev) => handleDeleteEmotion(e, ev)} 
+                             className="absolute -top-1.5 -right-1.5 bg-red-500/80 hover:bg-red-500 text-white p-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                           >
+                             <X size={10} />
+                           </div>
                          </button>
                        )
                     })}
@@ -429,9 +638,14 @@ export default function JournalPage() {
                        <button onClick={() => fileInputRef.current?.click()} className="text-xs font-bold flex items-center gap-1 hover:text-[var(--accent)] transition-colors" style={{ color: "var(--text-secondary)" }}>
                          <Upload size={12} /> Manual
                        </button>
-                       <button onClick={() => {
+                       <button onClick={async () => {
                          const url = prompt("Paste TradingView or Image URL:");
-                         if (url) saveEntry({ images: [...(entry.images || []), url] });
+                         if (url) {
+                           saveEntry({ images: [...(entry.images || []), url] });
+                           if (entry.linkedLessonId) {
+                             await syncUrlToLesson(url);
+                           }
+                         }
                        }} className="text-xs font-bold flex items-center gap-1 hover:text-[var(--accent)] transition-colors" style={{ color: "var(--text-secondary)" }}>
                          <ImageIcon size={12} /> Link
                        </button>
@@ -477,7 +691,12 @@ export default function JournalPage() {
           trades={selectedTrade ? [selectedTrade as any] : selectedDay?.trades || []}
           onClose={() => setShowScreenshotModal(false)}
           onCapture={(base64Str) => {
-            saveEntry({ images: [...(entry.images || []), base64Str] });
+            fetch(base64Str)
+              .then(res => res.blob())
+              .then(blob => {
+                const file = new File([blob], "auto-screenshot.png", { type: "image/png" });
+                uploadAndSyncImageFile(file);
+              });
             setShowScreenshotModal(false);
           }}
         />

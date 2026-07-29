@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { getBackendUrl } from "@/lib/utils";
-import { getSession } from "@/lib/useSession";
+import { useSession } from "next-auth/react";
 
 export interface NewsItem {
   title: string;
@@ -14,13 +14,14 @@ export function useNews(autoRefreshMs: number = 300000) { // Default 5 minutes
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const { data: session } = useSession();
+
   useEffect(() => {
     let mounted = true;
 
     const fetchNews = async () => {
       try {
         const backendUrl = getBackendUrl();
-        const session = await getSession();
         const headers: Record<string, string> = { "Content-Type": "application/json" };
         const apiToken = (session?.user as any)?.apiToken;
         if (apiToken) {
@@ -59,7 +60,7 @@ export function useNews(autoRefreshMs: number = 300000) { // Default 5 minutes
     return () => {
       mounted = false;
     };
-  }, [autoRefreshMs]);
+  }, [autoRefreshMs, session]);
 
   return { news, loading, error };
 }

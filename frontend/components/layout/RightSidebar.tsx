@@ -18,6 +18,12 @@ export function RightSidebar() {
   const { bridgeUrl } = useBridgeUrl();
   const [activeTab, setActiveTab] = useState<"positions" | "alerts" | "news">("positions");
   const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth >= 1280) {
+      setIsOpen(true);
+    }
+  }, []);
   
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,11 +92,11 @@ export function RightSidebar() {
 
   return (
     <>
-      {/* Mobile Toggle Button (Visible when closed on mobile) */}
+      {/* Toggle Button (Visible when closed) */}
       {!isOpen && (
         <button 
           onClick={() => setIsOpen(true)}
-          className="fixed right-0 top-1/2 -translate-y-1/2 bg-[--bg-card] border-l border-y border-[--border] p-2 rounded-l-xl text-[--text-secondary] hover:text-[--text-primary] z-50 shadow-xl xl:hidden"
+          className="fixed right-0 top-1/2 -translate-y-1/2 bg-[--bg-card] border-l border-y border-[--border] p-2 rounded-l-xl text-[--text-secondary] hover:text-[--text-primary] z-50 shadow-xl cursor-pointer transition-all hover:-translate-x-1"
         >
           <TrendingUp className="w-5 h-5" />
         </button>
@@ -104,11 +110,11 @@ export function RightSidebar() {
         />
       )}
 
-      {/* Sidebar Panel - Always visible inline on xl; conditionally visible fixed on mobile */}
+      {/* Sidebar Panel */}
       <div className={`
-        ${isOpen ? "fixed animate-in slide-in-from-right" : "hidden"} 
-        xl:flex xl:relative xl:w-[300px] xl:animate-none
-        w-[280px] h-full flex flex-col right-0 top-0 bottom-0 bg-[--bg-card] border-l border-[--border] flex-shrink-0 z-50 shadow-2xl xl:shadow-none
+        ${isOpen ? "flex animate-in slide-in-from-right xl:animate-none" : "hidden"} 
+        fixed xl:relative xl:w-[300px]
+        w-[280px] h-full flex-col right-0 top-0 bottom-0 bg-[--bg-card] border-l border-[--border] flex-shrink-0 z-50 shadow-2xl xl:shadow-none
       `}>
       
       {/* Header */}

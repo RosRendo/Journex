@@ -124,10 +124,10 @@ def _cache_set(key: str, data):
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],  # Explicitly allow frontend port
-    allow_credentials=True, # Allowed now that origins are explicitly defined
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
+    allow_origins=["*"],  # Allow any origin (including phone's LAN IP)
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 connected = False

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 
 export interface JournalEntry {
     strategy: string;
+    linkedLessonId?: number;
     reason: string;
     images: string[]; // Base64 images
     emotion?: string; // "Calm" | "Confident" | "Anxious" | "Panicked" | "Greedy" | "Revenge"
@@ -13,6 +14,7 @@ export interface JournalEntry {
 export function useJournalData(tradeId: string | number | undefined) {
     const [entry, setEntry] = useState<JournalEntry>({
         strategy: "",
+        linkedLessonId: undefined,
         reason: "",
         images: [],
         emotion: undefined,
@@ -32,7 +34,7 @@ export function useJournalData(tradeId: string | number | undefined) {
                 console.error("Failed to parse journal entry", err);
             }
         } else {
-            setEntry({ strategy: "", reason: "", images: [], emotion: undefined, followedPlan: undefined, planDeviationReason: "", checklistPassed: undefined });
+            setEntry({ strategy: "", linkedLessonId: undefined, reason: "", images: [], emotion: undefined, followedPlan: undefined, planDeviationReason: "", checklistPassed: undefined });
         }
     }, [tradeId]);
 

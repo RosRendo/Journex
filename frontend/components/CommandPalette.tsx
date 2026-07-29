@@ -43,7 +43,10 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
     { id: "terminal", label: "Open Terminal", description: "Bloomberg-style trading terminal", icon: Terminal, category: "Navigate", action: () => navigate("/terminal"), keywords: ["trade", "execute", "chart"] },
     { id: "signals", label: "Market Scanner", description: "Live algorithmic signals", icon: Radar, category: "Navigate", action: () => navigate("/signals"), keywords: ["scan", "buy", "sell", "signal"] },
     { id: "journal", label: "Open Journal", description: "Log and review trades", icon: BookOpen, category: "Navigate", action: () => navigate("/journal"), keywords: ["log", "review", "history"] },
+    { id: "lessons", label: "Playbook & Lessons", description: "Your trading playbook and chart annotations", icon: BookOpen, category: "Navigate", action: () => navigate("/lessons"), keywords: ["lessons", "playbook", "charts", "learn"] },
     { id: "analytics", label: "Analytics", description: "Performance statistics", icon: BarChart3, category: "Navigate", action: () => navigate("/analytics"), keywords: ["stats", "performance", "winrate"] },
+    { id: "performance", label: "Performance Overview", description: "High-level performance dashboards", icon: Target, category: "Navigate", action: () => navigate("/performance"), keywords: ["performance", "stats", "overview"] },
+    { id: "risk-hub", label: "Risk Hub", description: "Centralized risk management dashboards", icon: ShieldAlert, category: "Navigate", action: () => navigate("/risk-hub"), keywords: ["risk", "hub", "drawdown", "management"] },
     { id: "risk", label: "Risk Calculator", description: "Calculate position size & risk", icon: Calculator, category: "Navigate", action: () => navigate("/risk"), keywords: ["lot", "size", "risk", "calculate"] },
     { id: "news", label: "Macro Desk", description: "News & economic calendar", icon: Newspaper, category: "Navigate", action: () => navigate("/news"), keywords: ["news", "nfp", "fomc", "macro"] },
     { id: "alerts", label: "Alerts Center", description: "Price & risk notifications", icon: Bell, category: "Navigate", action: () => navigate("/alerts"), keywords: ["notify", "price alert", "discord"] },
@@ -173,11 +176,11 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
                 const isSelected = idx === selected;
                 const Icon = cmd.icon;
                 return (
-                  <button
+                  <div
                     key={cmd.id}
                     onClick={cmd.action}
                     onMouseEnter={() => setSelected(idx)}
-                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
+                    className={`w-full flex items-center cursor-pointer gap-3 px-4 py-2.5 text-sm transition-colors ${
                       isSelected
                         ? "bg-blue-600/20 text-blue-300"
                         : "text-zinc-300 hover:bg-zinc-800/60"
@@ -196,13 +199,13 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
                         e.stopPropagation();
                         toggleFavorite(cmd.id);
                       }}
-                      className="p-1.5 rounded hover:bg-zinc-700/50 transition-colors"
+                      className="p-1.5 rounded hover:bg-zinc-700/50 transition-colors cursor-pointer z-10"
                     >
                       <Star className={`w-4 h-4 ${favorites.includes(cmd.id) ? "fill-yellow-500 text-yellow-500" : "text-zinc-600 hover:text-zinc-400"}`} />
                     </button>
                     
                     <ChevronRight className={`w-4 h-4 ${isSelected ? "text-zinc-400" : "text-zinc-700"}`} />
-                  </button>
+                  </div>
                 );
               })}
             </div>

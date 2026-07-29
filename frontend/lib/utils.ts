@@ -6,11 +6,24 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+let cachedSessionPromise: Promise<any> | null = null;
+let sessionFetchTime = 0;
+
+export async function getCachedSession() {
+  const now = Date.now();
+  // Cache the session for 60 seconds to prevent /api/auth/session spam
+  if (!cachedSessionPromise || now - sessionFetchTime > 60_000) {
+    cachedSessionPromise = getSession();
+    sessionFetchTime = now;
+  }
+  return cachedSessionPromise;
+}
+
 export async function fetchWithAuth(url: string, options: RequestInit = {}) {
   const headers = new Headers(options.headers || {});
   headers.set("ngrok-skip-browser-warning", "true");
   try {
-    const session = await getSession();
+    const session = await getCachedSession();
     const token = (session?.user as any)?.apiToken;
     if (token) {
       headers.set("Authorization", `Bearer ${token}`);
@@ -18,7 +31,12 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}) {
   } catch (err) {
     console.warn("Failed to get session for fetchWithAuth", err);
   }
-  return fetch(url, { ...options, headers });
+  
+  const res = await fetch(url, { ...options, headers });
+  if (res.status === 401) {
+    cachedSessionPromise = null; // Clear cache if token is invalid
+  }
+  return res;
 }
 
 export function resolveLocalUrl(url: string): string {
@@ -48,7 +66,6 @@ export function resolveLocalUrl(url: string): string {
  * - Locally: falls back to http://localhost:5000.
  */
 export function getBackendUrl(): string {
-  if (process.env.NEXT_PUBLIC_BACKEND_URL) return process.env.NEXT_PUBLIC_BACKEND_URL;
   if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
   return ""; // Default to relative paths so Next.js rewrites can proxy requests
 }

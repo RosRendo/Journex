@@ -36,7 +36,7 @@ export function DailyBiasWidget() {
   };
 
   return (
-    <div className="rounded-3xl p-6 relative overflow-hidden backdrop-blur-xl shadow-2xl border transition-all duration-500 flex flex-col group" 
+    <div className="rounded-3xl p-6 relative overflow-hidden backdrop-blur-xl shadow-2xl border transition-all duration-500 flex flex-col group h-full min-h-[250px]" 
          style={{ background: "var(--bg-card)", borderColor: isFocused ? "var(--accent)" : "var(--border)" }}>
       
       {/* Background Hover Glow */}

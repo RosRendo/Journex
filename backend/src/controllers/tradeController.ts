@@ -6,11 +6,11 @@ import { TradeInput } from '../types';
 export const createTrade = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tradeData: TradeInput = req.body;
-    const userId = req.userId;
+    const userId = req.userId || 'default-user';
 
     const trade = await prisma.trade.create({
       data: {
-        userId: userId!,
+        userId: userId,
         date: new Date(tradeData.date),
         pair: tradeData.pair,
         strategy: tradeData.strategy,
@@ -32,6 +32,10 @@ export const createTrade = async (req: Request, res: Response, next: NextFunctio
       },
     });
 
+    if (tradeData.imageUrl && tradeData.strategy) {
+      await syncImageToPlaybook(userId, tradeData.strategy, tradeData.imageUrl);
+    }
+
     res.status(201).json({
       success: true,
       data: trade,
@@ -40,6 +44,44 @@ export const createTrade = async (req: Request, res: Response, next: NextFunctio
     next(error);
   }
 };
+
+async function syncImageToPlaybook(userId: string, strategy: string, imageUrl: string) {
+  try {
+    if (!strategy || !imageUrl) return;
+    
+    let lesson = await prisma.lesson.findFirst({
+      where: { userId, title: strategy }
+    });
+
+    const newImageObj = {
+      id: Date.now().toString() + Math.random().toString(),
+      url: imageUrl,
+      note: "Synced from Journal trade",
+      uploadedAt: new Date().toISOString()
+    };
+
+    if (lesson) {
+      const existingImages = (lesson.images as any[]) || [];
+      if (!existingImages.some(img => img.url === imageUrl)) {
+        await prisma.lesson.update({
+          where: { id: lesson.id },
+          data: { images: [...existingImages, newImageObj] }
+        });
+      }
+    } else {
+      await prisma.lesson.create({
+        data: {
+          userId,
+          title: strategy,
+          concept: strategy,
+          images: [newImageObj]
+        }
+      });
+    }
+  } catch (err) {
+    console.error("Failed to sync image to playbook:", err);
+  }
+}
 
 export const getAllTrades = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -167,6 +209,14 @@ export const updateTrade = async (req: Request, res: Response, next: NextFunctio
         ...(tradeData.checklistPassed !== undefined && { checklistPassed: tradeData.checklistPassed }),
       },
     });
+
+    if (tradeData.imageUrl && (tradeData.strategy || existing.strategy)) {
+      await syncImageToPlaybook(
+        req.userId || 'default-user', 
+        tradeData.strategy || existing.strategy || '', 
+        tradeData.imageUrl
+      );
+    }
 
     res.json({
       success: true,
