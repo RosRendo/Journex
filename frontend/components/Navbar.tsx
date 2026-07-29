@@ -205,7 +205,16 @@ export default function Navbar({ onMenuToggle }: { onMenuToggle?: () => void }) 
                     </div>
                     {item.time && (
                       <div className="flex items-center gap-1 bg-zinc-800 text-zinc-300 border border-zinc-700 rounded px-1.5 py-0.5 text-[10px] uppercase font-bold tracking-wider">
-                        <Clock className="w-3 h-3" /> {item.time}
+                        <Clock className="w-3 h-3" /> 
+                        {(() => {
+                          try {
+                            const d = new Date(item.time);
+                            if (isNaN(d.getTime())) return item.time;
+                            return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                          } catch {
+                            return item.time;
+                          }
+                        })()}
                       </div>
                     )}
                   </div>

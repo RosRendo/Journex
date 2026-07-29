@@ -3798,15 +3798,15 @@ async def get_news(ai_key: str = None, provider: str = "openai"):
                 
             news_items.append({
                 "id": str(uuid.uuid4())[:8],
-                "title": getattr(entry, 'title', ''),
-                "summary": getattr(entry, "summary", "")[:120] + "...",
-                "time": getattr(entry, "published", ""),
+                "title": entry.get("title", ""),
+                "summary": entry.get("summary", "")[:120] + "...",
+                "time": entry.get("published", entry.get("pubDate", "")),
                 "isHot": is_hot,
                 "impact": impact,
                 "sentiment": sentiment,
                 "symbol": symbol,
                 "source": "ForexLive",
-                "link": getattr(entry, "link", "")
+                "link": entry.get("link", "")
             })
             
         # Optional AI Processing to enhance sentiment tags accurately
