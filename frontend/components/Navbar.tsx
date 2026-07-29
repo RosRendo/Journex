@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import {
-  LogOut, User, Settings, Bell, X, Flame, TrendingUp, TrendingDown, CreditCard, ChevronDown, Palette, Menu
+  LogOut, User, Settings, Bell, X, Flame, TrendingUp, TrendingDown, CreditCard, ChevronDown, Palette, Menu, Clock
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSession, signOut, getSession } from "@/lib/useSession";
@@ -199,8 +199,15 @@ export default function Navbar({ onMenuToggle }: { onMenuToggle?: () => void }) 
                 style={{ background: "#0f0c07" }}>
                 <div className="absolute top-0 left-0 w-1 h-full bg-orange-500" />
                 <div className="flex justify-between items-start mb-2 ml-2">
-                  <div className="flex items-center gap-1 bg-orange-500/20 text-orange-400 rounded px-1.5 py-0.5 text-[10px] uppercase font-bold tracking-wider">
-                    <Flame className="w-3 h-3 fill-orange-400" /> HOT
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 bg-orange-500/20 text-orange-400 rounded px-1.5 py-0.5 text-[10px] uppercase font-bold tracking-wider">
+                      <Flame className="w-3 h-3 fill-orange-400" /> HOT
+                    </div>
+                    {item.time && (
+                      <div className="flex items-center gap-1 bg-zinc-800 text-zinc-300 border border-zinc-700 rounded px-1.5 py-0.5 text-[10px] uppercase font-bold tracking-wider">
+                        <Clock className="w-3 h-3" /> {item.time}
+                      </div>
+                    )}
                   </div>
                   <button onClick={() => toast.dismiss(t)} className="text-[--text-tertiary] hover:text-[--text-primary]">
                     <X className="w-3.5 h-3.5" />
