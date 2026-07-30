@@ -128,13 +128,8 @@ function isUserPro(req: any): boolean {
 }
 
 function getActiveAdapter(req?: any) {
-  // Non-pro callers always get the safe mock adapter — zero leakage of live
-  // broker credentials, positions, or orders to guests / free tier users.
-  if (req && !isUserPro(req)) {
-    return buildAdapter({ provider: "mock" });
-  }
   const currentSettings = getSettings();
-  const brokerConfig = currentSettings.broker || { provider: "mock" };
+  const brokerConfig = currentSettings.broker || { provider: "mt5_bridge" };
   return buildAdapter(brokerConfig);
 }
 
@@ -616,7 +611,7 @@ function getAlertsList() {
 router.get("/terminal/snapshot", async (req, res) => {
   try {
     const symbol = (req.query.symbol as string) || "EURUSD";
-    const timeframe = (req.query.timeframe as string) || "H4";
+    const timeframe = (req.query.timeframe as string) || "M15";
 
     const adapter = getActiveAdapter(req);
 
@@ -775,7 +770,7 @@ router.get("/terminal/symbols", (req, res) => {
 // GET /api/terminal/candles
 router.get("/terminal/candles", async (req, res) => {
   const symbol = (req.query.symbol as string) || "EURUSD";
-  const timeframe = (req.query.timeframe as string) || "H4";
+  const timeframe = (req.query.timeframe as string) || "M15";
   const limit = parseInt(req.query.limit as string) || 200;
 
   try {
@@ -960,7 +955,8 @@ router.get("/terminal/technical-signals", (req, res) => {
 // GET /api/terminal/signals
 router.get("/terminal/signals", async (req, res) => {
   try {
-    const response = await axios.get("http://127.0.0.1:5003/api/signals");
+    const bridgeUrl = process.env.MT5_BRIDGE_URL || "http://127.0.0.1:5003";
+    const response = await axios.get(`${bridgeUrl}/api/signals`);
     res.json(response.data);
   } catch (error: any) {
     console.error("[Bridge API Error] Failed to fetch signals:", error.message);
@@ -971,7 +967,8 @@ router.get("/terminal/signals", async (req, res) => {
 // GET /api/terminal/alert-config
 router.get("/terminal/alert-config", async (req, res) => {
   try {
-    const response = await axios.get("http://127.0.0.1:5003/api/alert-config");
+    const bridgeUrl = process.env.MT5_BRIDGE_URL || "http://127.0.0.1:5003";
+    const response = await axios.get(`${bridgeUrl}/api/alert-config`);
     res.json(response.data);
   } catch (error: any) {
     console.error("[Bridge API Error] Failed to fetch alert config:", error.message);
@@ -982,7 +979,8 @@ router.get("/terminal/alert-config", async (req, res) => {
 // POST /api/terminal/alert-config
 router.post("/terminal/alert-config", async (req, res) => {
   try {
-    const response = await axios.post("http://127.0.0.1:5003/api/alert-config", req.body);
+    const bridgeUrl = process.env.MT5_BRIDGE_URL || "http://127.0.0.1:5003";
+    const response = await axios.post(`${bridgeUrl}/api/alert-config`, req.body);
     res.json(response.data);
   } catch (error: any) {
     console.error("[Bridge API Error] Failed to update alert config:", error.message);
@@ -1324,7 +1322,8 @@ router.post("/journal/trades", async (req, res) => {
         // Put in public uploads dir
         const outPath = path.join(__dirname, "../../uploads/charts", outName);
         
-        const chartRes = await axios.post("http://127.0.0.1:5003/api/generate_chart", {
+        const bridgeUrl = process.env.MT5_BRIDGE_URL || "http://127.0.0.1:5003";
+        const chartRes = await axios.post(`${bridgeUrl}/api/generate_chart`, {
           symbol,
           entry_time: openTime.toISOString(),
           exit_time: closeTime?.toISOString() || openTime.toISOString(),

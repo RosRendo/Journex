@@ -1,6 +1,6 @@
 "use client";
 
-import { getBackendUrl } from "@/lib/utils";
+import { getBackendUrl, fetchWithAuth } from "@/lib/utils";
 import { useBrokerAccounts } from "@/hooks/useCsvTrades";
 import { useCsvTrades } from "@/hooks/useCsvTrades";
 import {
@@ -178,7 +178,7 @@ export default function Accounts() {
 
   const fetchDbAccounts = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/accounts`, {
+      const res = await fetchWithAuth(`${API_URL}/api/accounts`, {
         headers: { "ngrok-skip-browser-warning": "true" },
         cache: "no-store",
       });
@@ -254,7 +254,7 @@ export default function Accounts() {
         equity: 0,
       };
 
-      const res = await fetch(`${API_URL}/api/accounts`, {
+      const res = await fetchWithAuth(`${API_URL}/api/accounts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newAcc),
@@ -281,7 +281,7 @@ export default function Accounts() {
 
   const updateAccountInDb = async (id: number, data: any) => {
     try {
-      await fetch(`${API_URL}/api/accounts/${id}`, {
+      await fetchWithAuth(`${API_URL}/api/accounts/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -293,23 +293,15 @@ export default function Accounts() {
 
   const setAsMaster = async (id: number) => {
     try {
-      // Make all updates first without fetching
-      const updates: Promise<void>[] = [];
-
-      // Unset all existing masters
+      // Unset all existing masters sequentially to avoid SQLite locks
       for (const acc of mt5Accounts) {
-        if (acc.isMaster) {
-          updates.push(updateAccountInDb(acc.id, { isMaster: false }));
+        if (acc.isMaster && acc.id !== id) {
+          await updateAccountInDb(acc.id, { isMaster: false });
         }
       }
 
       // Set new master
-      updates.push(
-        updateAccountInDb(id, { isMaster: true, copierEnabled: false }),
-      );
-
-      // Wait for all updates to complete
-      await Promise.all(updates);
+      await updateAccountInDb(id, { isMaster: true, copierEnabled: false });
 
       // Then fetch once to refresh state
       await fetchDbAccounts();
@@ -342,7 +334,7 @@ export default function Accounts() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          login: acc.accountNumber,
+          login: parseInt(acc.accountNumber, 10) || 0,
           password: acc.mt5Password,
           server: acc.mt5Server,
           email: userEmail,
@@ -356,7 +348,8 @@ export default function Accounts() {
           msg: `Master Link Established: Node #${acc.accountNumber}`,
         });
       } else {
-        setConnectStatus({ loading: false, success: false, msg: data.error });
+        const errorMsg = data.error || (data.detail ? JSON.stringify(data.detail) : "Unknown error");
+        setConnectStatus({ loading: false, success: false, msg: errorMsg });
       }
     } catch (e: any) {
       setConnectStatus({
@@ -369,7 +362,7 @@ export default function Accounts() {
 
   const removeMt5Account = async (id: number) => {
     try {
-      await fetch(`${API_URL}/api/accounts/${id}`, {
+      await fetchWithAuth(`${API_URL}/api/accounts/${id}`, {
         headers: { "ngrok-skip-browser-warning": "true" },
         method: "DELETE",
       });

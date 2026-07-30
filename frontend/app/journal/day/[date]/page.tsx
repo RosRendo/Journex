@@ -11,7 +11,7 @@ import { TradeReplayModal } from "@/components/journal/TradeReplayModal";
 export default function DayReviewPage() {
   const { date } = useParams();
   const router = useRouter();
-  const dateStr = Array.isArray(date) ? date[0] : date;
+  const dateStr = (Array.isArray(date) ? date[0] : date) || "";
   
   const { trades, loading } = useCsvTrades();
   const [selectedTrade, setSelectedTrade] = useState<any>(null);

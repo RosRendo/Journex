@@ -13,6 +13,12 @@ interface LessonImage {
   note: string;
   uploadedAt?: string;
   timeframe?: string;
+  profit?: number;
+  tradeDate?: string;
+  pair?: string;
+  direction?: string;
+  strategy?: string;
+  emotion?: string;
 }
 
 interface Lesson {
@@ -474,10 +480,10 @@ export default function LessonsPage() {
 
                     <div className="col-span-2 flex items-center justify-end gap-3 relative z-10">
                       <div className="flex gap-2 mr-2">
-                        {lesson.notes && <FileText className="w-3.5 h-3.5 text-zinc-500" title="Has Notes" />}
+                        {lesson.notes && <span title="Has Notes"><FileText className="w-3.5 h-3.5 text-zinc-500" /></span>}
                         {lesson.images && lesson.images.length > 0 && (
-                          <div className="flex items-center gap-1">
-                            <ImageIcon className="w-3.5 h-3.5 text-blue-400" title="Has Images" />
+                          <div className="flex items-center gap-1" title="Has Images">
+                            <ImageIcon className="w-3.5 h-3.5 text-blue-400" />
                             {lesson.images.length > 1 && <span className="text-[9px] font-bold text-blue-400 bg-blue-500/20 px-1 rounded">{lesson.images.length}</span>}
                           </div>
                         )}

@@ -588,8 +588,8 @@ def connect_account(req: ConnectRequest):
     if not connected or mt5.terminal_info() is None:
         init_mt5()
     
-    # Try logging into the requested account on the open MT5 terminal
-    authorized = mt5.login(req.login, password=req.password, server=req.server)
+    # Try logging into the requested account on the open MT5 terminal (timeout 10s)
+    authorized = mt5.login(req.login, password=req.password, server=req.server, timeout=10000)
     if authorized:
         acc = mt5.account_info()
         # Save credentials per Gmail so they auto-reconnect next time
@@ -625,7 +625,7 @@ def auto_connect(req: AutoConnectRequest):
     if not connected or mt5.terminal_info() is None:
         init_mt5()
 
-    authorized = mt5.login(creds["login"], password=creds["password"], server=creds["server"])
+    authorized = mt5.login(creds["login"], password=creds["password"], server=creds["server"], timeout=10000)
     if authorized:
         acc = mt5.account_info()
         _current_user_email = req.email

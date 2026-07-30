@@ -326,7 +326,7 @@ wss.on("connection", (ws, request) => {
 
   // Non-admin callers always get the mock random-walk feed — no live Oanda ticks
   const currentSettings = getSettings();
-  const broker = currentSettings.broker || { provider: "mock" };
+  const broker = currentSettings.broker || { provider: "mt5_bridge" };
 
   let oandaStream: OandaPricingStream | null = null;
   let mockInterval: NodeJS.Timeout | null = null;
@@ -368,7 +368,7 @@ wss.on("connection", (ws, request) => {
       console.error(`[OANDA STREAM START FAILED] ${err.message}`);
       startMockInterval();
     }
-  } else if (callerIsAdmin && broker.provider === "mt5_bridge") {
+  } else if (broker.provider === "mt5_bridge") {
     // Probe the bridge — if alive, use it; if not, start mock and keep trying
     const targetUrl = localMt5Url.replace("localhost", "127.0.0.1");
     let bridgeWatchdog: NodeJS.Timeout | null = null;

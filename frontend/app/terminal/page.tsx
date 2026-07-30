@@ -14,7 +14,7 @@ import { useTerminalData } from "../../hooks/useTerminalData";
 
 export default function TerminalPage() {
   const [symbol, setSymbol] = useState("XAUUSD");
-  const [timeframe, setTimeframe] = useState("H4");
+  const [timeframe, setTimeframe] = useState("M15");
   const [orderOpen, setOrderOpen] = useState(false);
   const [orderInitialData, setOrderInitialData] = useState<any>(null);
   const [isLeftOpen, setIsLeftOpen] = useState(true);

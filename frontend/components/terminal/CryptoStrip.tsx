@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getBackendUrl } from "@/lib/utils";
+import { api } from "../../lib/terminalApi";
 
 function WidgetHeader({ title, right }: { title: string; right?: React.ReactNode }) {
   return (
@@ -21,11 +21,10 @@ export default function CryptoStrip() {
   useEffect(() => {
     let cancelled = false;
     const load = () =>
-      fetch(`${getBackendUrl()}/api/crypto/prices`)
-        .then(r => r.json())
-        .then((data) => {
+      api.get("/crypto/prices")
+        .then((res) => {
           if (cancelled) return;
-          setItems(Array.isArray(data) ? data : []);
+          setItems(Array.isArray(res.data) ? res.data : []);
         })
         .catch(() => { if (!cancelled) setItems([]); })
         .finally(() => { if (!cancelled) setLoading(false); });

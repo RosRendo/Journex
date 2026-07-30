@@ -29,7 +29,7 @@ REM ── [3/3] Open Browser ────────────────�
 echo.
 echo [3/3] Opening dashboard in browser...
 timeout /t 3 /nobreak > nul
-start http://localhost:3000/dashboard
+start chrome --start-fullscreen "http://localhost:3000/terminal"
 
 echo.
 echo  ✅ All optimized services started in the background!
@@ -37,4 +37,4 @@ echo     To view logs, you can run:
 echo     - Docker: docker-compose -f docker-compose-full.yml logs -f
 echo     - PM2:    pm2 logs mt5-bridge-dev
 echo.
-pause
+timeout /t 3 > nul
