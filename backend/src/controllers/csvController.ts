@@ -453,6 +453,7 @@ export const uploadCsvTrades = async (
               : undefined,
             outcome: parsedTrade.outcome,
             csvImportId: csvImport.id,
+            accountNumber: accountNumber || null,
           },
         });
         savedTrades.push(trade);

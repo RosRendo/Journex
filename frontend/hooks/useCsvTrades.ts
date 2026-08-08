@@ -29,6 +29,7 @@ export interface TradeData {
   planDeviationReason?: string;
   checklistPassed?: boolean;
   emotion?: string;
+  accountNumber?: string; // which MT5 account this trade belongs to
 }
 
 export interface Analytics {
@@ -49,7 +50,7 @@ export interface Analytics {
  * Hook to fetch trades and analytics from CSV imports
  * Replaces the MT5 Bridge connection hook
  */
-export function useCsvTrades(accountId?: string, autoRefreshMs: number = 0) {
+export function useCsvTrades(accountNumber?: string, autoRefreshMs: number = 0) {
   const [trades, setTrades] = useState<TradeData[]>([]);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);
@@ -161,19 +162,19 @@ export function useCsvTrades(accountId?: string, autoRefreshMs: number = 0) {
         profit: Number(t.profit || 0),
         outcome: t.outcome,
         ticket: t.ticket,
+        accountNumber: t.accountNumber || undefined,
       }));
 
       // 2. ALSO fetch from database API for recently placed trades
       try {
-        const headers: Record<string, string> = { "ngrok-skip-browser-warning": "true" };
-        const apiToken = (session?.user as any)?.apiToken;
-        if (apiToken) {
-          headers["Authorization"] = `Bearer ${apiToken}`;
-        }
-
-        const fetchUrl = DB_API_URL === "http://localhost:5000" ? `${DB_API}/api/trades?limit=100&sortBy=date&order=DESC` : `/api/trades?limit=100&sortBy=date&order=DESC`;
-        const dbRes = await fetch(fetchUrl, {
-          headers
+        // Build query: filter by accountNumber if provided
+        const params = new URLSearchParams({ limit: "100", sortBy: "date", order: "DESC" });
+        if (accountNumber) params.set("accountNumber", accountNumber);
+        const fetchUrl = DB_API_URL === "http://localhost:5000"
+          ? `${DB_API}/api/trades?${params}`
+          : `/api/trades?${params}`;
+        const dbRes = await fetchWithAuth(fetchUrl, {
+          headers: { "ngrok-skip-browser-warning": "true" }
         });
         if (dbRes.ok) {
           const dbData = await dbRes.json();
@@ -245,7 +246,7 @@ export function useCsvTrades(accountId?: string, autoRefreshMs: number = 0) {
     } finally {
       setLoading(false);
     }
-  }, [accountId, calculateAnalytics, session]);
+  }, [accountNumber, calculateAnalytics, session]);
 
   // Fetch trades when component mounts
   useEffect(() => {

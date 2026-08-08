@@ -65,9 +65,9 @@ export default function DisciplineScoreWidget({ trades = [], compact }: Discipli
   }, [trades]);
 
   const scoreColor =
-    stats.score === null ? "#64748b"
-    : stats.score >= 80 ? "#22c55e"
-    : stats.score >= 60 ? "#eab308"
+    stats.score === null ? "#71717a"
+    : stats.score >= 80 ? "#10b981"
+    : stats.score >= 60 ? "#f59e0b"
     : "#ef4444";
 
   const scoreLabel =
@@ -78,12 +78,12 @@ export default function DisciplineScoreWidget({ trades = [], compact }: Discipli
 
   if (stats.total === 0) {
     return (
-      <div className="rounded-2xl p-6 space-y-3" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-        <div className="flex items-center gap-2">
-          <Shield className="w-5 h-5" style={{ color: "var(--text-tertiary)" }} />
-          <span className="text-sm font-bold uppercase tracking-widest" style={{ color: "var(--text-tertiary)" }}>Discipline Score</span>
+      <div className="bg-[#111118] border border-zinc-800/40 rounded-xl p-5 shadow-xl font-mono text-[10px]">
+        <div className="flex items-center gap-2 mb-3">
+          <Shield className="w-4 h-4 text-zinc-550" />
+          <span className="font-bold uppercase tracking-widest text-zinc-300">Discipline Score</span>
         </div>
-        <p className="text-sm" style={{ color: "var(--text-tertiary)" }}>
+        <p className="text-zinc-500 leading-relaxed font-sans text-xs">
           Open trades in your journal and log your emotional state &amp; plan compliance to see your discipline score.
         </p>
       </div>
@@ -91,76 +91,66 @@ export default function DisciplineScoreWidget({ trades = [], compact }: Discipli
   }
 
   return (
-    <div className="rounded-2xl p-6 space-y-5" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+    <div className="bg-[#111118] border border-zinc-800/40 rounded-xl p-5 shadow-xl font-mono text-[10px]">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Shield className="w-5 h-5" style={{ color: scoreColor }} />
-          <span className="text-sm font-bold uppercase tracking-widest" style={{ color: "var(--text-secondary)" }}>Discipline Score</span>
+          <Shield className="w-4 h-4" style={{ color: scoreColor }} />
+          <span className="font-bold uppercase tracking-widest text-zinc-350">Discipline Score</span>
         </div>
-        <span className="text-xs px-2 py-1 rounded-full font-bold" style={{ background: `${scoreColor}18`, color: scoreColor, border: `1px solid ${scoreColor}40` }}>
+        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded" style={{ background: `${scoreColor}15`, color: scoreColor, border: `1px solid ${scoreColor}25` }}>
           {scoreLabel}
         </span>
       </div>
 
       {/* Big Score */}
-      <div className="flex items-end gap-4">
-        <div className="text-7xl font-black font-mono leading-none" style={{ color: scoreColor }}>
+      <div className="flex items-end gap-3 mb-4">
+        <div className="text-5xl font-black font-mono leading-none" style={{ color: scoreColor }}>
           {stats.score !== null ? stats.score : "—"}
         </div>
-        <div className="pb-2 space-y-1">
-          <div className="text-xs" style={{ color: "var(--text-tertiary)" }}>out of 100</div>
-          <div className="text-xs font-semibold" style={{ color: "var(--text-tertiary)" }}>last {stats.total} journalled trades</div>
+        <div className="pb-1 space-y-0.5">
+          <div className="text-[9px] text-zinc-555 font-bold uppercase tracking-wide">out of 100</div>
+          <div className="text-[9px] text-zinc-500 font-bold uppercase tracking-wide">last {stats.total} journalled trades</div>
         </div>
       </div>
 
       {/* Score bar */}
       {stats.score !== null && (
-        <div className="h-2 w-full rounded-full overflow-hidden" style={{ background: "var(--bg-elevated)" }}>
+        <div className="h-1.5 w-full bg-black/25 border border-zinc-850 rounded-full overflow-hidden mb-4">
           <div
-            className="h-full rounded-full transition-all duration-700"
+            className="h-full rounded-full transition-all duration-500"
             style={{ width: `${stats.score}%`, background: scoreColor }}
           />
         </div>
       )}
 
       {/* Insight Cards */}
-      <div className="space-y-3 pt-1">
+      <div className="space-y-2.5 pt-1 text-[11px] font-sans">
         {stats.planFollowed > 0 && (
-          <div className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "rgba(34,197,94,0.07)", border: "1px solid rgba(34,197,94,0.15)" }}>
-            <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: "#22c55e" }} />
-            <p className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
-              You followed your plan <strong style={{ color: "#22c55e" }}>{stats.planFollowed} of {stats.total} trades</strong> — keep that consistency.
+          <div className="flex items-start gap-2.5 p-3 rounded-lg bg-emerald-500/[0.02] border border-emerald-500/10">
+            <CheckCircle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-emerald-400" />
+            <p className="text-zinc-350">
+              You followed your plan <strong className="text-emerald-400 font-bold">{stats.planFollowed} of {stats.total} trades</strong> — keep that consistency.
             </p>
           </div>
         )}
 
         {stats.planDeviated > 0 && (
-          <div className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.2)" }}>
-            <XCircle className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: "#ef4444" }} />
-            <p className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
-              You deviated from your plan <strong style={{ color: "#ef4444" }}>{stats.planDeviated} times</strong>
-              {stats.deviationLosses > 0 && <> — <strong style={{ color: "#ef4444" }}>{stats.deviationLosses} of those were losses</strong></>}.
-              {stats.deviationLosses >= 2 && " That's not a strategy problem."}
+          <div className="flex items-start gap-2.5 p-3 rounded-lg bg-red-500/[0.02] border border-red-500/10">
+            <XCircle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-red-400" />
+            <p className="text-zinc-350">
+              You deviated from your plan <strong className="text-red-400 font-bold">{stats.planDeviated} times</strong>
+              {stats.deviationLosses > 0 && <> — <strong className="text-red-400 font-bold">{stats.deviationLosses} of those were losses</strong></>}.
             </p>
           </div>
         )}
 
         {stats.isEmotionRisk && stats.topEmotion && (
-          <div className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "rgba(234,179,8,0.07)", border: "1px solid rgba(234,179,8,0.2)" }}>
-            <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: "#eab308" }} />
-            <p className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
-              Your most common emotional state is <strong style={{ color: "#eab308" }}>{stats.topEmotion[0]}</strong>{" "}
+          <div className="flex items-start gap-2.5 p-3 rounded-lg bg-amber-500/[0.02] border border-amber-500/10">
+            <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-400" />
+            <p className="text-zinc-355">
+              Your most common emotional state is <strong className="text-amber-400 font-bold">{stats.topEmotion[0]}</strong>{" "}
               ({stats.topEmotion[1]} trades). Watch your entries when you feel this way.
-            </p>
-          </div>
-        )}
-
-        {stats.score !== null && stats.score >= 80 && (
-          <div className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "rgba(99,102,241,0.07)", border: "1px solid rgba(99,102,241,0.2)" }}>
-            <TrendingUp className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: "#6366f1" }} />
-            <p className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
-              Strong discipline. Most traders with your score see consistent improvement within 30 days.
             </p>
           </div>
         )}

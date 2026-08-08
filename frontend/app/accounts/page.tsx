@@ -36,72 +36,69 @@ function AccountCard({
   onToggleCopier: (id: number) => void;
   onUpdateMultiplier: (id: number, val: number) => void;
 }) {
-  // Removed analyticsData loading - use account data directly
   const borderColor = account.isMaster
-    ? "border-[--profit] shadow-[0_0_15px_rgba(34,197,94,0.15)]"
-    : "border-[--border]";
+    ? "border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.15)] bg-emerald-500/[0.01]"
+    : "border-zinc-800/40 bg-[#111118]";
 
   return (
     <div
-      className={`bg-gradient-to-br from-[--bg-elevated] to-transparent border rounded-xl p-6 relative overflow-hidden ${borderColor}`}
+      className={`border rounded-xl p-5 relative overflow-hidden transition-all duration-350 ${borderColor}`}
     >
       {account.isMaster && (
-        <div className="absolute top-0 right-0 bg-[--profit] text-black text-[9px] font-bold uppercase tracking-widest px-3 py-1 rounded-bl-lg z-10">
+        <div className="absolute top-0 right-0 bg-emerald-500 text-emerald-950 text-[8px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-lg z-10 font-mono">
           Master Node
         </div>
       )}
       <div className="flex items-center gap-4 mb-4">
         <div
-          className={`w-12 h-12 rounded-lg flex items-center justify-center ${account.isMaster ? "bg-[--profit]/20" : "bg-[--accent-dim]"}`}
+          className={`w-10 h-10 rounded-lg flex items-center justify-center ${account.isMaster ? "bg-emerald-500/10 text-emerald-450" : "bg-black/25 text-zinc-550 border border-zinc-805"}`}
         >
-          <Wallet
-            className={`w-6 h-6 ${account.isMaster ? "text-[--profit]" : "text-[--accent]"}`}
-          />
+          <Wallet className="w-5 h-5" />
         </div>
         <div>
-          <p className="text-[10px] text-[--text-tertiary] uppercase tracking-widest font-bold">
+          <p className="text-[9px] text-zinc-500 uppercase tracking-widest font-bold font-mono">
             {account.brokerName || account.mt5Server}
           </p>
-          <h2 className="text-lg font-bold text-[--text-primary]">
+          <h2 className="text-sm font-bold text-white font-mono">
             #{account.accountNumber}
           </h2>
         </div>
         <div className="ml-auto text-right">
           {account.balance !== null && (
-            <p className="text-xl font-bold font-mono text-[--text-primary]">
-              ${Number(account.balance).toLocaleString()}
+            <p className="text-base font-bold font-mono text-white">
+              ${Number(account.balance).toLocaleString(undefined, { minimumFractionDigits: 2 })}
             </p>
           )}
-          <p className="text-[10px] text-[--text-tertiary] uppercase font-bold tracking-widest">
+          <p className="text-[9px] text-zinc-500 uppercase font-bold tracking-widest font-mono">
             Balance
           </p>
         </div>
       </div>
 
-      <div className="flex items-center justify-between mt-4 pt-4 border-t border-[--border]">
+      <div className="flex items-center justify-between mt-4 pt-3.5 border-t border-zinc-800/40">
         {!account.isMaster ? (
-          <div className="flex items-center gap-3 w-full">
+          <div className="flex items-center justify-between w-full font-mono">
             <button
               onClick={() => onToggleCopier(account.id)}
-              className={`flex-1 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider transition-colors ${
+              className={`py-1.5 px-3 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-colors border ${
                 account.copierEnabled
-                  ? "bg-[--profit]/20 text-[--profit] border border-[--profit]/50"
-                  : "bg-[--bg-card] text-[--text-secondary] border border-[--border] hover:text-[--text-primary]"
+                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                  : "bg-black/35 text-zinc-500 border-zinc-800/40 hover:text-white"
               }`}
             >
               {account.copierEnabled ? "Copier Active" : "Enable Copier"}
             </button>
             {account.copierEnabled && (
               <div className="flex items-center gap-2">
-                <span className="text-[10px] uppercase font-bold text-[--text-tertiary]">
-                  Multiplier:
+                <span className="text-[9px] uppercase font-bold text-zinc-550">
+                  Mult:
                 </span>
                 <select
                   value={account.copierMultiplier}
                   onChange={(e) =>
                     onUpdateMultiplier(account.id, parseFloat(e.target.value))
                   }
-                  className="bg-[--bg-card] border border-[--border] text-[12px] font-bold px-2 py-1 rounded outline-none"
+                  className="bg-black/35 border border-zinc-850 text-[10px] font-bold px-2 py-1 rounded outline-none text-zinc-350 cursor-pointer"
                 >
                   <option value={0.5}>0.5x</option>
                   <option value={1.0}>1.0x</option>
@@ -112,9 +109,9 @@ function AccountCard({
             )}
           </div>
         ) : (
-          <div className="w-full text-center">
-            <span className="text-[11px] font-bold text-[--profit] flex justify-center items-center gap-1">
-              <Shield className="w-3.5 h-3.5" /> Broadcasting Trades
+          <div className="w-full text-center font-mono">
+            <span className="text-[9px] font-bold text-emerald-400 flex justify-center items-center gap-1.5 uppercase tracking-widest">
+              <Shield className="w-3.5 h-3.5" /> Broadcasting Node
             </span>
           </div>
         )}
@@ -123,7 +120,7 @@ function AccountCard({
       {!account.isMaster && (
         <button
           onClick={() => onSetMaster(account.id)}
-          className="w-full mt-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider text-[--text-tertiary] hover:bg-[--bg-card] hover:text-[--text-primary] transition-colors border border-transparent hover:border-[--border]"
+          className="w-full mt-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider text-zinc-500 hover:bg-black/25 hover:text-white transition-colors border border-zinc-800/20 font-mono hover:border-zinc-800/50"
         >
           Set As Master Node
         </button>
@@ -136,9 +133,9 @@ export default function Accounts() {
   const { data: session } = useSession();
   const userEmail = session?.user?.email ?? undefined;
   const [activeTab, setActiveTab] = useState<"mt5" | "csv">("mt5");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("list"); // Added List View Support
+  const [viewMode, setViewMode] = useState<"grid" | "list">("list");
 
-  // Dynamic bridge URL (fetched at runtime — no Vercel redeploy needed when tunnel URL changes)
+  // Dynamic bridge URL
   const { bridgeUrl: BRIDGE } = useBridgeUrl();
 
   // MT5 state
@@ -185,7 +182,6 @@ export default function Accounts() {
       if (res.ok) {
         const json = await res.json();
         const dbAccs = json.data || [];
-        // Only show accounts that have MT5 credentials
         const live = dbAccs.filter((a: any) => a.mt5Password != null);
         setMt5Accounts(live);
 
@@ -201,24 +197,24 @@ export default function Accounts() {
     fetchDbAccounts();
   }, []);
 
-  // Poll MT5 bridge for live account Pulse
   useEffect(() => {
-    if (!BRIDGE) return; // wait until dynamic URL is resolved
+    if (!BRIDGE) return;
     const fetchPulse = async () => {
       try {
         setPulseLoading(true);
-        const accRes = await fetch(`${BRIDGE}/api/account`, {
+        const accRes = await fetchWithAuth(`${BRIDGE}/api/account`, {
           headers: { "ngrok-skip-browser-warning": "true" },
         });
         if (accRes.ok) {
           const acc = await accRes.json();
-          if (acc.success && acc.account) {
+          if (acc.success) {
+            const data = acc.account || acc;
             setMt5Pulse({
               connected: true,
-              balance: acc.account.balance,
-              equity: acc.account.equity,
-              profit: acc.account.profit,
-              marginLevel: acc.account.margin_level,
+              balance: data.balance,
+              equity: data.equity,
+              profit: data.profit,
+              marginLevel: data.margin_level,
             });
           } else {
             setMt5Pulse({ connected: false });
@@ -235,7 +231,7 @@ export default function Accounts() {
     fetchPulse();
     const interval = setInterval(fetchPulse, 10000);
     return () => clearInterval(interval);
-  }, [BRIDGE]); // re-run whenever bridge URL resolves
+  }, [BRIDGE]);
 
   const handleSaveMt5Account = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -247,7 +243,7 @@ export default function Accounts() {
         accountNumber: login,
         mt5Password: password,
         mt5Server: server,
-        isMaster: mt5Accounts.length === 0, // First account is master by default
+        isMaster: mt5Accounts.length === 0,
         copierEnabled: false,
         copierMultiplier: 1.0,
         balance: 0,
@@ -261,21 +257,17 @@ export default function Accounts() {
       });
 
       if (!res.ok) {
-        alert(
-          "Failed to save account to database. Check if Backend API is running properly.",
-        );
+        alert("Failed to save account node.");
         return;
       }
 
       await fetchDbAccounts();
-
-      // Only clear and close if successful
       setIsAddingMode(false);
       setLogin("");
       setPassword("");
       setServer("");
     } catch (e) {
-      alert("Network error: Could not reach Backend API. " + e);
+      alert("Network error: Could not save node.");
     }
   };
 
@@ -287,31 +279,26 @@ export default function Accounts() {
         body: JSON.stringify(data),
       });
     } catch (e) {
-      console.error(`Failed to update account ${id}:`, e);
+      console.error(e);
     }
   };
 
   const setAsMaster = async (id: number) => {
     try {
-      // Unset all existing masters sequentially to avoid SQLite locks
       for (const acc of mt5Accounts) {
         if (acc.isMaster && acc.id !== id) {
           await updateAccountInDb(acc.id, { isMaster: false });
         }
       }
-
-      // Set new master
       await updateAccountInDb(id, { isMaster: true, copierEnabled: false });
-
-      // Then fetch once to refresh state
       await fetchDbAccounts();
     } catch (e) {
-      console.error("Failed to set master account:", e);
+      console.error(e);
     }
   };
 
   const toggleCopier = async (id: number) => {
-    if (masterAccount === id) return; // Cannot copy itself
+    if (masterAccount === id) return;
     const acc = mt5Accounts.find((a) => a.id === id);
     if (acc) {
       await updateAccountInDb(id, { copierEnabled: !acc.copierEnabled });
@@ -330,7 +317,7 @@ export default function Accounts() {
       msg: `Routing Bridge to Master Node #${acc.accountNumber}...`,
     });
     try {
-      const res = await fetch(`${BRIDGE}/api/connect`, {
+      const res = await fetchWithAuth(`${BRIDGE}/api/connect`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -369,14 +356,14 @@ export default function Accounts() {
       if (masterAccount === id) setMasterAccount(null);
       await fetchDbAccounts();
     } catch (e) {
-      console.error(`Failed to remove account ${id}:`, e);
+      console.error(e);
     }
   };
 
   if (accountsLoading || tradesLoading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="animate-spin w-12 h-12 border-4 border-[--accent] border-t-transparent rounded-full"></div>
+        <div className="animate-spin w-10 h-10 border-2 border-emerald-400 border-t-transparent rounded-full"></div>
       </div>
     );
   }
@@ -386,29 +373,34 @@ export default function Accounts() {
   );
 
   return (
-    <div className="space-y-6 text-[--text-primary]">
+    <div className="min-h-screen w-full bg-[#05050a] text-text-primary px-4 md:px-6 py-4 flex flex-col gap-4 animate-fade-in pb-16">
+      
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-[#111118]/80 p-4 border border-zinc-800/40 rounded-2xl backdrop-blur-xl">
         <div>
-          <h1 className="text-2xl font-bold font-display tracking-tight flex items-center gap-3">
-            <Network className="w-7 h-7 text-[--accent]" />
-            Account Matrix & Trade Copier
+          <h1 className="text-lg font-black tracking-tight text-white font-display flex items-center gap-2">
+            <Network className="w-5 h-5 text-emerald-400" />
+            Account Matrix & Copier
           </h1>
-          <p className="text-[13px] text-[--text-secondary] mt-1">
-            Configure Master/Slave node routing for instantaneous multi-account
-            execution.
+          <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest font-mono flex items-center gap-1 mt-0.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            Topology Control Active
           </p>
         </div>
-        <div className="flex items-center bg-[--bg-card] border border-[--border] rounded-xl p-1 shadow-sm">
+        <div className="flex items-center bg-black/20 border border-zinc-800/40 rounded-lg p-1">
           <button
             onClick={() => setActiveTab("mt5")}
-            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "mt5" ? "bg-[--accent] text-white shadow-md" : "text-[--text-secondary] hover:text-[--text-primary]"}`}
+            className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase font-mono tracking-wider transition-all ${
+              activeTab === "mt5" ? "bg-white/10 text-white shadow" : "text-zinc-550 hover:text-zinc-350"
+            }`}
           >
             Live Copier Grid
           </button>
           <button
             onClick={() => setActiveTab("csv")}
-            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "csv" ? "bg-[--accent] text-white shadow-md" : "text-[--text-secondary] hover:text-[--text-primary]"}`}
+            className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase font-mono tracking-wider transition-all ${
+              activeTab === "csv" ? "bg-white/10 text-white shadow" : "text-zinc-550 hover:text-zinc-350"
+            }`}
           >
             CSV Analytics
           </button>
@@ -417,31 +409,32 @@ export default function Accounts() {
 
       {/* --- MT5 LIVE TAB --- */}
       {activeTab === "mt5" && (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
-          {/* Aggregate Operations Matrix & Pulse Strip */}
+        <div className="space-y-4 animate-fade-in flex flex-col gap-4">
+          
+          {/* Aggregate Stats Strip */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Aggregate Statistics */}
-            <div className="bg-[--bg-card] border border-[--border] rounded-xl p-5 md:col-span-1 shadow-sm flex flex-col justify-between relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-[--accent]/5 rounded-bl-full pointer-events-none" />
-              <h3 className="text-[11px] font-bold uppercase tracking-widest text-[--text-tertiary] mb-4 flex items-center gap-2">
-                <Server className="w-3.5 h-3.5" /> Aggregate Capital
+            
+            {/* Aggregate Capital Card */}
+            <div className="bg-[#111118] border border-zinc-800/40 rounded-xl p-4 shadow-md flex flex-col justify-between relative overflow-hidden">
+              <h3 className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-4 flex items-center gap-1.5 font-mono">
+                <Server className="w-3.5 h-3.5 text-zinc-400" /> Aggregate Capital
               </h3>
-              <div className="space-y-4 relative z-10">
-                <div className="flex justify-between items-end border-b border-[--border]/50 pb-2">
-                  <span className="text-xs font-bold text-[--text-secondary]">
-                    Total Matrix Balance
+              <div className="space-y-2 relative z-10 font-mono text-[11px]">
+                <div className="flex justify-between items-end border-b border-zinc-850/40 pb-2">
+                  <span className="text-zinc-500 font-bold uppercase text-[9px] tracking-wider">
+                    Total Balance
                   </span>
-                  <span className="font-mono text-xl font-black text-[--text-primary]">
+                  <span className="text-base font-black text-white">
                     ${mt5Pulse?.connected && mt5Pulse?.balance != null
                       ? mt5Pulse.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })
                       : mt5Accounts.reduce((acc, a) => acc + (Number(a.balance) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </span>
                 </div>
-                <div className="flex justify-between items-end pb-2">
-                  <span className="text-xs font-bold text-[--text-secondary]">
+                <div className="flex justify-between items-end pb-1">
+                  <span className="text-zinc-500 font-bold uppercase text-[9px] tracking-wider">
                     Combined Equity
                   </span>
-                  <span className="font-mono text-lg font-bold text-[--text-primary]">
+                  <span className="text-sm font-bold text-zinc-200">
                     ${mt5Pulse?.connected && mt5Pulse?.equity != null
                       ? mt5Pulse.equity.toLocaleString(undefined, { minimumFractionDigits: 2 })
                       : mt5Accounts.reduce((acc, a) => acc + (Number(a.equity) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
@@ -452,19 +445,17 @@ export default function Accounts() {
 
             {/* Account Pulse Strip */}
             <div
-              className={`md:col-span-2 flex flex-col justify-center p-5 rounded-xl border relative shadow-sm ${mt5Pulse?.connected ? "bg-[--accent]/5 border-[--accent]/25" : "bg-[--bg-card] border-[--border]"}`}
+              className={`md:col-span-2 flex flex-col justify-center p-4 rounded-xl border relative shadow-md ${mt5Pulse?.connected ? "bg-emerald-500/[0.01] border-emerald-500/20" : "bg-[#111118] border-zinc-800/40"}`}
             >
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <div
-                    className={`w-2 h-2 rounded-full ${mt5Pulse?.connected ? "bg-[--bull] animate-pulse shadow-[0_0_6px_var(--bull)]" : "bg-[--text-tertiary]"}`}
+                    className={`w-1.5 h-1.5 rounded-full ${mt5Pulse?.connected ? "bg-emerald-400 animate-pulse" : "bg-zinc-700"}`}
                   />
                   <span
-                    className="text-[11px] font-bold uppercase tracking-widest"
+                    className={`text-[9px] font-bold uppercase tracking-widest font-mono`}
                     style={{
-                      color: mt5Pulse?.connected
-                        ? "var(--accent)"
-                        : "var(--text-tertiary)",
+                      color: mt5Pulse?.connected ? "#34d399" : "#71717a",
                     }}
                   >
                     {pulseLoading
@@ -476,49 +467,27 @@ export default function Accounts() {
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-6 mt-1">
+              <div className="flex flex-wrap gap-5 font-mono">
                 {mt5Pulse?.connected ? (
                   [
-                    [
-                      "Balance",
-                      mt5Pulse.balance?.toLocaleString("en-US", {
-                        minimumFractionDigits: 2,
-                      }) ?? "—",
-                      "$",
-                    ],
-                    [
-                      "Equity",
-                      mt5Pulse.equity?.toLocaleString("en-US", {
-                        minimumFractionDigits: 2,
-                      }) ?? "—",
-                      "$",
-                    ],
+                    ["Balance", mt5Pulse.balance?.toLocaleString(undefined, { minimumFractionDigits: 2 }) ?? "—", "$"],
+                    ["Equity", mt5Pulse.equity?.toLocaleString(undefined, { minimumFractionDigits: 2 }) ?? "—", "$"],
                     ["Float P&L", mt5Pulse.profit?.toFixed(2) ?? "—", "$"],
-                    [
-                      "Margin Level",
-                      mt5Pulse.marginLevel?.toFixed(1) ?? "—",
-                      "%",
-                    ],
+                    ["Margin Level", mt5Pulse.marginLevel?.toFixed(1) ?? "—", "%"],
                   ].map(([label, val, symbol]) => (
-                    <div
-                      key={label as string}
-                      className="flex flex-col items-start"
-                    >
-                      <span
-                        className="text-[9px] font-bold uppercase tracking-widest"
-                        style={{ color: "var(--text-tertiary)" }}
-                      >
+                    <div key={label as string} className="flex flex-col items-start text-[11px]">
+                      <span className="text-[8px] font-bold uppercase tracking-widest text-zinc-550">
                         {label}
                       </span>
                       <span
-                        className="text-[13px] font-bold font-mono"
+                        className="font-bold text-xs"
                         style={{
                           color:
                             label === "Float P&L"
                               ? Number(mt5Pulse.profit) >= 0
-                                ? "var(--bull)"
-                                : "var(--bear)"
-                              : "var(--text-primary)",
+                                ? "#00c896"
+                                : "#ff4d6a"
+                              : "#f4f4f5",
                         }}
                       >
                         {symbol}
@@ -527,25 +496,24 @@ export default function Accounts() {
                     </div>
                   ))
                 ) : (
-                  <span className="text-[11px] text-[--text-tertiary] mt-2 block">
-                    Assign a Master Node and Initialize the MT5 Python bridge to
-                    see live routing metrics.
+                  <span className="text-[10px] text-zinc-550">
+                    Assign a Master Node and Initialize the MT5 Python bridge to see live routing metrics.
                   </span>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Status Bar */}
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 bg-[--bg-card] border border-[--border] rounded-xl p-5 flex items-center justify-between">
+          {/* Node Counts Strip */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-[#111118] border border-zinc-800/40 rounded-xl p-4 flex items-center justify-between shadow-sm">
               <div>
-                <p className="text-[10px] text-[--text-tertiary] uppercase tracking-widest font-bold mb-1">
-                  Master Node
+                <p className="text-[9px] text-zinc-500 uppercase tracking-widest font-bold font-mono mb-1">
+                  Master Node Configuration
                 </p>
-                <p className="text-lg font-bold font-mono">
+                <p className="text-base font-bold font-mono">
                   {masterAccount ? (
-                    <span className="text-[--accent]">
+                    <span className="text-emerald-400">
                       #
                       {
                         mt5Accounts.find((a) => a.id === masterAccount)
@@ -553,76 +521,79 @@ export default function Accounts() {
                       }
                     </span>
                   ) : (
-                    <span className="text-[--text-secondary]">UNASSIGNED</span>
+                    <span className="text-zinc-650 font-mono">UNASSIGNED</span>
                   )}
                 </p>
               </div>
-              <Shield
-                className={`w-8 h-8 ${masterAccount ? "text-[--accent]" : "text-[--border-strong]"}`}
-              />
+              <Shield className={`w-6 h-6 ${masterAccount ? "text-emerald-400" : "text-zinc-750"}`} />
             </div>
 
-            <div className="flex-1 bg-[--bg-card] border border-[--border] rounded-xl p-5 flex items-center justify-between">
+            <div className="bg-[#111118] border border-zinc-800/40 rounded-xl p-4 flex items-center justify-between shadow-sm">
               <div>
-                <p className="text-[10px] text-[--text-tertiary] uppercase tracking-widest font-bold mb-1">
-                  Active Slaves
+                <p className="text-[9px] text-zinc-500 uppercase tracking-widest font-bold font-mono mb-1">
+                  Active Slaves Matrix
                 </p>
-                <p className="text-lg font-bold font-mono">
-                  <span className="text-[--profit]">
+                <p className="text-base font-bold font-mono">
+                  <span className="text-emerald-400">
                     {activeCopiers.length}
                   </span>{" "}
-                  <span className="text-[--text-tertiary] text-sm font-sans mx-1">
-                    Routing
+                  <span className="text-zinc-500 text-[10px] font-sans mx-1">
+                    Nodes Routing
                   </span>
                 </p>
               </div>
-              <Network
-                className={`w-8 h-8 ${activeCopiers.length > 0 ? "text-[--profit]" : "text-[--border-strong]"}`}
-              />
+              <Network className={`w-6 h-6 ${activeCopiers.length > 0 ? "text-emerald-400" : "text-zinc-750"}`} />
             </div>
           </div>
 
           {connectStatus.msg && (
             <div
-              className={`p-4 rounded-xl flex items-center gap-3 ${connectStatus.success ? "bg-[--profit]/10 border border-[--profit]/20 text-[--profit]" : connectStatus.loading ? "bg-[--info]/10 border border-[--info]/20 text-[--info]" : "bg-[--loss]/10 border border-[--loss]/20 text-[--loss]"}`}
+              className={`p-3 rounded-lg flex items-center gap-2.5 font-mono text-[11px] ${
+                connectStatus.success 
+                  ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-450" 
+                  : connectStatus.loading 
+                    ? "bg-blue-500/10 border border-blue-500/20 text-blue-450" 
+                    : "bg-red-500/10 border border-red-500/20 text-red-450"
+              }`}
             >
               {connectStatus.loading ? (
-                <RefreshCw className="w-5 h-5 animate-spin" />
+                <RefreshCw className="w-4 h-4 animate-spin" />
               ) : connectStatus.success ? (
-                <CheckCircle2 className="w-5 h-5" />
+                <CheckCircle2 className="w-4 h-4" />
               ) : (
-                <AlertCircle className="w-5 h-5" />
+                <AlertCircle className="w-4 h-4" />
               )}
-              <p className="text-sm font-bold tracking-wide">
+              <p className="font-bold">
                 {connectStatus.msg}
               </p>
             </div>
           )}
 
-          <div className="flex items-center justify-between mt-8 mb-4">
-            <h2 className="text-[14px] font-bold uppercase tracking-widest text-[--text-secondary]">
-              Terminal Matrix
+          {/* Matrix Header & View mode */}
+          <div className="flex items-center justify-between mt-4">
+            <h2 className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 font-mono">
+              Topology Nodes Matrix
             </h2>
             <div className="flex items-center gap-2">
-              <div className="flex bg-[--bg-card] border border-[--border-strong] rounded-lg p-1 mr-2">
+              <div className="flex bg-black/20 border border-zinc-800/40 rounded-lg p-1 mr-1">
                 <button
                   onClick={() => setViewMode("grid")}
-                  className={`p-1.5 rounded-md ${viewMode === "grid" ? "bg-[--bg-elevated] text-[--text-primary]" : "text-[--text-tertiary] hover:text-[--text-secondary]"}`}
+                  className={`p-1.5 rounded-lg transition-all ${viewMode === "grid" ? "bg-white/10 text-white" : "text-zinc-550 hover:text-zinc-350"}`}
                 >
-                  <LayoutGrid className="w-4 h-4" />
+                  <LayoutGrid className="w-3.5 h-3.5" />
                 </button>
                 <button
                   onClick={() => setViewMode("list")}
-                  className={`p-1.5 rounded-md ${viewMode === "list" ? "bg-[--bg-elevated] text-[--text-primary]" : "text-[--text-tertiary] hover:text-[--text-secondary]"}`}
+                  className={`p-1.5 rounded-lg transition-all ${viewMode === "list" ? "bg-white/10 text-white" : "text-zinc-550 hover:text-zinc-350"}`}
                 >
-                  <List className="w-4 h-4" />
+                  <List className="w-3.5 h-3.5" />
                 </button>
               </div>
               <button
                 onClick={() => setIsAddingMode(!isAddingMode)}
-                className="flex items-center gap-2 px-4 py-2 bg-[--bg-elevated] border border-[--border-strong] text-[--text-primary] rounded-lg text-sm font-bold hover:bg-[--border] transition-colors"
+                className="flex items-center gap-1 text-[10px] font-bold font-sans uppercase tracking-wider bg-white/5 border border-white/5 text-zinc-350 hover:bg-white/10 px-3.5 py-2 rounded-lg transition-all"
               >
-                <Plus className="w-4 h-4" /> Add Node
+                <Plus className="w-3.5 h-3.5" /> Add Node
               </button>
             </div>
           </div>
@@ -630,14 +601,14 @@ export default function Accounts() {
           {isAddingMode && (
             <form
               onSubmit={handleSaveMt5Account}
-              className="bg-[--bg-card] border border-[--border] rounded-xl p-6 space-y-5 shadow-2xl"
+              className="bg-[#111118] border border-zinc-800/40 rounded-xl p-5 space-y-4 shadow-2xl"
             >
-              <h3 className="text-sm font-bold tracking-widest uppercase text-[--accent] mb-2">
-                Deploy New Terminal Node
+              <h3 className="text-xs font-bold tracking-widest uppercase text-emerald-400 font-mono">
+                Deploy New Node Topology
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                <div>
-                  <label className="block text-[11px] font-bold text-[--text-tertiary] uppercase tracking-wider mb-2">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider font-mono">
                     Server Topology
                   </label>
                   <input
@@ -646,11 +617,11 @@ export default function Accounts() {
                     onChange={(e) => setServer(e.target.value)}
                     required
                     placeholder="MetaQuotes-Demo"
-                    className="w-full bg-[--bg-base] border border-[--border] rounded-lg px-4 py-2.5 text-sm font-mono focus:outline-none focus:border-[--accent] transition-colors"
+                    className="w-full bg-black/35 border border-zinc-800/60 rounded-lg px-3.5 py-2 text-xs font-mono focus:outline-none focus:border-emerald-400 text-white placeholder-zinc-700"
                   />
                 </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-[--text-tertiary] uppercase tracking-wider mb-2">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider font-mono">
                     Node Login (ID)
                   </label>
                   <input
@@ -659,33 +630,34 @@ export default function Accounts() {
                     onChange={(e) => setLogin(e.target.value)}
                     required
                     placeholder="12345678"
-                    className="w-full bg-[--bg-base] border border-[--border] rounded-lg px-4 py-2.5 text-sm font-mono focus:outline-none focus:border-[--accent] transition-colors"
+                    className="w-full bg-black/35 border border-zinc-800/60 rounded-lg px-3.5 py-2 text-xs font-mono focus:outline-none focus:border-emerald-400 text-white placeholder-zinc-700"
                   />
                 </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-[--text-tertiary] uppercase tracking-wider mb-2">
-                    Encryption Key
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider font-mono">
+                    Encryption Key (Password)
                   </label>
                   <input
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="w-full bg-[--bg-base] border border-[--border] rounded-lg px-4 py-2.5 text-sm font-mono focus:outline-none focus:border-[--accent] transition-colors"
+                    placeholder="••••••••"
+                    className="w-full bg-black/35 border border-zinc-800/60 rounded-lg px-3.5 py-2 text-xs font-mono focus:outline-none focus:border-emerald-400 text-white placeholder-zinc-700"
                   />
                 </div>
               </div>
-              <div className="flex justify-end gap-3 pt-4 border-t border-[--border]">
+              <div className="flex justify-end gap-2 pt-3.5 border-t border-zinc-800/40 font-mono text-[9px] font-bold">
                 <button
                   type="button"
                   onClick={() => setIsAddingMode(false)}
-                  className="px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-[--text-secondary] hover:text-[--text-primary] transition-colors"
+                  className="px-4 py-2 uppercase tracking-wider text-zinc-550 hover:text-white transition-colors"
                 >
                   Abort
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 bg-[--accent] text-white text-xs font-black uppercase tracking-wider rounded-lg hover:opacity-80 transition-all"
+                  className="px-4 py-2 bg-emerald-500 text-emerald-950 uppercase tracking-wider rounded-lg hover:bg-emerald-400 transition-all font-black"
                 >
                   Deploy Node
                 </button>
@@ -694,32 +666,31 @@ export default function Accounts() {
           )}
 
           {mt5Accounts.length === 0 && !isAddingMode ? (
-            <div className="border border-dashed border-[--border-strong] rounded-2xl p-16 text-center bg-[--bg-card]">
-              <Server className="w-12 h-12 text-[--text-tertiary] mx-auto mb-4" />
-              <h3 className="text-lg font-bold text-[--text-primary] mb-2">
-                Grid Empty
+            <div className="border border-dashed border-zinc-800/50 rounded-xl p-12 text-center bg-[#111118]">
+              <Server className="w-10 h-10 text-zinc-700 mx-auto mb-3" />
+              <h3 className="text-sm font-bold text-white mb-1.5">
+                Matrix Topology Empty
               </h3>
-              <p className="text-[--text-secondary] text-sm max-w-md mx-auto line-height-relaxed">
-                Deploy terminal nodes to build your copier matrix. You need at
-                least one Master Node to broadcast signals to Slaves.
+              <p className="text-zinc-500 text-xs max-w-sm mx-auto leading-relaxed">
+                Deploy terminal nodes to build your copier matrix. You need at least one Master Node to broadcast signals to Slaves.
               </p>
             </div>
           ) : (
             <>
               {/* --- LIST VIEW --- */}
               {viewMode === "list" && (
-                <div className="bg-[--bg-card] border border-[--border] rounded-xl overflow-hidden">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-[--bg-elevated] text-[--text-tertiary] text-[10px] uppercase font-bold tracking-widest border-b border-[--border]">
+                <div className="bg-[#111118] border border-zinc-800/40 rounded-xl overflow-hidden shadow-xl">
+                  <table className="w-full text-left text-xs whitespace-nowrap">
+                    <thead className="bg-[#111118]/85 text-[9px] uppercase font-bold text-zinc-500 tracking-wider border-b border-zinc-800/40">
                       <tr>
-                        <th className="px-6 py-4">Node / ID</th>
-                        <th className="px-6 py-4">Status</th>
-                        <th className="px-6 py-4">Role / Copier</th>
-                        <th className="px-6 py-4">Multiplier</th>
-                        <th className="px-6 py-4 text-right">Actions</th>
+                        <th className="px-4 py-3">Node / ID</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3">Role / Copier</th>
+                        <th className="px-4 py-3">Multiplier</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-zinc-900/40 font-medium text-zinc-300 font-mono">
                       {mt5Accounts.map((acc) => {
                         const isMaster = masterAccount === acc.id;
                         const isEnabled = acc.copierEnabled || false;
@@ -731,65 +702,69 @@ export default function Accounts() {
                         return (
                           <tr
                             key={acc.id}
-                            className={`border-b border-[--border]/50 hover:bg-[--bg-elevated]/50 transition-colors ${isMaster ? "bg-[--accent]/5" : ""}`}
+                            className={`hover:bg-white/[0.01] border-b border-zinc-900/60 transition-colors ${isMaster ? "bg-emerald-500/[0.02]" : ""}`}
                           >
-                            <td className="px-6 py-5">
+                            <td className="px-4 py-4">
                               <div className="flex items-center gap-3">
                                 <div
-                                  className={`w-10 h-10 rounded-lg flex items-center justify-center ${isMaster ? "bg-[--accent] text-white" : isEnabled ? "bg-[--profit]/20 text-[--profit]" : "bg-[--bg-base] border border-[--border-strong] text-[--text-tertiary]"}`}
+                                  className={`w-8 h-8 rounded-lg flex items-center justify-center ${isMaster ? "bg-emerald-500/10 text-emerald-400" : isEnabled ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-black/25 text-zinc-600 border border-zinc-850"}`}
                                 >
                                   {isMaster ? (
-                                    <Shield className="w-5 h-5" />
+                                    <Shield className="w-4 h-4" />
                                   ) : isEnabled ? (
-                                    <CheckCircle2 className="w-5 h-5" />
+                                    <CheckCircle2 className="w-4 h-4" />
                                   ) : (
-                                    <Server className="w-5 h-5" />
+                                    <Server className="w-4 h-4" />
                                   )}
                                 </div>
                                 <div>
-                                  <h3 className="font-bold font-mono text-[--text-primary]">
+                                  <h3 className="font-bold text-white text-[11px] font-mono">
                                     #{acc.accountNumber}
                                   </h3>
-                                  <p className="text-[10px] text-[--text-tertiary] uppercase tracking-wider">
+                                  <p className="text-[8px] text-zinc-550 uppercase tracking-wider font-mono">
                                     {acc.mt5Server}
                                   </p>
                                 </div>
                               </div>
                             </td>
-                            <td className="px-6 py-5">
+                            <td className="px-4 py-4">
                               {isMaster ? (
-                                <span className="flex items-center gap-1.5 text-[10px] font-bold text-[--accent] uppercase tracking-widest px-2.5 py-1 bg-[--accent]/10 rounded border border-[--accent]/20 w-fit">
-                                  <Shield className="w-3 h-3" /> Master Node
+                                <span className="flex items-center gap-1 text-[8px] font-bold text-emerald-400 uppercase tracking-widest px-2 py-0.5 bg-emerald-500/10 rounded border border-emerald-500/20 w-fit">
+                                  <Shield className="w-2.5 h-2.5" /> Master Node
                                 </span>
                               ) : isEnabled ? (
-                                <span className="flex items-center gap-1.5 text-[10px] font-bold text-[--profit] uppercase tracking-widest px-2.5 py-1 bg-[--profit]/10 rounded border border-[--profit]/20 w-fit">
-                                  <Network className="w-3 h-3" /> Copying Live
+                                <span className="flex items-center gap-1 text-[8px] font-bold text-emerald-400 uppercase tracking-widest px-2 py-0.5 bg-emerald-500/10 rounded border border-emerald-500/20 w-fit">
+                                  <Network className="w-2.5 h-2.5" /> Copying Live
                                 </span>
                               ) : (
-                                <span className="flex items-center gap-1.5 text-[10px] font-bold text-[--text-tertiary] uppercase tracking-widest px-2.5 py-1 bg-[--bg-base] rounded border border-[--border] w-fit">
+                                <span className="flex items-center gap-1 text-[8px] font-bold text-zinc-550 uppercase tracking-widest px-2 py-0.5 bg-black/25 rounded border border-zinc-800 w-fit">
                                   Idle / Standby
                                 </span>
                               )}
                             </td>
-                            <td className="px-6 py-5">
+                            <td className="px-4 py-4">
                               {!isMaster ? (
                                 <button
                                   onClick={() => toggleCopier(acc.id)}
-                                  className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${isEnabled ? "bg-[--loss]/10 text-[--loss] hover:bg-[--loss]/20" : "bg-[--profit]/10 text-[--profit] hover:bg-[--profit]/20"}`}
+                                  className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all border ${
+                                    isEnabled 
+                                      ? "bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20" 
+                                      : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
+                                  }`}
                                 >
                                   {isEnabled
                                     ? "Disable Copier"
                                     : "Enable Copier"}
                                 </button>
                               ) : (
-                                <p className="text-[10px] text-[--text-tertiary] italic">
-                                  Master nodes cannot copy
+                                <p className="text-[9px] text-zinc-650 italic">
+                                  Master node cannot copy
                                 </p>
                               )}
                             </td>
-                            <td className="px-6 py-5">
+                            <td className="px-4 py-4">
                               {!isMaster && isEnabled ? (
-                                <div className="flex items-center bg-[--bg-base] border border-[--border-strong] rounded-md overflow-hidden w-fit">
+                                <div className="flex items-center bg-black/25 border border-zinc-800/40 rounded-lg overflow-hidden w-fit font-mono text-[10px]">
                                   <button
                                     onClick={() =>
                                       updateMultiplier(
@@ -797,34 +772,32 @@ export default function Accounts() {
                                         Math.max(0.1, multiplier - 0.1),
                                       )
                                     }
-                                    className="px-2.5 py-1.5 text-[--text-tertiary] hover:text-[--text-primary] hover:bg-[--bg-elevated]"
+                                    className="px-2 py-1 text-zinc-550 hover:text-white hover:bg-white/5"
                                   >
                                     -
                                   </button>
-                                  <span className="text-xs font-mono px-3 font-bold w-12 text-center text-[--text-primary]">
+                                  <span className="px-2.5 font-bold text-center text-white w-10">
                                     {multiplier.toFixed(1)}x
                                   </span>
                                   <button
                                     onClick={() =>
                                       updateMultiplier(acc.id, multiplier + 0.1)
                                     }
-                                    className="px-2.5 py-1.5 text-[--text-tertiary] hover:text-[--text-primary] hover:bg-[--bg-elevated]"
+                                    className="px-2 py-1 text-zinc-550 hover:text-white hover:bg-white/5"
                                   >
                                     +
                                   </button>
                                 </div>
                               ) : (
-                                <span className="text-[--text-tertiary] text-xs">
-                                  —
-                                </span>
+                                <span className="text-zinc-650 text-xs">—</span>
                               )}
                             </td>
-                            <td className="px-6 py-5 text-right">
-                              <div className="flex items-center justify-end gap-2">
+                            <td className="px-4 py-4 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
                                 {!isMaster ? (
                                   <button
                                     onClick={() => setAsMaster(acc.id)}
-                                    className="px-3 py-1.5 border border-[--border-strong] hover:border-[--accent] text-[10px] uppercase font-bold tracking-widest rounded transition-colors text-[--text-secondary] hover:text-[--accent]"
+                                    className="px-2.5 py-1.5 border border-zinc-800 hover:border-emerald-500/50 text-[9px] uppercase font-bold tracking-widest rounded-lg transition-colors text-zinc-400 hover:text-emerald-400"
                                   >
                                     Set Master
                                   </button>
@@ -832,19 +805,19 @@ export default function Accounts() {
                                   <button
                                     onClick={() => handleConnectMaster(acc)}
                                     disabled={connectStatus.loading}
-                                    className="px-3 py-1.5 bg-[--accent] text-white text-[10px] uppercase font-bold tracking-widest rounded hover:opacity-80 transition-all flex items-center justify-center gap-1.5"
+                                    className="px-2.5 py-1.5 bg-emerald-500 hover:bg-emerald-450 text-emerald-950 text-[9px] uppercase font-bold tracking-widest rounded-lg transition-all flex items-center justify-center gap-1.5 font-mono font-black"
                                   >
                                     <RefreshCw
                                       className={`w-3 h-3 ${connectStatus.loading ? "animate-spin" : ""}`}
-                                    />{" "}
+                                    />
                                     Initialize
                                   </button>
                                 )}
                                 <button
                                   onClick={() => removeMt5Account(acc.id)}
-                                  className="p-1.5 text-[--text-tertiary] hover:text-[--loss] transition-colors rounded"
+                                  className="p-1.5 text-zinc-600 hover:text-red-400 transition-colors rounded-lg hover:bg-red-500/10 border border-transparent hover:border-red-500/20"
                                 >
-                                  <X className="w-4 h-4" />
+                                  <X className="w-3.5 h-3.5" />
                                 </button>
                               </div>
                             </td>
@@ -858,7 +831,7 @@ export default function Accounts() {
 
               {/* --- GRID VIEW --- */}
               {viewMode === "grid" && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {mt5Accounts.map((acc) => {
                     const multiplier =
                       typeof acc.copierMultiplier === "string"
@@ -867,67 +840,63 @@ export default function Accounts() {
                     return (
                       <div
                         key={acc.id}
-                        className={`bg-[--bg-card] border-2 rounded-xl p-5 flex flex-col justify-between transition-colors relative overflow-hidden ${acc.isMaster ? "border-[--accent] shadow-[0_0_20px_var(--accent-dim)]" : acc.copierEnabled ? "border-[--profit]" : "border-[--border]"}`}
+                        className={`bg-[#111118] border rounded-xl p-4 flex flex-col justify-between transition-colors relative overflow-hidden ${acc.isMaster ? "border-emerald-500/30 bg-emerald-500/[0.01]" : acc.copierEnabled ? "border-emerald-500/20" : "border-zinc-850"}`}
                       >
-                        {/* Master Ribbon */}
                         {acc.isMaster && (
-                          <div className="absolute top-3 right-[-30px] bg-[--accent] text-white text-[9px] font-black uppercase tracking-widest px-10 py-1 rotate-45 shadow-md">
+                          <div className="absolute top-3 right-[-30px] bg-emerald-500 text-emerald-950 text-[8px] font-black uppercase tracking-widest px-8 py-0.5 rotate-45 shadow-md font-mono">
                             MASTER
                           </div>
                         )}
 
                         <div>
-                          <div className="flex justify-between items-start mb-5">
+                          <div className="flex justify-between items-start mb-4">
                             <div
-                              className={`w-12 h-12 rounded-xl flex items-center justify-center ${acc.isMaster ? "bg-[--accent] text-white" : acc.copierEnabled ? "bg-[--profit]/20 text-[--profit]" : "bg-[--bg-elevated] text-[--text-tertiary]"}`}
+                              className={`w-10 h-10 rounded-lg flex items-center justify-center ${acc.isMaster ? "bg-emerald-500/10 text-emerald-400" : acc.copierEnabled ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-black/25 border border-zinc-800 text-zinc-600"}`}
                             >
                               {acc.isMaster ? (
-                                <Shield className="w-6 h-6" />
+                                <Shield className="w-5 h-5" />
                               ) : acc.copierEnabled ? (
-                                <CheckCircle2 className="w-6 h-6" />
+                                <CheckCircle2 className="w-5 h-5" />
                               ) : (
-                                <Server className="w-6 h-6" />
+                                <Server className="w-5 h-5" />
                               )}
                             </div>
                           </div>
 
-                          <h3 className="text-xl font-bold font-mono tracking-tight mb-1">
+                          <h3 className="text-base font-bold font-mono tracking-tight mb-1">
                             #{acc.accountNumber}
                           </h3>
-                          <span className="text-[10px] font-bold px-2 py-0.5 bg-[--bg-elevated] text-[--text-secondary] rounded uppercase tracking-wider">
+                          <span className="text-[9px] font-bold px-2 py-0.5 bg-black/25 text-zinc-550 rounded uppercase tracking-wider font-mono border border-zinc-850">
                             {acc.mt5Server}
                           </span>
                         </div>
 
                         {/* Configuration Area */}
-                        <div className="mt-6 pt-5 border-t border-[--border] space-y-4">
+                        <div className="mt-5 pt-4 border-t border-zinc-850 space-y-3.5">
                           {!acc.isMaster && (
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between text-[11px] font-mono">
                               <div>
-                                <p className="text-[11px] font-bold text-[--text-primary]">
-                                  Proxy Copier
-                                </p>
-                                <p className="text-[9px] text-[--text-tertiary] uppercase">
-                                  Mirror Master execution
+                                <p className="font-bold text-white">
+                                  Proxy Copier Routing
                                 </p>
                               </div>
                               <button
                                 onClick={() => toggleCopier(acc.id)}
-                                className={`w-11 h-6 rounded-full relative transition-colors ${acc.copierEnabled ? "bg-[--profit]" : "bg-[--border-strong]"}`}
+                                className={`w-9 h-5 rounded-full relative transition-colors ${acc.copierEnabled ? "bg-emerald-500" : "bg-zinc-800"}`}
                               >
                                 <span
-                                  className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${acc.copierEnabled ? "left-6" : "left-1"}`}
+                                  className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${acc.copierEnabled ? "left-4.5" : "left-0.5"}`}
                                 />
                               </button>
                             </div>
                           )}
 
                           {!acc.isMaster && acc.copierEnabled && (
-                            <div className="flex items-center justify-between pt-2">
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-[--text-secondary]">
+                            <div className="flex items-center justify-between pt-1 font-mono text-[10px]">
+                              <span className="font-bold uppercase tracking-wider text-zinc-550">
                                 Risk Multiplier
                               </span>
-                              <div className="flex items-center bg-[--bg-base] border border-[--border] rounded-md overflow-hidden">
+                              <div className="flex items-center bg-black/25 border border-zinc-800 rounded-lg overflow-hidden">
                                 <button
                                   onClick={() =>
                                     updateMultiplier(
@@ -935,18 +904,18 @@ export default function Accounts() {
                                       Math.max(0.1, multiplier - 0.1),
                                     )
                                   }
-                                  className="px-2 py-1 text-[--text-tertiary] hover:text-[--text-primary] hover:bg-[--bg-elevated]"
+                                  className="px-2 py-1 text-zinc-550 hover:text-white hover:bg-white/5"
                                 >
                                   -
                                 </button>
-                                <span className="text-[11px] font-mono px-2 font-bold w-12 text-center text-[--text-primary]">
+                                <span className="font-bold w-10 text-center text-white">
                                   {multiplier.toFixed(1)}x
                                 </span>
                                 <button
                                   onClick={() =>
                                     updateMultiplier(acc.id, multiplier + 0.1)
                                   }
-                                  className="px-2 py-1 text-[--text-tertiary] hover:text-[--text-primary] hover:bg-[--bg-elevated]"
+                                  className="px-2 py-1 text-zinc-555 hover:text-white hover:bg-white/5"
                                 >
                                   +
                                 </button>
@@ -954,11 +923,11 @@ export default function Accounts() {
                             </div>
                           )}
 
-                          <div className="flex gap-2 pt-2">
+                          <div className="flex gap-2 pt-1 font-mono text-[9px] font-bold">
                             {!acc.isMaster ? (
                               <button
                                 onClick={() => setAsMaster(acc.id)}
-                                className="flex-1 border border-[--border-strong] hover:border-[--accent] text-[10px] uppercase font-bold tracking-widest rounded-lg py-2 transition-colors text-[--text-secondary] hover:text-[--accent]"
+                                className="flex-1 border border-zinc-800 hover:border-emerald-500/50 text-[8px] uppercase tracking-widest rounded-lg py-2 transition-colors text-zinc-400 hover:text-emerald-400"
                               >
                                 Set Master
                               </button>
@@ -966,20 +935,20 @@ export default function Accounts() {
                               <button
                                 onClick={() => handleConnectMaster(acc)}
                                 disabled={connectStatus.loading}
-                                className="flex-1 bg-[--accent] text-white text-[10px] uppercase font-black tracking-widest rounded-lg py-2 hover:opacity-80 transition-all flex items-center justify-center gap-2"
+                                className="flex-1 bg-emerald-500 hover:bg-emerald-450 text-emerald-950 uppercase tracking-widest rounded-lg py-2 hover:opacity-80 transition-all flex items-center justify-center gap-1.5 font-black"
                               >
                                 <RefreshCw
-                                  className={`w-3.5 h-3.5 ${connectStatus.loading ? "animate-spin" : ""}`}
-                                />{" "}
+                                  className={`w-3 h-3 ${connectStatus.loading ? "animate-spin" : ""}`}
+                                />
                                 Initialize
                               </button>
                             )}
 
                             <button
                               onClick={() => removeMt5Account(acc.id)}
-                              className="w-10 flex flex-col items-center justify-center text-[--text-tertiary] border border-[--border] hover:border-[--loss] hover:text-[--loss] hover:bg-[--loss]/10 rounded-lg transition-colors"
+                              className="w-8 flex flex-col items-center justify-center text-zinc-600 border border-zinc-800 hover:border-red-500/50 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                             >
-                              <X className="w-4 h-4" />
+                              <X className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </div>
@@ -994,67 +963,62 @@ export default function Accounts() {
       )}
 
       {/* --- CSV TAB --- */}
-      {/* CSV Logic Remains Unmodified but matched in style */}
       {activeTab === "csv" && (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
-          {/* Same CSV Logic preserved from previous mapping */}
+        <div className="space-y-4 animate-fade-in flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-bold font-display">
-                Static Archives
+              <h2 className="text-xs font-bold uppercase tracking-widest text-zinc-500 font-mono">
+                Static Archives Matrix
               </h2>
-              <p className="text-[12px] text-[--text-secondary] mt-1">
-                Historically parsed broker reports
-              </p>
             </div>
             <Link
               href="/journal"
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[--bg-elevated] border border-[--border-strong] hover:border-[--text-primary] text-sm font-bold transition-colors text-[--text-primary]"
+              className="flex items-center gap-1 text-[10px] font-bold font-sans uppercase tracking-wider bg-white/5 border border-white/5 text-zinc-350 hover:bg-white/10 px-3.5 py-2 rounded-lg transition-all"
             >
-              <Upload className="w-4 h-4" />
+              <Upload className="w-3.5 h-3.5 text-emerald-455" />
               Upload Database
             </Link>
           </div>
 
           {accountsError && (
-            <div className="p-4 bg-[--loss]/10 border border-[--loss]/20 rounded-xl text-[--loss] text-sm font-bold">
+            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs font-bold font-mono">
               {accountsError}
             </div>
           )}
 
           {trades.length > 0 && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="p-5 bg-[--bg-card] border border-[--border] rounded-xl text-center">
-                <p className="text-[10px] uppercase font-bold tracking-widest text-[--text-tertiary] mb-2">
+              <div className="p-4 bg-[#111118] border border-zinc-800/40 rounded-xl text-center shadow-md">
+                <p className="text-[9px] uppercase font-bold tracking-widest text-zinc-550 mb-2 font-mono">
                   Total Executions
                 </p>
-                <p className="text-2xl font-mono font-bold text-[--text-primary]">
+                <p className="text-xl font-mono font-black text-white">
                   {analytics?.totalTrades || 0}
                 </p>
               </div>
-              <div className="p-5 bg-[--bg-card] border border-[--border] rounded-xl text-center">
-                <p className="text-[10px] uppercase font-bold tracking-widest text-[--text-tertiary] mb-2">
+              <div className="p-4 bg-[#111118] border border-zinc-800/40 rounded-xl text-center shadow-md">
+                <p className="text-[9px] uppercase font-bold tracking-widest text-zinc-550 mb-2 font-mono">
                   Win Rate
                 </p>
-                <p className="text-2xl font-mono font-bold text-[--profit]">
+                <p className="text-xl font-mono font-black text-emerald-400">
                   {analytics?.winRate.toFixed(1) || 0}%
                 </p>
               </div>
-              <div className="p-5 bg-[--bg-card] border border-[--border] rounded-xl text-center">
-                <p className="text-[10px] uppercase font-bold tracking-widest text-[--text-tertiary] mb-2">
+              <div className="p-4 bg-[#111118] border border-zinc-800/40 rounded-xl text-center shadow-md">
+                <p className="text-[9px] uppercase font-bold tracking-widest text-zinc-550 mb-2 font-mono">
                   Net Gross
                 </p>
                 <p
-                  className={`text-2xl font-mono font-bold ${(analytics?.totalProfit || 0) >= 0 ? "text-[--profit]" : "text-[--loss]"}`}
+                  className={`text-xl font-mono font-black ${(analytics?.totalProfit || 0) >= 0 ? "text-emerald-450" : "text-red-450"}`}
                 >
                   ${analytics?.totalProfit.toFixed(2) || "0.00"}
                 </p>
               </div>
-              <div className="p-5 bg-[--bg-card] border border-[--border] rounded-xl text-center">
-                <p className="text-[10px] uppercase font-bold tracking-widest text-[--text-tertiary] mb-2">
+              <div className="p-4 bg-[#111118] border border-zinc-800/40 rounded-xl text-center shadow-md">
+                <p className="text-[9px] uppercase font-bold tracking-widest text-zinc-550 mb-2 font-mono">
                   Profit Factor
                 </p>
-                <p className="text-2xl font-mono font-bold text-[--profit]">
+                <p className="text-xl font-mono font-black text-emerald-400">
                   {analytics?.profitFactor.toFixed(2) || 0}
                 </p>
               </div>
@@ -1062,24 +1026,23 @@ export default function Accounts() {
           )}
 
           {accounts.length === 0 && !accountsLoading && !accountsError ? (
-            <div className="border border-dashed border-[--border-strong] rounded-2xl p-12 text-center bg-[--bg-card]">
-              <Wallet className="w-12 h-12 text-[--text-tertiary] mx-auto mb-4" />
-              <h3 className="text-lg font-bold text-[--text-primary] mb-2">
-                No CSV Accounts Imported Yet
+            <div className="border border-dashed border-zinc-800/50 rounded-xl p-12 text-center bg-[#111118]">
+              <Wallet className="w-10 h-10 text-zinc-700 mx-auto mb-3" />
+              <h3 className="text-sm font-bold text-white mb-1.5">
+                No CSV Accounts Logged
               </h3>
-              <p className="text-[--text-secondary] text-sm max-w-md mx-auto">
-                Upload a broker CSV file to start tracking your trading accounts
-                and performance.
+              <p className="text-zinc-500 text-xs max-w-sm mx-auto">
+                Upload a broker CSV statement report to start parsing performance analytics.
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 min-h-[200px]">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[200px]">
               {accountsLoading ? (
                 <div className="col-span-full flex items-center justify-center h-64">
                   <div className="text-center">
-                    <div className="animate-spin w-12 h-12 border-4 border-[--accent] border-t-transparent rounded-full mx-auto mb-4"></div>
-                    <p className="text-[--text-secondary]">
-                      Loading accounts...
+                    <div className="animate-spin w-10 h-10 border-2 border-emerald-400 border-t-transparent rounded-full mx-auto mb-4"></div>
+                    <p className="text-zinc-500 text-xs font-mono uppercase tracking-widest">
+                      Loading Matrix...
                     </p>
                   </div>
                 </div>

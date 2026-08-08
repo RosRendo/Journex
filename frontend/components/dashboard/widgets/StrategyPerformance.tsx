@@ -12,10 +12,11 @@ interface StrategyStat {
 interface StrategyPerformanceProps {
   data?: StrategyStat[];
   loading?: boolean;
+  accountNumber?: string;
 }
 
-export function StrategyPerformance({ data: externalData, loading: externalLoading }: StrategyPerformanceProps = {}) {
-  const { trades, loading: tradesLoading } = useCsvTrades();
+export function StrategyPerformance({ data: externalData, loading: externalLoading, accountNumber }: StrategyPerformanceProps = {}) {
+  const { trades, loading: tradesLoading } = useCsvTrades(accountNumber);
 
   const data = useMemo(() => {
     if (externalData) return externalData;

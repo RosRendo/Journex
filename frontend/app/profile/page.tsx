@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { getBackendUrl } from "@/lib/utils";
+import { getBackendUrl, fetchWithAuth } from "@/lib/utils";
 import Link from "next/link";
 import {
     User, Edit3, Save, X, Camera,
@@ -40,7 +40,7 @@ export default function ProfilePage() {
 
     const fetchProfile = async () => {
         try {
-            const res = await fetch(`${API}/profile`, { headers: { "ngrok-skip-browser-warning": "true" } });
+            const res = await fetchWithAuth(`${API}/profile`, { headers: { "ngrok-skip-browser-warning": "true" } });
             if (res.ok) {
                 const data = await res.json();
                 setProfile(data);
@@ -52,7 +52,7 @@ export default function ProfilePage() {
 
     const fetchMyPosts = async () => {
         try {
-            const res = await fetch(`${API}/posts`, { headers: { "ngrok-skip-browser-warning": "true" } });
+            const res = await fetchWithAuth(`${API}/posts`, { headers: { "ngrok-skip-browser-warning": "true" } });
             if (res.ok) {
                 const all = await res.json();
                 // show all for now — later filter by authorId once auth is wired
@@ -100,7 +100,7 @@ export default function ProfilePage() {
                 ? form.avatar 
                 : `https://api.dicebear.com/7.x/avataaars/svg?seed=${form.avatarSeed}`;
 
-            const res = await fetch(`${API}/profile`, {
+            const res = await fetchWithAuth(`${API}/profile`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

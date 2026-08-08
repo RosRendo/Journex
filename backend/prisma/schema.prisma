@@ -23,6 +23,7 @@ model User {
 model Trade {
   id        Int      @id @default(autoincrement())
   userId    String   @default("default-user") @map("user_id")
+  accountNumber String? @map("account_number") @db.VarChar(50) // MT5 account number this trade belongs to
   date      DateTime @db.Date
   pair      String   @db.VarChar(20)
   strategy  String?  @db.VarChar(50)
@@ -63,6 +64,7 @@ model Trade {
 
   @@index([userId, date])
   @@index([userId, pair])
+  @@index([userId, accountNumber])
   @@index([outcome])
   @@map("trades")
 }

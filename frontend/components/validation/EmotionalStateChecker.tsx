@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
 import { Brain, Heart, Battery, Sun, Moon, CloudRain, Zap, AlertTriangle, CheckCircle2, Coffee, Clock, TrendingUp, TrendingDown } from "lucide-react";
-import { Card } from "@/components/ui/card";
 
 interface StateRating {
   id: string;
@@ -13,15 +12,15 @@ interface StateRating {
 }
 
 const mentalStates: StateRating[] = [
-  { id: "focus", label: "Focus Level", icon: <Brain className="w-4 h-4" />, value: 0, maxValue: 10, idealRange: [7, 10] },
-  { id: "calm", label: "Emotional Calm", icon: <Heart className="w-4 h-4" />, value: 0, maxValue: 10, idealRange: [6, 10] },
-  { id: "energy", label: "Energy Level", icon: <Battery className="w-4 h-4" />, value: 0, maxValue: 10, idealRange: [5, 10] },
+  { id: "focus", label: "Focus Level", icon: <Brain className="w-3.5 h-3.5" />, value: 0, maxValue: 10, idealRange: [7, 10] },
+  { id: "calm", label: "Emotional Calm", icon: <Heart className="w-3.5 h-3.5" />, value: 0, maxValue: 10, idealRange: [6, 10] },
+  { id: "energy", label: "Energy Level", icon: <Battery className="w-3.5 h-3.5" />, value: 0, maxValue: 10, idealRange: [5, 10] },
 ];
 
 const physicalStates: StateRating[] = [
-  { id: "sleep", label: "Sleep Quality (last night)", icon: <Moon className="w-4 h-4" />, value: 0, maxValue: 10, idealRange: [6, 10] },
-  { id: "fatigue", label: "Physical Fatigue", icon: <Coffee className="w-4 h-4" />, value: 0, maxValue: 10, idealRange: [0, 4] },
-  { id: "stress", label: "General Stress", icon: <CloudRain className="w-4 h-4" />, value: 0, maxValue: 10, idealRange: [0, 4] },
+  { id: "sleep", label: "Sleep Quality (last night)", icon: <Moon className="w-3.5 h-3.5" />, value: 0, maxValue: 10, idealRange: [6, 10] },
+  { id: "fatigue", label: "Physical Fatigue", icon: <Coffee className="w-3.5 h-3.5" />, value: 0, maxValue: 10, idealRange: [0, 4] },
+  { id: "stress", label: "General Stress", icon: <CloudRain className="w-3.5 h-3.5" />, value: 0, maxValue: 10, idealRange: [0, 4] },
 ];
 
 const recentEvents = [
@@ -53,11 +52,11 @@ export default function EmotionalStateChecker() {
 
   const getScoreColor = (value: number, ideal: [number, number], inverted = false) => {
     const inIdeal = value >= ideal[0] && value <= ideal[1];
-    if (inIdeal) return "var(--bull)";
+    if (inIdeal) return "#10b981";
     if (inverted) {
-      return value > ideal[1] ? "var(--bear)" : "var(--accent)";
+      return value > ideal[1] ? "#ef4444" : "#f59e0b";
     }
-    return value >= ideal[0] ? "var(--bull)" : "var(--bear)";
+    return value >= ideal[0] ? "#10b981" : "#ef4444";
   };
 
   const calculateOverall = () => {
@@ -85,13 +84,13 @@ export default function EmotionalStateChecker() {
 
   const renderSlider = (state: StateRating, type: "mental" | "physical", inverted = false) => (
     <div key={state.id} className="mb-3">
-      <div className="flex items-center justify-between mb-1">
+      <div className="flex items-center justify-between mb-1.5 font-sans">
         <div className="flex items-center gap-1.5">
-          <span style={{ color: "var(--text-tertiary)" }}>{state.icon}</span>
-          <span className="text-xs" style={{ color: "var(--text-primary)" }}>{state.label}</span>
+          <span className="text-zinc-550">{state.icon}</span>
+          <span className="text-xs text-zinc-350">{state.label}</span>
         </div>
         <span 
-          className="text-xs font-bold"
+          className="text-xs font-bold font-mono"
           style={{ color: getScoreColor(state.value, state.idealRange, inverted) }}
         >
           {state.value}/{state.maxValue}
@@ -103,41 +102,37 @@ export default function EmotionalStateChecker() {
         max={state.maxValue}
         value={state.value}
         onChange={(e) => updateRating(type, state.id, Number(e.target.value))}
-        className="w-full h-2 rounded-lg appearance-none cursor-pointer"
-        style={{ 
-          background: `linear-gradient(to right, var(--bull) ${(state.idealRange[0]/state.maxValue)*100}%, var(--accent) ${(state.idealRange[0]/state.maxValue)*100}%, var(--accent) ${(state.idealRange[1]/state.maxValue)*100}%, var(--bull) ${(state.idealRange[1]/state.maxValue)*100}%, var(--bear) 100%)`,
-          backgroundColor: "var(--bg-input)"
-        }}
+        className="w-full appearance-none bg-black/25 border border-zinc-850 h-2 rounded-full outline-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-emerald-500 cursor-pointer"
       />
-      <div className="flex justify-between text-[9px]" style={{ color: "var(--text-tertiary)" }}>
+      <div className="flex justify-between text-[8px] text-zinc-555 mt-1">
         <span>0</span>
-        <span>Ideal: {state.idealRange[0]}-{state.idealRange[1]}</span>
+        <span>Ideal Range: {state.idealRange[0]}-{state.idealRange[1]}</span>
         <span>{state.maxValue}</span>
       </div>
     </div>
   );
 
   return (
-    <Card className="p-4" style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)" }}>
+    <div className="bg-[#111118] border border-zinc-800/40 rounded-xl p-5 shadow-xl font-mono text-[10px]">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Brain className="w-5 h-5" style={{ color: canTrade ? "var(--bull)" : "var(--bear)" }} />
-          <h3 className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>Emotional State Check</h3>
+          <Brain className="w-4 h-4 text-emerald-450" />
+          <h3 className="font-bold uppercase tracking-widest text-zinc-300">Emotional State Check</h3>
         </div>
-        <div className="flex items-center gap-1">
-          <span className="text-2xl font-black" style={{ color: canTrade ? "var(--bull)" : "var(--bear)" }}>
+        <div className="flex items-center gap-1 font-bold">
+          <span className="text-xl font-black text-white">
             {overallScore.toFixed(1)}
           </span>
-          <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>/10</span>
+          <span className="text-xs text-zinc-500">/10</span>
         </div>
       </div>
 
       {!canTrade && overallScore > 0 && (
-        <div className="mb-4 p-3 rounded-lg flex items-start gap-2" style={{ background: "rgba(239, 68, 68, 0.1)", border: "1px solid var(--bear)" }}>
-          <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: "var(--bear)" }} />
-          <div>
-            <span className="text-xs font-semibold block" style={{ color: "var(--bear)" }}>Not recommended to trade</span>
-            <span className="text-[10px]" style={{ color: "var(--text-tertiary)" }}>
+        <div className="mb-4 p-3 rounded-lg flex items-start gap-2 bg-red-500/10 border border-red-500/20 text-red-400">
+          <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <div className="font-sans">
+            <span className="text-xs font-bold block">Not recommended to trade</span>
+            <span className="text-[9px] text-zinc-550 block mt-0.5">
               Your mental/physical state may impair judgment
             </span>
           </div>
@@ -145,39 +140,34 @@ export default function EmotionalStateChecker() {
       )}
 
       {canTrade && (
-        <div className="mb-4 p-3 rounded-lg flex items-center gap-2" style={{ background: "rgba(34, 197, 94, 0.1)", border: "1px solid var(--bull)" }}>
-          <CheckCircle2 className="w-4 h-4" style={{ color: "var(--bull)" }} />
-          <span className="text-xs font-medium" style={{ color: "var(--bull)" }}>State is favorable for trading</span>
+        <div className="mb-4 p-3 rounded-lg flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+          <CheckCircle2 className="w-3.5 h-3.5" />
+          <span className="font-bold uppercase tracking-wider text-[9px]">State is favorable for trading</span>
         </div>
       )}
 
       <div className="mb-4">
-        <div className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-tertiary)" }}>Mental State</div>
+        <div className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-2">Mental State</div>
         {mental.map(s => renderSlider(s, "mental"))}
       </div>
 
       <div className="mb-4">
-        <div className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-tertiary)" }}>Physical State</div>
+        <div className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-2">Physical State</div>
         {physical.map(s => renderSlider(s, "physical", true))}
       </div>
 
       <div className="mb-4">
-        <div className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-tertiary)" }}>Recent Events</div>
-        <div className="grid grid-cols-2 gap-1">
+        <div className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-2">Recent Events</div>
+        <div className="grid grid-cols-2 gap-2">
           {events.map(event => (
             <button
               key={event.id}
               onClick={() => toggleEvent(event.id)}
-              className={`text-[10px] px-2 py-1.5 rounded-lg text-left transition-colors ${
-                event.checked ? "ring-1" : ""
+              className={`text-[9px] font-bold font-sans px-2.5 py-1.5 rounded-lg text-left transition-colors ${
+                event.checked ? "bg-red-500/10 border border-red-500/25 text-red-400" : "bg-black/25 text-zinc-550 border border-zinc-850"
               }`}
-              style={{ 
-                background: event.checked ? "rgba(239, 68, 68, 0.2)" : "var(--bg-input)",
-                border: event.checked ? "1px solid var(--bear)" : "1px solid transparent",
-                color: event.checked ? "var(--bear)" : "var(--text-tertiary)"
-              }}
             >
-              {event.checked && <Zap className="w-3 h-3 inline mr-1" />}
+              {event.checked && <Zap className="w-3 h-3 inline mr-1 text-red-400" />}
               {event.label}
             </button>
           ))}
@@ -185,41 +175,37 @@ export default function EmotionalStateChecker() {
       </div>
 
       <div>
-        <div className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-tertiary)" }}>
+        <div className="text-[9px] font-bold uppercase tracking-widest text-zinc-555 mb-2">
           Consecutive Losses
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setRecentLosses(Math.max(0, recentLosses - 1))}
-            className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{ background: "var(--bg-input)", color: "var(--text-tertiary)" }}
+            className="w-8 h-8 rounded-lg flex items-center justify-center bg-black/25 border border-zinc-800 text-zinc-500 hover:text-white cursor-pointer"
           >
             <TrendingDown className="w-4 h-4" />
           </button>
           <div 
-            className="flex-1 py-2 rounded-lg text-center font-bold"
-            style={{ 
-              background: recentLosses >= 3 ? "rgba(239, 68, 68, 0.2)" : "var(--bg-input)",
-              color: recentLosses >= 3 ? "var(--bear)" : "var(--text-primary)"
-            }}
+            className={`flex-1 py-2 rounded-lg text-center font-bold font-mono text-[11px] border ${
+              recentLosses >= 3 ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-black/25 border-zinc-850 text-white"
+            }`}
           >
-            <span className="text-lg">{recentLosses}</span>
-            <span className="text-xs ml-1">losses in a row</span>
+            <span className="text-sm font-black">{recentLosses}</span>
+            <span className="text-[10px] text-zinc-555 ml-1">losses in a row</span>
           </div>
           <button
             onClick={() => setRecentLosses(recentLosses + 1)}
-            className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{ background: "var(--bg-input)", color: "var(--text-tertiary)" }}
+            className="w-8 h-8 rounded-lg flex items-center justify-center bg-black/25 border border-zinc-800 text-zinc-500 hover:text-white cursor-pointer"
           >
             <TrendingUp className="w-4 h-4" />
           </button>
         </div>
         {recentLosses >= 3 && (
-          <p className="text-[10px] mt-2" style={{ color: "var(--bear)" }}>
-            After 3+ losses: Take a break before trading again
+          <p className="text-[9px] mt-2 font-mono text-red-405 font-bold uppercase tracking-wide flex items-center gap-1">
+             <AlertTriangle className="w-3.5 h-3.5" /> Mandated Cool Down Active
           </p>
         )}
       </div>
-    </Card>
+    </div>
   );
 }

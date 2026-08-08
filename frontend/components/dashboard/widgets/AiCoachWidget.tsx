@@ -33,38 +33,36 @@ export function AiCoachWidget() {
 
   const getTypeStyles = (type: Insight["type"]) => {
     switch (type) {
-      case "danger": return "bg-red-500/10 border-red-500/30 text-red-400";
-      case "warning": return "bg-yellow-500/10 border-yellow-500/30 text-yellow-400";
-      case "success": return "bg-green-500/10 border-green-500/30 text-green-400";
+      case "danger": return "bg-red-500/10 border-red-500/20 text-red-400";
+      case "warning": return "bg-amber-500/10 border-amber-500/20 text-amber-400";
+      case "success": return "bg-emerald-500/10 border-emerald-500/20 text-emerald-450";
       case "info":
       default:
-        return "bg-blue-500/10 border-blue-500/30 text-blue-400";
+        return "bg-blue-500/10 border-blue-500/20 text-blue-400";
     }
   };
 
   const getIcon = (type: Insight["type"]) => {
     switch (type) {
-      case "danger": return <AlertTriangle className="w-5 h-5" />;
-      case "warning": return <AlertTriangle className="w-5 h-5" />;
-      case "success": return <CheckCircle className="w-5 h-5" />;
-      case "info": return <Info className="w-5 h-5" />;
+      case "danger": return <AlertTriangle className="w-4 h-4" />;
+      case "warning": return <AlertTriangle className="w-4 h-4" />;
+      case "success": return <CheckCircle className="w-4 h-4" />;
+      case "info": return <Info className="w-4 h-4" />;
     }
   };
 
   return (
-    <div className="rounded-xl border p-5 flex flex-col h-full bg-[#0c0c0d] border-white/5 shadow-lg relative overflow-hidden group">
-      {/* Background glow */}
-      <div className="absolute -top-10 -right-10 w-40 h-40 bg-[var(--accent)] opacity-[0.05] blur-[50px] rounded-full pointer-events-none group-hover:opacity-[0.08] transition-opacity duration-1000" />
+    <div className="rounded-xl border border-zinc-800/40 p-5 flex flex-col h-full bg-[#111118] shadow-xl relative overflow-hidden group font-mono text-[10px]">
       
       {/* Header */}
       <div className="flex items-center justify-between mb-5 relative z-10">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center bg-[var(--accent)]/10 border border-[var(--accent)]/20">
-            <BrainCircuit className="w-4 h-4 text-[var(--accent)]" />
+          <div className="w-7 h-7 rounded-full flex items-center justify-center bg-emerald-500/10 border border-emerald-500/20">
+            <BrainCircuit className="w-4 h-4 text-emerald-400" />
           </div>
           <div>
-            <h3 className="text-[13px] font-bold text-white uppercase tracking-wider">AI Performance Coach</h3>
-            <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-0.5">Heuristic Analysis</p>
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider">AI Performance Coach</h3>
+            <p className="text-[9px] text-zinc-550 uppercase tracking-widest mt-0.5">Heuristic Analysis</p>
           </div>
         </div>
       </div>
@@ -73,22 +71,22 @@ export function AiCoachWidget() {
       <div className="flex-1 flex flex-col gap-3 overflow-y-auto pr-2 relative z-10 custom-scrollbar">
         {loading ? (
           <div className="flex-1 flex flex-col items-center justify-center">
-             <Loader2 className="w-6 h-6 text-gray-500 animate-spin mb-2" />
-             <p className="text-xs text-gray-500 font-mono">Analyzing recent trades...</p>
+             <Loader2 className="w-5 h-5 text-zinc-550 animate-spin mb-2" />
+             <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">Analyzing recent trades...</p>
           </div>
         ) : insights.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center text-xs text-gray-500 font-mono">
+          <div className="flex-1 flex items-center justify-center text-zinc-550 italic">
             No actionable insights found. Keep trading!
           </div>
         ) : (
           insights.map((insight, idx) => (
-            <div key={idx} className={`p-4 rounded-lg border flex gap-4 ${getTypeStyles(insight.type)}`}>
+            <div key={idx} className={`p-4 rounded-lg border flex gap-3 ${getTypeStyles(insight.type)}`}>
               <div className="flex-shrink-0 mt-0.5">
                 {getIcon(insight.type)}
               </div>
               <div>
-                <h4 className="text-sm font-bold mb-1 tracking-wide">{insight.title}</h4>
-                <p className="text-xs opacity-80 leading-relaxed font-medium">
+                <h4 className="text-xs font-bold mb-1 tracking-wide uppercase">{insight.title}</h4>
+                <p className="text-[11px] opacity-90 leading-relaxed font-sans font-medium text-zinc-300">
                   {insight.message}
                 </p>
               </div>
@@ -100,8 +98,8 @@ export function AiCoachWidget() {
       <style dangerouslySetInnerHTML={{__html: `
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.1); }
       `}} />
     </div>
   );

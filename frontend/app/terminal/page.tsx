@@ -59,11 +59,11 @@ export default function TerminalPage() {
         }}
       />
 
-      <div className="flex-1 flex min-h-0 transition-all duration-300">
+      <div className="flex-1 flex flex-col lg:flex-row min-h-0 transition-all duration-300 overflow-y-auto lg:overflow-hidden">
         <aside
           data-testid="left-panel"
-          className={`border-r border-zinc-800 flex flex-col min-h-0 transition-all duration-300 overflow-hidden ${
-            isLeftOpen ? "w-[18%] min-w-[240px]" : "w-12 min-w-[48px]"
+          className={`border-b lg:border-r lg:border-b-0 border-zinc-800 flex flex-col min-h-0 transition-all duration-300 overflow-hidden ${
+            isLeftOpen ? "w-full lg:w-[18%] lg:min-w-[240px]" : "hidden lg:flex lg:w-12 lg:min-w-[48px]"
           }`}
         >
           <LeftPanel snapshot={snapshot} loading={loading} isOpen={isLeftOpen} onToggle={() => setIsLeftOpen(!isLeftOpen)} />
@@ -71,7 +71,7 @@ export default function TerminalPage() {
 
         <main
           data-testid="center-panel"
-          className="flex-1 flex flex-col min-h-0 border-r border-zinc-800 transition-all duration-300 overflow-hidden"
+          className="flex-1 flex flex-col min-h-[50vh] lg:min-h-0 border-b lg:border-r lg:border-b-0 border-zinc-800 transition-all duration-300 overflow-hidden"
         >
           <CenterPanel
             symbol={symbol}
@@ -84,7 +84,7 @@ export default function TerminalPage() {
         <aside
           data-testid="right-panel"
           className={`flex flex-col min-h-0 transition-all duration-300 overflow-hidden ${
-            isRightOpen ? "w-[18%] min-w-[240px]" : "w-12 min-w-[48px]"
+            isRightOpen ? "w-full lg:w-[18%] lg:min-w-[240px]" : "hidden lg:flex lg:w-12 lg:min-w-[48px]"
           }`}
         >
           <RightPanel

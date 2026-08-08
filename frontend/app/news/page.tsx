@@ -18,23 +18,12 @@ import { LiveWireNewsItem } from "@/components/ui/LiveWireNewsItem";
 
 const BRIDGE = process.env.NEXT_PUBLIC_BRIDGE_URL ?? "/api/bridge";
 
-/* ── Types ── */
 interface NewsItem { id: string; title: string; summary?: string; time: string; isHot: boolean; impact: "high" | "medium" | "low"; sentiment: "bullish" | "bearish" | "neutral"; symbol: string; source: string; link?: string; }
 type SignalDir = "buy" | "sell" | "neutral";
 interface Signal { pair: string; signal: SignalDir; strength: number; price: number; change: number; timeframe: string; reason: string; rsi?: number; ema20?: number; ema50?: number; }
 interface CalEvent { time: string; event: string; currency: string; forecast: string; previous: string; impact: "high" | "medium" | "low"; actual: string | null; country?: string; }
 
-async function notifyBridge(msg: string, d: string, t: string, c: string) {
-  try {
-    await fetch(`${BRIDGE}/api/notify`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: msg, discordWebhookUrl: d || null, telegramBotToken: t || null, telegramChatId: c || null })
-    });
-  } catch (_) {}
-}
-
 export default function MacroDeskPage() {
-  /* State */
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [bridgeOn, setBridgeOn] = useState(false);
@@ -44,7 +33,7 @@ export default function MacroDeskPage() {
   const [calEvents, setCalEvents] = useState<CalEvent[]>([]);
   
   const [alertsOn, setAlertsOn] = useState(false);
-  const [fearGreed, setFearGreed] = useState(42); // Base
+  const [fearGreed, setFearGreed] = useState(42);
   const [newsFilter, setNewsFilter] = useState<"all" | "hot">("all");
   const [navDate, setNavDate] = useState(new Date());
   const isFirstFetch = useRef(true);
@@ -56,7 +45,6 @@ export default function MacroDeskPage() {
     if (typeof window === "undefined") return;
     setAlertsOn(localStorage.getItem("news_alerts_on") === "true");
     
-    // Fear/Greed Engine (Poll actual volatility from Bridge Calculations)
     const fetchVolatility = async () => {
       try {
         const res = await fetch(`${BRIDGE}/api/calculations`, { headers: { "ngrok-skip-browser-warning": "true" } });
@@ -64,14 +52,8 @@ export default function MacroDeskPage() {
         if (data.success && data.calculations?.length > 0) {
            const avgScore = data.calculations.reduce((acc: number, c: any) => acc + (c.score || 50), 0) / data.calculations.length;
            setFearGreed(Math.round(avgScore));
-        } else {
-           // Fallback drift if no bridge
-           setFearGreed(prev => prev);
         }
-      } catch (e) {
-          // Fallback drift if offline
-          setFearGreed(prev => prev);
-      }
+      } catch (e) {}
     };
     fetchVolatility();
     const iv = setInterval(fetchVolatility, 15000);
@@ -91,12 +73,12 @@ export default function MacroDeskPage() {
           fresh.forEach((n: NewsItem) => {
             seenIds.current.add(n.id);
             toast.custom(() => (
-              <div className="bg-[--bg-card] border border-[--warning] rounded-xl p-4 w-[380px] shadow-[0_0_20px_rgba(245,158,11,0.2)]">
+              <div className="bg-[#111118] border border-orange-500/35 rounded-xl p-4 w-[380px] shadow-[0_0_20px_rgba(245,158,11,0.15)] font-mono text-[11px]">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="flex items-center gap-1 bg-[--warning]/20 text-[--warning] text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-sm"><Flame className="w-3 h-3" /> HOT</span>
-                  <span className="text-[10px] text-[--text-tertiary]">{n.source}</span>
+                  <span className="flex items-center gap-1 bg-orange-500/10 text-orange-400 text-[8px] font-black uppercase px-1.5 py-0.5 rounded border border-orange-500/20"><Flame className="w-3 h-3" /> HOT</span>
+                  <span className="text-[9px] text-zinc-550">{n.source}</span>
                 </div>
-                <p className="text-[13px] font-bold text-[--text-primary] leading-tight line-clamp-3">{n.title}</p>
+                <p className="font-bold text-white leading-tight line-clamp-3">{n.title}</p>
               </div>
             ), { duration: 5000 });
           });
@@ -131,7 +113,7 @@ export default function MacroDeskPage() {
     return () => { clearInterval(ivNews); clearInterval(ivSig); clearInterval(ivCal); };
   }, [alertsOn]);
 
-  const fgColor = fearGreed < 25 ? "var(--loss)" : fearGreed < 45 ? "var(--warning)" : fearGreed < 75 ? "var(--text-primary)" : "var(--profit)";
+  const fgColor = fearGreed < 25 ? "#ff4d6a" : fearGreed < 45 ? "#f59e0b" : fearGreed < 75 ? "#f4f4f5" : "#00d4a1";
   const fgLabel = fearGreed < 25 ? "Extreme Fear" : fearGreed < 45 ? "Fear" : fearGreed < 75 ? "Neutral" : fearGreed < 90 ? "Greed" : "Extreme Greed";
 
   const currentNavDayStart = new Date(navDate.getFullYear(), navDate.getMonth(), navDate.getDate()).getTime();
@@ -143,27 +125,30 @@ export default function MacroDeskPage() {
   });
 
   return (
-    <div className="max-w-[1600px] mx-auto space-y-6 pb-20">
+    <div className="min-h-screen w-full bg-[#05050a] text-text-primary px-4 md:px-6 py-4 flex flex-col gap-4 animate-fade-in pb-16">
       
       {/* ── HEADER ── */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-[32px] font-bold tracking-tight mb-1 flex items-center gap-3" style={{ fontFamily: "var(--font-display, Syne, sans-serif)", color: "var(--text-primary)" }}>
-            <Globe className="w-7 h-7 text-[--accent]" /> AI Macro Desk
-          </h1>
-          <p className="text-[13px] font-medium flex items-center gap-2" style={{ color: "var(--text-secondary)" }}>
-            <Radio className="w-3.5 h-3.5" /> Aggregating global feeds via MT5 Bridge
-          </p>
-        </div>
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-[#111118]/80 p-4 border border-zinc-800/40 rounded-2xl backdrop-blur-xl mt-4">
         <div className="flex items-center gap-3">
-          <div className="px-3 py-1.5 rounded-full border text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5" style={{ background: bridgeOn ? "rgba(0,212,161,0.1)" : "rgba(255,77,106,0.1)", borderColor: bridgeOn ? "rgba(0,212,161,0.3)" : "rgba(255,77,106,0.3)", color: bridgeOn ? "var(--profit)" : "var(--loss)" }}>
-            {bridgeOn ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+          <div>
+            <h1 className="text-lg font-black tracking-tight text-white font-display flex items-center gap-2">
+              <Globe className="w-5 h-5 text-blue-450 text-blue-400" />
+              AI Macro Desk
+            </h1>
+            <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest font-mono flex items-center gap-1 mt-0.5">
+              <Radio className="w-3.5 h-3.5" /> Aggregating global feeds via MT5 Bridge
+            </p>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-3 flex-wrap font-mono text-[10px] font-bold">
+          <div className="px-3 py-1.5 rounded-lg border flex items-center gap-1.5" style={{ background: bridgeOn ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)", borderColor: bridgeOn ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.2)", color: bridgeOn ? "#34d399" : "#ff4d6a" }}>
+            {bridgeOn ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
             {bridgeOn ? `BRIDGE ACTIVE • ${lastPoll}` : "BRIDGE OFFLINE"}
           </div>
           <button onClick={() => { setAlertsOn(!alertsOn); localStorage.setItem("news_alerts_on", String(!alertsOn)); }} 
-            className="px-3 py-1.5 rounded-full border text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-colors"
-            style={{ background: alertsOn ? "var(--bg-elevated)" : "transparent", borderColor: alertsOn ? "var(--accent)" : "var(--border)", color: alertsOn ? "var(--text-primary)" : "var(--text-tertiary)" }}>
-            {alertsOn ? <Bell className="w-3 h-3 text-[--accent]" /> : <BellOff className="w-3 h-3" />} ALERTS {alertsOn?'ON':'OFF'}
+            className="px-3 py-1.5 rounded-lg border flex items-center gap-1.5 transition-all bg-white/5 border-white/5 text-zinc-350 hover:bg-white/10">
+            {alertsOn ? <Bell className="w-3.5 h-3.5 text-emerald-450" /> : <BellOff className="w-3.5 h-3.5" />} ALERTS {alertsOn?'ON':'OFF'}
           </button>
         </div>
       </div>
@@ -172,53 +157,51 @@ export default function MacroDeskPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         
         {/* Fear & Greed Gauge */}
-        <div className="col-span-1 md:col-span-2 rounded-2xl border p-5 bg-[--bg-card]" style={{ borderColor: "var(--border)" }}>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-[13px] font-bold uppercase tracking-widest text-[--text-tertiary]">Risk Appetite</h3>
-            <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-[--bg-elevated] text-[--text-secondary]">{fgLabel}</span>
+        <div className="col-span-1 md:col-span-2 rounded-xl border border-zinc-800/40 p-4 bg-[#111118] shadow-md">
+          <div className="flex items-center justify-between mb-4 font-mono text-[9px] font-bold">
+            <h3 className="text-zinc-500 uppercase tracking-widest">Risk Appetite Gauge</h3>
+            <span className="uppercase px-2 py-0.5 rounded bg-black/25 text-zinc-350 border border-zinc-850">{fgLabel}</span>
           </div>
           <div className="flex items-center gap-6">
-            <div className="text-[48px] font-black leading-none font-mono" style={{ color: fgColor }}>{fearGreed}</div>
-            <div className="flex-1 relative h-3 rounded-full overflow-hidden bg-[--bg-base] border border-[--border]">
-              {/* Gradient Bar */}
-              <div className="absolute inset-0 opacity-50" style={{ background: "linear-gradient(90deg, #ff4d6a 0%, #f59e0b 50%, #00d4a1 100%)" }}/>
-              {/* Thumb */}
-              <div className="absolute top-0 bottom-0 w-2 bg-white shadow-[0_0_10px_rgba(255,255,255,0.8)] transition-all ease-out duration-1000" style={{ left: `calc(${fearGreed}% - 4px)` }} />
+            <div className="text-[32px] font-black leading-none font-mono" style={{ color: fgColor }}>{fearGreed}</div>
+            <div className="flex-1 relative h-2.5 rounded-full overflow-hidden bg-black/35 border border-zinc-850">
+              <div className="absolute inset-0 opacity-40" style={{ background: "linear-gradient(90deg, #ff4d6a 0%, #f59e0b 50%, #00d4a1 100%)" }}/>
+              <div className="absolute top-0 bottom-0 w-1.5 bg-white shadow-[0_0_6px_rgba(255,255,255,0.8)] transition-all ease-out duration-1000" style={{ left: `calc(${fearGreed}% - 3px)` }} />
             </div>
           </div>
         </div>
 
         {/* Stats */}
-        <div className="rounded-2xl border p-5 bg-[--bg-card] flex flex-col justify-center" style={{ borderColor: "var(--border)" }}>
-           <div className="text-[13px] font-bold uppercase tracking-widest text-[--text-tertiary] mb-2 flex items-center gap-2"><Newspaper className="w-4 h-4" /> Global Headlines</div>
-           <div className="text-[32px] font-bold text-[--text-primary] leading-none mb-1">{news.length}</div>
-           <div className="text-[11px] text-[--warning] font-bold"><Flame className="w-3 h-3 inline pb-0.5"/> {news.filter(n => n.isHot).length} Breaking alerts</div>
+        <div className="rounded-xl border border-zinc-800/40 p-4 bg-[#111118] flex flex-col justify-center shadow-md font-mono">
+           <div className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-2 flex items-center gap-1.5"><Newspaper className="w-3.5 h-3.5" /> Global Headlines</div>
+           <div className="text-2xl font-black text-white leading-none mb-1">{news.length}</div>
+           <div className="text-[9px] text-orange-400 font-bold"><Flame className="w-3 h-3 inline pb-0.5"/> {news.filter(n => n.isHot).length} Breaking alerts</div>
         </div>
 
-        <div className="rounded-2xl border p-5 bg-[--bg-card] flex flex-col justify-center" style={{ borderColor: "var(--border)" }}>
-           <div className="text-[13px] font-bold uppercase tracking-widest text-[--text-tertiary] mb-2 flex items-center gap-2"><ActivityIcon className="w-4 h-4" /> MT5 Signals</div>
-           <div className="text-[32px] font-bold text-[--text-primary] leading-none mb-1">{signals.length}</div>
-           <div className="text-[11px] text-[--profit] font-bold"><Target className="w-3 h-3 inline pb-0.5"/> Active H4 Alignments</div>
+        <div className="rounded-xl border border-zinc-800/40 p-4 bg-[#111118] flex flex-col justify-center shadow-md font-mono">
+           <div className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-2 flex items-center gap-1.5"><ActivityIcon className="w-3.5 h-3.5" /> MT5 Signals</div>
+           <div className="text-2xl font-black text-white leading-none mb-1">{signals.length}</div>
+           <div className="text-[9px] text-emerald-400 font-bold"><Target className="w-3 h-3 inline pb-0.5"/> Active H4 Alignments</div>
         </div>
 
       </div>
 
       {/* ── MAIN CONTENT GRID ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         
         {/* LEFT COL: NEWS STREAM */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between border-b pb-2" style={{ borderColor: "var(--border)" }}>
-            <h2 className="text-[18px] font-bold text-[--text-primary] flex items-center gap-2">Live Wire {loading && <RefreshCw className="w-4 h-4 animate-spin text-[--text-tertiary]" />}</h2>
-            <div className="flex gap-2">
+        <div className="lg:col-span-2 space-y-3">
+          <div className="flex items-center justify-between border-b border-zinc-850 pb-2.5">
+            <h2 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-1.5 font-mono">Live Wire {loading && <RefreshCw className="w-3.5 h-3.5 animate-spin text-zinc-600" />}</h2>
+            <div className="flex gap-1.5 font-mono text-[9px] font-bold">
               <button 
                 onClick={() => setNewsFilter("all")} 
-                className={`px-3 py-1 text-[11px] font-bold uppercase rounded-full transition-colors ${newsFilter === "all" ? "bg-[--bg-elevated] text-[--text-primary] border border-[--border]" : "text-[--text-tertiary]"}`}>
+                className={`px-3 py-1 rounded-md transition-colors ${newsFilter === "all" ? "bg-white/10 text-white" : "text-zinc-550 hover:text-zinc-350"}`}>
                 All
               </button>
               <button 
                 onClick={() => setNewsFilter("hot")} 
-                className={`px-3 py-1 text-[11px] font-bold uppercase rounded-full transition-colors flex items-center gap-1 ${newsFilter === "hot" ? "bg-[--warning]/20 text-[--warning] border border-[--warning]/30" : "text-[--text-tertiary]"}`}>
+                className={`px-3 py-1 rounded-md transition-colors flex items-center gap-1 ${newsFilter === "hot" ? "bg-orange-500/10 text-orange-400 border border-orange-500/20" : "text-zinc-550 hover:text-zinc-350"}`}>
                 <Flame className="w-3 h-3" /> Hot
               </button>
             </div>
@@ -236,13 +219,13 @@ export default function MacroDeskPage() {
                 isHot={n.isHot}
                 sentiment={n.sentiment}
                 tags={n.title.toUpperCase().includes("FED") ? ["Fed", "US Data"] : ["Macro", n.symbol || "XAUUSD"]}
-                heatScore={n.isHot ? 8 : 0} // mock heat score 6-9
+                heatScore={n.isHot ? 8 : 0}
                 selected={!!(selectedDeepDive && 'id' in selectedDeepDive && selectedDeepDive.id === n.id)}
                 onClick={() => setSelectedDeepDive(n)}
               />
             ))}
             {news.length === 0 && !loading && (
-              <div className="py-20 text-center text-[--text-tertiary] border border-[--border] border-dashed rounded-xl">
+              <div className="py-20 text-center text-zinc-650 border border-zinc-800/40 border-dashed rounded-xl font-mono text-xs">
                 Feed empty. Establishing bridge connection...
               </div>
             )}
@@ -250,17 +233,16 @@ export default function MacroDeskPage() {
         </div>
 
         {/* RIGHT COL: CALENDAR & SIGNALS OR DEEP DIVE */}
-        <div className="space-y-6">
+        <div className="space-y-4">
           
           {selectedDeepDive ? (
-            <div className="space-y-6 animate-in slide-in-from-right-4 fade-in duration-300">
-               <div className="flex items-center justify-between">
-                 <h3 className="text-[14px] font-bold text-[--text-tertiary] uppercase tracking-widest">Intelligence Deep Dive</h3>
-                 <button onClick={() => setSelectedDeepDive(null)} className="text-[11px] font-bold text-[--text-secondary] hover:text-[--text-primary] bg-[--bg-elevated] px-3 py-1.5 rounded-full border border-[--border]">Close ✕</button>
+            <div className="space-y-4 animate-fade-in">
+               <div className="flex items-center justify-between border-b border-zinc-850 pb-2">
+                 <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest font-mono">Deep Dive Analytics</h3>
+                 <button onClick={() => setSelectedDeepDive(null)} className="text-[9px] font-bold text-zinc-400 hover:text-white bg-[#111118] border border-zinc-800/40 px-3 py-1 rounded-lg transition-colors font-mono uppercase tracking-wider">Close ✕</button>
                </div>
                
                {"id" in selectedDeepDive ? (
-                 // News Event Deep Dive
                  <>
                    <NewsImpactHeader 
                      headline={selectedDeepDive.title}
@@ -278,7 +260,6 @@ export default function MacroDeskPage() {
                    />
                  </>
                ) : (
-                 // Calendar Event Deep Dive
                  <>
                    <EventPlaybook 
                      title={selectedDeepDive.event}
@@ -305,35 +286,35 @@ export default function MacroDeskPage() {
             </div>
           ) : (
             <>
-              {/* Calendar Widget (Default View) */}
-              <div className="rounded-2xl border p-5 flex flex-col h-[340px]" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
-                 <div className="flex items-center justify-between mb-4 pb-2 border-b" style={{ borderColor: "var(--border)" }}>
-                    <h3 className="text-[14px] font-bold text-[--text-primary] flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-[#3b82f6]"/> Economic Calendar
+              {/* Calendar Widget */}
+              <div className="rounded-xl border border-zinc-800/40 p-4 flex flex-col h-[340px] bg-[#111118] shadow-md">
+                 <div className="flex items-center justify-between mb-4 pb-2 border-b border-zinc-850">
+                    <h3 className="text-xs font-bold text-white flex items-center gap-1.5 font-mono uppercase tracking-widest">
+                      <Calendar className="w-4 h-4 text-blue-450"/> Calendar
                     </h3>
-                    <div className="flex items-center gap-1 bg-[--bg-base] rounded-full p-1 border" style={{ borderColor: "var(--border)" }}>
-                      <button onClick={() => setNavDate(new Date(navDate.getTime() - 86400000))} className="px-2 py-0.5 rounded text-[10px] text-[--text-tertiary] hover:text-[--text-primary] transition-colors">◀</button>
-                      <span className="text-[10px] font-bold uppercase w-16 text-center" style={{ color: "var(--text-secondary)" }}>
+                    <div className="flex items-center gap-1 bg-black/25 rounded-lg p-1 border border-zinc-850 font-mono text-[9px] font-bold text-zinc-550">
+                      <button onClick={() => setNavDate(new Date(navDate.getTime() - 86400000))} className="px-1.5 py-0.5 rounded hover:text-white transition-colors">◀</button>
+                      <span className="w-14 text-center">
                         {navDate.getDate() === new Date().getDate() && navDate.getMonth() === new Date().getMonth() ? "Today" : navDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                       </span>
-                      <button onClick={() => setNavDate(new Date(navDate.getTime() + 86400000))} className="px-2 py-0.5 rounded text-[10px] text-[--text-tertiary] hover:text-[--text-primary] transition-colors">▶</button>
+                      <button onClick={() => setNavDate(new Date(navDate.getTime() + 86400000))} className="px-1.5 py-0.5 rounded hover:text-white transition-colors">▶</button>
                     </div>
                  </div>
-                 <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3">
+                 <div className="flex-1 overflow-y-auto pr-1.5 custom-scrollbar space-y-2 font-mono text-[10px]">
                    {filteredEvents.length === 0 ? (
-                     <div className="text-[12px] text-[--text-tertiary] text-center mt-10 italic">No events scheduled.</div>
+                     <div className="text-[11px] text-zinc-600 text-center mt-10 italic">No events scheduled.</div>
                    ) : (
                      filteredEvents.map((e, i) => (
                        <div 
                          key={i} 
-                         className="flex gap-3 items-center p-2 rounded-lg cursor-pointer hover:bg-[--bg-elevated] transition-colors border border-transparent hover:border-[--border]"
+                         className="flex gap-3 items-center p-2 rounded-lg cursor-pointer hover:bg-black/20 border border-transparent hover:border-zinc-850/60 transition-colors"
                          onClick={() => setSelectedDeepDive(e)}
                        >
-                         <div className="w-12 text-[11px] font-mono text-[--text-tertiary] text-right shrink-0">{e.time}</div>
-                         <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${e.impact === 'high' ? 'bg-[--loss] shadow-[0_0_5px_rgba(255,77,106,0.8)]' : e.impact === 'medium' ? 'bg-[--warning]' : 'bg-[--text-tertiary]'}`} />
+                         <div className="w-10 text-[9px] text-zinc-550 text-right shrink-0">{e.time}</div>
+                         <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${e.impact === 'high' ? 'bg-red-500/90 shadow-[0_0_5px_rgba(255,77,106,0.8)]' : e.impact === 'medium' ? 'bg-orange-400' : 'bg-zinc-700'}`} />
                          <div className="flex-1 min-w-0">
-                           <div className="text-[12px] font-bold text-[--text-primary] truncate">{e.event}</div>
-                           <div className="text-[10px] font-bold text-[--text-secondary] uppercase">{e.currency} • Est: {e.forecast || '-'}</div>
+                           <div className="font-bold text-white truncate">{e.event}</div>
+                           <div className="text-[8px] text-zinc-550 uppercase mt-0.5">{e.currency} • Est: {e.forecast || '-'}</div>
                          </div>
                        </div>
                      ))
@@ -341,24 +322,24 @@ export default function MacroDeskPage() {
                  </div>
               </div>
 
-              {/* MT5 Signals Widget (Default View) */}
-              <div className="rounded-2xl border p-5 flex flex-col h-[340px]" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
-                 <div className="flex items-center justify-between mb-4 pb-2 border-b" style={{ borderColor: "var(--border)" }}>
-                    <h3 className="text-[14px] font-bold text-[--text-primary] flex items-center gap-2"><Target className="w-4 h-4 text-[--accent]"/> Flow Alignment</h3>
+              {/* MT5 Signals Widget */}
+              <div className="rounded-xl border border-zinc-800/40 p-4 flex flex-col h-[340px] bg-[#111118] shadow-md">
+                 <div className="flex items-center justify-between mb-4 pb-2 border-b border-zinc-850">
+                    <h3 className="text-xs font-bold text-white flex items-center gap-1.5 font-mono uppercase tracking-widest"><Target className="w-4 h-4 text-emerald-450"/> Flow Alignment</h3>
                  </div>
-                 <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3">
+                 <div className="flex-1 overflow-y-auto pr-1.5 custom-scrollbar space-y-2 font-mono text-[10px]">
                    {signals.length === 0 ? (
-                     <div className="text-[12px] text-[--text-tertiary] text-center mt-10">No clear H4 alignments detected.</div>
+                     <div className="text-[11px] text-zinc-650 text-center mt-10">No clear H4 alignments detected.</div>
                    ) : (
                      signals.map((s, i) => (
-                       <div key={i} className="p-3 rounded-lg border bg-[--bg-base]" style={{ borderColor: "var(--border)" }}>
+                       <div key={i} className="p-2.5 rounded-lg border border-zinc-850 bg-black/15">
                          <div className="flex justify-between items-center mb-1">
-                           <span className="font-bold font-mono text-[13px] text-[--text-primary]">{s.pair}</span>
-                           <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${s.signal === 'buy' ? 'bg-[--bull] text-black' : s.signal === 'sell' ? 'bg-[--bear] text-white' : 'bg-[--bg-elevated] text-[--text-tertiary]'}`}>
+                           <span className="font-bold text-white">{s.pair}</span>
+                           <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded ${s.signal === 'buy' ? 'bg-emerald-500/20 text-emerald-400' : s.signal === 'sell' ? 'bg-red-500/20 text-red-405' : 'bg-zinc-900/60 text-zinc-500'}`}>
                              {s.signal} {s.signal !== 'neutral' && `${s.strength}%`}
                            </span>
                          </div>
-                         <div className="text-[11px] text-[--text-secondary]">{s.reason}</div>
+                         <div className="text-[9px] text-zinc-500">{s.reason}</div>
                        </div>
                      ))
                    )}

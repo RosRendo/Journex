@@ -6,10 +6,11 @@ import { useCsvTrades } from "@/hooks/useCsvTrades";
 interface EquityCurveChartProps {
   data?: Array<{ date: string; balance: number }>;
   loading?: boolean;
+  accountNumber?: string;
 }
 
-export function EquityCurveChart({ data: externalData, loading: externalLoading }: EquityCurveChartProps = {}) {
-  const { trades, loading: tradesLoading } = useCsvTrades();
+export function EquityCurveChart({ data: externalData, loading: externalLoading, accountNumber }: EquityCurveChartProps = {}) {
+  const { trades, loading: tradesLoading } = useCsvTrades(accountNumber);
   
   const data = useMemo(() => {
     if (externalData) return externalData;

@@ -21,24 +21,20 @@ import { getBackendUrl, fetchWithAuth } from "@/lib/utils";
 
 const TOOLTIP_STYLE = {
   contentStyle: {
-    background: "rgba(5, 5, 5, 0.9)",
-    backdropFilter: "blur(12px)",
-    border: "1px solid rgba(255,255,255,0.1)",
-    borderRadius: 12,
-    fontSize: 12,
-    color: "#e8e8f0",
+    background: "rgba(17, 17, 24, 0.95)",
+    border: "1px solid rgba(63, 63, 70, 0.4)",
+    borderRadius: 8,
+    fontSize: 10,
+    color: "#fff",
+    fontFamily: "monospace",
     boxShadow: "0 8px 32px rgba(0,0,0,0.6)"
   },
 };
 
 function SectionCard({ title, children, className = "" }: { title: string; children: React.ReactNode; className?: string }) {
   return (
-    <div className={`relative rounded-2xl border border-[--border] bg-[#050505] p-5 overflow-hidden group shadow-2xl transition-all duration-300 hover:border-white/10 ${className}`}>
-      {/* Subtle ambient glow */}
-      <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none" />
-      <div className="absolute -top-[50px] -right-[50px] w-[150px] h-[150px] bg-white/[0.02] blur-[50px] rounded-full pointer-events-none group-hover:bg-white/[0.04] transition-colors" />
-      
-      <div className="text-[10px] font-bold uppercase tracking-widest mb-4 relative z-10 text-gray-400 group-hover:text-gray-300 transition-colors">
+    <div className={`relative rounded-xl border border-zinc-800/40 bg-[#111118] p-5 overflow-hidden shadow-xl transition-all duration-300 ${className}`}>
+      <div className="text-[9px] font-bold uppercase tracking-widest mb-4 relative z-10 text-zinc-500 font-mono">
         {title}
       </div>
       <div className="relative z-10 h-full flex flex-col">
@@ -48,7 +44,6 @@ function SectionCard({ title, children, className = "" }: { title: string; child
   );
 }
 
-// Minimal sparkline component for KPI cards
 function Sparkline({ data, color }: { data: number[]; color: string }) {
   if (data.length < 2) return null;
   const safeId = color.replace(/[^a-zA-Z0-9]/g, "_");
@@ -63,7 +58,7 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
               <stop offset="100%" stopColor={color} stopOpacity={0} />
             </linearGradient>
           </defs>
-          <Area type="monotone" dataKey="val" stroke={color} strokeWidth={1.5} fill={`url(#spark-${safeId})`} isAnimationActive={false} />
+          <Area type="monotone" dataKey="val" stroke={color} strokeWidth={1} fill={`url(#spark-${safeId})`} isAnimationActive={false} />
         </AreaChart>
       </ResponsiveContainer>
     </div>
@@ -71,7 +66,11 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
 }
 
 export default function Analytics() {
-  const { trades: allTrades, analytics: allAnalytics, loading, error } = useCsvTrades();
+  const [dbAccounts, setDbAccounts] = useState<any[]>([]);
+  const [selectedAccountNumber, setSelectedAccountNumber] = useState<string>("all");
+  const { trades: allTrades, analytics: allAnalytics, loading, error } = useCsvTrades(
+    selectedAccountNumber === "all" ? undefined : selectedAccountNumber
+  );
   const [timeFilter, setTimeFilter] = useState<"1W" | "1M" | "3M" | "YTD" | "ALL">("ALL");
   const [dashboardStats, setDashboardStats] = useState<{
     capitalFlow: { label: string, value: number }[];
@@ -90,9 +89,17 @@ export default function Analytics() {
       }
     };
     fetchDashboardStats();
+
+    fetchWithAuth(`${getBackendUrl()}/api/accounts`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.data) {
+          setDbAccounts(data.data);
+        }
+      })
+      .catch(console.error);
   }, []);
 
-  // Filter trades based on time horizon
   const trades = useMemo(() => {
     if (timeFilter === "ALL") return allTrades;
     
@@ -111,7 +118,6 @@ export default function Analytics() {
     return allTrades.filter(t => new Date(t.date).getTime() >= cutoff);
   }, [allTrades, timeFilter]);
 
-  // Recalculate basic analytics for filtered trades
   const analytics = useMemo(() => {
     if (timeFilter === "ALL") return allAnalytics;
     if (trades.length === 0) return null;
@@ -131,12 +137,6 @@ export default function Analytics() {
       avgLoss: losses.length > 0 ? -totalLosses / losses.length : 0,
     };
   }, [trades, allAnalytics, timeFilter]);
-
-  const winLossData = useMemo(() => [
-    { name: "Wins", value: trades.filter((t: TradeData) => t.profit > 0).length },
-    { name: "Losses", value: trades.filter((t: TradeData) => t.profit < 0).length },
-    { name: "B/E", value: trades.filter((t: TradeData) => t.profit === 0).length },
-  ].filter((d) => d.value > 0), [trades]);
 
   const { cumPnl, drawdownData, pnlHistory } = useMemo(() => {
     let cum = 0;
@@ -178,15 +178,6 @@ export default function Analytics() {
     return Array.from(map.entries()).map(([date, pnl]) => ({ date, pnl: Math.round(pnl * 100) / 100 })).slice(-30);
   }, [trades]);
 
-  const symbolPerf = useMemo(() => {
-    const map = new Map<string, { pnl: number; trades: number; wins: number }>();
-    trades.forEach((t: TradeData) => {
-      if (!map.has(t.pair)) map.set(t.pair, { pnl: 0, trades: 0, wins: 0 });
-      const s = map.get(t.pair)!; s.pnl += t.profit; s.trades++; if (t.profit > 0) s.wins++;
-    });
-    return Array.from(map.entries()).map(([symbol, s]) => ({ symbol, pnl: s.pnl, trades: s.trades, winRate: (s.wins / s.trades) * 100 })).sort((a, b) => b.pnl - a.pnl);
-  }, [trades]);
-
   const expectancy = useMemo(() => {
     if(!analytics) return 0;
     const wr = analytics.winRate / 100;
@@ -196,8 +187,8 @@ export default function Analytics() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-10 h-10 border-2 border-[--accent] border-t-transparent rounded-full animate-spin" />
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="w-8 h-8 border border-zinc-800 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -205,64 +196,57 @@ export default function Analytics() {
   if (error || allTrades.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 px-4 text-center">
-        {/* Premium Wireframe Empty State */}
-        <div className="w-full max-w-[300px] mb-6 relative">
-          <div className="absolute inset-0 bg-gradient-to-t from-[#050505] to-transparent z-10" />
-          <div className="absolute inset-0 flex items-end justify-center pb-4 pointer-events-none opacity-[0.05]">
-             <svg viewBox="0 0 100 50" className="w-[100%] h-[80%] preserve-3d" preserveAspectRatio="none">
-               <path d="M0,50 Q20,40 40,30 T80,20 T100,5" fill="none" stroke="white" strokeWidth="2" />
-               <path d="M0,50 Q20,40 40,30 T80,20 T100,5 L100,50 L0,50 Z" fill="white" opacity="0.5" />
-             </svg>
-          </div>
-        </div>
-        <div className="text-gray-500 mb-2">
-          {error ? (
-            <span className="text-4xl">⚠️</span>
-          ) : (
-            <span className="text-4xl opacity-50">📉</span>
-          )}
-        </div>
-        <h2 className="text-sm uppercase tracking-widest font-bold text-gray-200">
-          {error ? "Bridge Connection Error" : "Awaiting Trade Data"}
-        </h2>
-        <p className="text-[11px] text-gray-500 max-w-[300px] leading-relaxed">
-          {error ? (
-            <span className="text-[--bear]">{error}</span>
-          ) : (
-            "Live MT5 synchronization is active. Execute trades in the terminal or wait for your algorithm to log deals to see analytics."
-          )}
+        <div className="text-zinc-650 text-3xl font-bold font-mono">📉 Awaiting Data</div>
+        <h2 className="text-xs uppercase tracking-widest font-black text-zinc-400 font-mono">No Trades Found</h2>
+        <p className="text-[10px] text-zinc-550 max-w-[300px] leading-relaxed font-mono">
+          {error ? <span className="text-red-405">{error}</span> : "Synchronize your MT5 bridge account to download and construct analytical matrix reports."}
         </p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 pb-20">
-      {/* Header & Filters */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
+    <div className="min-h-screen w-full bg-[#05050a] text-text-primary px-4 md:px-6 py-4 flex flex-col gap-4 animate-fade-in pb-16">
+      
+      {/* Header Area */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-[#111118]/80 p-4 border border-zinc-800/40 rounded-2xl backdrop-blur-xl mt-4">
         <div>
-          <h1 className="text-4xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-gray-100 to-gray-500 font-display">
-            ANALYTICS
+          <h1 className="text-lg font-black tracking-tight text-white font-display">
+            Analytics Engine
           </h1>
-          <p className="text-[12px] mt-2 font-medium text-gray-400">
-            {allTrades.length} lifetime trades imported <span className="mx-2 opacity-30">|</span> Live performance breakdown
+          <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest font-mono flex items-center gap-1 mt-0.5">
+            {allTrades.length} lifetime trades imported <span className="mx-1 opacity-30">|</span> Live performance breakdown
           </p>
         </div>
 
-        {/* Time Horizon Filter */}
-        <div className="flex p-1 rounded-xl bg-[#050505] border border-white/10 shadow-[inset_0_2px_10px_rgba(255,255,255,0.02)] w-fit backdrop-blur-xl">
-          {["1W", "1M", "3M", "YTD", "ALL"].map((opt) => (
-            <button
-              key={opt}
-              onClick={() => setTimeFilter(opt as any)}
-              className={`relative px-5 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-colors ${timeFilter === opt ? "text-white" : "text-gray-500 hover:text-gray-300"}`}
+        {/* Filters Group */}
+        <div className="flex flex-wrap items-center gap-3 font-mono text-[9px] font-bold">
+          <div className="flex p-1 rounded-lg bg-black/25 border border-zinc-800/60 w-fit">
+            <select
+              value={selectedAccountNumber}
+              onChange={(e) => setSelectedAccountNumber(e.target.value)}
+              className="bg-transparent px-3 py-1.5 text-[9px] font-black uppercase tracking-widest border-none focus:outline-none text-white cursor-pointer"
             >
-              {timeFilter === opt && (
-                <motion.div layoutId="activeFilter" className="absolute inset-0 bg-white/10 rounded-lg shadow-[0_0_15px_rgba(255,255,255,0.05)] border border-white/10" />
-              )}
-              <span className="relative z-10">{opt}</span>
-            </button>
-          ))}
+              <option value="all" className="bg-zinc-950 text-white">All Accounts</option>
+              {dbAccounts.map((acc) => (
+                <option key={acc.id} value={acc.accountNumber} className="bg-zinc-950 text-white">
+                  {acc.brokerName || acc.mt5Server} #{acc.accountNumber}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex p-1 rounded-lg bg-black/25 border border-zinc-800/60 w-fit">
+            {["1W", "1M", "3M", "YTD", "ALL"].map((opt) => (
+              <button
+                key={opt}
+                onClick={() => setTimeFilter(opt as any)}
+                className={`relative px-3.5 py-1.5 rounded transition-all ${timeFilter === opt ? "bg-white/10 text-white" : "text-zinc-550 hover:text-zinc-350"}`}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -273,10 +257,10 @@ export default function Analytics() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.3 }}
-          className="space-y-6"
+          className="space-y-4"
         >
           {/* Top KPI strip */}
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 font-mono text-[10px]">
             {[
               { label: "Win Rate", value: `${(analytics?.winRate || 0).toFixed(1)}%`, isProfit: (analytics?.winRate || 0) >= 50 },
               { label: "Sharpe Ratio", value: `${sharpeRatio.toFixed(2)}`, isProfit: sharpeRatio >= 1 },
@@ -287,39 +271,26 @@ export default function Analytics() {
               { label: "Expectancy", value: `$${expectancy.toFixed(2)}`, isProfit: expectancy >= 0 },
               { label: "Net P&L", value: `$${((analytics?.totalProfit || 0)).toFixed(2)}`, isProfit: (analytics?.totalProfit || 0) >= 0, sparklineData: pnlHistory },
             ].map((kpi, i) => {
-              const bgStyle = kpi.isNeutral 
-                ? "bg-[#050505] border-[--border]" 
-                : kpi.isProfit 
-                  ? "bg-gradient-to-br from-[#00dc82]/10 to-transparent border-[#00dc82]/30 shadow-[inset_0_1px_10px_rgba(0,220,130,0.1)]" 
-                  : "bg-gradient-to-br from-[#ef4444]/10 to-transparent border-[#ef4444]/30 shadow-[inset_0_1px_10px_rgba(239,68,68,0.1)]";
-              
+              const bgStyle = "bg-[#111118] border border-zinc-800/40";
               const textColor = kpi.isNeutral 
-                ? "text-gray-100" 
+                ? "text-zinc-200" 
                 : kpi.isProfit 
-                  ? "text-[--bull] drop-shadow-[0_0_8px_rgba(0,220,130,0.4)]" 
-                  : "text-[--bear] drop-shadow-[0_0_8px_rgba(239,68,68,0.4)]";
+                  ? "text-emerald-400" 
+                  : "text-red-405";
 
-              const colorHex = kpi.isNeutral ? "#ffffff" : kpi.isProfit ? "#00dc82" : "#ef4444";
+              const colorHex = kpi.isNeutral ? "#ffffff" : kpi.isProfit ? "#10b981" : "#ef4444";
 
               return (
-                <motion.div 
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: i * 0.05 }}
+                <div 
                   key={kpi.label} 
-                  className={`relative overflow-hidden rounded-2xl border p-4 flex flex-col justify-center min-h-[90px] group transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl ${bgStyle}`} 
+                  className={`relative overflow-hidden rounded-xl p-4 flex flex-col justify-center min-h-[90px] shadow-md ${bgStyle}`} 
                 >
-                  <div className="text-[9px] font-black uppercase tracking-widest mb-1.5 relative z-10 text-gray-500 group-hover:text-gray-400 transition-colors">{kpi.label}</div>
-                  <div className={`text-lg font-bold font-mono whitespace-nowrap relative z-10 tracking-tight ${textColor}`}>{kpi.value}</div>
-                  
-                  {/* Decorative corner glow */}
-                  <div className="absolute -bottom-4 -right-4 w-10 h-10 bg-white/5 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-
-                  {/* Sparkline for P&L or others if provided */}
+                  <div className="text-[8px] font-black uppercase tracking-widest mb-1.5 text-zinc-500">{kpi.label}</div>
+                  <div className={`text-sm font-bold whitespace-nowrap tracking-tight ${textColor}`}>{kpi.value}</div>
                   {kpi.sparklineData && (
                      <Sparkline data={kpi.sparklineData} color={colorHex} />
                   )}
-                </motion.div>
+                </div>
               );
             })}
           </div>
@@ -336,7 +307,7 @@ export default function Analytics() {
             </div>
           </div>
 
-            {/* 2-col: Equity curve + Matrix */}
+          {/* Equity curve + Matrix */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="lg:col-span-2 space-y-4">
               <SectionCard title="Equity Curve (Cumulative P&L)">
@@ -344,18 +315,18 @@ export default function Analytics() {
                   <AreaChart data={cumPnl} syncId="analyticsCharts" margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                     <defs>
                       <linearGradient id="equityGradBull" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#00dc82" stopOpacity={0.3} />
-                        <stop offset="100%" stopColor="#00dc82" stopOpacity={0} />
+                        <stop offset="0%" stopColor="#10b981" stopOpacity={0.2} />
+                        <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id="equityGradBear" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#ef4444" stopOpacity={0.3} />
+                        <stop offset="0%" stopColor="#ef4444" stopOpacity={0.2} />
                         <stop offset="100%" stopColor="#ef4444" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
-                    <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#6b7280", fontFamily: 'monospace' }} tickLine={false} axisLine={false} minTickGap={30} />
-                    <YAxis tick={{ fontSize: 10, fill: "#6b7280", fontFamily: 'monospace' }} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v}`} width={60} />
-                    <Tooltip {...TOOLTIP_STYLE} cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1, strokeDasharray: '4 4' }} formatter={(v: number) => [`$${v.toFixed(2)}`, "Equity"]} />
+                    <XAxis dataKey="date" tick={{ fontSize: 8, fill: "#71717a", fontFamily: 'monospace' }} tickLine={false} axisLine={false} minTickGap={30} />
+                    <YAxis tick={{ fontSize: 9, fill: "#71717a", fontFamily: 'monospace' }} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v}`} width={60} />
+                    <Tooltip {...TOOLTIP_STYLE} cursor={{ stroke: 'rgba(255,255,255,0.05)', strokeWidth: 1 }} formatter={(v: number) => [`$${v.toFixed(2)}`, "Equity"]} />
                     {(() => {
                       const finalPnl = cumPnl.length > 0 ? cumPnl[cumPnl.length - 1].cumPnl : 0;
                       const isProfit = finalPnl >= 0;
@@ -363,10 +334,10 @@ export default function Analytics() {
                         <Area 
                           type="monotone" 
                           dataKey="cumPnl" 
-                          stroke={isProfit ? "#00dc82" : "#ef4444"} 
-                          strokeWidth={2} 
+                          stroke={isProfit ? "#10b981" : "#ef4444"} 
+                          strokeWidth={1.5} 
                           fill={isProfit ? "url(#equityGradBull)" : "url(#equityGradBear)"} 
-                          activeDot={{ r: 5, strokeWidth: 0, fill: '#fff', style: { filter: `drop-shadow(0 0 8px ${isProfit ? '#00dc82' : '#ef4444'})` } }}
+                          activeDot={{ r: 4, strokeWidth: 0, fill: '#fff' }}
                         />
                       )
                     })()}
@@ -379,21 +350,21 @@ export default function Analytics() {
                   <AreaChart data={drawdownData} syncId="analyticsCharts" margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                     <defs>
                       <linearGradient id="ddGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#ef4444" stopOpacity={0.4} />
+                        <stop offset="0%" stopColor="#ef4444" stopOpacity={0.2} />
                         <stop offset="100%" stopColor="#ef4444" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
                     <XAxis dataKey="date" hide />
-                    <YAxis reversed={true} tick={{ fontSize: 10, fill: "#6b7280", fontFamily: 'monospace' }} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v}`} width={60} />
-                    <Tooltip {...TOOLTIP_STYLE} cursor={{ stroke: 'rgba(239,68,68,0.3)', strokeWidth: 1, strokeDasharray: '4 4' }} formatter={(v: number) => [`$${v.toFixed(2)}`, "Drawdown"]} />
+                    <YAxis reversed={true} tick={{ fontSize: 9, fill: "#71717a", fontFamily: 'monospace' }} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v}`} width={60} />
+                    <Tooltip {...TOOLTIP_STYLE} cursor={{ stroke: 'rgba(239,68,68,0.2)', strokeWidth: 1 }} formatter={(v: number) => [`$${v.toFixed(2)}`, "Drawdown"]} />
                     <Area 
                       type="monotone" 
                       dataKey="drawdown" 
                       stroke="#ef4444" 
-                      strokeWidth={2} 
+                      strokeWidth={1.5} 
                       fill="url(#ddGrad)" 
-                      activeDot={{ r: 5, strokeWidth: 0, fill: '#fff', style: { filter: 'drop-shadow(0 0 8px #ef4444)' } }}
+                      activeDot={{ r: 4, strokeWidth: 0, fill: '#fff' }}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -409,11 +380,11 @@ export default function Analytics() {
           <SectionCard title="Daily P&L (Last 30 Days)">
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={dailyPnl}>
-                <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#555568" }} tickLine={false} axisLine={false} minTickGap={20} />
-                <YAxis tick={{ fontSize: 10, fill: "#555568" }} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v}`} width={60} />
+                <XAxis dataKey="date" tick={{ fontSize: 8, fill: "#71717a" }} tickLine={false} axisLine={false} minTickGap={20} />
+                <YAxis tick={{ fontSize: 9, fill: "#71717a" }} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v}`} width={60} />
                 <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [`$${v.toFixed(2)}`, "P&L"]} />
-                <Bar dataKey="pnl" radius={[4, 4, 0, 0]}>
-                  {dailyPnl.map((d, i) => <Cell key={i} fill={d.pnl >= 0 ? "#00c896" : "#ff4d6a"} />)}
+                <Bar dataKey="pnl" radius={[2, 2, 0, 0]}>
+                  {dailyPnl.map((d, i) => <Cell key={i} fill={d.pnl >= 0 ? "#10b981" : "#ef4444"} />)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>

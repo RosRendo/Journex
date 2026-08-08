@@ -11,6 +11,7 @@ import { FocusModeProvider } from "@/components/providers/FocusModeProvider";
 import { PanicModeProvider } from "@/components/providers/PanicModeProvider";
 import CommandPalette from "@/components/CommandPalette";
 import PanicModeOverlay from "@/components/PanicModeOverlay";
+import { BottomDock } from "@/components/layout/BottomDock";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -120,7 +121,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
             {/* Main Content */}
             <main
-              className="flex-1 overflow-y-auto p-3 sm:p-5"
+              className="flex-1 overflow-y-auto p-3 sm:p-5 pb-24"
               style={{ background: "var(--bg-base)" }}
             >
               <SubscriptionGate>
@@ -137,9 +138,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
           </div>
 
           {/* Bottom Status Bar */}
-          <div className="overflow-x-auto scrollbar-none">
+          <div className="overflow-x-auto scrollbar-none relative z-50">
             <StatusBar />
           </div>
+          
+          <BottomDock onOpenCommandPalette={() => setCommandOpen(true)} />
         </div>
       </FocusModeProvider>
     </PanicModeProvider>

@@ -67,74 +67,76 @@ export default function AIDeskPage() {
   ];
 
   return (
-    <div className="flex h-[calc(100vh-80px)] max-w-[1600px] mx-auto gap-6 animate-fade-in">
+    <div className="flex h-[calc(100vh-80px)] max-w-[1600px] mx-auto gap-4 animate-fade-in text-text-primary px-4 md:px-6 py-4">
       
       {/* ── LEFT: QUICK QUERIES ── */}
-      <div className="hidden lg:flex w-[280px] flex-col gap-2 p-4 rounded-2xl bg-zinc-950/50 border border-zinc-800/50 backdrop-blur-md">
-        <div className="flex items-center gap-2 mb-4 px-2">
-          <Cpu className="w-5 h-5 text-emerald-400" />
-          <h2 className="font-display font-bold text-lg text-emerald-400 tracking-wide">AI DESK</h2>
+      <div className="hidden lg:flex w-[260px] flex-col gap-2 p-4 rounded-xl bg-[#111118] border border-zinc-800/40 shadow-xl">
+        <div className="flex items-center gap-2 mb-4 px-1">
+          <Cpu className="w-4 h-4 text-emerald-405" />
+          <h2 className="font-display font-bold text-sm text-white tracking-widest uppercase">AI DESK</h2>
         </div>
         
         {QuickPills.map(pill => (
           <button 
             key={pill}
             onClick={() => setInput(`Show me ${pill}`)}
-            className="flex items-center justify-between p-3 rounded-xl hover:bg-zinc-900 border border-transparent hover:border-zinc-800 transition-all text-left group"
+            className="flex items-center justify-between p-2.5 rounded-lg hover:bg-black/25 border border-transparent hover:border-zinc-850 transition-all text-left group font-mono text-[11px]"
           >
-            <span className="text-sm font-medium text-zinc-400 group-hover:text-zinc-200">{pill}</span>
-            <ChevronRight className="w-4 h-4 text-zinc-600 group-hover:text-emerald-400" />
+            <span className="text-zinc-400 group-hover:text-zinc-200">{pill}</span>
+            <ChevronRight className="w-3.5 h-3.5 text-zinc-600 group-hover:text-emerald-400" />
           </button>
         ))}
         
-        <div className="mt-auto p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-          <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-2">Live AI Watcher</h3>
-          <p className="text-xs text-zinc-400 leading-relaxed">
-            AI is currently monitoring <strong className="text-zinc-200">XAUUSD</strong> for a breakout above 2345.00.
+        <div className="mt-auto p-3.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 font-mono text-[11px]">
+          <h3 className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+             <Activity className="w-3 h-3 animate-pulse" /> Live AI Watcher
+          </h3>
+          <p className="text-zinc-450 leading-relaxed">
+            AI is currently monitoring <strong className="text-zinc-200">#XAUUSD</strong> for a breakout setup.
           </p>
         </div>
       </div>
 
       {/* ── RIGHT: CHAT INTERFACE ── */}
-      <div className="flex-1 flex flex-col bg-zinc-950/50 border border-zinc-800/50 rounded-2xl overflow-hidden backdrop-blur-md relative">
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 scroll-thin">
+      <div className="flex-1 flex flex-col bg-[#111118] border border-zinc-800/40 rounded-xl overflow-hidden shadow-xl relative">
+        <div className="flex-1 overflow-y-auto p-5 space-y-5 scroll-thin">
           {messages.map(msg => (
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               key={msg.id} 
-              className={`flex gap-4 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}
+              className={`flex gap-3.5 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}
             >
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                msg.role === "user" ? "bg-zinc-800" : "bg-emerald-500/20 text-emerald-400"
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border ${
+                msg.role === "user" ? "bg-black/35 border-zinc-800 text-zinc-300" : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
               }`}>
-                {msg.role === "user" ? <User size={14} /> : <Bot size={14} />}
+                {msg.role === "user" ? <User size={13} /> : <Bot size={13} />}
               </div>
               
-              <div className={`max-w-[80%] ${msg.role === "user" ? "text-right" : "text-left"}`}>
+              <div className={`max-w-[75%] ${msg.role === "user" ? "text-right" : "text-left"}`}>
                 {msg.type === "report" ? (
-                  <div className="bg-zinc-900/80 border border-emerald-500/30 p-5 rounded-2xl shadow-xl">
-                    <div className="flex items-center gap-2 mb-3">
+                  <div className="bg-[#111118] border border-zinc-800/60 p-4.5 rounded-xl shadow-lg font-mono">
+                    <div className="flex items-center gap-2 mb-2.5 border-b border-zinc-850 pb-2">
                       <Sparkles className="w-4 h-4 text-emerald-400" />
-                      <span className="text-xs font-bold uppercase tracking-widest text-emerald-400">Morning Report</span>
+                      <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-450">Morning Strategy Plan</span>
                     </div>
-                    <p className="text-sm text-zinc-300 leading-relaxed">{msg.content}</p>
-                    <div className="mt-4 grid grid-cols-2 gap-2">
-                      <div className="bg-black/50 p-3 rounded-lg border border-zinc-800">
-                        <span className="block text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Market Mood</span>
-                        <span className="text-sm font-bold text-emerald-400 mt-1 block">Risk-On (Bullish)</span>
+                    <p className="text-[11px] text-zinc-300 leading-relaxed">{msg.content}</p>
+                    <div className="mt-4 grid grid-cols-2 gap-3 text-[10px]">
+                      <div className="bg-black/25 p-3 rounded-lg border border-zinc-800/50">
+                        <span className="block text-[8px] text-zinc-550 font-bold uppercase tracking-widest">Market Mood</span>
+                        <span className="text-emerald-400 font-bold mt-1 block">Risk-On (Bullish)</span>
                       </div>
-                      <div className="bg-black/50 p-3 rounded-lg border border-zinc-800">
-                        <span className="block text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Macro Event</span>
-                        <span className="text-sm font-bold text-red-400 mt-1 block">NFP at 14:30</span>
+                      <div className="bg-black/25 p-3 rounded-lg border border-zinc-800/50">
+                        <span className="block text-[8px] text-zinc-550 font-bold uppercase tracking-widest">Macro Event</span>
+                        <span className="text-red-400 font-bold mt-1 block">NFP at 14:30</span>
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <div className={`p-4 rounded-2xl text-sm leading-relaxed shadow-sm whitespace-pre-wrap ${
+                  <div className={`p-4 rounded-xl text-xs leading-relaxed shadow-md whitespace-pre-wrap ${
                     msg.role === "user" 
-                      ? "bg-emerald-600 text-white rounded-tr-sm" 
-                      : "bg-zinc-900/80 border border-zinc-800/80 text-zinc-200 rounded-tl-sm"
+                      ? "bg-emerald-500 text-emerald-950 font-bold rounded-tr-none font-mono" 
+                      : "bg-[#111118] border border-zinc-800/50 text-zinc-200 rounded-tl-none font-sans"
                   }`}>
                     {msg.content}
                   </div>
@@ -146,21 +148,21 @@ export default function AIDeskPage() {
         </div>
 
         {/* Chat Input */}
-        <div className="p-4 bg-zinc-950 border-t border-zinc-800/80">
-          <div className="flex items-center gap-3 bg-zinc-900/80 border border-zinc-700/50 rounded-xl p-2 px-4 shadow-inner">
+        <div className="p-4 bg-black/15 border-t border-zinc-800/40">
+          <div className="flex items-center gap-3 bg-[#111118] border border-zinc-800/60 rounded-lg p-2.5 px-4 shadow-inner">
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSend()}
               placeholder="Ask AI for analysis, risk checks, or portfolio stats..."
-              className="flex-1 bg-transparent border-none outline-none text-sm text-zinc-200 placeholder:text-zinc-600"
+              className="flex-1 bg-transparent border-none outline-none text-xs text-white placeholder:text-zinc-650 font-mono"
             />
             <button 
               onClick={handleSend}
-              className="p-2 bg-emerald-500 text-black rounded-lg hover:bg-emerald-400 transition-colors"
+              className="p-2 bg-emerald-500 text-emerald-950 rounded-lg hover:bg-emerald-400 transition-colors font-bold"
             >
-              <Send size={16} />
+              <Send size={13} />
             </button>
           </div>
         </div>

@@ -9,6 +9,7 @@ import {
   BookOpen, CalendarDays, TrendingUp, CheckCircle2, AlertTriangle,
   Percent, BarChart2, Grid, Target, RotateCcw, Code, Newspaper,
   Bell, Users, Wallet, Eye, Crosshair, Shield, Command, Maximize2, Library,
+  Bot, Globe, GraduationCap
 } from "lucide-react";
 import { useFocusMode } from "./providers/FocusModeProvider";
 import { useFavorites } from "@/hooks/useFavorites";
@@ -28,12 +29,13 @@ interface NavItem {
 const TOP_NAV: NavItem[] = [
   { id: "dashboard", label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { id: "terminal", label: "Terminal", href: "/terminal", icon: Terminal },
-  { id: "signals", label: "Scanner", href: "/signals", icon: Radar },
-  { id: "ai-desk", label: "AI Desk", href: "/ai-desk", icon: Target },
-  { id: "performance", label: "Performance", href: "/performance", icon: TrendingUp },
-  { id: "risk-hub", label: "Risk", href: "/risk-hub", icon: ShieldAlert },
   { id: "journal", label: "Journal", href: "/journal", icon: BookOpen },
-  { id: "lessons", label: "Lessons", href: "/lessons", icon: Library },
+  { id: "analytics", label: "Analytics", href: "/performance", icon: BarChart3 },
+  { id: "ai-desk", label: "AI Desk", href: "/ai-desk", icon: Bot },
+  { id: "markets", label: "Markets", href: "/news", icon: Globe },
+  { id: "risk-hub", label: "Risk Hub", href: "/risk-hub", icon: ShieldAlert },
+  { id: "education", label: "Education", href: "/lessons", icon: GraduationCap },
+  { id: "community", label: "Community", href: "/community", icon: Users },
   { id: "settings", label: "Settings", href: "/settings", icon: Settings },
 ];
 

@@ -956,7 +956,7 @@ router.get("/terminal/technical-signals", (req, res) => {
 router.get("/terminal/signals", async (req, res) => {
   try {
     const bridgeUrl = process.env.MT5_BRIDGE_URL || "http://127.0.0.1:5003";
-    const response = await axios.get(`${bridgeUrl}/api/signals`);
+    const response = await axios.get(`${bridgeUrl}/api/signals`, { params: req.query });
     res.json(response.data);
   } catch (error: any) {
     console.error("[Bridge API Error] Failed to fetch signals:", error.message);
@@ -1340,10 +1340,22 @@ router.post("/journal/trades", async (req, res) => {
       }
     }
 
+    // Try to tag with the active MT5 account
+    let mt5AccountNumber: string | null = null;
+    try {
+      const bridgeUrl = process.env.LOCAL_MT5_URL || 'http://127.0.0.1:5003';
+      const accRes = await fetch(`${bridgeUrl}/api/account`);
+      const accData = await accRes.json() as any;
+      if (accData.success && accData.login) {
+        mt5AccountNumber = String(accData.login);
+      }
+    } catch (_) {}
+
     const trade = await prisma.trade.create({
       data: {
         date: new Date(),
         pair: symbol,
+        accountNumber: mt5AccountNumber,
         direction: side === "BUY" ? "Long" : "Short",
         entry: Number(entry),
         closePrice: exit ? Number(exit) : null,

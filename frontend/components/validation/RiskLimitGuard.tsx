@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
 import { AlertTriangle, Shield, TrendingDown, TrendingUp, DollarSign, Percent, Activity, Clock, Ban, Zap } from "lucide-react";
-import { Card } from "@/components/ui/card";
 
 interface RiskLimit {
   id: string;
@@ -32,7 +31,6 @@ export default function RiskLimitGuard() {
 
   useEffect(() => {
     const warnings: string[] = [];
-    const blocked = false;
 
     limits.filter(l => l.enabled).forEach(limit => {
       const usage = (limit.current / limit.limit) * 100;
@@ -61,11 +59,11 @@ export default function RiskLimitGuard() {
   const getUsageColor = (current: number, limit: number, isLoss: boolean) => {
     const usage = (current / limit) * 100;
     if (isLoss) {
-      if (usage >= 100) return "var(--bear)";
+      if (usage >= 100) return "#ef4444";
       if (usage >= 80) return "#f97316";
-      return "var(--bull)";
+      return "#10b981";
     }
-    return current >= limit ? "var(--bull)" : "var(--accent)";
+    return current >= limit ? "#10b981" : "#71717a";
   };
 
   const getStatusIcon = (limit: RiskLimit) => {
@@ -75,23 +73,23 @@ export default function RiskLimitGuard() {
     const isTarget = limit.label.includes("Target");
 
     if (isTrades) {
-      if (limit.current >= limit.limit) return <Ban className="w-4 h-4" style={{ color: "var(--bear)" }} />;
-      if (limit.current >= limit.limit - 1) return <AlertTriangle className="w-4 h-4" style={{ color: "#f97316" }} />;
-      return <Activity className="w-4 h-4" style={{ color: "var(--bull)" }} />;
+      if (limit.current >= limit.limit) return <Ban className="w-3.5 h-3.5 text-red-500" />;
+      if (limit.current >= limit.limit - 1) return <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />;
+      return <Activity className="w-3.5 h-3.5 text-emerald-450" />;
     }
 
     if (isLoss) {
-      if (usage >= 100) return <Ban className="w-4 h-4" style={{ color: "var(--bear)" }} />;
-      if (usage >= 80) return <AlertTriangle className="w-4 h-4" style={{ color: "#f97316" }} />;
-      return <Shield className="w-4 h-4" style={{ color: "var(--bull)" }} />;
+      if (usage >= 100) return <Ban className="w-3.5 h-3.5 text-red-500" />;
+      if (usage >= 80) return <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />;
+      return <Shield className="w-3.5 h-3.5 text-emerald-450" />;
     }
 
     if (isTarget) {
-      if (limit.current >= limit.limit) return <Zap className="w-4 h-4" style={{ color: "var(--bull)" }} />;
-      return <TrendingUp className="w-4 h-4" style={{ color: "var(--accent)" }} />;
+      if (limit.current >= limit.limit) return <Zap className="w-3.5 h-3.5 text-emerald-455 text-emerald-400" />;
+      return <TrendingUp className="w-3.5 h-3.5 text-zinc-500" />;
     }
 
-    return <Activity className="w-4 h-4" style={{ color: "var(--text-tertiary)" }} />;
+    return <Activity className="w-3.5 h-3.5 text-zinc-550" />;
   };
 
   const dailyLimits = limits.filter(l => l.type === "daily");
@@ -100,7 +98,7 @@ export default function RiskLimitGuard() {
 
   const renderLimitGroup = (group: RiskLimit[], title: string) => (
     <div className="mb-4">
-      <div className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-tertiary)" }}>
+      <div className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-2">
         {title}
       </div>
       <div className="space-y-2">
@@ -111,16 +109,13 @@ export default function RiskLimitGuard() {
           return (
             <div
               key={limit.id}
-              className="p-2 rounded-lg"
-              style={{ 
-                background: "var(--bg-input)",
-                opacity: limit.enabled ? 1 : 0.5
-              }}
+              className="p-2.5 rounded-lg bg-black/25 border border-zinc-850"
+              style={{ opacity: limit.enabled ? 1 : 0.4 }}
             >
-              <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center justify-between mb-1.5 font-sans">
                 <div className="flex items-center gap-1.5">
                   {getStatusIcon(limit)}
-                  <span className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+                  <span className="text-[11px] text-zinc-300 font-bold">
                     {limit.label}
                   </span>
                 </div>
@@ -134,9 +129,9 @@ export default function RiskLimitGuard() {
                   }
                 </span>
               </div>
-              <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--bg-primary)" }}>
+              <div className="h-1.5 rounded-full overflow-hidden bg-black/35 border border-zinc-850">
                 <div
-                  className="h-full rounded-full transition-all duration-500"
+                  className="h-full rounded-full transition-all duration-300"
                   style={{
                     width: `${Math.min(usage, 100)}%`,
                     background: getUsageColor(limit.current, limit.limit, isLoss)
@@ -151,35 +146,35 @@ export default function RiskLimitGuard() {
   );
 
   return (
-    <Card className="p-4" style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)" }}>
+    <div className="bg-[#111118] border border-zinc-800/40 rounded-xl p-5 shadow-xl font-mono text-[10px]">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Shield className="w-5 h-5" style={{ color: isBlocked ? "var(--bear)" : "var(--bull)" }} />
-          <h3 className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>Risk Limit Guard</h3>
+          <Shield className="w-4 h-4 text-emerald-450" />
+          <h3 className="font-bold uppercase tracking-widest text-zinc-300">Risk Limit Guard</h3>
         </div>
-        <div className="flex items-center gap-1">
-          <DollarSign className="w-3 h-3" style={{ color: "var(--text-tertiary)" }} />
-          <span className="text-xs font-mono" style={{ color: "var(--text-tertiary)" }}>
+        <div className="flex items-center gap-1 font-bold">
+          <DollarSign className="w-3.5 h-3.5 text-zinc-550" />
+          <span className="text-xs text-zinc-400">
             ${mockAccountBalance.toLocaleString()}
           </span>
         </div>
       </div>
 
       {isBlocked && (
-        <div className="mb-4 p-4 rounded-xl flex flex-col items-center text-center" style={{ background: "rgba(239, 68, 68, 0.15)", border: "2px solid var(--bear)" }}>
-          <Ban className="w-8 h-8 mb-2" style={{ color: "var(--bear)" }} />
-          <span className="text-sm font-bold" style={{ color: "var(--bear)" }}>TRADING BLOCKED</span>
-          <span className="text-xs mt-1" style={{ color: "var(--text-tertiary)" }}>
-            Risk limit breached - Take a break
+        <div className="mb-4 p-4 rounded-xl flex flex-col items-center text-center bg-red-500/10 border border-red-500/25 text-red-400 font-mono">
+          <Ban className="w-6 h-6 mb-2" />
+          <span className="text-[11px] font-black uppercase tracking-widest">TRADING BLOCKED</span>
+          <span className="text-[9px] mt-1 text-zinc-550 leading-relaxed font-sans block">
+            Risk limit breached - Take a mandated break
           </span>
         </div>
       )}
 
       {activeWarnings.filter(w => !w.includes("BLOCKED") && !w.includes("CRITICAL")).length > 0 && (
-        <div className="mb-4 p-3 rounded-lg" style={{ background: "rgba(249, 115, 22, 0.1)", border: "1px solid #f97316" }}>
+        <div className="mb-4 p-2.5 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400 font-sans">
           {activeWarnings.filter(w => !w.includes("BLOCKED") && !w.includes("CRITICAL")).map((warning, i) => (
-            <div key={i} className="flex items-center gap-2 text-xs" style={{ color: "#f97316" }}>
-              <AlertTriangle className="w-3 h-3" />
+            <div key={i} className="flex items-center gap-1.5 text-xs font-bold font-mono">
+              <AlertTriangle className="w-3.5 h-3.5" />
               {warning}
             </div>
           ))}
@@ -187,9 +182,9 @@ export default function RiskLimitGuard() {
       )}
 
       {!isBlocked && activeWarnings.filter(w => w.includes("TARGET HIT")).length > 0 && (
-        <div className="mb-4 p-3 rounded-lg flex items-center gap-2" style={{ background: "rgba(34, 197, 94, 0.1)", border: "1px solid var(--bull)" }}>
-          <Zap className="w-4 h-4" style={{ color: "var(--bull)" }} />
-          <span className="text-xs font-medium" style={{ color: "var(--bull)" }}>Profit target achieved!</span>
+        <div className="mb-4 p-2.5 rounded-lg flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+          <Zap className="w-3.5 h-3.5 animate-pulse" />
+          <span className="font-bold uppercase tracking-wider text-[9px]">Profit target achieved!</span>
         </div>
       )}
 
@@ -198,17 +193,13 @@ export default function RiskLimitGuard() {
       {renderLimitGroup(monthlyLimits, "Monthly Limits")}
 
       <button
-        className={`w-full py-2 rounded-lg text-xs font-semibold transition-colors ${
-          isBlocked ? "opacity-50 cursor-not-allowed" : "hover:opacity-80"
+        className={`w-full py-2.5 rounded-lg font-black text-[10px] uppercase tracking-wider transition-all disabled:opacity-30 ${
+          isBlocked ? "bg-red-505 bg-red-500 text-white cursor-not-allowed" : "bg-emerald-500 text-emerald-950 hover:bg-emerald-400 cursor-pointer"
         }`}
-        style={{ 
-          background: isBlocked ? "var(--bear)" : "var(--bull)",
-          color: "white"
-        }}
         disabled={isBlocked}
       >
-        {isBlocked ? "Trading Disabled" : "Execute Trade"}
+        {isBlocked ? "Trading Disabled" : "Check Compliancy"}
       </button>
-    </Card>
+    </div>
   );
 }

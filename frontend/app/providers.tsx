@@ -26,7 +26,21 @@ export function Providers({ children }: { children: React.ReactNode }) {
             <TradeProvider>
               <WebSocketProvider>
                 {children}
-                <Toaster position="top-right" theme="system" richColors closeButton />
+                <Toaster
+                  position="top-right"
+                  theme="dark"
+                  richColors
+                  closeButton
+                  toastOptions={{
+                    style: {
+                      background: "#111118",
+                      border: "1px solid rgba(63, 63, 70, 0.4)",
+                      color: "#fff",
+                      fontFamily: "monospace",
+                      fontSize: "10px",
+                    },
+                  }}
+                />
               </WebSocketProvider>
             </TradeProvider>
           </AccountProvider>

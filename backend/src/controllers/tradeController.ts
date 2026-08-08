@@ -11,6 +11,7 @@ export const createTrade = async (req: Request, res: Response, next: NextFunctio
     const trade = await prisma.trade.create({
       data: {
         userId: userId,
+        accountNumber: tradeData.accountNumber || null,
         date: new Date(tradeData.date),
         pair: tradeData.pair,
         strategy: tradeData.strategy,
@@ -102,6 +103,11 @@ export const getAllTrades = async (req: Request, res: Response, next: NextFuncti
     const where: any = { 
       userId: { in: [req.userId, "default-user"] } 
     };
+
+    // Filter by account number if provided (e.g. ?accountNumber=279260598)
+    if (req.query.accountNumber) {
+      where.accountNumber = String(req.query.accountNumber);
+    }
 
     if (strategy) where.strategy = strategy;
     if (outcome) where.outcome = outcome;
@@ -254,7 +260,7 @@ export const syncTrades = async (req: Request, res: Response, next: NextFunction
     const days = req.body.days || 30;
     const bridgeUrl = process.env.LOCAL_MT5_URL || 'http://127.0.0.1:5003';
     
-    // Fetch from bridge
+    // Fetch from bridge — include account login to tag trades
     console.log(`Fetching from: ${bridgeUrl}/api/history?days=${days}`);
     const response = await fetch(`${bridgeUrl}/api/history?days=${days}`);
     const data = await response.json() as any;
@@ -263,6 +269,16 @@ export const syncTrades = async (req: Request, res: Response, next: NextFunction
     if (!data.success) {
       return res.status(500).json({ success: false, error: data.error || 'Failed to fetch from MT5' });
     }
+
+    // Get current MT5 account number to tag trades
+    let mt5AccountNumber: string | null = null;
+    try {
+      const accRes = await fetch(`${bridgeUrl}/api/account`);
+      const accData = await accRes.json() as any;
+      if (accData.success && accData.login) {
+        mt5AccountNumber = String(accData.login);
+      }
+    } catch (_) {}
     
     const mt5Trades = data.trades || [];
     let synced = 0;
@@ -287,12 +303,15 @@ export const syncTrades = async (req: Request, res: Response, next: NextFunction
             closeTime: t.closeTime ? new Date(t.closeTime) : null,
             commission: t.commission,
             lotSize: t.lotSize,
+            // Backfill accountNumber if missing
+            ...(mt5AccountNumber && !existing.accountNumber && { accountNumber: mt5AccountNumber }),
           }
         });
       } else {
         await prisma.trade.create({
           data: {
             userId: req.userId!,
+            accountNumber: mt5AccountNumber,
             date: t.openTime ? new Date(t.openTime) : new Date(t.closeTime),
             pair: t.pair,
             direction: t.direction,
@@ -310,7 +329,7 @@ export const syncTrades = async (req: Request, res: Response, next: NextFunction
       }
       synced++;
     }
-    console.log('SENDING SUCCESS RESPONSE'); res.json({ success: true, synced });
+    console.log('SENDING SUCCESS RESPONSE'); res.json({ success: true, synced, accountNumber: mt5AccountNumber });
   } catch (error) {
     next(error);
   }

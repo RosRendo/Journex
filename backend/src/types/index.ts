@@ -1,4 +1,5 @@
 export interface TradeInput {
+  accountNumber?: string;
   date: string;
   pair: string;
   strategy: string;

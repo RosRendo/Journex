@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
 import { CheckCircle2, Circle, AlertTriangle, ChevronDown, ChevronUp, Target, TrendingUp, TrendingDown, Clock, Newspaper, BarChart3, Zap } from "lucide-react";
-import { Card } from "@/components/ui/card";
 
 interface ChecklistItem {
   id: string;
@@ -49,36 +48,33 @@ export default function PreTradeChecklist() {
   const canTrade = totalChecked === items.length;
 
   return (
-    <Card className="p-4" style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)" }}>
+    <div className="bg-[#111118] border border-zinc-800/40 rounded-xl p-5 shadow-xl font-mono text-[10px]">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <CheckCircle2 className="w-5 h-5" style={{ color: canTrade ? "var(--bull)" : "var(--text-tertiary)" }} />
-          <h3 className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>Pre-Trade Checklist</h3>
+          <CheckCircle2 className="w-4 h-4 text-zinc-550" />
+          <h3 className="font-bold uppercase tracking-widest text-zinc-300">Pre-Trade Checklist</h3>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-mono" style={{ color: canTrade ? "var(--bull)" : "var(--text-tertiary)" }}>
+        <div className="flex items-center gap-1.5 font-bold">
+          <span className={canTrade ? "text-emerald-450" : "text-zinc-550"}>
             {totalChecked}/{items.length}
           </span>
-          {canTrade && <Zap className="w-4 h-4 text-amber-400" />}
+          {canTrade && <Zap className="w-3.5 h-3.5 text-emerald-400" />}
         </div>
       </div>
 
       <div className="mb-4">
-        <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-input)" }}>
+        <div className="h-1.5 rounded-full overflow-hidden bg-black/35 border border-zinc-850">
           <div 
-            className="h-full transition-all duration-500 rounded-full"
-            style={{ 
-              width: `${overallProgress}%`, 
-              background: canTrade ? "var(--bull)" : "var(--accent)" 
-            }} 
+            className="h-full transition-all duration-350 rounded-full bg-emerald-500"
+            style={{ width: `${overallProgress}%` }} 
           />
         </div>
       </div>
 
       {canTrade && (
-        <div className="mb-4 p-3 rounded-lg flex items-center gap-2" style={{ background: "rgba(34, 197, 94, 0.1)", border: "1px solid var(--bull)" }}>
-          <CheckCircle2 className="w-4 h-4 text-green-400" />
-          <span className="text-xs font-medium" style={{ color: "var(--bull)" }}>Ready to trade - All checks passed!</span>
+        <div className="mb-4 p-3 rounded-lg flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+          <CheckCircle2 className="w-3.5 h-3.5" />
+          <span className="font-bold uppercase tracking-wider text-[9px]">Ready to deploy execution orders</span>
         </div>
       )}
 
@@ -91,21 +87,20 @@ export default function PreTradeChecklist() {
             <div key={category}>
               <button
                 onClick={() => setExpandedCategory(isExpanded ? null : category)}
-                className="w-full flex items-center justify-between p-2 rounded-lg transition-colors hover:opacity-80"
-                style={{ background: "var(--bg-input)" }}
+                className="w-full flex items-center justify-between p-2.5 rounded-lg bg-black/25 hover:bg-black/45 transition-all text-left outline-none"
               >
-                <div className="flex items-center gap-2">
-                  {category === "Market" && <BarChart3 className="w-4 h-4" style={{ color: "var(--text-tertiary)" }} />}
-                  {category === "Setup" && <Target className="w-4 h-4" style={{ color: "var(--text-tertiary)" }} />}
-                  {category === "Risk" && <AlertTriangle className="w-4 h-4" style={{ color: "var(--text-tertiary)" }} />}
-                  {category === "Execution" && <Zap className="w-4 h-4" style={{ color: "var(--text-tertiary)" }} />}
-                  <span className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{category}</span>
+                <div className="flex items-center gap-2 text-zinc-450 font-bold uppercase tracking-wider">
+                  {category === "Market" && <BarChart3 className="w-3.5 h-3.5" />}
+                  {category === "Setup" && <Target className="w-3.5 h-3.5" />}
+                  {category === "Risk" && <AlertTriangle className="w-3.5 h-3.5" />}
+                  {category === "Execution" && <Zap className="w-3.5 h-3.5" />}
+                  <span className="text-zinc-300">{category}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono" style={{ color: checked === total ? "var(--bull)" : "var(--text-tertiary)" }}>
+                <div className="flex items-center gap-2 font-bold text-[9px] text-zinc-500">
+                  <span className={checked === total ? "text-emerald-400" : "text-zinc-500"}>
                     {checked}/{total}
                   </span>
-                  {isExpanded ? <ChevronUp className="w-4 h-4" style={{ color: "var(--text-tertiary)" }} /> : <ChevronDown className="w-4 h-4" style={{ color: "var(--text-tertiary)" }} />}
+                  {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                 </div>
               </button>
               
@@ -115,19 +110,18 @@ export default function PreTradeChecklist() {
                     <button
                       key={item.id}
                       onClick={() => toggleItem(item.id)}
-                      className="w-full flex items-start gap-2 p-2 rounded-lg transition-all hover:opacity-80"
-                      style={{ background: item.checked ? "rgba(34, 197, 94, 0.1)" : "var(--bg-primary)" }}
+                      className="w-full flex items-start gap-2 p-2.5 rounded-lg bg-black/10 border border-zinc-900/40 hover:bg-black/20 transition-all text-left font-sans"
                     >
                       {item.checked ? (
-                        <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: "var(--bull)" }} />
+                        <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0 text-emerald-400" />
                       ) : (
-                        <Circle className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: "var(--text-tertiary)" }} />
+                        <Circle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-zinc-700" />
                       )}
-                      <div className="text-left">
-                        <span className="text-xs block" style={{ color: item.checked ? "var(--bull)" : "var(--text-primary)" }}>
+                      <div>
+                        <span className={`text-[11px] block ${item.checked ? "text-emerald-400 font-bold" : "text-zinc-300"}`}>
                           {item.label}
                         </span>
-                        <span className="text-[10px] block" style={{ color: "var(--text-tertiary)" }}>
+                        <span className="text-[9px] text-zinc-550 block mt-0.5 font-mono">
                           {item.description}
                         </span>
                       </div>
@@ -139,6 +133,6 @@ export default function PreTradeChecklist() {
           );
         })}
       </div>
-    </Card>
+    </div>
   );
 }

@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
 import { Star, Target, TrendingUp, Zap, CheckCircle2, AlertCircle, BarChart3, Activity } from "lucide-react";
-import { Card } from "@/components/ui/card";
 
 interface Criteria {
   id: string;
@@ -45,11 +44,11 @@ export default function SetupQualityScorer() {
   };
 
   const getQualityLabel = (score: number) => {
-    if (score >= 8) return { label: "Excellent Setup", color: "var(--bull)" };
+    if (score >= 8) return { label: "Excellent Setup", color: "#10b981" };
     if (score >= 6) return { label: "Good Setup", color: "#22d3ee" };
-    if (score >= 4) return { label: "Average Setup", color: "var(--accent)" };
+    if (score >= 4) return { label: "Average Setup", color: "#f59e0b" };
     if (score >= 2) return { label: "Weak Setup", color: "#f97316" };
-    return { label: "Poor Setup", color: "var(--bear)" };
+    return { label: "Poor Setup", color: "#ef4444" };
   };
 
   const resetScores = () => {
@@ -61,30 +60,22 @@ export default function SetupQualityScorer() {
   const quality = getQualityLabel(weightedScore);
 
   return (
-    <Card className="p-4" style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)" }}>
+    <div className="bg-[#111118] border border-zinc-800/40 rounded-xl p-5 shadow-xl font-mono text-[10px]">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Target className="w-5 h-5" style={{ color: quality.color }} />
-          <h3 className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>Setup Quality Score</h3>
+          <Target className="w-4 h-4" style={{ color: quality.color }} />
+          <h3 className="font-bold uppercase tracking-widest text-zinc-300">Setup Quality Score</h3>
         </div>
         <div className="flex gap-1">
           <button
             onClick={() => setDirection("BUY")}
-            className="px-2 py-1 text-xs rounded-l-lg transition-colors"
-            style={{ 
-              background: direction === "BUY" ? "var(--bull)" : "var(--bg-input)",
-              color: direction === "BUY" ? "white" : "var(--text-tertiary)"
-            }}
+            className={`px-2.5 py-1 text-[9px] rounded-l font-bold transition-all uppercase tracking-wider ${direction === "BUY" ? "bg-emerald-500 text-emerald-950" : "bg-black/25 text-zinc-550 border border-zinc-850"}`}
           >
             BUY
           </button>
           <button
             onClick={() => setDirection("SELL")}
-            className="px-2 py-1 text-xs rounded-r-lg transition-colors"
-            style={{ 
-              background: direction === "SELL" ? "var(--bear)" : "var(--bg-input)",
-              color: direction === "SELL" ? "white" : "var(--text-tertiary)"
-            }}
+            className={`px-2.5 py-1 text-[9px] rounded-r font-bold transition-all uppercase tracking-wider ${direction === "SELL" ? "bg-red-500 text-white" : "bg-black/25 text-zinc-550 border border-zinc-850"}`}
           >
             SELL
           </button>
@@ -95,28 +86,27 @@ export default function SetupQualityScorer() {
         <select
           value={selectedPair}
           onChange={(e) => setSelectedPair(e.target.value)}
-          className="flex-1 text-xs px-2 py-1.5 rounded-lg"
-          style={{ background: "var(--bg-input)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+          className="flex-1 text-xs px-2.5 py-1.5 rounded-lg bg-black/25 border border-zinc-800/60 text-white cursor-pointer"
         >
           {tradingPairs.map(pair => (
-            <option key={pair} value={pair}>{pair}</option>
+            <option key={pair} value={pair} className="bg-zinc-950 text-white">{pair}</option>
           ))}
         </select>
       </div>
 
-      <div className="mb-4 p-4 rounded-xl text-center" style={{ background: "var(--bg-input)" }}>
-        <div className="text-4xl font-black mb-1" style={{ color: quality.color }}>
+      <div className="mb-4 p-4 rounded-xl text-center bg-black/25 border border-zinc-850">
+        <div className="text-3xl font-black mb-1 font-mono" style={{ color: quality.color }}>
           {weightedScore.toFixed(1)}
-          <span className="text-lg" style={{ color: "var(--text-tertiary)" }}>/10</span>
+          <span className="text-sm text-zinc-650 font-normal">/10</span>
         </div>
-        <div className="flex items-center justify-center gap-2">
-          <Star className="w-4 h-4" style={{ color: quality.color }} />
-          <span className="text-sm font-semibold" style={{ color: quality.color }}>{quality.label}</span>
+        <div className="flex items-center justify-center gap-1.5">
+          <Star className="w-3.5 h-3.5" style={{ color: quality.color }} />
+          <span className="text-[11px] font-bold" style={{ color: quality.color }}>{quality.label}</span>
         </div>
       </div>
 
       <div className="mb-4">
-        <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-primary)" }}>
+        <div className="h-1.5 rounded-full overflow-hidden bg-black/35 border border-zinc-850">
           <div 
             className="h-full transition-all duration-300 rounded-full"
             style={{ 
@@ -125,40 +115,41 @@ export default function SetupQualityScorer() {
             }} 
           />
         </div>
-        <div className="flex justify-between mt-1">
-          <span className="text-[10px]" style={{ color: "var(--text-tertiary)" }}>Raw: {rawAverage.toFixed(1)}</span>
-          <span className="text-[10px]" style={{ color: "var(--text-tertiary)" }}>Weighted by importance</span>
+        <div className="flex justify-between mt-1.5 text-[8px] text-zinc-550 font-bold">
+          <span>Raw Avg: {rawAverage.toFixed(1)}</span>
+          <span>Weighted metrics</span>
         </div>
       </div>
 
-      <div className="space-y-2 max-h-48 overflow-y-auto">
+      <div className="space-y-2.5 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
         {criteria.map(c => (
           <div key={c.id} className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Activity className="w-3 h-3" style={{ color: "var(--text-tertiary)" }} />
-              <span className="text-xs" style={{ color: "var(--text-primary)" }}>{c.label}</span>
-              <span className="text-[10px] px-1 rounded" style={{ background: "var(--bg-input)", color: "var(--text-tertiary)" }}>
+            <div className="flex items-center gap-1.5 font-bold text-zinc-400">
+              <Activity className="w-3 h-3 text-zinc-550" />
+              <span className="font-sans text-[11px] text-zinc-350">{c.label}</span>
+              <span className="text-[8px] px-1 rounded bg-black/25 border border-zinc-850 text-zinc-500 font-mono">
                 x{c.weight}
               </span>
             </div>
-            <div className="flex items-center gap-1">
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
-                <button
-                  key={num}
-                  onClick={() => updateScore(c.id, num)}
-                  className={`w-5 h-5 text-[10px] rounded transition-colors ${
-                    c.score >= num ? "font-bold" : ""
-                  }`}
-                  style={{ 
-                    background: c.score >= num 
-                      ? (num <= 3 ? "var(--bear)" : num <= 6 ? "var(--accent)" : "var(--bull)")
-                      : "var(--bg-input)",
-                    color: c.score >= num ? "white" : "var(--text-tertiary)"
-                  }}
-                >
-                  {num}
-                </button>
-              ))}
+            <div className="flex items-center gap-0.5 font-mono">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => {
+                const isSelected = c.score >= num;
+                const scoreColor = num <= 3 ? "bg-red-500/20 text-red-400 border border-red-500/30" : num <= 6 ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" : "bg-emerald-500/20 text-emerald-450 border border-emerald-500/30";
+                
+                return (
+                  <button
+                    key={num}
+                    onClick={() => updateScore(c.id, num)}
+                    className={`w-4.5 h-4.5 text-[8px] rounded transition-all flex items-center justify-center font-bold ${
+                      isSelected 
+                        ? scoreColor
+                        : "bg-black/25 text-zinc-650 hover:bg-black/35"
+                    }`}
+                  >
+                    {num}
+                  </button>
+                );
+              })}
             </div>
           </div>
         ))}
@@ -166,25 +157,24 @@ export default function SetupQualityScorer() {
 
       <button
         onClick={resetScores}
-        className="w-full mt-3 py-2 text-xs rounded-lg flex items-center justify-center gap-1 transition-colors hover:opacity-80"
-        style={{ background: "var(--bg-input)", color: "var(--text-tertiary)" }}
+        className="w-full mt-3 py-2 bg-black/25 border border-zinc-800 text-zinc-500 hover:text-white rounded-lg flex items-center justify-center gap-1 transition-all uppercase tracking-wider font-bold"
       >
-        <Zap className="w-3 h-3" /> Reset Scores
+        <Zap className="w-3.5 h-3.5" /> Reset Scores
       </button>
 
       {weightedScore >= 6 && (
-        <div className="mt-3 p-2 rounded-lg flex items-center gap-2" style={{ background: "rgba(34, 197, 94, 0.1)" }}>
-          <CheckCircle2 className="w-4 h-4" style={{ color: "var(--bull)" }} />
-          <span className="text-xs" style={{ color: "var(--bull)" }}>High quality setup - favorable conditions</span>
+        <div className="mt-3 p-2.5 rounded-lg flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+          <CheckCircle2 className="w-3.5 h-3.5" />
+          <span className="font-bold uppercase tracking-wider text-[9px]">High quality setup - favorable conditions</span>
         </div>
       )}
 
       {weightedScore < 4 && weightedScore > 0 && (
-        <div className="mt-3 p-2 rounded-lg flex items-center gap-2" style={{ background: "rgba(239, 68, 68, 0.1)" }}>
-          <AlertCircle className="w-4 h-4" style={{ color: "var(--bear)" }} />
-          <span className="text-xs" style={{ color: "var(--bear)" }}>Low quality setup - consider skipping</span>
+        <div className="mt-3 p-2.5 rounded-lg flex items-center gap-2 bg-red-500/10 border border-red-500/20 text-red-400">
+          <AlertCircle className="w-3.5 h-3.5" />
+          <span className="font-bold uppercase tracking-wider text-[9px]">Low quality setup - consider skipping</span>
         </div>
       )}
-    </Card>
+    </div>
   );
 }

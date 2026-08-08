@@ -184,7 +184,7 @@ export function TradeReplayModal({ tradeId, onClose }: TradeReplayModalProps) {
 
   return (
     <Dialog open={!!tradeId} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-5xl bg-[#0c0c0d] border border-white/10 text-white shadow-2xl p-0 overflow-hidden">
+      <DialogContent className="w-[95vw] md:w-full max-w-5xl max-h-[90vh] overflow-y-auto bg-[#0c0c0d] border border-white/10 text-white shadow-2xl p-0">
         <DialogHeader className="p-4 border-b border-white/5 bg-[#121214]">
           <DialogTitle className="flex items-center gap-3">
             <div className="w-8 h-8 rounded bg-blue-500/10 flex items-center justify-center">

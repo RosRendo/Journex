@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { BookOpen, UploadCloud, X, Maximize2, Trash2, Plus, Calendar, Tag, FileText, ImageIcon, Search, LayoutList, Check, Edit2 } from "lucide-react";
+import { BookOpen, UploadCloud, X, Maximize2, Trash2, Plus, Calendar, Tag, FileText, ImageIcon, Search, LayoutList, Check, Edit2, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { fetchWithAuth, getBackendUrl } from "@/lib/utils";
 import { WhiteboardModal } from "@/components/WhiteboardModal";
@@ -111,7 +111,6 @@ export default function LessonsPage() {
     }
   };
 
-  // CREATE NEW LESSON (Inline)
   const handleCreate = async () => {
     if (!newTitle.trim()) {
       toast.error("Title is required to create a lesson");
@@ -155,7 +154,6 @@ export default function LessonsPage() {
     }
   };
 
-  // UPDATE EXISTING LESSON (Inline)
   const startEditing = (lesson: Lesson, e: React.MouseEvent) => {
     e.stopPropagation();
     setEditingId(lesson.id);
@@ -180,7 +178,6 @@ export default function LessonsPage() {
       const data = await res.json();
       if (data.success) {
         setLessons(lessons.map(l => l.id === id ? data.lesson : l));
-        // Also update viewing lesson if it's open
         if (viewingLesson?.id === id) setViewingLesson(data.lesson);
       }
     } catch (err) {
@@ -197,7 +194,6 @@ export default function LessonsPage() {
     }
   };
 
-  // UPDATE NOTES OR IMAGE (Side Panel)
   const saveDetailsUpdate = async (id: number, newNotes?: string, newImages?: LessonImage[]) => {
     try {
       const payload: any = {};
@@ -338,7 +334,7 @@ export default function LessonsPage() {
   const getFullImageUrl = (url: string | null) => {
     if (!url) return "";
     if (url.startsWith("http")) return url;
-    return url; // Return relative path to trigger Next.js proxy
+    return url;
   };
 
   const filteredLessons = lessons.filter(l => 
@@ -347,221 +343,215 @@ export default function LessonsPage() {
   );
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-black text-zinc-200">
+    <div className="min-h-screen w-full bg-[#05050a] text-text-primary px-4 md:px-6 py-4 flex flex-col gap-4 animate-fade-in pb-16">
       
       {/* Header Area */}
-      <div className="px-8 py-6 border-b border-zinc-800/60 bg-zinc-950/30 flex items-center justify-between">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-[#111118]/80 p-4 border border-zinc-800/40 rounded-2xl backdrop-blur-xl mt-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
             <BookOpen className="w-5 h-5 text-blue-400" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white tracking-tight">Trading Playbook</h1>
-            <p className="text-xs text-zinc-400">Fast, Excel-style entry for your setups and concepts</p>
+            <h1 className="text-lg font-black tracking-tight text-white font-display">
+              Trading Playbook
+            </h1>
+            <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest font-mono flex items-center gap-1 mt-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+              Playbook & Lesson Library
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <div className="relative group hidden md:block">
-            <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2 group-focus-within:text-blue-400 transition-colors" />
+        <div className="flex items-center gap-3 font-mono text-[10px]">
+          <div className="relative group">
+            <Search className="w-3.5 h-3.5 text-zinc-550 absolute left-2.5 top-1/2 -translate-y-1/2 group-focus-within:text-blue-450 transition-colors" />
             <input 
               type="text" 
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search lessons..." 
-              className="bg-zinc-900 border border-zinc-800 rounded-lg pl-9 pr-4 py-2 text-sm w-64 focus:border-blue-500 outline-none transition-colors"
+              className="bg-black/35 border border-zinc-800/60 rounded-lg pl-8 pr-3 py-1.5 text-xs w-48 focus:border-blue-450 outline-none text-white font-mono placeholder:text-zinc-655"
             />
           </div>
         </div>
       </div>
 
       {/* Notion/Excel-style Data Table */}
-      <div className="flex-1 overflow-y-auto p-8 scroll-thin">
-        <div className="max-w-[1200px] mx-auto">
-          
-          <div className="bg-zinc-950/50 border border-zinc-800/50 rounded-xl overflow-hidden shadow-2xl">
-            
-            <div className="grid grid-cols-12 gap-4 px-6 py-3 border-b border-zinc-800 bg-zinc-900/50 text-xs font-bold uppercase tracking-wider text-zinc-500">
-              <div className="col-span-8 flex items-center gap-2"><FileText className="w-3.5 h-3.5"/> Title</div>
-              <div className="col-span-2 flex items-center gap-2"><Calendar className="w-3.5 h-3.5"/> Date</div>
-              <div className="col-span-2 flex items-center gap-2 justify-end"><ImageIcon className="w-3.5 h-3.5"/> Details</div>
-            </div>
+      <div className="bg-[#111118] border border-zinc-800/40 rounded-xl overflow-hidden shadow-xl mt-2">
+        
+        <div className="grid grid-cols-12 gap-4 px-5 py-3 border-b border-zinc-800 bg-black/25 text-[9px] uppercase font-bold tracking-widest text-zinc-500 font-mono">
+          <div className="col-span-8 flex items-center gap-1.5"><FileText className="w-3.5 h-3.5"/> Title</div>
+          <div className="col-span-2 flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5"/> Date</div>
+          <div className="col-span-2 flex items-center gap-1.5 justify-end"><ImageIcon className="w-3.5 h-3.5"/> Details</div>
+        </div>
 
-            <div className="divide-y divide-zinc-800/50">
-              
-              {/* FAST ENTRY ROW (Always at the top) */}
-              <div className="grid grid-cols-12 gap-4 px-6 py-3 items-center bg-blue-500/5 border-b border-blue-500/10">
-                <div className="col-span-8 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded flex-shrink-0 flex items-center justify-center text-blue-500 opacity-50">
-                    <Plus className="w-5 h-5" />
+        <div className="divide-y divide-zinc-900/40 font-mono">
+          
+          {/* FAST ENTRY ROW (Always at the top) */}
+          <div className="grid grid-cols-12 gap-4 px-5 py-3 items-center bg-blue-500/[0.01] border-b border-zinc-850 text-xs">
+            <div className="col-span-8 flex items-center gap-3">
+              <div className="w-8 h-8 rounded flex-shrink-0 flex items-center justify-center text-blue-500/40">
+                <Plus className="w-5 h-5" />
+              </div>
+              <input
+                type="text"
+                value={newTitle}
+                onChange={e => setNewTitle(e.target.value)}
+                onKeyDown={handleCreateKeyDown}
+                placeholder="Enter Lesson Title..."
+                className="w-full bg-transparent border-none outline-none text-xs font-bold text-white placeholder:text-zinc-650"
+              />
+            </div>
+            <div className="col-span-2 text-[9px] text-zinc-600 font-bold uppercase tracking-wider">Now</div>
+            <div className="col-span-2 flex justify-end">
+              <button 
+                onClick={handleCreate}
+                disabled={!newTitle.trim() || isCreating}
+                className="px-3 py-1.5 bg-blue-500 hover:bg-blue-400 text-blue-950 text-[10px] font-black uppercase rounded-lg disabled:opacity-30 transition-all flex items-center gap-1 font-mono cursor-pointer"
+              >
+                {isCreating ? <Loader2 className="w-3 h-3 animate-spin"/> : <Check className="w-3.5 h-3.5" />}
+                Add
+              </button>
+            </div>
+          </div>
+
+          {/* SAVED LESSONS */}
+          {loading ? (
+            <div className="py-12 flex justify-center">
+              <div className="animate-spin w-6 h-6 border border-zinc-800 border-t-transparent rounded-full" />
+            </div>
+          ) : filteredLessons.length === 0 ? (
+            <div className="py-16 text-center text-zinc-650 flex flex-col items-center">
+              <p className="text-xs">No saved lessons. Use the row above to quickly add one.</p>
+            </div>
+          ) : (
+            filteredLessons.map((lesson) => (
+              <div 
+                key={lesson.id} 
+                draggable={searchQuery === ""}
+                onDragStart={(e) => handleDragStart(e, lesson.id)}
+                onDragOver={(e) => handleDragOver(e, lesson.id)}
+                onDragEnd={handleDragEnd}
+                className={`grid grid-cols-12 gap-4 px-5 py-3 items-center hover:bg-white/[0.01] border-b border-zinc-900/60 transition-colors group relative ${
+                  dragOverLessonId === lesson.id ? "border-t border-blue-500 bg-blue-500/10" : ""
+                }`}
+              >
+                <div 
+                  className={`absolute inset-0 z-0 ${searchQuery === "" ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}`}
+                  onClick={() => {
+                    setViewingLesson(lesson);
+                    setNotesUpdate(lesson.notes || "");
+                  }} 
+                />
+
+                {/* TITLE */}
+                <div className="col-span-8 flex items-center gap-3 relative z-10">
+                  <div className="w-8 h-8 rounded bg-black/25 border border-zinc-800/40 flex flex-shrink-0 items-center justify-center text-zinc-600 group-hover:text-blue-400 transition-colors">
+                    <BookOpen className="w-4 h-4" />
                   </div>
-                  <input
-                    type="text"
-                    value={newTitle}
-                    onChange={e => setNewTitle(e.target.value)}
-                    onKeyDown={handleCreateKeyDown}
-                    placeholder="Enter Lesson Title..."
-                    className="w-full bg-transparent border-none outline-none text-sm text-white font-medium placeholder:text-zinc-500"
-                  />
+                  
+                  {editingId === lesson.id ? (
+                    <input 
+                      type="text"
+                      autoFocus
+                      value={editTitle}
+                      onChange={e => setEditTitle(e.target.value)}
+                      onKeyDown={(e) => handleEditKeyDown(e, lesson.id)}
+                      onBlur={() => saveInlineEdit(lesson.id)}
+                      className="w-full bg-zinc-900 border border-blue-500/50 rounded px-2.5 py-1 text-xs outline-none text-white font-mono"
+                    />
+                  ) : (
+                    <span 
+                      onClick={(e) => startEditing(lesson, e)}
+                      className="font-medium text-xs text-zinc-200 group-hover:text-blue-300 transition-colors truncate cursor-text"
+                      title="Click to edit"
+                    >
+                      {lesson.title}
+                    </span>
+                  )}
                 </div>
-                <div className="col-span-2 text-xs text-zinc-600 italic">Now</div>
-                <div className="col-span-2 flex justify-end">
+
+                <div className="col-span-2 text-[10px] text-zinc-550 relative z-10 pointer-events-none">
+                  {new Date(lesson.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                </div>
+
+                <div className="col-span-2 flex items-center justify-end gap-3 relative z-10">
+                  <div className="flex gap-2 mr-2">
+                    {lesson.notes && <span title="Has Notes"><FileText className="w-3.5 h-3.5 text-zinc-600" /></span>}
+                    {lesson.images && lesson.images.length > 0 && (
+                      <div className="flex items-center gap-1" title="Has Images">
+                        <ImageIcon className="w-3.5 h-3.5 text-blue-400" />
+                        {lesson.images.length > 1 && <span className="text-[9px] font-bold text-blue-450 bg-blue-500/10 px-1 rounded border border-blue-500/20">{lesson.images.length}</span>}
+                      </div>
+                    )}
+                  </div>
+
                   <button 
-                    onClick={handleCreate}
-                    disabled={!newTitle.trim() || isCreating}
-                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-30 disabled:hover:bg-blue-600 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5"
+                    onClick={() => {
+                      setViewingLesson(lesson);
+                      setViewMode("grid");
+                      setSelectedImageIdx(null);
+                      setNotesUpdate(lesson.notes || "");
+                    }}
+                    className="px-2.5 py-1.5 bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/5 rounded-lg opacity-0 group-hover:opacity-100 transition-all text-[10px] font-bold"
                   >
-                    {isCreating ? <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"/> : <Check className="w-3 h-3" />}
-                    Add
+                    Open
+                  </button>
+                  
+                  <button 
+                    onClick={(e) => handleDelete(lesson.id, e)}
+                    className="p-1.5 text-zinc-600 hover:text-red-400 hover:bg-red-400/10 rounded opacity-0 group-hover:opacity-100 transition-all"
+                    title="Delete"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
-
-              {/* SAVED LESSONS */}
-              {loading ? (
-                <div className="py-12 flex justify-center">
-                  <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full" />
-                </div>
-              ) : filteredLessons.length === 0 ? (
-                <div className="py-16 text-center text-zinc-500 flex flex-col items-center">
-                  <p className="text-sm">No saved lessons. Use the row above to quickly add one.</p>
-                </div>
-              ) : (
-                filteredLessons.map((lesson) => (
-                  <div 
-                    key={lesson.id} 
-                    draggable={searchQuery === ""}
-                    onDragStart={(e) => handleDragStart(e, lesson.id)}
-                    onDragOver={(e) => handleDragOver(e, lesson.id)}
-                    onDragEnd={handleDragEnd}
-                    className={`grid grid-cols-12 gap-4 px-6 py-3 items-center hover:bg-zinc-800/30 transition-colors group relative ${
-                      dragOverLessonId === lesson.id ? "border-t-2 border-blue-500 bg-blue-500/10" : ""
-                    }`}
-                  >
-                    {/* Click background to open details panel */}
-                    <div 
-                      className={`absolute inset-0 z-0 ${searchQuery === "" ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}`}
-                      onClick={() => {
-                        setViewingLesson(lesson);
-                        setNotesUpdate(lesson.notes || "");
-                      }} 
-                    />
-
-                    {/* TITLE */}
-                    <div className="col-span-8 flex items-center gap-3 relative z-10">
-                      <div className="w-8 h-8 rounded bg-zinc-900 border border-zinc-800 flex flex-shrink-0 items-center justify-center text-zinc-600 group-hover:text-blue-400 transition-colors">
-                        <BookOpen className="w-4 h-4" />
-                      </div>
-                      
-                      {editingId === lesson.id ? (
-                        <input 
-                          type="text"
-                          autoFocus
-                          value={editTitle}
-                          onChange={e => setEditTitle(e.target.value)}
-                          onKeyDown={(e) => handleEditKeyDown(e, lesson.id)}
-                          onBlur={() => saveInlineEdit(lesson.id)}
-                          className="w-full bg-zinc-900 border border-blue-500/50 rounded px-2 py-1 text-sm outline-none text-white"
-                        />
-                      ) : (
-                        <span 
-                          onClick={(e) => startEditing(lesson, e)}
-                          className="font-medium text-sm text-zinc-200 group-hover:text-blue-300 transition-colors truncate cursor-text"
-                          title="Click to edit"
-                        >
-                          {lesson.title}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="col-span-2 text-xs text-zinc-500 relative z-10 pointer-events-none">
-                      {new Date(lesson.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                    </div>
-
-                    <div className="col-span-2 flex items-center justify-end gap-3 relative z-10">
-                      <div className="flex gap-2 mr-2">
-                        {lesson.notes && <span title="Has Notes"><FileText className="w-3.5 h-3.5 text-zinc-500" /></span>}
-                        {lesson.images && lesson.images.length > 0 && (
-                          <div className="flex items-center gap-1" title="Has Images">
-                            <ImageIcon className="w-3.5 h-3.5 text-blue-400" />
-                            {lesson.images.length > 1 && <span className="text-[9px] font-bold text-blue-400 bg-blue-500/20 px-1 rounded">{lesson.images.length}</span>}
-                          </div>
-                        )}
-                      </div>
-
-                      <button 
-                        onClick={() => {
-                          setViewingLesson(lesson);
-                          setViewMode("grid");
-                          setSelectedImageIdx(null);
-                          setNotesUpdate(lesson.notes || "");
-                        }}
-                        className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded opacity-0 group-hover:opacity-100 transition-all flex items-center gap-1 text-xs font-medium"
-                      >
-                        Open
-                      </button>
-                      
-                      <button 
-                        onClick={(e) => handleDelete(lesson.id, e)}
-                        className="p-1.5 text-zinc-600 hover:text-red-400 hover:bg-red-400/10 rounded opacity-0 group-hover:opacity-100 transition-all"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-          </div>
+            ))
+          )}
         </div>
       </div>
 
       {/* VIEW / EDIT DETAILS PANEL (Centered Glass Modal) */}
       <AnimatePresence>
         {viewingLesson && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 sm:p-12 bg-black/70 backdrop-blur-lg" onClick={() => setViewingLesson(null)}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/70 backdrop-blur-sm" onClick={() => setViewingLesson(null)}>
             <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
               onClick={e => e.stopPropagation()}
-              className="w-full max-w-6xl h-full max-h-[85vh] bg-[#0A0C10]/80 backdrop-blur-xl border border-zinc-800/80 rounded-3xl shadow-2xl flex flex-col overflow-hidden"
+              className="w-full max-w-5xl h-full max-h-[80vh] bg-[#0A0C10]/95 border border-zinc-800/45 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
             >
               {/* Modal Header */}
-              <div className="px-8 py-5 border-b border-zinc-800/60 flex items-center justify-between bg-zinc-900/30">
+              <div className="px-6 py-4 border-b border-zinc-800/60 flex items-center justify-between bg-zinc-900/30">
                 <div className="flex items-center gap-4">
-                  <div className="p-3 bg-blue-500/10 rounded-xl border border-blue-500/20">
-                    <BookOpen className="w-6 h-6 text-blue-400" />
+                  <div className="p-2.5 bg-blue-500/10 rounded-xl border border-blue-500/20">
+                    <BookOpen className="w-5 h-5 text-blue-450" />
                   </div>
                   <div>
-                    <h2 className="text-2xl font-bold text-white leading-tight">{viewingLesson.title}</h2>
-                    <div className="flex items-center gap-3 mt-1.5">
+                    <h2 className="text-base font-bold text-white leading-tight font-mono">{viewingLesson.title}</h2>
+                    <div className="flex items-center gap-3 mt-1 font-mono text-[10px]">
                       {viewingLesson.concept && (
-                        <span className="text-xs text-blue-400 font-bold bg-blue-500/10 px-2.5 py-1 rounded-md border border-blue-500/20">
+                        <span className="text-[8px] font-black uppercase text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
                           {viewingLesson.concept}
                         </span>
                       )}
-                      <span className="text-xs text-zinc-500 flex items-center gap-1">
-                        <Calendar className="w-3.5 h-3.5" />
+                      <span className="text-zinc-550 flex items-center gap-1 font-bold">
+                        <Calendar className="w-3 h-3 text-zinc-500" />
                         {new Date(viewingLesson.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
                       </span>
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <button onClick={() => setViewingLesson(null)} className="p-2.5 text-zinc-400 hover:text-white bg-zinc-800/50 hover:bg-zinc-800 rounded-xl transition-all">
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
+                <button onClick={() => setViewingLesson(null)} className="p-2 text-zinc-400 hover:text-white bg-zinc-800/50 hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer">
+                  <X className="w-4 h-4" />
+                </button>
               </div>
 
               {/* Modal Body */}
               <div className="flex-1 overflow-hidden flex flex-col bg-[#0A0C10]/40 relative">
-                
-                {/* Global File Input (Hidden) */}
                 <input 
                   type="file" 
                   ref={fileInputRef} 
@@ -572,44 +562,41 @@ export default function LessonsPage() {
                 />
 
                 {viewMode === "grid" ? (
-                  <div className="flex-1 p-8 overflow-y-auto scroll-thin">
-                    <div className="flex flex-col md:flex-row gap-8 mb-8">
+                  <div className="flex-1 p-6 overflow-y-auto scroll-thin">
+                    <div className="flex flex-col md:flex-row gap-6 mb-6">
                       <div className="flex-1">
-                        <div className="flex items-center justify-between mb-6">
-                          <h3 className="text-sm font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
-                            <ImageIcon className="w-4 h-4 text-zinc-500" /> Chart Gallery
+                        <div className="flex items-center justify-between mb-4 border-b border-zinc-850 pb-2">
+                          <h3 className="text-xs font-bold text-zinc-450 uppercase tracking-widest flex items-center gap-1.5 font-mono">
+                            <ImageIcon className="w-3.5 h-3.5 text-zinc-500" /> Chart Gallery
                           </h3>
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2 font-mono text-[9px] font-bold">
                             <button 
                               onClick={() => setIsEditMode(!isEditMode)}
-                              className={`text-xs font-bold px-4 py-1.5 rounded-lg flex items-center gap-2 transition-all ${isEditMode ? 'bg-red-500/90 text-white shadow-lg' : 'text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20'}`}
+                              className={`px-3 py-1.5 rounded-lg border transition-all ${isEditMode ? 'bg-red-500/90 text-white border-red-500' : 'text-red-400 bg-red-500/10 border-red-500/20 hover:bg-red-500/20'}`}
                             >
-                              <Edit2 className="w-3.5 h-3.5" />
-                              {isEditMode ? "Done Editing" : "Edit Gallery"}
+                              {isEditMode ? "Done" : "Edit Gallery"}
                             </button>
                             <button 
                               onClick={() => {
                                 setWhiteboardInitialUrl(undefined);
                                 setShowWhiteboard(true);
                               }}
-                              className="text-xs font-bold text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 px-4 py-1.5 rounded-lg flex items-center gap-2 transition-all"
+                              className="text-purple-400 bg-purple-500/10 border border-purple-500/20 px-3 py-1.5 rounded-lg hover:bg-purple-500/20 transition-all"
                             >
-                              <Edit2 className="w-3.5 h-3.5" />
-                              Draw on Board
+                              Whiteboard
                             </button>
                             <button 
                               onClick={() => fileInputRef.current?.click()}
                               disabled={isUploading}
-                              className="text-xs font-bold text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 px-4 py-1.5 rounded-lg flex items-center gap-2 disabled:opacity-50 transition-all"
+                              className="text-blue-400 bg-blue-500/10 border border-blue-500/20 px-3 py-1.5 rounded-lg hover:bg-blue-500/20 disabled:opacity-50 transition-all"
                             >
-                              {isUploading ? <div className="w-3 h-3 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin"/> : <Plus className="w-3.5 h-3.5" />}
                               Add Charts
                             </button>
                           </div>
                         </div>
 
                         {/* Timeframe Filter Tabs */}
-                        <div className="flex items-center gap-2 overflow-x-auto scroll-thin pb-2">
+                        <div className="flex items-center gap-1.5 overflow-x-auto scroll-thin pb-2">
                           {["All", ...TIMEFRAMES].map(tf => {
                             const count = tf === "All" 
                               ? viewingLesson.images.length 
@@ -621,14 +608,14 @@ export default function LessonsPage() {
                               <button
                                 key={tf}
                                 onClick={() => setGalleryFilter(tf)}
-                                className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg border transition-all flex items-center gap-1.5 flex-shrink-0 ${
+                                className={`px-2.5 py-1 text-[8px] font-black uppercase tracking-wider rounded border transition-all flex items-center gap-1 ${
                                   galleryFilter === tf
                                     ? "bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20"
-                                    : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
+                                    : "bg-black/25 border-zinc-800/40 text-zinc-550 hover:text-white"
                                 }`}
                               >
                                 {tf}
-                                <span className={`px-1.5 py-0.5 rounded-md text-[9px] ${galleryFilter === tf ? "bg-black/20 text-white" : "bg-zinc-800 text-zinc-500"}`}>
+                                <span className={`px-1 rounded-sm text-[8px] ${galleryFilter === tf ? "bg-black/20 text-white" : "bg-zinc-800 text-zinc-600"}`}>
                                   {count}
                                 </span>
                               </button>
@@ -637,7 +624,7 @@ export default function LessonsPage() {
                         </div>
                       </div>
 
-                      {/* Top Right: Main Concept Image */}
+                      {/* Main Concept Image */}
                       {viewingLesson.images && viewingLesson.images.length > 0 && (
                         <div className="w-full md:w-1/3 flex-shrink-0">
                           <div 
@@ -646,12 +633,12 @@ export default function LessonsPage() {
                               setImageNoteUpdate(viewingLesson.images[0].note || "");
                               setViewMode("detail");
                             }}
-                            className="rounded-2xl overflow-hidden border border-zinc-800/80 bg-zinc-950 relative group shadow-lg cursor-pointer aspect-video"
+                            className="rounded-xl overflow-hidden border border-zinc-800/40 bg-black/35 relative group shadow-lg cursor-pointer aspect-video"
                           >
                             <img 
                               src={getFullImageUrl(viewingLesson.images[0].url)} 
                               alt={`${viewingLesson.title} - Main Concept`} 
-                              className="w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-500"
+                              className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
                             />
                             {isEditMode && (
                               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none">
@@ -661,35 +648,20 @@ export default function LessonsPage() {
                                     const newImages = viewingLesson.images.filter((_, i) => i !== 0);
                                     saveDetailsUpdate(viewingLesson.id, undefined, newImages);
                                   }}
-                                  className="p-3 bg-red-500/80 rounded-full text-white hover:bg-red-500 transition-colors shadow-lg pointer-events-auto"
+                                  className="p-2.5 bg-red-500 rounded-full text-white hover:bg-red-650 transition-colors shadow-lg pointer-events-auto"
                                 >
-                                  <Trash2 className="w-5 h-5" />
+                                  <Trash2 className="w-4 h-4" />
                                 </button>
                               </div>
                             )}
-                            <div className="absolute top-3 right-3 pointer-events-none z-10">
-                              <span className="text-[10px] font-black tracking-widest uppercase text-white bg-purple-600 px-3 py-1.5 rounded-lg shadow-lg border border-purple-400">
-                                Main Concept
+                            <div className="absolute top-2 right-2 pointer-events-none z-10 font-mono">
+                              <span className="text-[8px] font-black tracking-widest uppercase text-white bg-purple-600 px-2 py-1 rounded shadow-lg border border-purple-400">
+                                Concept View
                               </span>
                             </div>
-                            {/* Top Left: Timeframe Badge */}
                             {viewingLesson.images[0].timeframe && (
-                              <div className="absolute top-3 left-3 bg-blue-600/90 text-white text-[10px] font-black px-2.5 py-1 rounded-md backdrop-blur-md shadow-lg border border-blue-500 pointer-events-none">
+                              <div className="absolute top-2 left-2 bg-blue-600 text-white text-[8px] font-black px-2 py-0.5 rounded shadow-lg border border-blue-500 pointer-events-none font-mono">
                                 {viewingLesson.images[0].timeframe}
-                              </div>
-                            )}
-
-                            {/* Bottom Right: Profit */}
-                            {viewingLesson.images[0].profit !== undefined && (
-                              <div className={`absolute bottom-3 right-3 text-[10px] font-black px-2.5 py-1 rounded-md backdrop-blur-md shadow-lg pointer-events-none ${viewingLesson.images[0].profit >= 0 ? 'bg-green-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
-                                {viewingLesson.images[0].profit >= 0 ? '+' : ''}${Math.abs(viewingLesson.images[0].profit).toFixed(2)}
-                              </div>
-                            )}
-
-                            {/* Bottom Left: Date */}
-                            {viewingLesson.images[0].tradeDate && (
-                              <div className="absolute bottom-3 left-3 bg-black/70 text-white text-[10px] font-bold px-2.5 py-1 rounded-md backdrop-blur-md pointer-events-none">
-                                {new Date(viewingLesson.images[0].tradeDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                               </div>
                             )}
                           </div>
@@ -697,8 +669,8 @@ export default function LessonsPage() {
                       )}
                     </div>
 
-                    {/* The Rest of Images Grid */}
-                    <div className="grid grid-cols-5 md:grid-cols-10 gap-3">
+                    {/* Images Grid */}
+                    <div className="grid grid-cols-5 md:grid-cols-8 gap-3 mt-4">
                       {viewingLesson.images && viewingLesson.images.map((img, idx) => {
                         if (idx === 0) return null;
                         if (galleryFilter !== "All" && img.timeframe !== galleryFilter) return null;
@@ -711,53 +683,25 @@ export default function LessonsPage() {
                               setImageNoteUpdate(img.note || "");
                               setViewMode("detail");
                             }}
-                            className="rounded-xl overflow-hidden border border-zinc-800/80 bg-zinc-950 relative group shadow-lg cursor-pointer aspect-video"
+                            className="rounded-xl overflow-hidden border border-zinc-800/40 bg-black/25 relative group shadow-lg cursor-pointer aspect-video"
                           >
                             <img 
                               src={getFullImageUrl(img.url)} 
                               alt={`${viewingLesson.title} - Image ${idx + 1}`} 
-                              className="w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-500"
+                              className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
                             />
                             {isEditMode && (
-                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none">
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/35 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none">
                                 <button 
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     const newImages = viewingLesson.images.filter((_, i) => i !== idx);
                                     saveDetailsUpdate(viewingLesson.id, undefined, newImages);
                                   }}
-                                  className="p-2 bg-red-500/80 rounded-full text-white hover:bg-red-500 transition-colors shadow-lg pointer-events-auto"
+                                  className="p-1.5 bg-red-505 bg-red-500 rounded-full text-white hover:bg-red-600 pointer-events-auto"
                                 >
-                                  <Trash2 className="w-4 h-4" />
+                                  <Trash2 className="w-3.5 h-3.5" />
                                 </button>
-                              </div>
-                            )}
-                            
-                            {/* Top Right: Timeframe Badge */}
-                            {img.timeframe && (
-                              <div className="absolute top-1.5 right-1.5 bg-blue-600/90 text-white text-[8px] font-black px-1.5 py-0.5 rounded backdrop-blur-md shadow-lg border border-blue-500 pointer-events-none">
-                                {img.timeframe}
-                              </div>
-                            )}
-
-                            {/* Bottom Right: Profit Badge */}
-                            {img.profit !== undefined && (
-                              <div className={`absolute bottom-1.5 right-1.5 text-[8px] font-black px-1.5 py-0.5 rounded backdrop-blur-md shadow-lg pointer-events-none ${img.profit >= 0 ? 'bg-green-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
-                                {img.profit >= 0 ? '+' : ''}${Math.abs(img.profit).toFixed(2)}
-                              </div>
-                            )}
-
-                            {/* Top Left: Date Badge */}
-                            {img.tradeDate && (
-                              <div className="absolute top-1.5 left-1.5 bg-black/70 text-white text-[8px] font-bold px-1.5 py-0.5 rounded backdrop-blur-md pointer-events-none">
-                                {new Date(img.tradeDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                              </div>
-                            )}
-
-                            {/* Bottom Left: Note Icon */}
-                            {img.note && img.profit === undefined && (
-                              <div className="absolute bottom-1.5 left-1.5 p-1 bg-blue-500/80 rounded shadow-lg backdrop-blur-md">
-                                <FileText className="w-2.5 h-2.5 text-white" />
                               </div>
                             )}
                           </div>
@@ -766,27 +710,24 @@ export default function LessonsPage() {
                       
                       <div 
                         onClick={() => fileInputRef.current?.click()}
-                        className="aspect-video border-2 border-dashed border-zinc-800/80 hover:border-zinc-700 bg-zinc-900/30 hover:bg-zinc-900/50 rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all"
+                        className="aspect-video border border-dashed border-zinc-800 hover:border-zinc-700 bg-[#111118]/50 hover:bg-[#111118]/85 rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all font-mono"
                       >
-                        <div className="w-10 h-10 bg-zinc-800/50 rounded-full flex items-center justify-center mb-3">
-                          <UploadCloud className="w-5 h-5 text-zinc-400" />
-                        </div>
-                        <p className="text-sm font-medium text-zinc-300">Upload charts</p>
+                        <UploadCloud className="w-4 h-4 text-zinc-550 mb-1" />
+                        <p className="text-[9px] font-bold text-zinc-450 uppercase tracking-wider">Upload</p>
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-                    {/* Image Detail Mode */}
-                    <div className="flex-1 p-8 flex flex-col border-b md:border-b-0 md:border-r border-zinc-800/60 bg-zinc-950/40">
-                      <div className="flex items-center justify-between mb-4">
+                  <div className="flex-1 flex flex-col md:flex-row overflow-hidden bg-black/10">
+                    <div className="flex-1 p-6 flex flex-col border-b md:border-b-0 md:border-r border-zinc-800/60 bg-black/10 overflow-hidden">
+                      <div className="flex items-center justify-between mb-4 font-mono text-[9px] font-bold">
                         <button 
                           onClick={() => setViewMode("grid")}
-                          className="text-xs font-bold text-zinc-400 hover:text-white bg-zinc-800/50 hover:bg-zinc-700/50 px-4 py-1.5 rounded-lg transition-all flex items-center gap-2"
+                          className="text-zinc-500 hover:text-white bg-[#111118] border border-zinc-800/40 px-3 py-1.5 rounded-lg transition-colors uppercase tracking-wider"
                         >
-                          ← Back to Gallery
+                          ← Gallery
                         </button>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1.5">
                           <button
                             onClick={() => {
                               const url = getFullImageUrl(viewingLesson.images[selectedImageIdx!].url);
@@ -794,28 +735,28 @@ export default function LessonsPage() {
                               setWhiteboardInitialUrl(absoluteUrl);
                               setShowWhiteboard(true);
                             }}
-                            className="text-xs font-bold text-purple-400 hover:text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 px-3 py-1.5 rounded-lg transition-all flex items-center gap-1"
+                            className="text-purple-400 bg-purple-500/10 border border-purple-500/20 px-3 py-1.5 rounded-lg hover:bg-purple-500/20 transition-all uppercase tracking-wider"
                           >
-                            <Edit2 className="w-3.5 h-3.5" /> Annotate Chart
+                            Annotate Chart
                           </button>
                           <a 
                             href={getFullImageUrl(viewingLesson.images[selectedImageIdx!].url)} 
                             target="_blank" 
                             rel="noreferrer"
-                            className="text-xs font-bold text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 px-3 py-1.5 rounded-lg transition-all flex items-center gap-1"
+                            className="text-blue-400 bg-blue-500/10 border border-blue-500/20 px-3 py-1.5 rounded-lg hover:bg-blue-500/20 transition-all uppercase tracking-wider flex items-center gap-1"
                           >
-                            <Maximize2 className="w-3.5 h-3.5" /> Full Size
+                            <Maximize2 className="w-3 h-3" /> Full Size
                           </a>
                           <button
                             onClick={handleDeleteImage}
-                            className="text-xs font-bold text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 px-3 py-1.5 rounded-lg transition-all flex items-center gap-1"
+                            className="text-red-400 bg-red-500/10 border border-red-500/20 px-3 py-1.5 rounded-lg hover:bg-red-500/20 transition-all uppercase tracking-wider"
                           >
-                            <Trash2 className="w-3.5 h-3.5" /> Delete Chart
+                            Delete
                           </button>
                         </div>
                       </div>
                       
-                      <div className="flex-1 flex items-center justify-center overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-950 shadow-inner">
+                      <div className="flex-1 flex items-center justify-center overflow-hidden rounded-xl border border-zinc-800/40 bg-black/40 shadow-inner">
                         <img 
                           src={getFullImageUrl(viewingLesson.images[selectedImageIdx!].url)} 
                           alt="Detail View" 
@@ -824,11 +765,11 @@ export default function LessonsPage() {
                       </div>
                     </div>
 
-                    <div className="w-full md:w-[400px] p-8 flex flex-col bg-zinc-950/20 overflow-y-auto scroll-thin">
+                    <div className="w-full md:w-[320px] p-6 flex flex-col bg-black/20 overflow-y-auto scroll-thin font-mono text-[10px]">
                       {/* Timeframe Selector */}
-                      <div className="mb-6">
-                        <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3 block">Timeframe</label>
-                        <div className="flex flex-wrap gap-2">
+                      <div className="mb-5">
+                        <label className="text-[9px] font-bold text-zinc-550 uppercase tracking-widest mb-2 block">Timeframe</label>
+                        <div className="flex flex-wrap gap-1.5">
                           {TIMEFRAMES.map(tf => (
                             <button
                               key={tf}
@@ -837,10 +778,10 @@ export default function LessonsPage() {
                                 newImages[selectedImageIdx!].timeframe = tf;
                                 saveDetailsUpdate(viewingLesson.id, undefined, newImages);
                               }}
-                              className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all ${
+                              className={`px-2.5 py-1 text-[9px] font-bold rounded border transition-all ${
                                 viewingLesson.images[selectedImageIdx!].timeframe === tf
-                                  ? "bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20"
-                                  : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
+                                  ? "bg-blue-600 border-blue-500 text-white shadow-lg"
+                                  : "bg-black/25 border-zinc-800 text-zinc-550 hover:text-white"
                               }`}
                             >
                               {tf}
@@ -851,54 +792,30 @@ export default function LessonsPage() {
 
                       {/* Trade Details Table */}
                       {(viewingLesson.images[selectedImageIdx!].pair || viewingLesson.images[selectedImageIdx!].profit !== undefined) && (
-                        <div className="mb-6">
-                          <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3 block flex items-center gap-2">
-                            <FileText className="w-4 h-4 text-zinc-500" /> Trade Details
+                        <div className="mb-5">
+                          <label className="text-[9px] font-bold text-zinc-550 uppercase tracking-widest mb-2 block flex items-center gap-1.5">
+                            <FileText className="w-3.5 h-3.5" /> Trade Details
                           </label>
-                          <div className="bg-zinc-900/50 rounded-xl border border-zinc-800/80 overflow-hidden text-sm divide-y divide-zinc-800/80">
+                          <div className="bg-black/20 rounded-lg border border-zinc-800/50 overflow-hidden divide-y divide-zinc-900/40 text-[10px]">
                             {viewingLesson.images[selectedImageIdx!].pair && (
-                              <div className="flex justify-between items-center p-3">
-                                <span className="text-zinc-400">Pair</span>
+                              <div className="flex justify-between items-center p-2.5">
+                                <span className="text-zinc-500">Pair</span>
                                 <span className="font-bold text-white">{viewingLesson.images[selectedImageIdx!].pair}</span>
                               </div>
                             )}
                             {viewingLesson.images[selectedImageIdx!].direction && (
-                              <div className="flex justify-between items-center p-3">
-                                <span className="text-zinc-400">Direction</span>
-                                <span className={`font-bold ${viewingLesson.images[selectedImageIdx!].direction === 'Long' ? 'text-green-400' : 'text-red-400'}`}>
+                              <div className="flex justify-between items-center p-2.5">
+                                <span className="text-zinc-500">Direction</span>
+                                <span className={`font-bold ${viewingLesson.images[selectedImageIdx!].direction === 'Long' ? 'text-blue-400' : 'text-purple-400'}`}>
                                   {viewingLesson.images[selectedImageIdx!].direction}
                                 </span>
                               </div>
                             )}
-                            {viewingLesson.images[selectedImageIdx!].tradeDate && (
-                              <div className="flex justify-between items-center p-3">
-                                <span className="text-zinc-400">Date</span>
-                                <span className="font-bold text-white">
-                                  {new Date(viewingLesson.images[selectedImageIdx!].tradeDate!).toLocaleDateString()}
-                                </span>
-                              </div>
-                            )}
                             {viewingLesson.images[selectedImageIdx!].profit !== undefined && (
-                              <div className="flex justify-between items-center p-3">
-                                <span className="text-zinc-400">Profit/Loss</span>
-                                <span className={`font-black ${viewingLesson.images[selectedImageIdx!].profit! >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                              <div className="flex justify-between items-center p-2.5">
+                                <span className="text-zinc-500">Profit/Loss</span>
+                                <span className={`font-black ${viewingLesson.images[selectedImageIdx!].profit! >= 0 ? 'text-[--bull]' : 'text-[--bear]'}`}>
                                   {viewingLesson.images[selectedImageIdx!].profit! >= 0 ? '+' : ''}${Math.abs(viewingLesson.images[selectedImageIdx!].profit!).toFixed(2)}
-                                </span>
-                              </div>
-                            )}
-                            {viewingLesson.images[selectedImageIdx!].strategy && (
-                              <div className="flex justify-between items-center p-3">
-                                <span className="text-zinc-400">Strategy</span>
-                                <span className="font-bold text-purple-300 text-right">
-                                  {viewingLesson.images[selectedImageIdx!].strategy}
-                                </span>
-                              </div>
-                            )}
-                            {viewingLesson.images[selectedImageIdx!].emotion && (
-                              <div className="flex justify-between items-center p-3">
-                                <span className="text-zinc-400">Emotion</span>
-                                <span className="font-bold text-orange-300 text-right">
-                                  {viewingLesson.images[selectedImageIdx!].emotion}
                                 </span>
                               </div>
                             )}
@@ -906,9 +823,9 @@ export default function LessonsPage() {
                         </div>
                       )}
 
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-sm font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
-                          <FileText className="w-4 h-4 text-zinc-500" /> Image Notes
+                      <div className="flex items-center justify-between mb-3 border-t border-zinc-800/40 pt-4">
+                        <h3 className="text-[9px] font-bold text-zinc-550 uppercase tracking-widest flex items-center gap-1.5">
+                          <FileText className="w-3.5 h-3.5" /> Image Notes
                         </h3>
                         {imageNoteUpdate !== (viewingLesson.images[selectedImageIdx!].note || "") && (
                           <button 
@@ -917,7 +834,7 @@ export default function LessonsPage() {
                               newImages[selectedImageIdx!].note = imageNoteUpdate;
                               saveDetailsUpdate(viewingLesson.id, undefined, newImages);
                             }}
-                            className="text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-lg transition-colors shadow-lg shadow-blue-500/20"
+                            className="text-[9px] font-bold bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded-md transition-colors"
                           >
                             Save Note
                           </button>
@@ -926,8 +843,8 @@ export default function LessonsPage() {
                       <textarea 
                         value={imageNoteUpdate}
                         onChange={e => setImageNoteUpdate(e.target.value)}
-                        placeholder="Document specific observations, entry triggers, or insights for this exact chart..."
-                        className="flex-1 w-full min-h-[250px] bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-6 text-sm focus:border-blue-500/50 focus:bg-zinc-900/80 outline-none transition-all resize-none scroll-thin text-zinc-200 placeholder-zinc-600 leading-relaxed"
+                        placeholder="Document observations..."
+                        className="flex-1 w-full min-h-[180px] bg-black/25 border border-zinc-800/50 rounded-lg p-3 text-xs focus:border-blue-500/50 outline-none transition-all resize-none scroll-thin text-zinc-200 placeholder-zinc-700 leading-relaxed font-sans"
                       />
                     </div>
                   </div>

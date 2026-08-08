@@ -83,9 +83,14 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
     { id: "gold-sim", label: "Gold Simulator", description: "Standard simulation", icon: Activity, category: "Simulators", action: () => navigate("/GoldTradingSimulator") },
     
     // Quick Actions
-    { id: "validation", label: "Pre-Trade Checklist", description: "Run setup quality score", icon: ShieldAlert, category: "Quick Actions", action: () => navigate("/validation"), keywords: ["check", "validate", "setup"] },
-    { id: "daily-review", label: "Daily Review", description: "Grade today's trading session", icon: TrendingUp, category: "Quick Actions", action: () => navigate("/review/daily"), keywords: ["review", "grade", "today"] },
-    { id: "progress", label: "Challenge Tracker", description: "Funded account progress", icon: Zap, category: "Quick Actions", action: () => navigate("/progress"), keywords: ["ftmo", "funded", "challenge", "phase"] },
+    { id: "new-trade", label: "New Trade", description: "Open terminal execution", icon: Terminal, category: "Quick Actions", action: () => navigate("/terminal"), keywords: ["buy", "sell", "execute"] },
+    { id: "capture-chart", label: "Capture Chart", description: "Save current chart to journal", icon: Target, category: "Quick Actions", action: () => navigate("/journal"), keywords: ["screenshot", "save"] },
+    { id: "new-note", label: "New Journal Note", description: "Log trading thoughts", icon: BookOpen, category: "Quick Actions", action: () => navigate("/journal"), keywords: ["write", "log", "note"] },
+    { id: "ask-ai", label: "Ask AI", description: "Consult AI Coach", icon: Cpu, category: "Quick Actions", action: () => navigate("/ai-desk"), keywords: ["coach", "ai", "help"] },
+    { id: "risk-calc", label: "Risk Calculator", description: "Calculate position sizing", icon: Calculator, category: "Quick Actions", action: () => navigate("/risk"), keywords: ["lot", "size", "risk"] },
+    { id: "perf-snap", label: "Performance Snapshot", description: "View top-level stats", icon: BarChart3, category: "Quick Actions", action: () => navigate("/performance"), keywords: ["stats", "winrate", "pnl"] },
+    { id: "panic", label: "Panic Mode", description: "Lock terminal & close all", icon: ShieldAlert, category: "Quick Actions", action: () => navigate("/risk-hub"), keywords: ["lock", "close", "panic", "tilt"] },
+    { id: "today-cal", label: "Today's Calendar", description: "View upcoming news", icon: Newspaper, category: "Quick Actions", action: () => navigate("/news"), keywords: ["fomc", "nfp", "macro", "news"] },
   ];
 
   const filtered = query.trim() === ""

@@ -65,119 +65,109 @@ export function DailyRiskWidget({
   ];
 
   return (
-    <div className="rounded-xl border border-[--border] bg-[--bg-card] p-6 shadow-lg animate-fade-in relative overflow-hidden group">
+    <div className="bg-[#111118] border border-zinc-800/40 p-5 rounded-xl shadow-xl animate-fade-in relative overflow-hidden group">
       <div
         className={`absolute top-0 right-0 w-[200px] h-[200px] blur-[80px] rounded-full pointer-events-none transition-colors ${
           dailyStatus === "danger"
-            ? "bg-[--bear]/10"
+            ? "bg-[--bear]/5"
             : dailyStatus === "warning"
-            ? "bg-yellow-500/10"
-            : "bg-[--bull]/5"
+            ? "bg-yellow-500/5"
+            : "bg-emerald-500/5"
         }`}
       />
 
       {/* Header */}
-      <div className="flex items-center gap-2 mb-5 relative z-10">
-        <Shield className="w-4 h-4 text-gray-400" />
-        <h2 className="text-sm font-bold uppercase tracking-widest text-white">Daily Risk Monitor</h2>
+      <div className="flex items-center gap-2 mb-4 relative z-10">
+        <Shield className="w-3.5 h-3.5 text-zinc-400" />
+        <h2 className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 font-mono">Daily Risk Monitor</h2>
       </div>
 
-      {/* Horizontal layout: PnL | Drawdown bars | Rules */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
+      <div className="flex flex-col gap-4 relative z-10 h-full font-mono text-[11px]">
 
-        {/* Col 1: Today P&L */}
+        {/* Realized P&L */}
         <div
-          className={`px-4 py-4 rounded-lg border ${
+          className={`px-4 py-3.5 rounded-lg border ${
             todayPnl >= 0
-              ? "bg-[--bull]/10 border-[--bull]/20"
-              : "bg-[--bear]/10 border-[--bear]/20"
+              ? "bg-emerald-500/5 border-emerald-500/10"
+              : "bg-red-500/5 border-red-500/10"
           }`}
         >
-          <div className="text-[10px] uppercase tracking-widest font-bold text-gray-400 mb-2">
+          <div className="text-[9px] uppercase tracking-widest font-bold text-zinc-500 mb-1.5">
             Today's Realized P&L
           </div>
           <div
-            className={`text-3xl font-bold font-mono ${
+            className={`text-2xl font-black ${
               todayPnl >= 0 ? "text-[--bull]" : "text-[--bear]"
             }`}
           >
             {todayPnl >= 0 ? "+" : "-"}${Math.abs(todayPnl).toFixed(2)}
           </div>
-          <div className={`text-sm mt-1 font-mono ${todayPnl >= 0 ? "text-[--bull]/70" : "text-[--bear]/70"}`}>
+          <div className={`text-[10px] mt-0.5 ${todayPnl >= 0 ? "text-emerald-400/80" : "text-red-400/80"}`}>
             {todayPnlPct.toFixed(2)}% of balance
           </div>
         </div>
 
-      <div className="space-y-6 mb-6 relative z-10">
-        {/* Daily Drawdown Bar */}
-        <div>
-          <div className="flex justify-between items-end mb-3">
-            <div className="flex items-center gap-2">
-              <TrendingDown className="w-4 h-4 text-gray-400" />
-              <span className="text-xs font-bold text-gray-300 uppercase tracking-widest">
+        <div className="space-y-4">
+          {/* Daily Drawdown Bar */}
+          <div>
+            <div className="flex justify-between items-center mb-1.5">
+              <span className="text-[9px] font-bold text-zinc-300 uppercase tracking-widest">
                 Daily Drawdown
               </span>
-            </div>
-            <span
-              className={`text-sm font-mono font-bold ${statusColors[dailyStatus].text}`}
-            >
-              {Math.abs(todayPnlPct).toFixed(2)}% <span className="text-gray-600 text-xs">/ {maxDailyDrawdownPct}%</span>
-            </span>
-          </div>
-          <div className="w-full h-4 bg-black/40 rounded-full overflow-hidden border border-white/5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)] relative">
-            <div
-              className={`absolute top-0 left-0 h-full rounded-full transition-all duration-1000 ease-out ${statusColors[dailyStatus].bg} ${statusColors[dailyStatus].glow}`}
-              style={{ width: `${dailyUsed}%` }}
-            />
-            {/* Glossy overlay */}
-            <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent pointer-events-none rounded-full" />
-          </div>
-        </div>
-
-        {/* Total Drawdown Bar */}
-        <div>
-          <div className="flex justify-between items-end mb-3">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-gray-400" />
-              <span className="text-xs font-bold text-gray-300 uppercase tracking-widest">
-                Total Drawdown
+              <span className={`font-bold ${statusColors[dailyStatus].text}`}>
+                {Math.abs(todayPnlPct).toFixed(2)}% <span className="text-zinc-500 text-[10px]">/ {maxDailyDrawdownPct}%</span>
               </span>
             </div>
-            <span
-              className={`text-sm font-mono font-bold ${statusColors[totalStatus].text}`}
-            >
-              {totalDrawdownPct.toFixed(2)}% <span className="text-gray-600 text-xs">/ {maxTotalDrawdownPct}%</span>
-            </span>
+            <div className="w-full h-1.5 bg-zinc-900 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-1000 ${
+                  dailyStatus === "danger" ? "bg-red-500" : dailyStatus === "warning" ? "bg-amber-450" : "bg-emerald-400"
+                }`}
+                style={{ width: `${dailyUsed}%` }}
+              />
+            </div>
           </div>
-          <div className="w-full h-4 bg-black/40 rounded-full overflow-hidden border border-white/5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)] relative">
-            <div
-              className={`absolute top-0 left-0 h-full rounded-full transition-all duration-1000 ease-out ${statusColors[totalStatus].bg} ${statusColors[totalStatus].glow}`}
-              style={{ width: `${totalUsed}%` }}
-            />
-            {/* Glossy overlay */}
-            <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent pointer-events-none rounded-full" />
+
+          {/* Total Drawdown Bar */}
+          <div>
+            <div className="flex justify-between items-center mb-1.5">
+              <span className="text-[9px] font-bold text-zinc-300 uppercase tracking-widest">
+                Total Drawdown
+              </span>
+              <span className={`font-bold ${statusColors[totalStatus].text}`}>
+                {totalDrawdownPct.toFixed(2)}% <span className="text-zinc-500 text-[10px]">/ {maxTotalDrawdownPct}%</span>
+              </span>
+            </div>
+            <div className="w-full h-1.5 bg-zinc-900 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-1000 ${
+                  totalStatus === "danger" ? "bg-red-500" : totalStatus === "warning" ? "bg-amber-450" : "bg-emerald-400"
+                }`}
+                style={{ width: `${totalUsed}%` }}
+              />
+            </div>
           </div>
         </div>
-      </div>
 
-        {/* Col 3: Rule Checklist */}
+        {/* Risk Rules */}
         <div>
-          <div className="text-[10px] uppercase tracking-widest font-bold text-gray-500 mb-4 flex items-center gap-2">
-            <Target className="w-3 h-3" />
-            Risk Rules
+          <div className="text-[9px] uppercase tracking-widest font-bold text-zinc-500 mb-2.5 flex items-center gap-1.5 border-t border-zinc-800/40 pt-3">
+            <Target className="w-3 h-3" /> Risk Rules Parameters
           </div>
-          <div className="space-y-3">
+          <div className="space-y-2">
             {ruleChecks.map((rule, i) => (
-              <div key={i} className="flex items-center gap-3">
-                {rule.pass ? (
-                  <CheckCircle2 className="w-4 h-4 text-[--bull] flex-shrink-0" />
-                ) : (
-                  <AlertTriangle className="w-4 h-4 text-[--bear] flex-shrink-0 animate-pulse" />
-                )}
-                <span className={`text-xs font-medium ${rule.pass ? "text-gray-300" : "text-[--bear]"}`}>
-                  {rule.label}
-                </span>
-                <span className={`ml-auto text-[10px] font-bold uppercase ${rule.pass ? "text-[--bull]" : "text-[--bear]"}`}>
+              <div key={i} className="flex items-center justify-between text-[11px] py-0.5">
+                <div className="flex items-center gap-2">
+                  {rule.pass ? (
+                    <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full" />
+                  ) : (
+                    <div className="w-1.5 h-1.5 bg-red-400 rounded-full animate-pulse" />
+                  )}
+                  <span className={rule.pass ? "text-zinc-300" : "text-red-400 font-bold"}>
+                    {rule.label}
+                  </span>
+                </div>
+                <span className={`text-[9px] font-bold uppercase tracking-wider ${rule.pass ? "text-emerald-400" : "text-red-400"}`}>
                   {rule.pass ? "Pass" : "Fail"}
                 </span>
               </div>
