@@ -5112,7 +5112,271 @@ def api_generate_chart(req: ChartRequest):
     except Exception as e:
         return {"success": False, "error": str(e)}
 
+def _detect_market_regime(rates, atr):
+    """Detect market regime: trending/ranging/breakout and volatility level."""
+    highs  = [r['high']  for r in rates]
+    lows   = [r['low']   for r in rates]
+    closes = [r['close'] for r in rates]
+
+    adx = _compute_adx(rates, 14)
+    if adx is None:
+        adx = 20.0
+
+    # Build true-range series for ATR ratio
+    tr_values = []
+    for i in range(1, len(rates)):
+        tr_values.append(max(
+            highs[i] - lows[i],
+            abs(highs[i] - closes[i - 1]),
+            abs(lows[i]  - closes[i - 1])
+        ))
+
+    atr_current = sum(tr_values[-14:]) / 14 if len(tr_values) >= 14 else atr
+    atr_avg_20  = sum(tr_values[-20:]) / 20 if len(tr_values) >= 20 else atr_current
+    atr_ratio   = atr_current / atr_avg_20 if atr_avg_20 > 0 else 1.0
+
+    # Regime classification by ADX
+    if adx > 28:
+        regime = "trending"
+    elif adx < 18:
+        regime = "ranging"
+    else:
+        regime = "breakout"
+
+    # Volatility classification by ATR ratio
+    if atr_ratio > 1.4:
+        volatility = "high"
+    elif atr_ratio < 0.7:
+        volatility = "low"
+    else:
+        volatility = "normal"
+
+    return {
+        "regime":    regime,
+        "volatility": volatility,
+        "adx":       round(adx, 1),
+        "atr_ratio": round(atr_ratio, 2),
+    }
+
+
+def _get_dynamic_weights(regime_data):
+    """Return per-category scoring weights based on detected market regime."""
+    regime    = regime_data.get("regime",    "trending")
+    volatility = regime_data.get("volatility", "normal")
+
+    weight_tables = {
+        "trending": {
+            "STRUCTURE":   0.30,
+            "LIQUIDITY":   0.20,
+            "LOCATION":    0.20,
+            "TRIGGER":     0.15,
+            "CORRELATION": 0.05,
+            "SESSION":     0.05,
+            "VOLATILITY":  0.05,
+        },
+        "ranging": {
+            "STRUCTURE":   0.15,
+            "LIQUIDITY":   0.30,
+            "LOCATION":    0.25,
+            "TRIGGER":     0.15,
+            "CORRELATION": 0.05,
+            "SESSION":     0.05,
+            "VOLATILITY":  0.05,
+        },
+        "breakout": {
+            "STRUCTURE":   0.25,
+            "LIQUIDITY":   0.15,
+            "LOCATION":    0.15,
+            "TRIGGER":     0.25,
+            "CORRELATION": 0.05,
+            "SESSION":     0.10,
+            "VOLATILITY":  0.05,
+        },
+    }
+
+    weights = weight_tables.get(regime, weight_tables["trending"]).copy()
+
+    # High volatility: be more selective — raise volatility weight, trim trigger weight
+    if volatility == "high":
+        weights["VOLATILITY"] = 0.10
+        weights["TRIGGER"]    = max(weights["TRIGGER"] - 0.05, 0.05)
+
+    return weights
+
+
+def _detect_conflict(symbol_setups, target_direction):
+    """
+    Detect timeframe conflict across a symbol's setup list.
+    Suppresses a signal when the HTF directly opposes the entry direction,
+    or when fewer than half of scanned timeframes agree.
+    """
+    if not symbol_setups:
+        return {"conflict": False, "message": "", "alignment_count": 0, "total_count": 0}
+
+    total   = len(symbol_setups)
+    aligned = sum(1 for s in symbol_setups if s.get("type") == target_direction)
+
+    # Check specifically whether HTF (H4/H1) opposes the direction
+    htf_setups = [s for s in symbol_setups if s.get("timeframe") in ["H4", "H1"]]
+    htf_aligned = all(s.get("type") == target_direction for s in htf_setups) if htf_setups else True
+
+    if htf_setups and not htf_aligned:
+        htf_dir = htf_setups[0].get("type", "unknown")
+        return {
+            "conflict":        True,
+            "message":         f"HTF ({htf_setups[0]['timeframe']}) bias is {htf_dir} but entry direction is {target_direction}. Signal suppressed.",
+            "alignment_count": aligned,
+            "total_count":     total,
+        }
+
+    # Majority check: fewer than half of TFs agree
+    if total >= 3 and aligned < total / 2:
+        return {
+            "conflict":        True,
+            "message":         f"MTF Alignment only {aligned}/{total}. Insufficient confluence across timeframes.",
+            "alignment_count": aligned,
+            "total_count":     total,
+        }
+
+    return {
+        "conflict":        False,
+        "message":         "",
+        "alignment_count": aligned,
+        "total_count":     total,
+    }
+
+
+def _compute_dynamic_sl(direction, rates, swings_high, swings_low, obs, entry, atr):
+    """
+    Smart Stop Loss using priority chain:
+      1. Structure invalidation swing low/high
+      2. Order block boundary (price_low / price_high keys)
+      3. ATR safety buffer fallback
+    Returns (sl_price, sl_reason).
+    """
+    buffer = 0.15 * atr
+    sl_candidates = []
+
+    if direction == "BUY":
+        # 1. Structure: recent swing lows below entry
+        if swings_low:
+            below_lows = [s['price'] for s in swings_low[-6:] if s['price'] < entry]
+            if below_lows:
+                sl_candidates.append(("Structure Low", min(below_lows) - buffer))
+
+        # 2. Bullish OB lower boundary below entry
+        if obs:
+            bull_obs = [o for o in obs[-10:] if o.get('type') == 'bullish' and o.get('price_low', entry) < entry]
+            if bull_obs:
+                sl_candidates.append(("Order Block Low", min(o['price_low'] for o in bull_obs) - buffer))
+
+        # 3. ATR fallback
+        sl_candidates.append(("ATR Safety", entry - 1.5 * atr))
+
+        valid = [(name, sl) for name, sl in sl_candidates if sl < entry]
+        if valid:
+            chosen_name, chosen_sl = max(valid, key=lambda x: x[1])   # closest to entry
+            return round(chosen_sl, 5), chosen_name
+        return round(entry - 1.5 * atr, 5), "ATR Safety"
+
+    else:  # SELL
+        # 1. Structure: recent swing highs above entry
+        if swings_high:
+            above_highs = [s['price'] for s in swings_high[-6:] if s['price'] > entry]
+            if above_highs:
+                sl_candidates.append(("Structure High", max(above_highs) + buffer))
+
+        # 2. Bearish OB upper boundary above entry
+        if obs:
+            bear_obs = [o for o in obs[-10:] if o.get('type') == 'bearish' and o.get('price_high', entry) > entry]
+            if bear_obs:
+                sl_candidates.append(("Order Block High", max(o['price_high'] for o in bear_obs) + buffer))
+
+        # 3. ATR fallback
+        sl_candidates.append(("ATR Safety", entry + 1.5 * atr))
+
+        valid = [(name, sl) for name, sl in sl_candidates if sl > entry]
+        if valid:
+            chosen_name, chosen_sl = min(valid, key=lambda x: x[1])   # closest to entry
+            return round(chosen_sl, 5), chosen_name
+        return round(entry + 1.5 * atr, 5), "ATR Safety"
+
+
+def _compute_entry_zone(direction, entry, fvgs, obs, atr):
+    """
+    Return a realistic entry zone (low, high, preferred, reason) instead of a single price.
+    Priority: FVG range → OB 50% → current price ± 0.1 ATR buffer.
+    Note: FVG keys are 'top'/'bottom'; OB keys are 'price_high'/'price_low'.
+    """
+    if direction == "BUY":
+        # Recent bullish FVG near current price
+        bull_fvgs = [f for f in fvgs[-10:] if f.get('type') == 'bullish']
+        if bull_fvgs:
+            fvg = bull_fvgs[-1]
+            lo  = fvg.get('bottom', entry - 0.1 * atr)
+            hi  = fvg.get('top',    entry)
+            if lo < hi:
+                return {
+                    "entry_low":  round(lo, 5),
+                    "entry_high": round(hi, 5),
+                    "preferred":  round((lo + hi) / 2, 5),
+                    "reason":     "50% FVG retracement entry",
+                }
+
+        # Recent bullish OB zone
+        bull_obs = [o for o in obs[-10:] if o.get('type') == 'bullish']
+        if bull_obs:
+            ob = bull_obs[-1]
+            lo  = ob.get('price_low',  entry - 0.1 * atr)
+            hi  = ob.get('price_high', entry)
+            if lo < hi:
+                return {
+                    "entry_low":  round(lo, 5),
+                    "entry_high": round(hi, 5),
+                    "preferred":  round((lo + hi) / 2, 5),
+                    "reason":     "Order Block zone",
+                }
+
+    else:  # SELL
+        # Recent bearish FVG
+        bear_fvgs = [f for f in fvgs[-10:] if f.get('type') == 'bearish']
+        if bear_fvgs:
+            fvg = bear_fvgs[-1]
+            lo  = fvg.get('bottom', entry)
+            hi  = fvg.get('top',    entry + 0.1 * atr)
+            if lo < hi:
+                return {
+                    "entry_low":  round(lo, 5),
+                    "entry_high": round(hi, 5),
+                    "preferred":  round((lo + hi) / 2, 5),
+                    "reason":     "50% FVG retracement entry",
+                }
+
+        # Recent bearish OB
+        bear_obs = [o for o in obs[-10:] if o.get('type') == 'bearish']
+        if bear_obs:
+            ob = bear_obs[-1]
+            lo  = ob.get('price_low',  entry)
+            hi  = ob.get('price_high', entry + 0.1 * atr)
+            if lo < hi:
+                return {
+                    "entry_low":  round(lo, 5),
+                    "entry_high": round(hi, 5),
+                    "preferred":  round((lo + hi) / 2, 5),
+                    "reason":     "Order Block zone",
+                }
+
+    # Fallback: ± 0.1 ATR around current price
+    return {
+        "entry_low":  round(entry - 0.1 * atr, 5),
+        "entry_high": round(entry + 0.1 * atr, 5),
+        "preferred":  round(entry, 5),
+        "reason":     "Current price range",
+    }
+
+
 def _validate_and_select_targets(direction, entry, sl, swings_high, swings_low, pdh, pdl, htf_highs, htf_lows, atr):
+
     risk = abs(entry - sl)
     if risk <= 0:
         risk = entry * 0.001
@@ -5201,177 +5465,174 @@ def _validate_and_select_targets(direction, entry, sl, swings_high, swings_low, 
         
     return tp1_data, tp2_data, tp3_data
 
-def _compute_confluence_score(direction, setup_data, preset_name):
-    score_matrix = {}
-    total_score = 0
-    
-    # 1. STRUCTURE (Max 25 pts)
-    struct_pts = 0
+def _compute_confluence_score(direction, setup_data, preset_name, regime_data=None):
+    """
+    Dynamic confluence scorer with regime-aware weights.
+    Each category produces a raw 0.0-1.0 score multiplied by its regime weight,
+    then summed to a 0-100 total. A conflict penalty is applied when HTF opposes direction.
+    """
+    if regime_data is None:
+        regime_data = {"regime": "trending", "volatility": "normal"}
+
+    weights         = _get_dynamic_weights(regime_data)
+    score_matrix    = {}
+    conflict_penalty = 0
+
+    # --- 1. STRUCTURE (raw 0.0–1.0) ---
+    struct_raw    = 0.0
     struct_status = "Neutral"
     if direction == "BUY":
         if setup_data["mss"] == "bullish":
-            struct_pts += 15
-            struct_status = "Bullish MSS"
+            struct_raw    += 0.60
+            struct_status  = "Bullish MSS ✓"
         if setup_data["htf_bias"] == "bullish":
-            struct_pts += 10
-            if struct_status == "Neutral":
-                struct_status = "Bullish HTF Bias"
-            else:
-                struct_status += " & HTF Bias"
-    else:
+            struct_raw    += 0.40
+            struct_status  = (struct_status + " & HTF Bias") if struct_raw > 0.4 else "Bullish HTF Bias ✓"
+        elif setup_data["htf_bias"] == "bearish":
+            conflict_penalty += 10      # HTF directly opposes entry
+    else:  # SELL
         if setup_data["mss"] == "bearish":
-            struct_pts += 15
-            struct_status = "Bearish MSS"
+            struct_raw    += 0.60
+            struct_status  = "Bearish MSS ✓"
         if setup_data["htf_bias"] == "bearish":
-            struct_pts += 10
-            if struct_status == "Neutral":
-                struct_status = "Bearish HTF Bias"
-            else:
-                struct_status += " & HTF Bias"
-    score_matrix["STRUCTURE"] = {"status": struct_status, "points": struct_pts, "max": 25}
-    total_score += struct_pts
-    
-    # 2. LIQUIDITY (Max 20 pts)
-    liq_pts = 0
+            struct_raw    += 0.40
+            struct_status  = (struct_status + " & HTF Bias") if struct_raw > 0.4 else "Bearish HTF Bias ✓"
+        elif setup_data["htf_bias"] == "bullish":
+            conflict_penalty += 10
+    struct_pts = round(min(struct_raw, 1.0) * weights["STRUCTURE"] * 100)
+    score_matrix["STRUCTURE"] = {"status": struct_status, "points": struct_pts, "max": round(weights["STRUCTURE"] * 100)}
+
+    # --- 2. LIQUIDITY (raw 0.0–1.0) ---
+    liq_raw    = 0.0
     liq_status = "No Sweep"
-    sweep = setup_data["sweep"]
+    sweep      = setup_data["sweep"]
     if direction == "BUY":
         if sweep and sweep["type"] == "SSL":
-            liq_pts = 20
-            liq_status = "SSL Swept"
+            liq_raw = 1.0;  liq_status = "SSL Swept ✓"
+        elif sweep and sweep["type"] == "BSL":
+            liq_raw = 0.2;  liq_status = "BSL Swept (opposing)"
     else:
         if sweep and sweep["type"] == "BSL":
-            liq_pts = 20
-            liq_status = "BSL Swept"
-    score_matrix["LIQUIDITY"] = {"status": liq_status, "points": liq_pts, "max": 20}
-    total_score += liq_pts
-    
-    # 3. LOCATION (Max 20 pts)
-    loc_pts = 0
+            liq_raw = 1.0;  liq_status = "BSL Swept ✓"
+        elif sweep and sweep["type"] == "SSL":
+            liq_raw = 0.2;  liq_status = "SSL Swept (opposing)"
+    liq_pts = round(liq_raw * weights["LIQUIDITY"] * 100)
+    score_matrix["LIQUIDITY"] = {"status": liq_status, "points": liq_pts, "max": round(weights["LIQUIDITY"] * 100)}
+
+    # --- 3. LOCATION (raw 0.0–1.0) ---
+    loc_raw     = 0.0
     loc_reasons = []
-    near_poi = False
-    entry = setup_data["entry"]
-    atr = setup_data["atr"]
+    entry       = setup_data["entry"]
+    atr         = setup_data["atr"]
+    near_poi    = False
+    near_sr     = False
+
     if direction == "BUY" and setup_data["swings_low"]:
-        lowest_low = min([s['price'] for s in setup_data["swings_low"][-5:]])
+        lowest_low = min(s['price'] for s in setup_data["swings_low"][-5:])
         if entry - lowest_low < atr * 1.5:
             near_poi = True
     elif direction == "SELL" and setup_data["swings_high"]:
-        highest_high = max([s['price'] for s in setup_data["swings_high"][-5:]])
+        highest_high = max(s['price'] for s in setup_data["swings_high"][-5:])
         if highest_high - entry < atr * 1.5:
             near_poi = True
     if near_poi:
-        loc_pts += 12
+        loc_raw += 0.60
         loc_reasons.append("POI Demand" if direction == "BUY" else "POI Supply")
-        
-    near_sr = False
+
     pdl = setup_data["pdl"]
     pdh = setup_data["pdh"]
-    if direction == "BUY" and pdl and abs(entry - pdl) < atr * 1.5:
+    if direction == "BUY"  and pdl and abs(entry - pdl) < atr * 1.5:
         near_sr = True
     elif direction == "SELL" and pdh and abs(entry - pdh) < atr * 1.5:
         near_sr = True
     if near_sr:
-        loc_pts += 8
+        loc_raw += 0.40
         loc_reasons.append("S/R Level")
-        
+
     loc_status = " & ".join(loc_reasons) if loc_reasons else "Mid-Range"
-    score_matrix["LOCATION"] = {"status": loc_status, "points": loc_pts, "max": 20}
-    total_score += loc_pts
-    
-    # 4. TRIGGER (Max 15 pts)
-    trig_pts = 0
+    loc_pts    = round(min(loc_raw, 1.0) * weights["LOCATION"] * 100)
+    score_matrix["LOCATION"] = {"status": loc_status, "points": loc_pts, "max": round(weights["LOCATION"] * 100)}
+
+    # --- 4. TRIGGER (raw 0.0–1.0) ---
+    trig_raw     = 0.0
     trig_reasons = []
-    recent_fvg = any(f['type'] == ("bullish" if direction == "BUY" else "bearish") for f in setup_data["fvgs"][-10:]) if setup_data["fvgs"] else False
+    recent_fvg   = any(f['type'] == ("bullish" if direction == "BUY" else "bearish") for f in setup_data["fvgs"][-10:]) if setup_data["fvgs"] else False
+    recent_ob    = any(o['type'] == ("bullish" if direction == "BUY" else "bearish") for o in setup_data["obs"][-15:]) if setup_data["obs"] else False
+
     if recent_fvg:
-        trig_pts += 8
-        trig_reasons.append("FVG")
-    recent_ob = any(o['type'] == ("bullish" if direction == "BUY" else "bearish") for o in setup_data["obs"][-15:]) if setup_data["obs"] else False
+        trig_raw += 0.55;  trig_reasons.append("FVG")
     if recent_ob:
-        trig_pts += 7
-        trig_reasons.append("OB")
-        
-    trig_status = " & ".join(trig_reasons) if trig_reasons else "No Trigger POI"
-    score_matrix["TRIGGER"] = {"status": trig_status, "points": trig_pts, "max": 15}
-    total_score += trig_pts
-    
-    # 5. CORRELATION (Max 10 pts)
-    corr_pts = 0
-    corr_status = "Aligned"
-    if setup_data["smt_div"]:
-        corr_pts = 10
-        corr_status = "SMT Divergence"
-    score_matrix["CORRELATION"] = {"status": corr_status, "points": corr_pts, "max": 10}
-    total_score += corr_pts
-    
-    # 6. SESSION (Max 5 pts)
-    sess_pts = 0
-    sess_status = "Off-Hours"
-    if setup_data["session_active"]:
-        sess_pts = 5
-        sess_status = "Active Session"
-    score_matrix["SESSION"] = {"status": sess_status, "points": sess_pts, "max": 5}
-    total_score += sess_pts
-    
-    # 7. MOMENTUM (Max 5 pts)
-    mom_pts = 0
-    mom_status = "Low Momentum"
-    if setup_data["displacement"]:
-        mom_pts = 5
-        mom_status = "Displaced Expansion"
-    score_matrix["MOMENTUM"] = {"status": mom_status, "points": mom_pts, "max": 5}
-    total_score += mom_pts
-    
-    # Check Preset rules
-    rule_pass = True
+        trig_raw += 0.45;  trig_reasons.append("OB")
+    if setup_data.get("displacement"):
+        trig_raw  = min(trig_raw + 0.10, 1.0);  trig_reasons.append("Displacement")
+
+    trig_status = " & ".join(trig_reasons) if trig_reasons else "No Trigger"
+    trig_pts    = round(min(trig_raw, 1.0) * weights["TRIGGER"] * 100)
+    score_matrix["TRIGGER"] = {"status": trig_status, "points": trig_pts, "max": round(weights["TRIGGER"] * 100)}
+
+    # --- 5. CORRELATION / SMT (raw 0.0–1.0) ---
+    corr_raw    = 1.0 if setup_data.get("smt_div") else 0.0
+    corr_status = "SMT Divergence ✓" if setup_data.get("smt_div") else "No SMT"
+    corr_pts    = round(corr_raw * weights["CORRELATION"] * 100)
+    score_matrix["CORRELATION"] = {"status": corr_status, "points": corr_pts, "max": round(weights["CORRELATION"] * 100)}
+
+    # --- 6. SESSION (raw 0.0–1.0) ---
+    sess_raw    = 1.0 if setup_data.get("session_active") else 0.0
+    sess_status = "Active Session ✓" if setup_data.get("session_active") else "Off-Hours"
+    sess_pts    = round(sess_raw * weights["SESSION"] * 100)
+    score_matrix["SESSION"] = {"status": sess_status, "points": sess_pts, "max": round(weights["SESSION"] * 100)}
+
+    # --- 7. VOLATILITY (raw 0.0–1.0) ---
+    vol_level = regime_data.get("volatility", "normal")
+    vol_map   = {"normal": (1.0, "Normal Volatility ✓"), "low": (0.6, "Low Volatility"), "high": (0.3, "High Volatility (selective)")}
+    vol_raw, vol_status = vol_map.get(vol_level, (0.5, "Unknown"))
+    vol_pts = round(vol_raw * weights["VOLATILITY"] * 100)
+    score_matrix["VOLATILITY"] = {"status": vol_status, "points": vol_pts, "max": round(weights["VOLATILITY"] * 100)}
+
+    # --- Total Score with conflict penalty ---
+    total_score = sum(v["points"] for v in score_matrix.values())
+    total_score = max(0, min(total_score - conflict_penalty, 100))
+
+    # --- Preset Rule Validation ---
+    rule_pass        = True
     rule_fail_reason = ""
-    preset = preset_name.lower()
-    
+    preset           = preset_name.lower()
+
     if preset == "ict_scalper":
         if not (sweep and sweep["type"] == ("SSL" if direction == "BUY" else "BSL")):
-            rule_pass = False
-            rule_fail_reason = "Missing required liquidity sweep"
+            rule_pass = False;  rule_fail_reason = "Missing required liquidity sweep"
         elif setup_data["mss"] != ("bullish" if direction == "BUY" else "bearish"):
-            rule_pass = False
-            rule_fail_reason = "Missing Market Structure Shift (MSS)"
+            rule_pass = False;  rule_fail_reason = "Missing Market Structure Shift (MSS)"
         elif not recent_fvg:
-            rule_pass = False
-            rule_fail_reason = "Missing required Fair Value Gap (FVG)"
-            
+            rule_pass = False;  rule_fail_reason = "Missing required Fair Value Gap (FVG)"
+
     elif preset == "ict_intraday":
         if setup_data["htf_bias"] != ("bullish" if direction == "BUY" else "bearish"):
-            rule_pass = False
-            rule_fail_reason = "HTF Bias trend not aligned"
+            rule_pass = False;  rule_fail_reason = "HTF Bias not aligned"
         elif not (sweep and sweep["type"] == ("SSL" if direction == "BUY" else "BSL")):
-            rule_pass = False
-            rule_fail_reason = "Missing required liquidity sweep"
+            rule_pass = False;  rule_fail_reason = "Missing required liquidity sweep"
         elif setup_data["mss"] != ("bullish" if direction == "BUY" else "bearish"):
-            rule_pass = False
-            rule_fail_reason = "Missing Market Structure Shift (MSS)"
-            
+            rule_pass = False;  rule_fail_reason = "Missing Market Structure Shift (MSS)"
+
     elif preset == "supply_demand":
         if not near_poi:
-            rule_pass = False
-            rule_fail_reason = "Price is not near a Supply/Demand POI zone"
+            rule_pass = False;  rule_fail_reason = "Price not near Supply/Demand POI"
         elif setup_data["mss"] != ("bullish" if direction == "BUY" else "bearish"):
-            rule_pass = False
-            rule_fail_reason = "Missing Market Structure Shift (MSS)"
+            rule_pass = False;  rule_fail_reason = "Missing MSS confirmation"
         elif not near_sr:
-            rule_pass = False
-            rule_fail_reason = "Not near daily Support/Resistance level"
-            
+            rule_pass = False;  rule_fail_reason = "Not near daily S/R level"
+
     elif preset == "momentum_breakout":
         if setup_data["mss"] != ("bullish" if direction == "BUY" else "bearish"):
-            rule_pass = False
-            rule_fail_reason = "Missing Market Structure Shift (MSS)"
-        elif not setup_data["displacement"]:
-            rule_pass = False
-            rule_fail_reason = "Missing strong displacement breakout candle"
-            
+            rule_pass = False;  rule_fail_reason = "Missing MSS"
+        elif not setup_data.get("displacement"):
+            rule_pass = False;  rule_fail_reason = "Missing strong displacement candle"
+
     if not rule_pass:
         total_score = 0
-        
+
     return total_score, score_matrix, rule_pass, rule_fail_reason
+
 
 _global_signal_history = []
 
@@ -5390,51 +5651,47 @@ async def get_signals(
     global _global_signal_history
     try:
         from datetime import datetime, timezone
-        
+
         if clear == "true":
             _global_signal_history = []
             return {"success": True, "signals": []}
-            
+
         market_map = {
-            "forex": ["EURUSD", "GBPUSD", "USDJPY"],
-            "crypto": ["BTCUSD", "ETHUSD"],
+            "forex":       ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "GBPJPY"],
+            "crypto":      ["BTCUSD", "ETHUSD"],
             "commodities": ["XAUUSD", "XAGUSD"],
-            "indices": ["US30", "NAS100", "GER30"],
-            "all": ["XAUUSD", "EURUSD", "GBPUSD", "USDJPY", "BTCUSD"]
+            "indices":     ["US30", "NAS100", "GER30"],
+            "all":         ["XAUUSD", "EURUSD", "GBPUSD", "USDJPY", "BTCUSD"],
         }
         symbols = market_map.get(market.lower(), market_map["all"])
-        
+
         if not mt5.initialize():
             return {"success": False, "error": "MT5 not initialized"}
-            
+
         tf_map = {
-            "M1": mt5.TIMEFRAME_M1 if mt5 else 1,
-            "M5": mt5.TIMEFRAME_M5 if mt5 else 5,
+            "M1":  mt5.TIMEFRAME_M1  if mt5 else 1,
+            "M5":  mt5.TIMEFRAME_M5  if mt5 else 5,
             "M15": mt5.TIMEFRAME_M15 if mt5 else 15,
-            "H1": mt5.TIMEFRAME_H1 if mt5 else 16385,
-            "H4": mt5.TIMEFRAME_H4 if mt5 else 16408,
-            "D1": mt5.TIMEFRAME_D1 if mt5 else 16424,
-            "W1": mt5.TIMEFRAME_W1 if mt5 else 26384,
+            "H1":  mt5.TIMEFRAME_H1  if mt5 else 16385,
+            "H4":  mt5.TIMEFRAME_H4  if mt5 else 16408,
+            "D1":  mt5.TIMEFRAME_D1  if mt5 else 16424,
+            "W1":  mt5.TIMEFRAME_W1  if mt5 else 26384,
         }
-        
+
         tf_list = ["M5", "M15", "H1", "H4"] if timeframe.upper() == "ALL" else [timeframe]
-        
+
         utc_hour = datetime.now(timezone.utc).hour
-        london_active = 8 <= utc_hour <= 17
-        ny_active = 13 <= utc_hour <= 22
-        
+        london_active = 8  <= utc_hour <= 17
+        ny_active     = 13 <= utc_hour <= 22
+
         session_active = False
-        if session.lower() == "london" and london_active:
-            session_active = True
-        elif session.lower() == "ny" and ny_active:
-            session_active = True
-        elif session.lower() == "both" and (london_active or ny_active):
-            session_active = True
-        elif session.lower() == "all":
-            session_active = True
-            
-        rates_to_copy = 100
-        
+        if session.lower() == "london" and london_active:              session_active = True
+        elif session.lower() == "ny" and ny_active:                    session_active = True
+        elif session.lower() == "both" and (london_active or ny_active): session_active = True
+        elif session.lower() == "all":                                 session_active = True
+
+        rates_to_copy = 120
+
         def ema(data, period):
             if len(data) < period: return None
             k = 2 / (period + 1)
@@ -5446,293 +5703,320 @@ async def get_signals(
             return res
 
         symbol_timeframe_setups = {}
-        
+
         for symbol in symbols:
             resolved = ensure_symbol(symbol)
-            
+
+            # Previous Day High / Low
             pdh, pdl = None, None
-            d1_rates = mt5.copy_rates_from_pos(resolved, mt5.TIMEFRAME_D1, 0, 2)
+            d1_rates = mt5.copy_rates_from_pos(resolved, mt5.TIMEFRAME_D1, 0, 3)
+            if d1_rates is None or len(d1_rates) < 2:
+                d1_rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_D1, 0, 3)
             if d1_rates is not None and len(d1_rates) >= 2:
                 pdh = d1_rates[-2]['high']
                 pdl = d1_rates[-2]['low']
-            else:
-                d1_rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_D1, 0, 2)
-                if d1_rates is not None and len(d1_rates) >= 2:
-                    pdh = d1_rates[-2]['high']
-                    pdl = d1_rates[-2]['low']
 
             symbol_timeframe_setups[symbol] = []
 
             for tf_str in tf_list:
-                tf = tf_map.get(tf_str, mt5.TIMEFRAME_M15)
+                tf    = tf_map.get(tf_str, mt5.TIMEFRAME_M15)
                 rates = mt5.copy_rates_from_pos(resolved, tf, 0, rates_to_copy)
                 if rates is None or len(rates) < 30:
                     rates = mt5.copy_rates_from_pos(symbol, tf, 0, rates_to_copy)
                     if rates is None or len(rates) < 30:
                         continue
-                    
+
                 closes = [r['close'] for r in rates]
-                highs = [r['high'] for r in rates]
-                lows = [r['low'] for r in rates]
-                opens = [r['open'] for r in rates]
-                
-                swings_high, swings_low = _find_swings(rates, window=5)
-                fvgs = _find_fvgs(rates)
-                obs = _find_order_blocks(rates)
-                sweep = _check_liquidity_sweep(rates, swings_high, swings_low)
-                smt_div = _check_smt_divergence(symbol, tf, rates)
-                mss = _check_mss(rates, swings_high, swings_low)
-                
-                htf_tf = mt5.TIMEFRAME_H4 if tf in [mt5.TIMEFRAME_M15, mt5.TIMEFRAME_H1] else mt5.TIMEFRAME_H1
-                htf_rates = mt5.copy_rates_from_pos(resolved, htf_tf, 0, 50)
-                htf_bias = "neutral"
-                htf_highs, htf_lows = [], []
-                if htf_rates is not None and len(htf_rates) >= 21:
-                    htf_closes = [r['close'] for r in htf_rates]
-                    htf_highs = [r['high'] for r in htf_rates]
-                    htf_lows = [r['low'] for r in htf_rates]
-                    hema9 = ema(htf_closes, 9)
-                    hema21 = ema(htf_closes, 21)
-                    if hema9 and hema21:
-                        htf_bias = "bullish" if hema9[-1] > hema21[-1] else "bearish"
-                        
+                highs  = [r['high']  for r in rates]
+                lows   = [r['low']   for r in rates]
+                opens  = [r['open']  for r in rates]
+
+                # ATR
                 tr = []
                 for i in range(1, len(rates)):
                     tr.append(max(highs[i] - lows[i], abs(highs[i] - closes[i-1]), abs(lows[i] - closes[i-1])))
                 atr = sum(tr[-14:]) / 14 if len(tr) >= 14 else (highs[-1] - lows[-1])
                 if atr <= 0: atr = closes[-1] * 0.001
-                
-                bodies = [abs(c - o) for c, o in zip(closes, opens)]
-                avg_body = sum(bodies[-10:]) / 10 if len(bodies) >= 10 else sum(bodies)/len(bodies)
+
+                # Market regime
+                regime_data = _detect_market_regime(rates, atr)
+
+                # Core ICT structure analysis
+                swings_high, swings_low = _find_swings(rates, window=5)
+                fvgs    = _find_fvgs(rates)
+                obs     = _find_order_blocks(rates)
+                sweep   = _check_liquidity_sweep(rates, swings_high, swings_low)
+                smt_div = _check_smt_divergence(symbol, tf, rates)
+                mss     = _check_mss(rates, swings_high, swings_low)
+
+                # HTF bias
+                htf_tf    = mt5.TIMEFRAME_H4 if tf in [mt5.TIMEFRAME_M15, mt5.TIMEFRAME_H1] else mt5.TIMEFRAME_H1
+                htf_rates = mt5.copy_rates_from_pos(resolved, htf_tf, 0, 50)
+                htf_bias  = "neutral"
+                htf_highs, htf_lows = [], []
+                if htf_rates is not None and len(htf_rates) >= 21:
+                    htf_closes = [r['close'] for r in htf_rates]
+                    htf_highs  = [r['high']  for r in htf_rates]
+                    htf_lows   = [r['low']   for r in htf_rates]
+                    hema9  = ema(htf_closes, 9)
+                    hema21 = ema(htf_closes, 21)
+                    if hema9 and hema21:
+                        htf_bias = "bullish" if hema9[-1] > hema21[-1] else "bearish"
+
+                # Displacement
+                bodies   = [abs(c - o) for c, o in zip(closes, opens)]
+                avg_body = sum(bodies[-10:]) / 10 if len(bodies) >= 10 else (sum(bodies) / len(bodies))
                 displacement = bodies[-1] > avg_body * 1.5
-                
+
+                entry       = closes[-1]
+                candle_time = rates[-1]['time']
                 current_rsi = _compute_rsi(closes, 14)
                 current_adx = _compute_adx(rates, 14)
-                
-                entry = closes[-1]
-                candle_time = rates[-1]['time']
-                
+
                 setup_data = {
-                    "htf_bias": htf_bias,
-                    "fvgs": fvgs,
-                    "obs": obs,
-                    "sweep": sweep,
-                    "smt_div": smt_div,
-                    "mss": mss,
-                    "pdh": pdh,
-                    "pdl": pdl,
-                    "entry": entry,
-                    "atr": atr,
-                    "displacement": displacement,
+                    "htf_bias":       htf_bias,
+                    "fvgs":           fvgs,
+                    "obs":            obs,
+                    "sweep":          sweep,
+                    "smt_div":        smt_div,
+                    "mss":            mss,
+                    "pdh":            pdh,
+                    "pdl":            pdl,
+                    "entry":          entry,
+                    "atr":            atr,
+                    "displacement":   displacement,
                     "session_active": session_active,
-                    "swings_high": swings_high,
-                    "swings_low": swings_low
+                    "swings_high":    swings_high,
+                    "swings_low":     swings_low,
                 }
-                
-                # Evaluate confluences
-                buy_score, buy_matrix, buy_rule_pass, buy_rule_fail = _compute_confluence_score("BUY", setup_data, signal_type)
-                sell_score, sell_matrix, sell_rule_pass, sell_rule_fail = _compute_confluence_score("SELL", setup_data, signal_type)
-                
+
+                # Dynamic regime-aware scoring
+                buy_score,  buy_matrix,  buy_rule_pass,  buy_rule_fail  = _compute_confluence_score("BUY",  setup_data, signal_type, regime_data)
+                sell_score, sell_matrix, sell_rule_pass, sell_rule_fail = _compute_confluence_score("SELL", setup_data, signal_type, regime_data)
+
                 primary_setup = None
-                
+
+                # --- BUY candidate ---
                 if direction.lower() in ["both", "buy"] and buy_rule_pass and buy_score >= min_score:
-                    sl = min(lows[-5:]) - 0.2 * atr
-                    if sl >= entry: sl = entry - 1.5 * atr
-                    
+                    sl, sl_reason = _compute_dynamic_sl("BUY", rates, swings_high, swings_low, obs, entry, atr)
+                    entry_zone    = _compute_entry_zone("BUY", entry, fvgs, obs, atr)
                     tp1, tp2, tp3 = _validate_and_select_targets("BUY", entry, sl, swings_high, swings_low, pdh, pdl, htf_highs, htf_lows, atr)
-                    
+
                     if tp2["rr"] >= min_rr:
-                        pros = [f"{k}: {v['status']}" for k, v in buy_matrix.items() if v['points'] > 0]
-                        cons = [f"Missing {k}" for k, v in buy_matrix.items() if v['points'] == 0]
-                        summary = f"Bullish setup on {symbol} supported by structure and trigger confluence ({buy_score}/100)."
-                        if htf_bias == "bullish": summary += " HTF Bias trend is aligned."
-                        
+                        grade   = "A+" if buy_score >= 90 else "A" if buy_score >= 80 else "B"
+                        pros    = [f"{k}: {v['status']}" for k, v in buy_matrix.items() if v['points'] > 0]
+                        cons    = [f"Missing {k}" for k, v in buy_matrix.items() if v['points'] == 0]
+                        summary = (f"Bullish {regime_data['regime'].title()} setup on {symbol} ({tf_str}). "
+                                   f"Score {buy_score}/100 ({grade}). SL from {sl_reason}.")
+                        if htf_bias == "bullish": summary += " HTF bias aligned."
+
                         primary_setup = {
-                            "id": f"{symbol}-{tf_str}-{candle_time}-buy",
-                            "symbol": symbol,
-                            "type": "BUY",
-                            "entry_price": round(entry, 5),
-                            "sl": round(sl, 5),
-                            "tp": round(tp2["price"], 5),
-                            "confidence": buy_score,
-                            "reason": summary,
-                            "timestamp": datetime.now().isoformat(),
-                            "timeframe": tf_str,
-                            "rsi": current_rsi,
-                            "adx": current_adx,
+                            "id":           f"{symbol}-{tf_str}-{candle_time}-buy",
+                            "symbol":       symbol,
+                            "type":         "BUY",
+                            "entry_price":  round(entry_zone["preferred"], 5),
+                            "entry_zone":   entry_zone,
+                            "sl":           sl,
+                            "sl_reason":    sl_reason,
+                            "tp":           round(tp2["price"], 5),
+                            "confidence":   buy_score,
+                            "grade":        grade,
+                            "reason":       summary,
+                            "timestamp":    datetime.now().isoformat(),
+                            "timeframe":    tf_str,
+                            "rsi":          current_rsi,
+                            "adx":          current_adx,
+                            "regime":       regime_data["regime"],
+                            "volatility":   regime_data["volatility"],
                             "confluence_matrix": buy_matrix,
+                            "weights_used": _get_dynamic_weights(regime_data),
+                            "conflict":     {"detected": False, "message": ""},
                             "tp1": {"price": round(tp1["price"], 5), "rr": round(tp1["rr"], 2), "reason": tp1["reason"]},
                             "tp2": {"price": round(tp2["price"], 5), "rr": round(tp2["rr"], 2), "reason": tp2["reason"]},
                             "tp3": {"price": round(tp3["price"], 5), "rr": round(tp3["rr"], 2), "reason": tp3["reason"]},
-                            "invalidation": round(sl, 5),
-                            "reasoning": {
-                                "summary": summary,
-                                "pros": pros,
-                                "cons": cons
-                            }
+                            "invalidation": sl,
+                            "reasoning":    {"summary": summary, "pros": pros, "cons": cons},
                         }
-                        
+
+                # --- SELL candidate ---
                 if not primary_setup and direction.lower() in ["both", "sell"] and sell_rule_pass and sell_score >= min_score:
-                    sl = max(highs[-5:]) + 0.2 * atr
-                    if sl <= entry: sl = entry + 1.5 * atr
-                    
+                    sl, sl_reason = _compute_dynamic_sl("SELL", rates, swings_high, swings_low, obs, entry, atr)
+                    entry_zone    = _compute_entry_zone("SELL", entry, fvgs, obs, atr)
                     tp1, tp2, tp3 = _validate_and_select_targets("SELL", entry, sl, swings_high, swings_low, pdh, pdl, htf_highs, htf_lows, atr)
-                    
+
                     if tp2["rr"] >= min_rr:
-                        pros = [f"{k}: {v['status']}" for k, v in sell_matrix.items() if v['points'] > 0]
-                        cons = [f"Missing {k}" for k, v in sell_matrix.items() if v['points'] == 0]
-                        summary = f"Bearish setup on {symbol} supported by structure and trigger confluence ({sell_score}/100)."
-                        if htf_bias == "bearish": summary += " HTF Bias trend is aligned."
-                        
+                        grade   = "A+" if sell_score >= 90 else "A" if sell_score >= 80 else "B"
+                        pros    = [f"{k}: {v['status']}" for k, v in sell_matrix.items() if v['points'] > 0]
+                        cons    = [f"Missing {k}" for k, v in sell_matrix.items() if v['points'] == 0]
+                        summary = (f"Bearish {regime_data['regime'].title()} setup on {symbol} ({tf_str}). "
+                                   f"Score {sell_score}/100 ({grade}). SL from {sl_reason}.")
+                        if htf_bias == "bearish": summary += " HTF bias aligned."
+
                         primary_setup = {
-                            "id": f"{symbol}-{tf_str}-{candle_time}-sell",
-                            "symbol": symbol,
-                            "type": "SELL",
-                            "entry_price": round(entry, 5),
-                            "sl": round(sl, 5),
-                            "tp": round(tp2["price"], 5),
-                            "confidence": sell_score,
-                            "reason": summary,
-                            "timestamp": datetime.now().isoformat(),
-                            "timeframe": tf_str,
-                            "rsi": current_rsi,
-                            "adx": current_adx,
+                            "id":           f"{symbol}-{tf_str}-{candle_time}-sell",
+                            "symbol":       symbol,
+                            "type":         "SELL",
+                            "entry_price":  round(entry_zone["preferred"], 5),
+                            "entry_zone":   entry_zone,
+                            "sl":           sl,
+                            "sl_reason":    sl_reason,
+                            "tp":           round(tp2["price"], 5),
+                            "confidence":   sell_score,
+                            "grade":        grade,
+                            "reason":       summary,
+                            "timestamp":    datetime.now().isoformat(),
+                            "timeframe":    tf_str,
+                            "rsi":          current_rsi,
+                            "adx":          current_adx,
+                            "regime":       regime_data["regime"],
+                            "volatility":   regime_data["volatility"],
                             "confluence_matrix": sell_matrix,
+                            "weights_used": _get_dynamic_weights(regime_data),
+                            "conflict":     {"detected": False, "message": ""},
                             "tp1": {"price": round(tp1["price"], 5), "rr": round(tp1["rr"], 2), "reason": tp1["reason"]},
                             "tp2": {"price": round(tp2["price"], 5), "rr": round(tp2["rr"], 2), "reason": tp2["reason"]},
                             "tp3": {"price": round(tp3["price"], 5), "rr": round(tp3["rr"], 2), "reason": tp3["reason"]},
-                            "invalidation": round(sl, 5),
-                            "reasoning": {
-                                "summary": summary,
-                                "pros": pros,
-                                "cons": cons
-                            }
+                            "invalidation": sl,
+                            "reasoning":    {"summary": summary, "pros": pros, "cons": cons},
                         }
-                        
-                # Create NO_TRADE setup if no active signal triggers
+
+                # --- NO_TRADE fallback ---
                 if not primary_setup:
                     is_bull_bias = htf_bias == "bullish"
-                    dir_label = "BUY" if is_bull_bias else "SELL"
-                    score_val = buy_score if is_bull_bias else sell_score
-                    matrix_val = buy_matrix if is_bull_bias else sell_matrix
-                    fail_desc = buy_rule_fail if is_bull_bias else sell_rule_fail
-                    
+                    score_val    = buy_score  if is_bull_bias else sell_score
+                    matrix_val   = buy_matrix if is_bull_bias else sell_matrix
+                    fail_desc    = buy_rule_fail if is_bull_bias else sell_rule_fail
+
+                    rr_rejected = (
+                        (is_bull_bias     and buy_rule_pass  and buy_score  >= min_score) or
+                        (not is_bull_bias and sell_rule_pass and sell_score >= min_score)
+                    )
+                    if rr_rejected:
+                        fail_desc = f"Nearest valid target provides insufficient RR (required: {min_rr}R)"
                     if not fail_desc:
-                        fail_desc = f"Insufficient confluence score ({score_val}/100). Minimum required is {min_score}."
-                        
+                        fail_desc = f"Insufficient confluence score ({score_val}/100, required: {min_score})"
+
+                    no_atr = atr if atr > 0 else entry * 0.001
                     primary_setup = {
-                        "id": f"{symbol}-{tf_str}-{candle_time}-notrade",
-                        "symbol": symbol,
-                        "type": "NO_TRADE",
+                        "id":          f"{symbol}-{tf_str}-{candle_time}-notrade",
+                        "symbol":      symbol,
+                        "type":        "NO_TRADE",
                         "entry_price": round(entry, 5),
-                        "sl": round(entry - 1.5 * atr if is_bull_bias else entry + 1.5 * atr, 5),
-                        "tp": round(entry + 2.5 * atr if is_bull_bias else entry - 2.5 * atr, 5),
-                        "confidence": score_val,
-                        "reason": f"No Trade on {symbol}: {fail_desc}",
-                        "timestamp": datetime.now().isoformat(),
-                        "timeframe": tf_str,
-                        "rsi": current_rsi,
-                        "adx": current_adx,
+                        "entry_zone":  {"entry_low": round(entry - 0.1*no_atr, 5), "entry_high": round(entry + 0.1*no_atr, 5), "preferred": round(entry, 5), "reason": "Current price"},
+                        "sl":          round(entry - 1.5*no_atr if is_bull_bias else entry + 1.5*no_atr, 5),
+                        "sl_reason":   "ATR Safety",
+                        "tp":          round(entry + 2.5*no_atr if is_bull_bias else entry - 2.5*no_atr, 5),
+                        "confidence":  score_val,
+                        "grade":       "C" if score_val >= 60 else "NO TRADE",
+                        "reason":      f"No Trade on {symbol} ({tf_str}): {fail_desc}",
+                        "timestamp":   datetime.now().isoformat(),
+                        "timeframe":   tf_str,
+                        "rsi":         current_rsi,
+                        "adx":         current_adx,
+                        "regime":      regime_data["regime"],
+                        "volatility":  regime_data["volatility"],
                         "confluence_matrix": matrix_val,
-                        "tp1": {"price": round(entry + 1.25 * atr if is_bull_bias else entry - 1.25 * atr, 5), "rr": 1.25, "reason": "Standard safety profit level"},
-                        "tp2": {"price": round(entry + 2.50 * atr if is_bull_bias else entry - 2.50 * atr, 5), "rr": 2.50, "reason": "Standard expansion"},
-                        "tp3": {"price": round(entry + 4.50 * atr if is_bull_bias else entry - 4.50 * atr, 5), "rr": 4.50, "reason": "Standard target"},
-                        "invalidation": round(entry - 1.5 * atr if is_bull_bias else entry + 1.5 * atr, 5),
+                        "weights_used": _get_dynamic_weights(regime_data),
+                        "conflict":    {"detected": False, "message": ""},
+                        "tp1": {"price": round(entry + 1.25*no_atr if is_bull_bias else entry - 1.25*no_atr, 5), "rr": 1.25, "reason": "Standard level"},
+                        "tp2": {"price": round(entry + 2.50*no_atr if is_bull_bias else entry - 2.50*no_atr, 5), "rr": 2.50, "reason": "Standard expansion"},
+                        "tp3": {"price": round(entry + 4.50*no_atr if is_bull_bias else entry - 4.50*no_atr, 5), "rr": 4.50, "reason": "Standard HTF projection"},
+                        "invalidation": round(entry - 1.5*no_atr if is_bull_bias else entry + 1.5*no_atr, 5),
                         "reasoning": {
-                            "summary": f"Setup failed to reach confidence threshold or rules validation: {fail_desc}",
-                            "pros": [f"{k}: {v['status']}" for k, v in matrix_val.items() if v['points'] > 0],
-                            "cons": [f"Missing {k}" for k, v in matrix_val.items() if v['points'] == 0]
-                        }
+                            "summary": f"Setup did not reach required threshold: {fail_desc}",
+                            "pros":    [f"{k}: {v['status']}" for k, v in matrix_val.items() if v['points'] > 0],
+                            "cons":    [f"Missing {k}" for k, v in matrix_val.items() if v['points'] == 0],
+                        },
                     }
-                    
+
                 symbol_timeframe_setups[symbol].append(primary_setup)
 
-        # Asset-level Deduplication & Ranked Alignment Grid Builder
+        # --- Asset-level: conflict detection + deduplication ---
         active_signals = []
         for symbol in symbols:
             setups = symbol_timeframe_setups.get(symbol, [])
             if not setups:
                 continue
-                
-            # Filter active buy/sell signals
-            active_trades = [s for s in setups if s["type"] in ["BUY", "SELL"]]
-            
+
+            active_trades  = [s for s in setups if s["type"] in ["BUY", "SELL"]]
             primary_signal = None
+
             if active_trades:
-                # Pick the one with the highest confidence score
-                active_trades.sort(key=lambda x: (x["confidence"], x["timeframe"] == "H4", x["timeframe"] == "H1"), reverse=True)
+                tf_priority = {"H4": 4, "H1": 3, "M15": 2, "M5": 1}
+                active_trades.sort(key=lambda x: (x["confidence"], tf_priority.get(x["timeframe"], 0)), reverse=True)
                 primary_signal = active_trades[0]
+
+                conflict_info = _detect_conflict(setups, primary_signal["type"])
+                primary_signal["conflict"] = conflict_info
+
+                if conflict_info["conflict"]:
+                    primary_signal["type"]   = "NO_TRADE"
+                    primary_signal["reason"] = f"Signal suppressed: {conflict_info['message']}"
+                    primary_signal["grade"]  = "NO TRADE"
             else:
-                # Select the strongest NO_TRADE setup
                 setups.sort(key=lambda x: x["confidence"], reverse=True)
                 primary_signal = setups[0]
-                
-            # Generate the timeframe alignment dictionary
+
+            # MTF alignment grid
             alignment_dict = {}
-            aligned_count = 0
-            scanned_count = len(setups)
-            target_type = primary_signal["type"] if primary_signal["type"] in ["BUY", "SELL"] else "BUY"
-            
+            aligned_count  = 0
+            scanned_count  = len(setups)
+            target_type    = primary_signal["type"] if primary_signal["type"] in ["BUY", "SELL"] else "BUY"
+
             for s in setups:
-                alignment_dict[s["timeframe"]] = {
-                    "type": s["type"],
-                    "score": s["confidence"]
-                }
+                alignment_dict[s["timeframe"]] = {"type": s["type"], "score": s["confidence"]}
                 if s["type"] == target_type:
                     aligned_count += 1
-                    
-            primary_signal["alignment"] = alignment_dict
-            primary_signal["overall_alignment"] = f"{aligned_count}/{scanned_count}" if scanned_count > 0 else "0/0"
-            
+
+            primary_signal["alignment"]         = alignment_dict
+            primary_signal["overall_alignment"] = f"{aligned_count}/{scanned_count}"
             active_signals.append(primary_signal)
-            
-        # Append newly detected signals to history
+
+        # --- Persist & alert ---
         for sig in active_signals:
             if sig["type"] in ["BUY", "SELL"]:
                 if not any(s['id'] == sig['id'] for s in _global_signal_history):
                     _global_signal_history.append(sig)
-                    
-                    # --- DISCORD SIGNAL ALERT ---
+
                     if not _alert_config.get("alerts_paused", True):
+                        ez     = sig.get("entry_zone", {})
+                        grade  = sig.get("grade", "")
+                        regime = sig.get("regime", "").title()
                         discord_msg = (
-                            f"🔔 **NEW INSTITUTIONAL SETUP** 🔔\n"
-                            f"**Asset**: {sig['symbol']} ({sig['timeframe']})\n"
-                            f"**Setup**: {sig['type']} (Score: {sig['confidence']}/100)\n"
-                            f"**Entry**: {sig['entry_price']}\n"
-                            f"**Stop Loss**: {sig['sl']}\n"
-                            f"**Take Profit 1**: {sig['tp1']['price']} (RR: {sig['tp1']['rr']})\n"
-                            f"**Take Profit 2**: {sig['tp2']['price']} (RR: {sig['tp2']['rr']})\n"
-                            f"**Take Profit 3**: {sig['tp3']['price']} (RR: {sig['tp3']['rr']})\n"
-                            f"**Reason**: {sig['reason']}"
+                            f"\U0001f514 **NEW SETUP** \u2014 {sig['symbol']} {sig['type']} ({sig['timeframe']}) [{grade}]\n"
+                            f"**Regime**: {regime} | **Score**: {sig['confidence']}/100\n"
+                            f"**Entry Zone**: {ez.get('entry_low', sig['entry_price'])} \u2013 {ez.get('entry_high', sig['entry_price'])}\n"
+                            f"**Preferred**: {ez.get('preferred', sig['entry_price'])} ({ez.get('reason', '')})\n"
+                            f"**SL**: {sig['sl']} ({sig.get('sl_reason', '')})\n"
+                            f"**TP1**: {sig['tp1']['price']} ({sig['tp1']['rr']}R)\n"
+                            f"**TP2**: {sig['tp2']['price']} ({sig['tp2']['rr']}R)\n"
+                            f"**TP3**: {sig['tp3']['price']} ({sig['tp3']['rr']}R)\n"
+                            f"**Why**: {sig['reason']}"
                         )
                         webhook = _alert_config.get("discord_signals_webhook", "")
                         if webhook:
                             try:
-                                import requests
-                                requests.post(webhook, json={"content": discord_msg}, timeout=3)
-                            except Exception as e: print("Discord signal alert err:", e)
-                    # ------------------------------------------------
-                    
-        # Keep only the last 100 signals in history
+                                import requests as _req
+                                _req.post(webhook, json={"content": discord_msg}, timeout=3)
+                            except Exception as e:
+                                print("Discord signal alert err:", e)
+
         if len(_global_signal_history) > 100:
             _global_signal_history = _global_signal_history[-100:]
-            
-        # Group result returned: active signals first, followed by NO_TRADE setups
-        final_list = []
-        
-        # Add active signals that match filters
+
         active_filtered = [s for s in active_signals if s["type"] in ["BUY", "SELL"]]
         no_trade_setups = [s for s in active_signals if s["type"] == "NO_TRADE"]
-        
-        # Return merged set up to max_signals limit
         res_list = (active_filtered + no_trade_setups)[:max_signals]
-            
+
         return {"success": True, "signals": res_list}
+
     except Exception as e:
         import traceback
         traceback.print_exc()
         return {"success": False, "error": str(e)}
+
 import threading
+
 import time
 
 def live_data_loop():
