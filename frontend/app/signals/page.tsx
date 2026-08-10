@@ -23,15 +23,26 @@ interface Signal {
   symbol: string;
   type: "BUY" | "SELL" | "NO_TRADE";
   entry_price: number;
+  entry_zone?: {
+    entry_low: number;
+    entry_high: number;
+    preferred: number;
+    reason: string;
+  };
   sl: number;
+  sl_reason?: string;
   tp: number;
   confidence: number;
+  grade?: string;
   reason: string;
   timestamp: string;
   timeframe?: string;
   rsi?: number;
   adx?: number;
+  regime?: string;
+  volatility?: string;
   confluence_matrix?: Record<string, { status: string; points: number; max: number }>;
+  weights_used?: Record<string, number>;
   invalidation?: number;
   reasoning?: { summary: string; pros: string[]; cons: string[] };
   tp1?: { price: number; rr: number; reason: string };
@@ -39,7 +50,9 @@ interface Signal {
   tp3?: { price: number; rr: number; reason: string };
   alignment?: Record<string, { type: "BUY" | "SELL" | "NO_TRADE"; score: number }>;
   overall_alignment?: string;
+  conflict?: { detected?: boolean; conflict?: boolean; message: string; alignment_count?: number; total_count?: number };
 }
+
 
 export default function SignalsPage() {
   const [signals, setSignals] = useState<Signal[]>([]);
@@ -434,36 +447,51 @@ export default function SignalsPage() {
             const isBuy = sig.type === "BUY";
             const isNoTrade = sig.type === "NO_TRADE";
             const score = sig.confidence;
-            
-            let grade = "B Setup";
+            const backendGrade = sig.grade ?? "";
+            const conflict = sig.conflict?.detected || sig.conflict?.conflict;
+            const conflictMsg = sig.conflict?.message ?? "";
+
+            let gradeLabel = backendGrade ? `${backendGrade} Setup` : "B Setup";
             let colorBorder = "border-zinc-850/60";
             let colorText = "text-zinc-500";
             let cardBg = "bg-[#111118]";
             let cardFilter = "";
 
-            if (isNoTrade) {
-              grade = "No Trade Setup";
-              colorBorder = "border-zinc-900/60";
-              colorText = "text-zinc-600 font-mono";
-              cardBg = "bg-[#09090c]/50";
-              cardFilter = "grayscale opacity-75 hover:opacity-90";
-            } else if (score >= 90) {
-              grade = "A+ Setup";
+            if (isNoTrade || conflict) {
+              gradeLabel = conflict ? "⚠ Conflict Suppressed" : "No Trade Setup";
+              colorBorder = conflict ? "border-red-900/40" : "border-zinc-900/60";
+              colorText = conflict ? "text-red-400 font-mono" : "text-zinc-600 font-mono";
+              cardBg = conflict ? "bg-[#130a0a]/60" : "bg-[#09090c]/50";
+              cardFilter = "opacity-80 hover:opacity-95";
+            } else if (backendGrade === "A+" || score >= 90) {
+              gradeLabel = "A+ Setup";
               colorBorder = "border-emerald-500/25 hover:border-emerald-500/50";
               colorText = "text-emerald-400";
-            } else if (score >= 80) {
-              grade = "A Setup";
+            } else if (backendGrade === "A" || score >= 80) {
+              gradeLabel = "A Setup";
               colorBorder = "border-teal-500/25 hover:border-teal-500/50";
               colorText = "text-teal-400";
-            } else if (score >= 70) {
-              grade = "B Setup";
+            } else if (backendGrade === "B" || score >= 70) {
+              gradeLabel = "B Setup";
               colorBorder = "border-blue-500/25 hover:border-blue-500/50";
               colorText = "text-blue-400";
             } else if (score >= 60) {
-              grade = "Weak Setup";
+              gradeLabel = "Weak Setup";
               colorBorder = "border-yellow-500/20 hover:border-yellow-500/40";
               colorText = "text-yellow-400";
             }
+
+            const regimeBadge: Record<string, string> = {
+              trending:  "bg-blue-500/10  text-blue-400  border-blue-500/20",
+              ranging:   "bg-amber-500/10 text-amber-400 border-amber-500/20",
+              breakout:  "bg-purple-500/10 text-purple-400 border-purple-500/20",
+            };
+            const volBadge: Record<string, string> = {
+              high:   "bg-red-500/10   text-red-400   border-red-500/20",
+              normal: "bg-zinc-800/40  text-zinc-400  border-zinc-700/30",
+              low:    "bg-zinc-900/40  text-zinc-500  border-zinc-800/20",
+            };
+
 
             return (
               <div
@@ -488,17 +516,29 @@ export default function SignalsPage() {
                       </span>
                     </h2>
                     <span className={`text-[8px] font-mono font-bold uppercase tracking-wider mt-0.5 block ${colorText}`}>
-                      {grade} · {score}/100
+                      {gradeLabel} · {score}/100
                     </span>
                   </div>
-                  <div className="text-right">
-                    <div className="text-[8px] text-zinc-550 uppercase tracking-widest mb-0.5 font-mono">
-                      TF
-                    </div>
-                    <div className="text-sm font-bold font-mono text-zinc-300">
+                  <div className="text-right flex flex-col items-end gap-1">
+                    <div className="text-sm font-bold font-mono text-zinc-300 bg-black/30 px-2 py-0.5 rounded border border-zinc-800/40">
                       {sig.timeframe || "M15"}
                     </div>
+                    {sig.regime && (
+                      <span className={`text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border font-mono ${
+                        regimeBadge[sig.regime] ?? "bg-zinc-800/40 text-zinc-400 border-zinc-700/30"
+                      }`}>
+                        {sig.regime}
+                      </span>
+                    )}
+                    {sig.volatility && sig.volatility !== "normal" && (
+                      <span className={`text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border font-mono ${
+                        volBadge[sig.volatility] ?? ""
+                      }`}>
+                        Vol:{sig.volatility}
+                      </span>
+                    )}
                   </div>
+
                 </div>
 
                 {/* Reasons Summary */}
@@ -509,35 +549,67 @@ export default function SignalsPage() {
                   </div>
                 </div>
 
+                {/* Conflict Warning Banner */}
+                {conflict && (
+                  <div className="px-3.5 py-2 bg-red-950/30 border-b border-red-900/40 flex items-start gap-2">
+                    <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0 mt-0.5" />
+                    <span className="text-[9px] text-red-300 font-mono leading-relaxed">{conflictMsg}</span>
+                  </div>
+                )}
+
                 {/* Card Body - Levels */}
                 {!isNoTrade && (
-                  <div className="p-3 grid grid-cols-3 gap-2 bg-black/15 border-b border-zinc-850/30">
-                    <div className="flex flex-col overflow-hidden font-mono text-[10px]">
-                      <span className="text-[8px] text-zinc-500 uppercase tracking-widest mb-1 flex items-center gap-1 truncate">
-                        <Crosshair className="w-3 h-3 shrink-0 text-emerald-400" /> Entry
-                      </span>
-                      <span className="text-zinc-300 truncate">
-                        {sig.entry_price.toFixed(5)}
-                      </span>
-                    </div>
-                    <div className="flex flex-col overflow-hidden font-mono text-[10px]">
-                      <span className="text-[8px] text-red-500 uppercase tracking-widest mb-1 flex items-center gap-1 truncate">
-                        <AlertTriangle className="w-3 h-3 shrink-0" /> Stop
-                      </span>
-                      <span className="text-zinc-350 truncate">
-                        {sig.sl ? sig.sl.toFixed(5) : "—"}
-                      </span>
-                    </div>
-                    <div className="flex flex-col overflow-hidden font-mono text-[10px]">
-                      <span className="text-[8px] text-emerald-500 uppercase tracking-widest mb-1 flex items-center gap-1 truncate">
-                        <ShieldCheck className="w-3 h-3 shrink-0" /> Target
-                      </span>
-                      <span className="text-zinc-350 truncate">
-                        {sig.tp ? sig.tp.toFixed(5) : "—"}
-                      </span>
+                  <div className="p-3 bg-black/15 border-b border-zinc-850/30">
+                    {/* Entry Zone */}
+                    {sig.entry_zone ? (
+                      <div className="mb-2 p-2 rounded-lg bg-black/20 border border-zinc-800/30">
+                        <div className="text-[7px] font-bold text-zinc-500 uppercase tracking-widest font-mono mb-1 flex items-center gap-1">
+                          <Crosshair className="w-3 h-3 text-emerald-400" /> Entry Zone
+                        </div>
+                        <div className="flex items-center justify-between font-mono">
+                          <span className="text-[9px] text-zinc-400">{sig.entry_zone.entry_low.toFixed(5)}</span>
+                          <div className="flex-1 mx-2 h-px bg-gradient-to-r from-zinc-700 via-emerald-500/60 to-zinc-700 relative">
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                          </div>
+                          <span className="text-[9px] text-zinc-400">{sig.entry_zone.entry_high.toFixed(5)}</span>
+                        </div>
+                        <div className="text-center text-[8px] text-emerald-400 font-bold font-mono mt-1">
+                          Preferred: {sig.entry_zone.preferred.toFixed(5)}
+                        </div>
+                        <div className="text-center text-[7px] text-zinc-600 font-mono mt-0.5">{sig.entry_zone.reason}</div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-2 mb-2">
+                        <div className="flex flex-col overflow-hidden font-mono text-[10px]">
+                          <span className="text-[8px] text-zinc-500 uppercase tracking-widest mb-1 flex items-center gap-1 truncate">
+                            <Crosshair className="w-3 h-3 shrink-0 text-emerald-400" /> Entry
+                          </span>
+                          <span className="text-zinc-300 truncate">{sig.entry_price.toFixed(5)}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* SL & TP row */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex flex-col overflow-hidden font-mono text-[10px]">
+                        <span className="text-[8px] text-red-500 uppercase tracking-widest mb-1 flex items-center gap-1 truncate">
+                          <AlertTriangle className="w-3 h-3 shrink-0" /> Stop
+                        </span>
+                        <span className="text-zinc-350 truncate">{sig.sl ? sig.sl.toFixed(5) : "—"}</span>
+                        {sig.sl_reason && (
+                          <span className="text-[7px] text-zinc-600 font-mono truncate mt-0.5">{sig.sl_reason}</span>
+                        )}
+                      </div>
+                      <div className="flex flex-col overflow-hidden font-mono text-[10px]">
+                        <span className="text-[8px] text-emerald-500 uppercase tracking-widest mb-1 flex items-center gap-1 truncate">
+                          <ShieldCheck className="w-3 h-3 shrink-0" /> Target
+                        </span>
+                        <span className="text-zinc-350 truncate">{sig.tp ? sig.tp.toFixed(5) : "—"}</span>
+                      </div>
                     </div>
                   </div>
                 )}
+
 
                 {/* Multi-Timeframe Alignment Row */}
                 {sig.alignment && (
@@ -563,15 +635,26 @@ export default function SignalsPage() {
                 {/* Confluence Matrix */}
                 {sig.confluence_matrix && (
                   <div className="px-3.5 py-2.5 border-b border-zinc-855 bg-black/10">
-                    <h4 className="text-[8px] font-bold text-zinc-550 uppercase tracking-widest mb-1.5 font-mono">Confluence Matrix</h4>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <h4 className="text-[8px] font-bold text-zinc-550 uppercase tracking-widest font-mono">Confluence Matrix</h4>
+                      {sig.regime && (
+                        <span className="text-[7px] font-mono text-zinc-600">
+                          weights: {sig.regime}
+                        </span>
+                      )}
+                    </div>
                     <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[9px] font-mono">
                       {Object.entries(sig.confluence_matrix).map(([factor, detail]: [string, any]) => {
                         const hasPoints = detail.points > 0;
+                        const pct = detail.max > 0 ? Math.round((detail.points / detail.max) * 100) : 0;
                         return (
                           <div key={factor} className="flex justify-between items-center py-0.5 border-b border-zinc-900/20">
-                            <span className="text-zinc-500">{factor}</span>
+                            <span className="text-zinc-500 flex items-center gap-1">
+                              {factor}
+                              <span className="text-[6px] text-zinc-700">/{detail.max}pt</span>
+                            </span>
                             <span className={hasPoints ? "text-emerald-450 font-bold" : "text-zinc-650"}>
-                              {hasPoints ? `🟢 ${detail.points}/${detail.max}` : `⚪ ${detail.status}`}
+                              {hasPoints ? `🟢 ${detail.points}` : `⚪ ${detail.status}`}
                             </span>
                           </div>
                         );
@@ -579,6 +662,7 @@ export default function SignalsPage() {
                     </div>
                   </div>
                 )}
+
 
                 {/* Logical Targets (TP1, TP2, TP3) */}
                 {!isNoTrade && (
