@@ -4303,6 +4303,102 @@ def delete_bot(bot_id: str):
         del active_bots[bot_id]
     return {"success": True}
 
+# --- MQL5 EA Heartbeat, Control, and Logging Storage ---
+mql5_ea_instances = {}
+mql5_ea_events = []
+
+@app.post("/api/ea/report")
+async def post_ea_report(req: dict):
+    """
+    Called by MQL5 EA every N seconds to post heartbeat, balance, equity, and live parameters.
+    """
+    magic = req.get("magic")
+    if not magic:
+        return {"success": False, "error": "Missing magic number"}
+    
+    # Store or update EA registration
+    mql5_ea_instances[str(magic)] = {
+        "last_report": req,
+        "timestamp": datetime.utcnow().isoformat(),
+        "status": req.get("status", "running")
+    }
+    return {"success": True}
+
+@app.get("/api/ea/status")
+def get_ea_status():
+    """
+    Called by Dashboard page to retrieve list of all registered MQL5 EAs.
+    """
+    results = []
+    now = datetime.utcnow()
+    for magic, ea in mql5_ea_instances.items():
+        # Auto-mark offline if no report in 30 seconds
+        last_seen = datetime.fromisoformat(ea["timestamp"])
+        elapsed = (now - last_seen).total_seconds()
+        status = ea["status"]
+        if elapsed > 30:
+            status = "offline"
+        
+        results.append({
+            "magic": int(magic),
+            "last_report": ea["last_report"],
+            "timestamp": ea["timestamp"],
+            "status": status
+        })
+    return {"success": True, "eas": results}
+
+@app.post("/api/ea/settings/{magic}")
+def post_ea_settings(magic: str, req: dict):
+    """
+    Called by Dashboard to queue settings change for the MQL5 EA.
+    """
+    if magic not in mql5_ea_instances:
+        # Register a stub instance so we can track settings
+        mql5_ea_instances[magic] = {
+            "last_report": {},
+            "timestamp": datetime.utcnow().isoformat(),
+            "status": "offline"
+        }
+    
+    mql5_ea_instances[magic]["pending_settings"] = req
+    return {"success": True}
+
+@app.get("/api/ea/settings/{magic}")
+def get_ea_settings(magic: str):
+    """
+    Called by MQL5 EA to retrieve and apply pending config changes.
+    """
+    ea = mql5_ea_instances.get(magic)
+    if not ea or "pending_settings" not in ea:
+        return {"success": True, "settings": None}
+    
+    settings = ea.pop("pending_settings")
+    return {"success": True, "settings": settings}
+
+@app.post("/api/ea/trade-event")
+def post_ea_trade_event(req: dict):
+    """
+    Called by MQL5 EA when a trade is opened, closed, or modified.
+    """
+    global mql5_ea_events
+    req["timestamp"] = datetime.utcnow().isoformat()
+    mql5_ea_events.append(req)
+    # Bounded history size
+    if len(mql5_ea_events) > 100:
+        mql5_ea_events = mql5_ea_events[-100:]
+    return {"success": True}
+
+@app.get("/api/ea/trades")
+def get_ea_trades(magic: int = None):
+    """
+    Retrieves logged trade events. Optionally filters by EA magic number.
+    """
+    if magic is not None:
+        filtered = [e for e in mql5_ea_events if e.get("magic") == magic]
+        return {"success": True, "events": filtered}
+    return {"success": True, "events": mql5_ea_events}
+
+
 async def bot_engine_loop(bot_id: str):
     """
     Background worker for executing autonomous strategies.

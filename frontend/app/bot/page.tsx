@@ -1,10 +1,11 @@
 "use client"
 import React, { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import {
   Bot, Settings, MessageSquare, Copy, BarChart3, Play, Pause,
   Plus, Trash2, Edit, Zap, TrendingUp, TrendingDown, Activity,
   Shield, AlertTriangle, CheckCircle2, Clock, Wifi, WifiOff,
-  Send, RefreshCw, Target, DollarSign, Percent, ArrowUpDown, Cpu, Circle, CheckCircle
+  Send, RefreshCw, Target, DollarSign, Percent, ArrowUpDown, Cpu, Circle, CheckCircle, Download
 } from 'lucide-react';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
@@ -269,7 +270,7 @@ function BotSettingsTab({ activeTab }: BotSettingsTabProps) {
                <CustomInput placeholder="1.0" type="number" value={risk} onChange={(e:any) => setRisk(parseFloat(e.target.value))} />
             </div>
           </div>
-<div className="mt-8 flex justify-end">
+          <div className="mt-8 flex justify-end">
             <CustomButton onClick={() => saveBot('strategy')} disabled={loading}>Compile & Deploy to Server</CustomButton>
           </div>
         </div>
@@ -333,11 +334,10 @@ function BotSettingsTab({ activeTab }: BotSettingsTabProps) {
                   <div className="text-[12px] font-medium text-[--text-primary]">{bot.riskPerTrade}% / trade</div>
                 </div>
               </div>
-
-</div>
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
+      </div>
       </>
       )}
 
@@ -473,6 +473,402 @@ function BotSettingsTab({ activeTab }: BotSettingsTabProps) {
   );
 }
 
+/* ── MQL5 Expert Advisor Management Tab ─────────────────── */
+function Mql5EaTab() {
+  const [eas, setEas] = useState<any[]>([]);
+  const [trades, setTrades] = useState<any[]>([]);
+  const [selectedMagic, setSelectedMagic] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Settings Edit Form State
+  const [editRisk, setEditRisk] = useState(1.0);
+  const [editMinScore, setEditMinScore] = useState(70);
+  const [editMinRr, setEditMinRr] = useState(1.5);
+  const [editSession, setEditSession] = useState("both");
+  const [editSignalType, setEditSignalType] = useState("all");
+  const [pushing, setPushing] = useState(false);
+
+  const BRIDGE = typeof window !== "undefined" && window.location.hostname === "localhost"
+    ? "/api/bridge"
+    : (process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge");
+
+  const loadData = async () => {
+    try {
+      const statusRes = await fetch(`${BRIDGE}/api/ea/status`, { headers: { "ngrok-skip-browser-warning": "true" } });
+      const statusData = await statusRes.json();
+      if (statusData.success) {
+        setEas(statusData.eas);
+        if (statusData.eas.length > 0 && selectedMagic === null) {
+          setSelectedMagic(statusData.eas[0].magic);
+        }
+      }
+
+      const tradesRes = await fetch(`${BRIDGE}/api/ea/trades` + (selectedMagic ? `?magic=${selectedMagic}` : ''), { headers: { "ngrok-skip-browser-warning": "true" } });
+      const tradesData = await tradesRes.json();
+      if (tradesData.success) {
+        setTrades(tradesData.events);
+      }
+    } catch (e) {
+      console.error("Failed to load MQL5 EA data", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+    const interval = setInterval(loadData, 5000);
+    return () => clearInterval(interval);
+  }, [selectedMagic]);
+
+  useEffect(() => {
+    if (selectedMagic) {
+      const activeEa = eas.find(e => e.magic === selectedMagic);
+      if (activeEa && activeEa.last_report?.settings) {
+        const s = activeEa.last_report.settings;
+        setEditRisk(s.risk ?? 1.0);
+        setEditMinScore(s.min_score ?? 70);
+        setEditMinRr(s.min_rr ?? 1.5);
+        setEditSession(s.session ?? "both");
+        setEditSignalType(s.signal_type ?? "all");
+      }
+    }
+  }, [selectedMagic, eas.length]);
+
+  const handlePushSettings = async () => {
+    if (!selectedMagic) return;
+    try {
+      setPushing(true);
+      const res = await fetch(`${BRIDGE}/api/ea/settings/${selectedMagic}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          risk: editRisk,
+          min_score: editMinScore,
+          min_rr: editMinRr,
+          session: editSession,
+          signal_type: editSignalType
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`Dynamic configuration queued for Magic #${selectedMagic}`);
+      } else {
+        toast.error("Failed to queue configuration update");
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Bridge connection failure");
+    } finally {
+      setPushing(false);
+    }
+  };
+
+  const selectedEa = eas.find(e => e.magic === selectedMagic);
+
+  return (
+    <div className="space-y-6 animate-fade-in text-[--text-primary]">
+      
+      {/* Overview stats & Active EAs Grid */}
+      <div className="flex flex-col xl:flex-row gap-6">
+        
+        {/* Left Side: EA List */}
+        <div className="xl:w-2/3 space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-sm font-bold uppercase tracking-wider font-mono text-zinc-400">
+              Active MQL5 Terminals ({eas.length})
+            </h3>
+            <button onClick={loadData} className="p-1 rounded hover:bg-zinc-800 text-zinc-400">
+              <RefreshCw className="w-3.5 h-3.5 animate-spin-slow" />
+            </button>
+          </div>
+
+          {eas.length === 0 ? (
+            <div className="p-10 border border-dashed rounded-2xl border-[--border] bg-[--bg-card] flex flex-col items-center justify-center text-center">
+              <WifiOff className="w-8 h-8 text-zinc-650 mb-3" />
+              <h4 className="text-[13px] font-bold text-zinc-300">No MQL5 Terminals Registered</h4>
+              <p className="text-[11px] text-zinc-500 max-w-sm mt-1">
+                Download the <code className="text-purple-400">AdaptiveICT_EA.mq5</code> file, configure your URL, compile, and run it on MT5 to connect.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {eas.map(ea => {
+                const report = ea.last_report || {};
+                const isOnline = ea.status === "running";
+                const isSelected = ea.magic === selectedMagic;
+                
+                return (
+                  <div
+                    key={ea.magic}
+                    onClick={() => setSelectedMagic(ea.magic)}
+                    className={`p-5 rounded-2xl border cursor-pointer transition-all hover:scale-[1.01] ${
+                      isSelected 
+                        ? "bg-[#111118] border-purple-500/40 shadow-[0_0_15px_rgba(168,85,247,0.08)]"
+                        : "bg-[--bg-card] border-[--border] hover:border-zinc-700/60"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2.5">
+                        <div className={`w-8 h-8 rounded-lg border flex items-center justify-center ${
+                          isOnline ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-red-500/10 border-red-500/20 text-red-400"
+                        }`}>
+                          <Cpu className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-bold text-white font-mono flex items-center gap-1.5">
+                            Magic #{ea.magic}
+                          </h4>
+                          <span className="text-[9px] text-zinc-500 font-mono">
+                            {report.symbol || "unknown"} · {report.name || "EA"}
+                          </span>
+                        </div>
+                      </div>
+                      <span className={`text-[8px] font-bold uppercase tracking-widest px-2 py-0.5 rounded border font-mono ${
+                        isOnline 
+                          ? "bg-emerald-950/20 text-emerald-400 border-emerald-900/30"
+                          : "bg-red-950/20 text-red-400 border-red-900/30"
+                      }`}>
+                        {isOnline ? "ONLINE" : "OFFLINE"}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 py-2.5 border-y border-zinc-800/30 font-mono text-[10px]">
+                      <div>
+                        <span className="text-[7px] text-zinc-500 uppercase tracking-widest block mb-0.5">Balance</span>
+                        <span className="text-zinc-200">${report.balance ? report.balance.toFixed(2) : "0.00"}</span>
+                      </div>
+                      <div>
+                        <span className="text-[7px] text-zinc-500 uppercase tracking-widest block mb-0.5">Equity</span>
+                        <span className="text-emerald-400 font-bold">${report.equity ? report.equity.toFixed(2) : "0.00"}</span>
+                      </div>
+                      <div>
+                        <span className="text-[7px] text-zinc-500 uppercase tracking-widest block mb-0.5">Open trades</span>
+                        <span className="text-zinc-350">{report.open_trades ?? 0}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center mt-3 text-[9px] text-zinc-550 font-mono">
+                      <span>Seen: {new Date(ea.timestamp).toLocaleTimeString()}</span>
+                      <span className="uppercase text-[8px] bg-purple-500/10 text-purple-400 px-1.5 py-0.5 rounded border border-purple-500/20 font-bold">
+                        {report.settings?.signal_type || "ALL"}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          
+          {/* Trades table log */}
+          <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-zinc-400 flex items-center gap-1.5">
+              <Activity className="w-4 h-4 text-purple-400" /> EA Execution Logs
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[11px] font-mono border-collapse">
+                <thead>
+                  <tr className="border-b border-zinc-800 text-[9px] text-zinc-500 uppercase text-left">
+                    <th className="pb-2">Time</th>
+                    <th className="pb-2">Ticket</th>
+                    <th className="pb-2">Symbol</th>
+                    <th className="pb-2">Action</th>
+                    <th className="pb-2">Type</th>
+                    <th className="pb-2 text-right">Volume</th>
+                    <th className="pb-2 text-right">Price</th>
+                    <th className="pb-2 text-right">SL / TP</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-900/40">
+                  {trades.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-8 text-center text-zinc-550">
+                        No executed trades recorded yet
+                      </td>
+                    </tr>
+                  ) : (
+                    trades.map((t, idx) => (
+                      <tr key={idx} className="hover:bg-zinc-800/10">
+                        <td className="py-2.5 text-zinc-500">{new Date(t.timestamp).toLocaleTimeString()}</td>
+                        <td className="py-2.5 text-zinc-300">#{t.ticket}</td>
+                        <td className="py-2.5 font-bold text-white">{t.symbol}</td>
+                        <td className="py-2.5">
+                          <span className={`text-[8px] px-1.5 py-0.5 rounded border ${
+                            t.action === "open" ? "bg-emerald-950/20 text-emerald-400 border-emerald-900/30" : 
+                            t.action === "close" ? "bg-red-950/20 text-red-400 border-red-900/30" : 
+                            "bg-blue-950/20 text-blue-400 border-blue-900/30"
+                          }`}>
+                            {t.action.toUpperCase()}
+                          </span>
+                        </td>
+                        <td className={`py-2.5 font-bold ${t.type === "BUY" ? "text-emerald-400" : "text-red-400"}`}>{t.type}</td>
+                        <td className="py-2.5 text-right text-zinc-350">{t.volume.toFixed(2)}</td>
+                        <td className="py-2.5 text-right text-zinc-300">{t.price.toFixed(5)}</td>
+                        <td className="py-2.5 text-right text-zinc-500">
+                          {t.sl.toFixed(5)} / {t.tp.toFixed(5)}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Side: Configuration & Dynamic parameter sync */}
+        <div className="xl:w-1/3 space-y-6">
+          
+          {selectedEa ? (
+            <div className="p-5 bg-[#111118]/80 border border-zinc-800/60 rounded-2xl shadow-xl space-y-5">
+              <div className="border-b border-zinc-800/40 pb-3 flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-white flex items-center gap-1.5">
+                  <Settings className="w-4 h-4 text-purple-400" /> EA Control Sync
+                </h3>
+                <span className="text-[9px] font-mono text-zinc-550">Magic: {selectedMagic}</span>
+              </div>
+
+              {/* Parameter Settings */}
+              <div className="space-y-4 text-xs font-mono">
+                {/* Risk */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between font-bold text-[10px]">
+                    <span className="text-zinc-500 uppercase tracking-wider">Lot Risk per Trade</span>
+                    <span className="text-purple-400">{editRisk.toFixed(1)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.2"
+                    max="5.0"
+                    step="0.1"
+                    value={editRisk}
+                    onChange={(e) => setEditRisk(parseFloat(e.target.value))}
+                    className="w-full accent-purple-500 h-1 bg-zinc-900 rounded-full appearance-none cursor-pointer mt-1"
+                  />
+                </div>
+
+                {/* Min Score */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between font-bold text-[10px]">
+                    <span className="text-zinc-500 uppercase tracking-wider">Confluence Trigger Score</span>
+                    <span className="text-purple-400">{editMinScore}/100</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="50"
+                    max="95"
+                    step="5"
+                    value={editMinScore}
+                    onChange={(e) => setEditMinScore(parseInt(e.target.value))}
+                    className="w-full accent-purple-500 h-1 bg-zinc-900 rounded-full appearance-none cursor-pointer mt-1"
+                  />
+                </div>
+
+                {/* Min RR */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Minimum Target RR</label>
+                  <select
+                    value={editMinRr}
+                    onChange={(e) => setEditMinRr(parseFloat(e.target.value))}
+                    className="w-full bg-black/45 border border-zinc-800/80 rounded-xl px-3.5 py-2 text-zinc-350 text-xs focus:outline-none focus:border-purple-500 font-mono cursor-pointer"
+                  >
+                    <option value="1.0" className="bg-zinc-950">1:1.0 Minimum</option>
+                    <option value="1.5" className="bg-zinc-950">1:1.5 Minimum</option>
+                    <option value="2.0" className="bg-zinc-950">1:2.0 Minimum</option>
+                    <option value="2.5" className="bg-zinc-950">1:2.5 Minimum</option>
+                    <option value="3.0" className="bg-zinc-950">1:3.0 Minimum</option>
+                  </select>
+                </div>
+
+                {/* Session */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Allowed Active Session</label>
+                  <select
+                    value={editSession}
+                    onChange={(e) => setEditSession(e.target.value)}
+                    className="w-full bg-black/45 border border-zinc-800/80 rounded-xl px-3.5 py-2 text-zinc-350 text-xs focus:outline-none focus:border-purple-500 font-mono cursor-pointer"
+                  >
+                    <option value="both" className="bg-zinc-950">London & New York</option>
+                    <option value="london" className="bg-zinc-950">London Only</option>
+                    <option value="ny" className="bg-zinc-950">New York Only</option>
+                    <option value="all" className="bg-zinc-950">All Times</option>
+                  </select>
+                </div>
+
+                {/* Setup Type */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Preferred Setup Type</label>
+                  <select
+                    value={editSignalType}
+                    onChange={(e) => setEditSignalType(e.target.value)}
+                    className="w-full bg-black/45 border border-zinc-800/80 rounded-xl px-3.5 py-2 text-zinc-350 text-xs focus:outline-none focus:border-purple-500 font-mono cursor-pointer"
+                  >
+                    <option value="all" className="bg-zinc-950">All Patterns</option>
+                    <option value="ict_scalper" className="bg-zinc-950">ICT Scalper Preset</option>
+                    <option value="ict_intraday" className="bg-zinc-950">ICT Intraday Preset</option>
+                    <option value="supply_demand" className="bg-zinc-950">Supply & Demand</option>
+                    <option value="momentum_breakout" className="bg-zinc-950">Momentum Breakout</option>
+                  </select>
+                </div>
+
+                <button
+                  onClick={handlePushSettings}
+                  disabled={pushing}
+                  className="w-full py-2.5 mt-2 bg-purple-500 hover:bg-purple-400 text-purple-950 font-bold uppercase tracking-wider rounded-xl transition-all shadow-[0_0_10px_rgba(168,85,247,0.15)] flex items-center justify-center gap-1.5"
+                >
+                  {pushing ? (
+                    "Pushing..."
+                  ) : (
+                    <>
+                      <Send className="w-3.5 h-3.5" /> Push Settings to EA
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="p-5 bg-zinc-950/20 border border-zinc-850/40 border-dashed rounded-2xl text-center py-10 text-zinc-550 text-xs font-mono">
+              Select an active MQL5 EA from the list to synchronize settings.
+            </div>
+          )}
+
+          {/* Download and Guide Panel */}
+          <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-4 text-xs font-mono">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-1.5 border-b border-zinc-850 pb-2">
+              <Download className="w-4 h-4 text-purple-400" /> MQL5 Compilation Guide
+            </h4>
+            
+            <div className="space-y-3 text-[11px] leading-relaxed text-zinc-400">
+              <p>
+                1. Open MetaTrader 5 and launch **MetaEditor** (F4).
+              </p>
+              <p>
+                2. Create a new Expert Advisor named <code className="text-purple-400 font-bold">AdaptiveICT_EA</code>.
+              </p>
+              <p>
+                3. Replace its contents with the generated code inside your project workspace root.
+              </p>
+              <p>
+                4. Set <code className="text-purple-400">InpBridgeURL</code> to your local server url (e.g. <code className="text-zinc-300">http://127.0.0.1:5003</code>).
+              </p>
+              <p>
+                5. Add the bridge URL to your MT5 Terminal options:
+                <br />
+                <code className="text-[10px] text-zinc-500 block bg-black/40 p-1.5 rounded mt-1 border border-zinc-800">
+                  Tools → Options → Expert Advisors → Allow WebRequest for listed URL
+                </code>
+              </p>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  );
+}
+
 /* ── Main Tab Navigation & Page ────────────────────────────── */
 export default function BotsPage() {
   const [botTab, setActiveTab] = useState('settings');
@@ -496,6 +892,7 @@ export default function BotsPage() {
       <div className="flex overflow-x-auto gap-2 pb-2 custom-scrollbar">
         {[
            { id: 'settings', icon: Settings, label: 'Cluster Config' },
+           { id: 'mql5_ea', icon: Cpu, label: 'MQL5 EAs' },
            { id: 'performance', icon: BarChart3, label: 'Analytics' },
            { id: 'ai', icon: MessageSquare, label: 'LLM Copilot' },
            { id: 'copier', icon: Copy, label: 'Trade Copier' }
@@ -518,6 +915,7 @@ export default function BotsPage() {
       {/* ── Tab Content ── */}
       <div className="mt-6">
         {(botTab === 'settings' || botTab === 'copier') && <BotSettingsTab activeTab={botTab} />}
+        {botTab === 'mql5_ea' && <Mql5EaTab />}
         
         {/* Simplified Stub Placeholders for the other tabs, since the focus was Bot Status Grid and Creation form */}
         {botTab === 'performance' && (
