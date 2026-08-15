@@ -75,3 +75,31 @@ Before beginning the optimization phases, we tested the core logic on both the 1
 *   `InpUseRSI` = **false**
 *   `InpTrailingStop` = **true**
 *   `InpTrailATRMult` = **3.5**
+
+---
+
+## 🚀 Phase 2: M15 MachineGun Optimization & Production Stabilization (August 2026)
+
+### 1. Key Code Enhancements (Production Readiness)
+*   **Resolved Scalper Tautology Bug:** Fixed a placeholder Risk-to-Reward (RR) scoring logic in `ICTScalperStrategy.mqh` where points were always awarded regardless of actual RR. The corrected system validates entry-to-invalidation distances relative to current ATR.
+*   **Added Higher-Timeframe (HTF) Filter to Scalper:** Integrated H4 bias checks using the 200 EMA (`GetHTFBias()`) to align scalps with intermediate trend structure:
+    *   **+10 pts** score bonus when matching H4 bias.
+    *   **-10 pts** score penalty when trading counter-trend (preventing dangerous entries).
+*   **Improved Session Overlap Detection:** Adjusted `Session.mqh` to correctly identify the London/NY Overlap (13:00 to 16:00 server time). Added handling inside the strategies to allow trading in high-volume overlapping windows.
+*   **Fixed Partial Exit Volume Rounding:** Modified `SinglePositionManager.mqh` to floor partial closes against `SYMBOL_VOLUME_STEP` rather than using standard decimal formatting. This prevents brokerage rejections due to invalid lot steps, and correctly updates the re-fetched volume for secondary (TP2) closes.
+*   **Added Exposure Margin Math:** Resolved a silent margin accumulation issue in `Risk/ExposureManager.mqh` to correctly track live account exposure.
+
+### 2. Multi-Timeframe Integration Matrix
+| Strategy | Signal Timeframe | Context Timeframe | Default Focus |
+| :--- | :--- | :--- | :--- |
+| **Sniper** | H1 | H4 | Swing entries, high-confluence |
+| **MachineGun** | M15 | H1 | Rapid intraday scalps, high volume |
+
+### 3. Recommended Optimization Ranges for `XAUUSD_M15_MachineGun.set`
+The preset file has been prepared with full MT5 Genetic Optimizer configurations (`||min||step||max||Y` format). Use the following parameters to sweep:
+*   `InpLiquidityLookback` (20 to 100, step 10): Sweeps structural key levels.
+*   `InpMinScore` (40 to 70, step 5): Tweaks entry sensitivity.
+*   `InpRSIBuyMax`/`InpRSISellMin`: Fine-tunes extreme overbought/oversold filtering bounds.
+*   `InpMinRR` (1.0 to 2.0, step 0.1): Matches expected risk-reward profiles for high frequency scalps.
+*   `InpTrailATRMult` (2.0 to 6.0, step 0.5): Sweeps trailing stop tightness for intraday volatility.
+

@@ -20,6 +20,7 @@ void SendTradeEvent(string action, ulong ticket, string type, double volume, dou
    
    string body = "{";
    body += "\"magic\":" + IntegerToString(InpMagic) + ",";
+   body += "\"account_id\":" + IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN)) + ",";
    body += "\"ticket\":" + IntegerToString(ticket) + ",";
    body += "\"action\":\"" + action + "\",";
    body += "\"symbol\":\"" + _Symbol + "\",";
@@ -50,6 +51,7 @@ void ReportSignalDetected(string id, string type, double entry, double sl, doubl
    string headers = "Content-Type: application/json\r\n";
    
    string body = "{";
+   body += "\"account_id\":" + IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN)) + ",";
    body += "\"id\":\"" + id + "\",";
    body += "\"symbol\":\"" + _Symbol + "\",";
    body += "\"type\":\"" + type + "\",";

@@ -201,9 +201,9 @@ public:
       string current_session = GetCurrentSession();
       bool sess_ok = false;
       if(scan_session == "all" || 
-         (scan_session == "london" && current_session == "LONDON") ||
-         (scan_session == "ny" && current_session == "NEW YORK") ||
-         (scan_session == "both" && (current_session == "LONDON" || current_session == "NEW YORK")))
+         (scan_session == "london" && (current_session == "LONDON" || current_session == "LONDON/NY OVERLAP")) ||
+         (scan_session == "ny"     && (current_session == "NEW YORK" || current_session == "LONDON/NY OVERLAP")) ||
+         (scan_session == "both"   && current_session != "ASIA" && current_session != "NONE"))
          sess_ok = true;
       if(sess_ok) score += 5.0;
 

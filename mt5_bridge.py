@@ -4434,7 +4434,8 @@ def init_db():
             score INTEGER,
             timestamp TEXT,
             session TEXT,
-            regime TEXT
+            regime TEXT,
+            account_id TEXT
         )
     """)
     c.execute("""
@@ -4445,9 +4446,28 @@ def init_db():
             old_value TEXT,
             new_value TEXT,
             status TEXT,
-            timestamp TEXT
+            timestamp TEXT,
+            account_id TEXT
         )
     """)
+    
+    # Run migrations to add columns if tables existed before
+    c.execute("PRAGMA table_info(trades)")
+    columns = [col[1] for col in c.fetchall()]
+    if "account_id" not in columns:
+        try:
+            c.execute("ALTER TABLE trades ADD COLUMN account_id TEXT")
+        except Exception as e:
+            logger.error(f"Error migrating trades table: {e}")
+            
+    c.execute("PRAGMA table_info(settings_history)")
+    columns = [col[1] for col in c.fetchall()]
+    if "account_id" not in columns:
+        try:
+            c.execute("ALTER TABLE settings_history ADD COLUMN account_id TEXT")
+        except Exception as e:
+            logger.error(f"Error migrating settings_history table: {e}")
+            
     conn.commit()
     conn.close()
 
@@ -4569,11 +4589,15 @@ def log_trade_db(req: dict):
     status = req.get("status", "Open")
     if req.get("action") == "close":
         status = "Closed"
+        
+    account_id = req.get("account_id")
+    if account_id is not None:
+        account_id = str(account_id)
     
     if row:
         c.execute("""
             UPDATE trades 
-            SET action = ?, pnl = ?, r_multiple = ?, status = ?, timestamp = ?, session = ?, regime = ?
+            SET action = ?, pnl = ?, r_multiple = ?, status = ?, timestamp = ?, session = ?, regime = ?, account_id = ?
             WHERE ticket = ?
         """, (
             req.get("action", "open"),
@@ -4583,12 +4607,13 @@ def log_trade_db(req: dict):
             timestamp,
             session,
             regime,
+            account_id,
             ticket
         ))
     else:
         c.execute("""
-            INSERT INTO trades (ticket, magic, symbol, action, type, volume, price, sl, tp, pnl, r_multiple, status, setup, score, timestamp, session, regime)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO trades (ticket, magic, symbol, action, type, volume, price, sl, tp, pnl, r_multiple, status, setup, score, timestamp, session, regime, account_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             ticket,
             req.get("magic", 0),
@@ -4606,18 +4631,19 @@ def log_trade_db(req: dict):
             req.get("score", 80),
             timestamp,
             session,
-            regime
+            regime,
+            account_id
         ))
     conn.commit()
     conn.close()
 
-def log_settings_change_db(magic: int, key: str, old_val: str, new_val: str):
+def log_settings_change_db(magic: int, key: str, old_val: str, new_val: str, account_id: str = None):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute("""
-        INSERT INTO settings_history (magic, key, old_value, new_value, status, timestamp)
-        VALUES (?, ?, ?, ?, 'Pending', ?)
-    """, (magic, key, str(old_val), str(new_val), datetime.utcnow().isoformat()))
+        INSERT INTO settings_history (magic, key, old_value, new_value, status, timestamp, account_id)
+        VALUES (?, ?, ?, ?, 'Pending', ?, ?)
+    """, (magic, key, str(old_val), str(new_val), datetime.utcnow().isoformat(), account_id))
     conn.commit()
     conn.close()
 
@@ -4946,17 +4972,26 @@ def get_news_block(symbol: str = "XAUUSD"):
     return {"success": True, "blocked": False}
 
 @app.get("/api/ea/trades")
-def get_ea_trades(magic: int = None):
+def get_ea_trades(magic: int = None, account_id: str = None):
     """
     Retrieves logged trade events from SQLite DB.
     """
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    if magic is not None:
-        c.execute("SELECT ticket, magic, symbol, action, type, volume, price, sl, tp, pnl, r_multiple, status, setup, score, timestamp, session, regime FROM trades WHERE magic = ? ORDER BY timestamp DESC LIMIT 100", (magic,))
-    else:
-        c.execute("SELECT ticket, magic, symbol, action, type, volume, price, sl, tp, pnl, r_multiple, status, setup, score, timestamp, session, regime FROM trades ORDER BY timestamp DESC LIMIT 100")
     
+    filters = []
+    params = []
+    if magic is not None:
+        filters.append("magic = ?")
+        params.append(magic)
+    if account_id is not None:
+        filters.append("account_id = ?")
+        params.append(account_id)
+        
+    filter_sql = " WHERE " + " AND ".join(filters) if filters else ""
+    query = f"SELECT ticket, magic, symbol, action, type, volume, price, sl, tp, pnl, r_multiple, status, setup, score, timestamp, session, regime, account_id FROM trades{filter_sql} ORDER BY timestamp DESC LIMIT 100"
+    
+    c.execute(query, tuple(params))
     rows = c.fetchall()
     conn.close()
     
@@ -4979,20 +5014,30 @@ def get_ea_trades(magic: int = None):
             "score": row[13],
             "timestamp": row[14],
             "session": row[15],
-            "regime": row[16]
+            "regime": row[16],
+            "account_id": row[17]
         })
     return {"success": True, "events": events}
 
 @app.get("/api/ea/analytics")
-def get_ea_analytics(magic: int = None):
+def get_ea_analytics(magic: int = None, account_id: str = None):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     
-    magic_filter = "WHERE magic = ?" if magic else "WHERE 1=1"
-    params = (magic,) if magic else ()
+    filters = []
+    params = []
+    if magic is not None:
+        filters.append("magic = ?")
+        params.append(magic)
+    if account_id is not None:
+        filters.append("account_id = ?")
+        params.append(account_id)
+        
+    filter_sql = "WHERE " + " AND ".join(filters) if filters else "WHERE 1=1"
+    query_params = tuple(params)
     
     # 1. Overall stats
-    c.execute(f"SELECT pnl, r_multiple, status FROM trades {magic_filter} AND action = 'close'", params)
+    c.execute(f"SELECT pnl, r_multiple, status FROM trades {filter_sql} AND action = 'close'", query_params)
     rows = c.fetchall()
     
     total_trades = len(rows)
@@ -5019,7 +5064,7 @@ def get_ea_analytics(magic: int = None):
     avg_r = (r_sum / total_trades) if total_trades > 0 else 0.0
     
     # 2. Grade performance
-    c.execute(f"SELECT score, status FROM trades {magic_filter} AND action = 'close'", params)
+    c.execute(f"SELECT score, status FROM trades {filter_sql} AND action = 'close'", query_params)
     score_rows = c.fetchall()
     grades = {"A+": {"total": 0, "wins": 0}, "A": {"total": 0, "wins": 0}, "B": {"total": 0, "wins": 0}, "C": {"total": 0, "wins": 0}}
     for score, status in score_rows:
@@ -5042,7 +5087,7 @@ def get_ea_analytics(magic: int = None):
         grade_perf.append({"grade": g, "total": data["total"], "win_rate": round(wr, 1)})
         
     # 3. Market Regime performance
-    c.execute(f"SELECT regime, status FROM trades {magic_filter} AND action = 'close'", params)
+    c.execute(f"SELECT regime, status FROM trades {filter_sql} AND action = 'close'", query_params)
     regime_rows = c.fetchall()
     regimes = {}
     for regime, status in regime_rows:
@@ -5060,7 +5105,7 @@ def get_ea_analytics(magic: int = None):
         regime_perf.append({"regime": r, "total": data["total"], "win_rate": round(wr, 1)})
         
     # 4. Symbol performance
-    c.execute(f"SELECT symbol, status, r_multiple FROM trades {magic_filter} AND action = 'close'", params)
+    c.execute(f"SELECT symbol, status, r_multiple FROM trades {filter_sql} AND action = 'close'", query_params)
     symbol_rows = c.fetchall()
     symbols_data = {}
     for symbol, status, r in symbol_rows:
@@ -5085,7 +5130,7 @@ def get_ea_analytics(magic: int = None):
         })
         
     # 5. Session performance
-    c.execute(f"SELECT session, status, r_multiple FROM trades {magic_filter} AND action = 'close'", params)
+    c.execute(f"SELECT session, status, r_multiple FROM trades {filter_sql} AND action = 'close'", query_params)
     session_rows = c.fetchall()
     session_data = {}
     for sess, status, r in session_rows:
@@ -5110,7 +5155,7 @@ def get_ea_analytics(magic: int = None):
         })
         
     # 6. Setup Concept performance
-    c.execute(f"SELECT setup, status FROM trades {magic_filter} AND action = 'close'", params)
+    c.execute(f"SELECT setup, status FROM trades {filter_sql} AND action = 'close'", query_params)
     setup_rows = c.fetchall()
     setup_data = {}
     for setup, status in setup_rows:
@@ -5131,7 +5176,7 @@ def get_ea_analytics(magic: int = None):
         })
 
     # 7. Get Settings change history
-    c.execute(f"SELECT id, magic, key, old_value, new_value, status, timestamp FROM settings_history {magic_filter} ORDER BY id DESC LIMIT 20", params)
+    c.execute(f"SELECT id, magic, key, old_value, new_value, status, timestamp FROM settings_history {filter_sql} ORDER BY id DESC LIMIT 20", query_params)
     history_rows = c.fetchall()
     settings_history = []
     for row in history_rows:
@@ -5166,16 +5211,6 @@ def get_ea_analytics(magic: int = None):
         "setup_perf": setup_perf,
         "settings_history": settings_history
     }
-
-@app.get("/api/ea/trades")
-def get_ea_trades(magic: int = None):
-    """
-    Retrieves logged trade events. Optionally filters by EA magic number.
-    """
-    if magic is not None:
-        filtered = [e for e in mql5_ea_events if e.get("magic") == magic]
-        return {"success": True, "events": filtered}
-    return {"success": True, "events": mql5_ea_events}
 
 
 async def bot_engine_loop(bot_id: str):

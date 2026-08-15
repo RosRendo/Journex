@@ -19,6 +19,7 @@
 #include "../../Indicators/ATR.mqh"
 #include "../../Indicators/Volume.mqh"
 #include "../../Market/Session.mqh"
+#include "../../Market/MarketRegime.mqh"
 
 //+------------------------------------------------------------------+
 //| ICT Scalper Strategy (M1/M5/M15 fast structural scalp)           |
@@ -173,17 +174,31 @@ public:
       // ── Category 3: Session & RR Validation (Max 20 pts) ──────────
       string sess = GetCurrentSession();
       bool sess_ok = (scan_session == "all" ||
-                      (scan_session == "london" && sess == "LONDON") ||
-                      (scan_session == "ny" && sess == "NEW YORK") ||
-                      (scan_session == "both" && (sess == "LONDON" || sess == "NEW YORK")));
+                      (scan_session == "london" && (sess == "LONDON" || sess == "LONDON/NY OVERLAP")) ||
+                      (scan_session == "ny" && (sess == "NEW YORK" || sess == "LONDON/NY OVERLAP")) ||
+                      (scan_session == "both" && sess != "ASIA" && sess != "NONE"));
       if(sess_ok) score += 10.0;
 
+      // RR check: only award score if SL distance is meaningful relative to expected reward
       double dist = MathAbs(candidate.entry_price - candidate.invalidation_price);
       if(dist > 0.0)
         {
-         double rr = dist * InpMinRR / dist; // placeholder: always valid if dist > 0
-         if(rr >= InpMinRR) score += 10.0;
+         // Calculate expected TP distance and verify it satisfies minimum RR
+         double atr_now = GetATR(tf, 14);
+         double min_reward = dist * InpMinRR;
+         // Score awarded if the expected reward (RR * SL dist) exceeds at least 1 ATR
+         // This prevents tiny SL setups with impractical targets from scoring
+         if(atr_now > 0 && min_reward >= atr_now * 0.5) score += 10.0;
+         else if(atr_now <= 0) score += 10.0; // Fallback: award if ATR unavailable
         }
+
+      // ── Category 4: HTF Bias Alignment (Max 10 pts bonus / -10 penalty) ─
+      string bias = GetHTFBias();
+      if(candidate.type == "BUY"  && bias == "BULLISH") score += 10.0;
+      if(candidate.type == "SELL" && bias == "BEARISH") score += 10.0;
+      // Counter-trend penalty: scalping against H4 bias is statistically dangerous
+      if(candidate.type == "BUY"  && bias == "BEARISH") score = MathMax(0.0, score - 10.0);
+      if(candidate.type == "SELL" && bias == "BULLISH") score = MathMax(0.0, score - 10.0);
 
       result.score = (int)MathRound(score);
       if(result.score >= 90) result.grade = "A+";

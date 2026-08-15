@@ -8,6 +8,7 @@
 #property version   "1.00"
 
 #include "../Core/Types.mqh"
+#include "../Core/Config.mqh"
 
 //+------------------------------------------------------------------+
 //| Validate proposed TradePlan against broker trading requirements   |

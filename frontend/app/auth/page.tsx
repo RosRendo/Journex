@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "@/lib/useSession";
+import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   TrendingUp, Mail, Lock, User, Eye, EyeOff,
-  ArrowRight, Shield, Zap, Globe,
+  ArrowRight, Shield, Zap, Globe, Github
 } from "lucide-react";
 
 /* ── Google brand SVG icon ───────────────────────────────── */
@@ -41,7 +42,7 @@ export default function AuthPage() {
     if (!res?.error) {
       router.push("/dashboard");
     } else {
-      setError("Invalid credentials. Try any email and password in demo mode.");
+      setError("Invalid credentials. Please try again.");
     }
   };
 
@@ -50,182 +51,253 @@ export default function AuthPage() {
     await signIn("google", { callbackUrl: "/dashboard" });
   };
 
+  const handleGithub = async () => {
+    setLoading(true);
+    await signIn("github", { callbackUrl: "/dashboard" });
+  };
+
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-[#030305] flex selection:bg-violet-500/30 font-sans">
       {/* ── Left hero panel (hidden on mobile) ──────────── */}
-      <div className="hidden lg:flex lg:w-1/2 bg-[#05050a] relative flex-col justify-between p-12 overflow-hidden">
-        {/* Ambient glows */}
-        <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-violet-600/15 rounded-full blur-[120px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] bg-indigo-600/10 rounded-full blur-[120px]" />
+      <div className="hidden lg:flex lg:w-1/2 bg-black relative flex-col justify-between p-12 overflow-hidden border-r border-white/5">
+        {/* Animated Ambient glows */}
+        <motion.div 
+          animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
+          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-violet-600/20 rounded-full blur-[150px]" 
+        />
+        <motion.div 
+          animate={{ scale: [1, 1.5, 1], opacity: [0.2, 0.4, 0.2] }}
+          transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+          className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-indigo-600/20 rounded-full blur-[150px]" 
+        />
+
+        {/* Grid Pattern overlay */}
+        <div 
+          className="absolute inset-0 pointer-events-none opacity-[0.03]"
+          style={{
+            backgroundImage: `linear-gradient(rgba(255, 255, 255, 1) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 1) 1px, transparent 1px)`,
+            backgroundSize: "64px 64px"
+          }}
+        />
 
         {/* Logo */}
         <div className="relative z-10 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
-            <TrendingUp className="w-5 h-5 text-foreground" />
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-[0_0_30px_rgba(139,92,246,0.3)]">
+            <TrendingUp className="w-6 h-6 text-white" />
           </div>
-          <span className="text-xl font-bold text-foreground tracking-tight">Journex</span>
+          <span className="text-2xl font-bold text-white tracking-tight">Journex Pro</span>
         </div>
 
         {/* Central content */}
-        <div className="relative z-10 space-y-6">
-          <h2 className="text-4xl font-bold text-foreground leading-tight">
-            Professional<br />
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.2 }}
+          className="relative z-10 space-y-8"
+        >
+          <h2 className="text-5xl font-extrabold text-white leading-[1.1] tracking-tighter">
+            Elevate your<br />
             <span className="bg-gradient-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent">
-              Forex Trading Dashboard
+              Trading Execution
             </span>
           </h2>
-          <p className="text-muted-foreground text-base leading-relaxed">
-            Real-time MT5 integration, live signals, news alerts, sentiment analysis, and backtesting — all in one place.
+          <p className="text-gray-400 text-lg leading-relaxed max-w-md font-light">
+            Connect your MetaTrader 5, analyze live market sentiment, and backtest without limits using our institutional-grade infrastructure.
           </p>
-          <div className="space-y-3">
+          <div className="space-y-4">
             {[
-              { Icon: Zap, text: "Live MT5 bridge — real prices & positions" },
-              { Icon: Globe, text: "Multi-source news with Discord & Telegram alerts" },
-              { Icon: Shield, text: "Advanced risk calculator & trade confirmed checklist" },
-            ].map(({ Icon, text }) => (
-              <div key={text} className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
-                  <Icon className="w-4 h-4 text-violet-400" />
+              { Icon: Zap, text: "Zero-latency live MT5 bridge" },
+              { Icon: Globe, text: "Real-time macroeconomic AI sentiment" },
+              { Icon: Shield, text: "Advanced risk modeling & dynamic scaling" },
+            ].map(({ Icon, text }, i) => (
+              <motion.div 
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.5, delay: 0.4 + i * 0.1 }}
+                key={text} 
+                className="flex items-center gap-4"
+              >
+                <div className="w-10 h-10 rounded-xl bg-white/[0.03] border border-white/5 flex items-center justify-center shrink-0 shadow-inner">
+                  <Icon className="w-5 h-5 text-violet-400" />
                 </div>
-                <span className="text-sm text-muted-foreground">{text}</span>
-              </div>
+                <span className="text-sm font-medium text-gray-300">{text}</span>
+              </motion.div>
             ))}
           </div>
-        </div>
+        </motion.div>
 
         {/* Quote */}
-        <div className="relative z-10 border border-border bg-white/3 rounded-2xl p-5">
-          <p className="text-muted-foreground text-sm italic leading-relaxed">
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 1, delay: 1 }}
+          className="relative z-10 border border-white/10 bg-white/[0.02] backdrop-blur-md rounded-2xl p-6"
+        >
+          <p className="text-gray-400 text-sm italic leading-relaxed mb-3">
             "The goal of a successful trader is to make the best trades. Money is secondary."
           </p>
-          <p className="text-gray-600 text-xs mt-2">— Alexander Elder</p>
-        </div>
+          <p className="text-gray-500 text-xs font-semibold tracking-wider uppercase">— Alexander Elder</p>
+        </motion.div>
       </div>
 
       {/* ── Right form panel ─────────────────────────────── */}
-      <div className="flex-1 flex items-center justify-center p-6">
-        <div className="w-full max-w-md">
+      <div className="flex-1 flex items-center justify-center p-6 relative">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none lg:hidden">
+           <div className="absolute top-[-10%] left-[-10%] w-[300px] h-[300px] bg-violet-600/20 rounded-full blur-[100px]" />
+        </div>
+
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="w-full max-w-md relative z-10 bg-white/[0.02] lg:bg-transparent border lg:border-none border-white/5 p-8 lg:p-0 rounded-3xl backdrop-blur-xl lg:backdrop-blur-none"
+        >
           {/* Mobile logo */}
-          <div className="flex lg:hidden items-center gap-2 mb-8">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
-              <TrendingUp className="w-4 h-4 text-foreground" />
+          <div className="flex lg:hidden items-center gap-3 mb-10">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
+              <TrendingUp className="w-5 h-5 text-white" />
             </div>
-            <span className="text-lg font-bold text-foreground">Journex</span>
+            <span className="text-xl font-bold text-white tracking-tight">Journex Pro</span>
           </div>
 
-          <h1 className="text-2xl font-bold text-foreground mb-1">
-            {mode === "login" ? "Welcome back" : "Create account"}
-          </h1>
-          <p className="text-sm text-muted-foreground mb-7">
-            {mode === "login" ? "Sign in to your trading dashboard" : "Start your professional trading journey"}
-          </p>
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">
+              {mode === "login" ? "Welcome back" : "Create account"}
+            </h1>
+            <p className="text-sm text-gray-400">
+              {mode === "login" ? "Enter your credentials to access your terminal" : "Start your professional trading journey today"}
+            </p>
+          </div>
 
-          {/* Google OAuth */}
-          <button
-            onClick={handleGoogle}
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-3 h-11 rounded-xl border border-border bg-card hover:bg-accent transition-colors text-sm font-medium text-foreground mb-4 shadow-sm"
-          >
-            <GoogleIcon />
-            Continue with Google
-          </button>
+          {/* Social Auth */}
+          <div className="grid grid-cols-2 gap-3 mb-6">
+            <button
+              onClick={handleGoogle}
+              disabled={loading}
+              className="flex items-center justify-center gap-2 h-11 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.05] transition-all text-sm font-medium text-white disabled:opacity-50"
+            >
+              <GoogleIcon />
+              Google
+            </button>
+            <button
+              onClick={handleGithub}
+              disabled={loading}
+              className="flex items-center justify-center gap-2 h-11 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.05] transition-all text-sm font-medium text-white disabled:opacity-50"
+            >
+              <Github className="w-5 h-5" />
+              GitHub
+            </button>
+          </div>
 
           {/* Divider */}
-          <div className="flex items-center gap-3 my-5">
-            <div className="flex-1 h-px bg-border" />
-            <span className="text-xs text-muted-foreground">or with email</span>
-            <div className="flex-1 h-px bg-border" />
+          <div className="flex items-center gap-4 my-6">
+            <div className="flex-1 h-px bg-white/10" />
+            <span className="text-xs text-gray-500 uppercase tracking-widest font-semibold">or continue with</span>
+            <div className="flex-1 h-px bg-white/10" />
           </div>
 
           {/* Tab toggle */}
-          <div className="flex p-1 bg-muted rounded-xl mb-5">
+          <div className="flex p-1 bg-white/[0.03] border border-white/5 rounded-xl mb-6 relative">
+            <motion.div
+              className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white/10 rounded-lg shadow-sm"
+              animate={{ left: mode === "login" ? 4 : "50%" }}
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+            />
             {(["login", "register"] as const).map(m => (
               <button key={m} onClick={() => { setMode(m); setError(null); }}
-                className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all capitalize
-                  ${mode === m ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+                className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-colors capitalize relative z-10
+                  ${mode === m ? "text-white" : "text-gray-400 hover:text-white"}`}>
                 {m}
               </button>
             ))}
           </div>
 
           <form onSubmit={handleCredentials} className="space-y-4">
-            {mode === "register" && (
-              <div>
-                <label className="text-xs text-muted-foreground mb-1.5 block font-medium">Full Name</label>
-                <div className="relative">
-                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <input value={name} onChange={e => setName(e.target.value)}
-                    placeholder="Your name" required
-                    className="w-full h-11 pl-10 pr-4 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-500/60 transition" />
-                </div>
-              </div>
-            )}
+            <AnimatePresence mode="popLayout">
+              {mode === "register" && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <label className="text-xs text-gray-400 mb-1.5 block font-medium ml-1">Full Name</label>
+                  <div className="relative group">
+                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within:text-violet-400 transition-colors" />
+                    <input value={name} onChange={e => setName(e.target.value)}
+                      placeholder="John Doe" required
+                      className="w-full h-12 pl-10 pr-4 rounded-xl border border-white/10 bg-white/[0.02] text-white text-sm focus:outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500 transition-all placeholder:text-gray-600" />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <div>
-              <label className="text-xs text-muted-foreground mb-1.5 block font-medium">Email address</label>
-              <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <label className="text-xs text-gray-400 mb-1.5 block font-medium ml-1">Email address</label>
+              <div className="relative group">
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within:text-violet-400 transition-colors" />
                 <input type="email" value={email} onChange={e => setEmail(e.target.value)}
                   placeholder="trader@example.com" required
-                  className="w-full h-11 pl-10 pr-4 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-500/60 transition" />
+                  className="w-full h-12 pl-10 pr-4 rounded-xl border border-white/10 bg-white/[0.02] text-white text-sm focus:outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500 transition-all placeholder:text-gray-600" />
               </div>
             </div>
+            
             <div>
-              <label className="text-xs text-muted-foreground mb-1.5 block font-medium">Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <label className="text-xs text-gray-400 mb-1.5 block font-medium ml-1">Password</label>
+              <div className="relative group">
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within:text-violet-400 transition-colors" />
                 <input type={showPass ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)}
                   placeholder="••••••••" required minLength={6}
-                  className="w-full h-11 pl-10 pr-11 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-500/60 transition" />
+                  className="w-full h-12 pl-10 pr-11 rounded-xl border border-white/10 bg-white/[0.02] text-white text-sm focus:outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500 transition-all placeholder:text-gray-600" />
                 <button type="button" onClick={() => setShowPass(!showPass)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition">
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors">
                   {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
 
             {error && (
-              <div className="text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 font-medium"
+              >
                 {error}
-              </div>
+              </motion.div>
             )}
 
             {mode === "login" && (
-              <div className="flex justify-end">
-                <button type="button" className="text-xs text-violet-500 hover:text-violet-400 transition">
+              <div className="flex justify-end pt-1">
+                <button type="button" className="text-xs text-gray-400 hover:text-violet-400 transition-colors font-medium">
                   Forgot password?
                 </button>
               </div>
             )}
 
             <button type="submit" disabled={loading}
-              className="w-full h-11 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-foreground text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-lg shadow-violet-500/20 disabled:opacity-60">
+              className="w-full h-12 mt-2 rounded-xl bg-white hover:bg-gray-200 text-black text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(255,255,255,0.15)] hover:shadow-[0_0_25px_rgba(255,255,255,0.25)] disabled:opacity-60 relative overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-black/5 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
               {loading ? (
-                <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                <svg className="animate-spin w-5 h-5 text-black" viewBox="0 0 24 24" fill="none">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
               ) : (
                 <>
                   {mode === "login" ? "Sign In" : "Create Account"}
-                  <ArrowRight className="w-4 h-4" />
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </>
               )}
             </button>
           </form>
 
-          <div className="mt-6 flex flex-col gap-2 items-center">
-            <p className="text-xs text-muted-foreground">
-              Demo: use <code className="bg-muted px-1 py-0.5 rounded text-[10px]">any@email.com</code> + any password
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {mode === "login" ? "Don't have an account? " : "Already have an account? "}
-              <button onClick={() => setMode(mode === "login" ? "register" : "login")}
-                className="text-violet-500 hover:text-violet-400 font-medium transition">
-                {mode === "login" ? "Register" : "Sign in"}
-              </button>
+          <div className="mt-8 pt-6 border-t border-white/5 text-center">
+            <p className="text-xs text-gray-500 font-medium">
+              Demo access: <code className="bg-white/5 px-1.5 py-0.5 rounded text-[10px] text-gray-300">any@email.com</code> + any password
             </p>
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

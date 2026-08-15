@@ -81,6 +81,7 @@ void SendHeartbeatReport()
    
    string body = "{";
    body += "\"magic\":" + IntegerToString(InpMagic) + ",";
+   body += "\"account_id\":" + IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN)) + ",";
    body += "\"name\":\"" + MQLInfoString(MQL_PROGRAM_NAME) + "\",";
    body += "\"symbol\":\"" + _Symbol + "\",";
    body += "\"status\":\"" + ea_status + "\",";

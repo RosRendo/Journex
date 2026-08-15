@@ -10,7 +10,7 @@
 //+------------------------------------------------------------------+
 //| Check SMT Intermarket Divergence against correlated symbol        |
 //+------------------------------------------------------------------+
-bool CheckSMT(ENUM_TIMEFRAMES tf, string smt_symbol)
+bool CheckSMT(ENUM_TIMEFRAMES tf, string target_smt_symbol)
   {
    MqlRates rates_main[];
    MqlRates rates_smt[];
@@ -18,7 +18,7 @@ bool CheckSMT(ENUM_TIMEFRAMES tf, string smt_symbol)
    ArraySetAsSeries(rates_smt, true);
    
    int copied_main = CopyRates(_Symbol, tf, 0, 10, rates_main);
-   int copied_smt = CopyRates(smt_symbol, tf, 0, 10, rates_smt);
+   int copied_smt = CopyRates(target_smt_symbol, tf, 0, 10, rates_smt);
    if(copied_main < 10 || copied_smt < 10) return false;
    
    double low_main_curr = rates_main[0].low;

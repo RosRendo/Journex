@@ -19,7 +19,7 @@ void ExecuteEmergencyClose();
 void PollRemoteSettings()
   {
    if(MQLInfoInteger(MQL_TESTER) || MQLInfoInteger(MQL_OPTIMIZATION)) return;
-   string url = InpBridgeURL + "/api/ea/settings/" + IntegerToString(InpMagic);
+   string url = InpBridgeURL + "/api/ea/settings/" + IntegerToString(InpMagic) + "/" + IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN));
    string headers = "Content-Type: application/json\r\n";
    
    char post_data[];

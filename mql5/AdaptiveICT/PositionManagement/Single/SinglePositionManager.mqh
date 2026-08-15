@@ -172,8 +172,9 @@ public:
                bool trigger_tp1 = (is_buy && current_price >= tp1_val) || (!is_buy && current_price <= tp1_val);
                if(trigger_tp1)
                  {
-                  double close_vol = NormalizeDouble(volume * 0.33, 2);
-                  if(close_vol >= lot_min && trade.PositionClosePartial(ticket, close_vol))
+                   double close_vol = MathFloor(volume * 0.33 / lot_min) * lot_min;
+                   close_vol = NormalizeDouble(close_vol, 2);
+                   if(close_vol >= lot_min && trade.PositionClosePartial(ticket, close_vol))
                     {
                      Print("TP1 Partial Close (33%): ticket ", ticket, " | closed ", close_vol, " lots at ", current_price);
                      SendTradeEvent("modify", ticket, dir, volume - close_vol, current_price, current_sl, tp1_val, 100, "TP1");
@@ -199,8 +200,10 @@ public:
                bool trigger_tp2 = (is_buy && current_price >= tp2_val) || (!is_buy && current_price <= tp2_val);
                if(trigger_tp2)
                  {
-                  double close_vol = NormalizeDouble(volume * 0.5, 2);
-                  if(close_vol >= lot_min && trade.PositionClosePartial(ticket, close_vol))
+                   double remaining_vol = PositionGetDouble(POSITION_VOLUME); // Re-fetch remaining after TP1
+                   double close_vol = MathFloor(remaining_vol * 0.5 / lot_min) * lot_min;
+                   close_vol = NormalizeDouble(close_vol, 2);
+                   if(close_vol >= lot_min && trade.PositionClosePartial(ticket, close_vol))
                     {
                      Print("TP2 Partial Close (50%): ticket ", ticket, " | closed ", close_vol, " lots at ", current_price);
                      SendTradeEvent("modify", ticket, dir, volume - close_vol, current_price, current_sl, tp2_val, 100, "TP2");
