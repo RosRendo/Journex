@@ -5,6 +5,7 @@ import { signOut, useSession } from "@/lib/useSession";
 import { User, DollarSign, ShieldAlert, LogOut, Settings2, MonitorSmartphone, BellRing, Key, Palette, Save, Server, CheckCircle2, XCircle, Loader2, RefreshCw, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import ApiKeysSettings from "@/components/terminal/ApiKeysSettings";
 
 export default function EnvironmentSettings() {
   const { data: session } = useSession();
@@ -22,6 +23,7 @@ export default function EnvironmentSettings() {
   const [aiProvider, setAiProvider] = useState("openai");
   const [aiKey, setAiKey] = useState("");
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
+  const [apiKeysOpen, setApiKeysOpen] = useState(false);
   
   // Diagnostics state
   const [diagRunning, setDiagRunning] = useState(false);
@@ -322,10 +324,10 @@ export default function EnvironmentSettings() {
                      <div className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-zinc-800 bg-black/15">
                        <Key className="w-4 h-4 text-zinc-600" />
                        <div>
-                         <p className="text-[11px] font-bold text-white">API Key Provisioning</p>
-                         <p className="text-[8px] font-mono text-zinc-650 mt-0.5">AUTH_TK_*** HIDDEN</p>
+                         <p className="text-[11px] font-bold text-white">External Data Sources</p>
+                         <p className="text-[8px] font-mono text-zinc-650 mt-0.5">Marketaux, NewsAPI, TradingEconomics, MyFXBook</p>
                        </div>
-                       <button className="ml-auto text-[10px] font-bold text-emerald-405 uppercase tracking-wider">Rotate Key</button>
+                       <button onClick={() => setApiKeysOpen(true)} className="ml-auto text-[10px] font-bold text-emerald-405 uppercase tracking-wider">Configure Keys</button>
                      </div>
                   </div>
 
@@ -367,6 +369,7 @@ export default function EnvironmentSettings() {
 
         </div>
       </div>
+      <ApiKeysSettings open={apiKeysOpen} onOpenChange={setApiKeysOpen} />
     </div>
   );
 }

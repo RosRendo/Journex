@@ -11,9 +11,7 @@ import {
   AlertTriangle,
   Clock,
   ShieldCheck,
-  Zap,
-  Bell,
-  BellOff
+  Zap
 } from "lucide-react";
 import OrderTicket from "@/components/terminal/OrderTicket";
 import { toast } from "sonner";
@@ -78,8 +76,6 @@ export default function SignalsPage() {
   const [orderSl, setOrderSl] = useState("");
   const [orderTp, setOrderTp] = useState("");
 
-  // Global Alerts State
-  const [alertsPaused, setAlertsPaused] = useState(true);
 
   const applyPreset = (preset: "ict_scalper" | "ict_intraday" | "supply_demand" | "momentum_breakout" | "custom") => {
     setTradingStyle(preset);
@@ -110,27 +106,6 @@ export default function SignalsPage() {
     }
   };
 
-  const fetchAlertStatus = async () => {
-    try {
-      const res = await api.get("/terminal/alert-config");
-      if (res.data) setAlertsPaused(res.data.alerts_paused);
-    } catch (e) {
-      console.error("Failed to load alert config", e);
-    }
-  };
-
-  const toggleAlerts = async () => {
-    try {
-      const newStatus = !alertsPaused;
-      setAlertsPaused(newStatus); // optimistic update
-      await api.post("/terminal/alert-config", { alerts_paused: newStatus });
-      toast.success(newStatus ? "Alerts paused" : "Alerts activated");
-    } catch (e) {
-      console.error("Failed to toggle alerts", e);
-      setAlertsPaused(!alertsPaused); // revert on failure
-      toast.error("Failed to update alert state");
-    }
-  };
 
   const fetchSignals = async (customParams?: any) => {
     try {
@@ -175,7 +150,6 @@ export default function SignalsPage() {
 
   useEffect(() => {
     fetchSignals();
-    fetchAlertStatus();
     const interval = setInterval(() => {
       fetchSignals();
     }, 10000); // 10 second polling
@@ -210,21 +184,7 @@ export default function SignalsPage() {
         </div>
         
         <div className="flex items-center gap-3 flex-wrap">
-          <button
-            onClick={toggleAlerts}
-            className={`flex items-center gap-1.5 text-[10px] font-bold font-mono uppercase tracking-wider px-3 py-1.5 rounded-lg border transition-all ${
-              alertsPaused 
-                ? "bg-black/40 border-zinc-800 text-zinc-500 hover:text-zinc-350"
-                : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20"
-            }`}
-          >
-            {alertsPaused ? (
-              <><BellOff className="w-3.5 h-3.5" /> Alerts Paused</>
-            ) : (
-              <><Bell className="w-3.5 h-3.5" /> Alerts Active</>
-            )}
-          </button>
-          
+
           <div className="flex items-center gap-1.5 text-[10px] font-bold font-mono text-zinc-500 bg-black/40 px-3 py-1.5 rounded-lg border border-zinc-800/40">
             <Clock className="w-3 h-3 text-emerald-500" />
             Scan: {lastUpdated.toLocaleTimeString()}

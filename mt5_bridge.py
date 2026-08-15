@@ -79,7 +79,20 @@ _alert_config: dict = {
     "telegram_thread_alerts":   TELEGRAM_THREAD_ALERTS,
     "telegram_thread_news":     TELEGRAM_THREAD_NEWS,
     "telegram_thread_calendar": TELEGRAM_THREAD_CALENDAR,
+    "news_paused":              False,
+    "calendar_paused":          False,
+    "signals_paused":           False,
+    "executions_paused":        False,
+    "custom_paused":            False,
 }
+
+_ALERT_CONFIG_FILE = "alert_config.json"
+if os.path.exists(_ALERT_CONFIG_FILE):
+    try:
+        with open(_ALERT_CONFIG_FILE, "r") as f:
+            _alert_config.update(json.load(f))
+    except Exception as e:
+        print("[bridge] Failed to load alert_config.json:", e)
 
 # ─── Multi-user MT5 Credentials ───────────────────────────────────────────────
 CREDENTIALS_FILE = "user_mt5_credentials.json"
@@ -477,36 +490,51 @@ class TradeRequest(BaseModel):
     comment: Optional[str] = "Journex Risk Calc"
 
 # ─── Notification Helpers (Discord Webhook + Telegram) ───────────────────────
-async def discord_webhook_embed(webhook_url: str, embeds: list, bypass_pause: bool = False):
+async def discord_webhook_embed(webhook_url: str, embeds: list, bypass_pause: bool = False, category: str = None):
     """Post embeds to a Discord channel via Webhook URL (no bot token needed)."""
     if not webhook_url:
-        return
-    if not bypass_pause and _alert_config.get("alerts_paused", True):
-        return
+        return False, "No webhook configured"
+    if not bypass_pause:
+        if _alert_config.get("alerts_paused", True):
+            return False, "Global alerts paused"
+        if category and _alert_config.get(f"{category}_paused", False):
+            return False, f"{category} alerts paused"
     async with aiohttp.ClientSession() as session:
         async with session.post(webhook_url, json={"embeds": embeds}) as resp:
             if resp.status not in (200, 201, 204):
                 text = await resp.text()
                 print(f"[discord] Webhook failed {resp.status}: {text[:200]}")
+                return False, f"API {resp.status}: {text[:100]}"
+            return True, None
 
-async def discord_webhook_text(webhook_url: str, content: str, bypass_pause: bool = False):
+async def discord_webhook_text(webhook_url: str, content: str, bypass_pause: bool = False, category: str = None):
     """Post a plain text message to a Discord channel via Webhook URL."""
     if not webhook_url:
-        return
-    if not bypass_pause and _alert_config.get("alerts_paused", True):
-        return
+        return False, "No webhook configured"
+    if not bypass_pause:
+        if _alert_config.get("alerts_paused", True):
+            return False, "Global alerts paused"
+        if category and _alert_config.get(f"{category}_paused", False):
+            return False, f"{category} alerts paused"
     async with aiohttp.ClientSession() as session:
         async with session.post(webhook_url, json={"content": content[:2000]}) as resp:
             if resp.status not in (200, 201, 204):
                 text = await resp.text()
                 print(f"[discord] Webhook text failed {resp.status}: {text[:200]}")
+                return False, f"API {resp.status}: {text[:100]}"
+            return True, None
 
-async def telegram_send(bot_token: str, chat_id: str, text: str, parse_mode: str = "HTML", message_thread_id: str = None, bypass_pause: bool = False):
+async def telegram_send(bot_token: str, chat_id: str, text: str, parse_mode: str = "HTML", message_thread_id: str = None, bypass_pause: bool = False, category: str = None):
     """Send a message via Telegram Bot API."""
     if not bot_token or not chat_id:
-        return
-    if not bypass_pause and _alert_config.get("alerts_paused", True):
-        return
+        return False, "Bot token or Chat ID missing"
+    if not bypass_pause:
+        if _alert_config.get("alerts_paused", True):
+            return False, "Global alerts paused"
+        if category and _alert_config.get(f"{category}_paused", False):
+            return False, f"{category} alerts paused"
+    bot_token = bot_token.strip()
+    chat_id = chat_id.strip()
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
     payload = {
         "chat_id": chat_id,
@@ -522,29 +550,51 @@ async def telegram_send(bot_token: str, chat_id: str, text: str, parse_mode: str
             if resp.status != 200:
                 body = await resp.text()
                 print(f"[telegram] Send failed {resp.status}: {body[:200]}")
+                return False, f"API {resp.status}: {body[:100]}"
+            return True, None
 
 class AlertConfigModel(BaseModel):
     discord_news_webhook:     Optional[str] = None
     discord_calendar_webhook: Optional[str] = None
+    discord_signals_webhook:  Optional[str] = None
+    discord_alerts_webhook:   Optional[str] = None
     telegram_bot_token:       Optional[str] = None
+    telegram_chat_id:         Optional[str] = None
     telegram_news_chat_id:    Optional[str] = None
     telegram_cal_chat_id:     Optional[str] = None
+    telegram_thread_news:     Optional[str] = None
+    telegram_thread_calendar: Optional[str] = None
+    telegram_thread_signals:  Optional[str] = None
+    telegram_thread_alerts:   Optional[str] = None
     alerts_paused:            Optional[bool] = None
+    news_paused:              Optional[bool] = None
+    calendar_paused:          Optional[bool] = None
+    signals_paused:           Optional[bool] = None
+    custom_paused:            Optional[bool] = None
+    executions_paused:        Optional[bool] = None
 
 @app.get("/api/alert-config")
 def get_alert_config():
-    """Return current alert configuration (hides middle of tokens for security)."""
-    def mask(s: str) -> str:
-        if not s or len(s) < 12:
-            return s
-        return s[:8] + "..." + s[-6:]
+    """Return current alert configuration."""
     return {
         "discord_news_webhook":     _alert_config.get("discord_news_webhook", ""),
         "discord_calendar_webhook": _alert_config.get("discord_calendar_webhook", ""),
-        "telegram_bot_token":       mask(_alert_config.get("telegram_bot_token", "")),
-        "telegram_news_chat_id":    _alert_config.get("telegram_news_chat_id", ""),
-        "telegram_cal_chat_id":     _alert_config.get("telegram_cal_chat_id", ""),
+        "discord_signals_webhook":  _alert_config.get("discord_signals_webhook", ""),
+        "discord_alerts_webhook":   _alert_config.get("discord_alerts_webhook", ""),
+        "telegram_bot_token":       _alert_config.get("telegram_bot_token", ""),
+        "telegram_chat_id":         _alert_config.get("telegram_chat_id", "") or _alert_config.get("telegram_news_chat_id", ""),
+        "telegram_news_chat_id":    _alert_config.get("telegram_chat_news", "") or _alert_config.get("telegram_news_chat_id", ""),
+        "telegram_cal_chat_id":     _alert_config.get("telegram_chat_calendar", "") or _alert_config.get("telegram_cal_chat_id", ""),
+        "telegram_thread_news":     _alert_config.get("telegram_thread_news", ""),
+        "telegram_thread_calendar": _alert_config.get("telegram_thread_calendar", ""),
+        "telegram_thread_signals":  _alert_config.get("telegram_thread_signals", ""),
+        "telegram_thread_alerts":   _alert_config.get("telegram_thread_alerts", ""),
         "alerts_paused":            _alert_config.get("alerts_paused", True),
+        "news_paused":              _alert_config.get("news_paused", False),
+        "calendar_paused":          _alert_config.get("calendar_paused", False),
+        "signals_paused":           _alert_config.get("signals_paused", False),
+        "custom_paused":            _alert_config.get("custom_paused", False),
+        "executions_paused":        _alert_config.get("executions_paused", False),
     }
 
 @app.post("/api/alert-config")
@@ -555,45 +605,92 @@ def set_alert_config(req: AlertConfigModel):
         _alert_config["discord_news_webhook"] = req.discord_news_webhook
     if req.discord_calendar_webhook is not None:
         _alert_config["discord_calendar_webhook"] = req.discord_calendar_webhook
+    if req.discord_signals_webhook is not None:
+        _alert_config["discord_signals_webhook"] = req.discord_signals_webhook
+    if req.discord_alerts_webhook is not None:
+        _alert_config["discord_alerts_webhook"] = req.discord_alerts_webhook
     if req.telegram_bot_token is not None:
         _alert_config["telegram_bot_token"] = req.telegram_bot_token
+    if req.telegram_chat_id is not None:
+        _alert_config["telegram_chat_id"] = req.telegram_chat_id
+        _alert_config["telegram_chat_news"] = req.telegram_chat_id
+        _alert_config["telegram_chat_calendar"] = req.telegram_chat_id
+        _alert_config["telegram_chat_alerts"] = req.telegram_chat_id
+        _alert_config["telegram_chat_signals"] = req.telegram_chat_id
     if req.telegram_news_chat_id is not None:
         _alert_config["telegram_news_chat_id"] = req.telegram_news_chat_id
+        _alert_config["telegram_chat_news"] = req.telegram_news_chat_id
     if req.telegram_cal_chat_id is not None:
         _alert_config["telegram_cal_chat_id"] = req.telegram_cal_chat_id
+        _alert_config["telegram_chat_calendar"] = req.telegram_cal_chat_id
+    if req.telegram_thread_news is not None:
+        _alert_config["telegram_thread_news"] = req.telegram_thread_news
+    if req.telegram_thread_calendar is not None:
+        _alert_config["telegram_thread_calendar"] = req.telegram_thread_calendar
+    if req.telegram_thread_signals is not None:
+        _alert_config["telegram_thread_signals"] = req.telegram_thread_signals
+    if req.telegram_thread_alerts is not None:
+        _alert_config["telegram_thread_alerts"] = req.telegram_thread_alerts
     if req.alerts_paused is not None:
         _alert_config["alerts_paused"] = req.alerts_paused
+    if req.news_paused is not None:
+        _alert_config["news_paused"] = req.news_paused
+    if req.calendar_paused is not None:
+        _alert_config["calendar_paused"] = req.calendar_paused
+    if req.signals_paused is not None:
+        _alert_config["signals_paused"] = req.signals_paused
+    if req.custom_paused is not None:
+        _alert_config["custom_paused"] = req.custom_paused
+    if req.executions_paused is not None:
+        _alert_config["executions_paused"] = req.executions_paused
+    
+    try:
+        with open(_ALERT_CONFIG_FILE, "w") as f:
+            json.dump(_alert_config, f, indent=2)
+    except Exception as e:
+        print("[bridge] Failed to save alert_config.json:", e)
+        
     return {"success": True, "message": "Alert config updated"}
 
 @app.post("/api/alert-config/test")
 async def test_alert(type: str = "news"):
     """Send a test notification to verify webhook/bot setup."""
-    is_cal = type == "calendar"
-    chan_key = "calendar" if is_cal else "news"
+    chan_key = "news"
+    display = "📰 News"
+    if type == "calendar":
+        chan_key = "calendar"
+        display = "📅 Calendar"
+    elif type == "signals":
+        chan_key = "signals"
+        display = "⚡ Scanner Signals"
+    elif type == "executions":
+        chan_key = "alerts"
+        display = "🎯 Trade Executions"
+
     webhook = _alert_config.get(f"discord_{chan_key}_webhook", "")
     tg_token = _alert_config.get("telegram_bot_token", "")
-    # Resolve Telegram target: Mode A (dedicated channel) or Mode B (group + thread)
-    tg_chat = (
-        _alert_config.get(f"telegram_chat_{chan_key}", "") or
-        _alert_config.get("telegram_chat_id", "")
-    )
+    
+    # Resolve Telegram target
+    tg_chat = _alert_config.get("telegram_chat_id", "") or _alert_config.get(f"telegram_chat_{chan_key}", "") or _alert_config.get("telegram_news_chat_id", "")
     tg_thread = _alert_config.get(f"telegram_thread_{chan_key}", "")
 
     sent = []
     embed = {
-        "title": "✅ Journex Alert Test",
-        "description": f"{'📅 Calendar' if is_cal else '📰 News'} channel is connected and working!",
+        "title": "🟢 Journex Alert Test",
+        "description": f"{display} channel is connected and working!",
         "color": 0x22c55e,
-        "footer": {"text": "Journex • Test Message"},
+        "footer": {"text": "Journex ⚡ Test Message"},
     }
     if webhook:
-        await discord_webhook_embed(webhook, [embed], bypass_pause=True)
-        sent.append("discord")
+        ok, err = await discord_webhook_embed(webhook, [embed], bypass_pause=True)
+        if ok: sent.append("discord")
+        else: return {"success": False, "error": f"Discord Error: {err}"}
     if tg_token and tg_chat:
-        await telegram_send(tg_token, tg_chat,
-            f"✅ Journex Alert Test\n{'📅 Calendar' if is_cal else '📰 News'} notifications are working!",
+        ok, err = await telegram_send(tg_token, tg_chat,
+            f"🟢 Journex Alert Test\n{display} notifications are working!",
             message_thread_id=tg_thread if tg_thread else None, bypass_pause=True)
-        sent.append("telegram")
+        if ok: sent.append("telegram")
+        else: return {"success": False, "error": f"Telegram Error: {err}"}
     if not sent:
         return {"success": False, "error": "No webhook/token configured for this alert type"}
     return {"success": True, "sent_to": sent}
@@ -921,7 +1018,7 @@ def _classify(title: str):
 
 async def _parse_source_async(source: dict, session: aiohttp.ClientSession) -> list:
     try:
-        async with session.get(source["url"], headers={"User-Agent": FEED_UA}, timeout=3.0) as resp:
+        async with session.get(source["url"], headers={"User-Agent": FEED_UA}, timeout=10.0) as resp:
             text = await resp.text()
             feed = feedparser.parse(text)
             items = []
@@ -3359,6 +3456,8 @@ async def get_history():
 def __send_execution_alert(symbol: str, action: str, lot_size: float, price: float, sl: float=0, tp: float=0):
     if _alert_config.get("alerts_paused", True):
         return
+    if _alert_config.get("executions_paused", False):
+        return
     import threading
     def _send_bg():
         direction = "Long" if action.lower() == "buy" else "Short"
@@ -3366,7 +3465,7 @@ def __send_execution_alert(symbol: str, action: str, lot_size: float, price: flo
         if sl > 0: discord_msg += f"\n**SL**: {sl}"
         if tp > 0: discord_msg += f"\n**TP**: {tp}"
         
-        webhook = _alert_config.get("discord_alerts_webhook", "")
+        webhook = _alert_config.get("discord_alerts_webhook", "") or _alert_config.get("discord_news_webhook", "")
         if webhook:
             try: requests.post(webhook, json={"content": discord_msg}, timeout=3)
             except Exception as e: print("Discord alert err:", e)
@@ -3375,15 +3474,19 @@ def __send_execution_alert(symbol: str, action: str, lot_size: float, price: flo
         if sl > 0: tg_msg += f"\n<b>SL</b>: {sl}"
         if tp > 0: tg_msg += f"\n<b>TP</b>: {tp}"
 
-        bot_token = _alert_config.get("telegram_bot_token", "")
-        chat_id = _alert_config.get("telegram_chat_alerts", "") or _alert_config.get("telegram_chat_id", "")
-        thread_id = _alert_config.get("telegram_thread_alerts", "")
+        bot_token = _alert_config.get("telegram_bot_token", "").strip()
+        chat_id = (_alert_config.get("telegram_chat_news", "") or _alert_config.get("telegram_chat_id", "")).strip()
+        thread_id = _alert_config.get("telegram_thread_alerts", "").strip()
         if bot_token and chat_id:
             url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
             payload = {"chat_id": chat_id, "text": tg_msg, "parse_mode": "HTML"}
             if thread_id: payload["message_thread_id"] = int(thread_id)
-            try: requests.post(url, json=payload, timeout=3)
-            except Exception as e: print("TG alert err:", e)
+            try: 
+                r = requests.post(url, json=payload, timeout=3)
+                if r.status_code != 200:
+                    print(f"TG alert err: {r.status_code} {r.text}")
+            except Exception as e: 
+                print("TG alert err:", e)
     
     threading.Thread(target=_send_bg).start()
 
@@ -4304,8 +4407,235 @@ def delete_bot(bot_id: str):
     return {"success": True}
 
 # --- MQL5 EA Heartbeat, Control, and Logging Storage ---
+import sqlite3
+import random
+from datetime import datetime, timedelta
+
+DB_FILE = "ea_analytics.db"
+
+def init_db():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS trades (
+            ticket TEXT PRIMARY KEY,
+            magic INTEGER,
+            symbol TEXT,
+            action TEXT,
+            type TEXT,
+            volume REAL,
+            price REAL,
+            sl REAL,
+            tp REAL,
+            pnl REAL,
+            r_multiple REAL,
+            status TEXT,
+            setup TEXT,
+            score INTEGER,
+            timestamp TEXT,
+            session TEXT,
+            regime TEXT
+        )
+    """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS settings_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            magic INTEGER,
+            key TEXT,
+            old_value TEXT,
+            new_value TEXT,
+            status TEXT,
+            timestamp TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+def seed_db():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) FROM trades")
+    if c.fetchone()[0] > 0:
+        conn.close()
+        return
+
+    setups = ["Liquidity Sweep", "FVG", "Order Block", "SMT", "Supply/Demand", "Support/Resistance"]
+    symbols = ["XAUUSD", "EURUSD", "GBPUSD", "USDJPY"]
+    sessions = ["LONDON", "NEW YORK", "ASIA"]
+    regimes = ["TRENDING", "RANGING", "BREAKOUT", "REVERSAL"]
+    types = ["BUY", "SELL"]
+    
+    start_time = datetime.utcnow() - timedelta(days=30)
+    
+    for i in range(150):
+        ticket = str(1000000 + i)
+        magic = 88001
+        symbol = random.choice(symbols)
+        setup = random.choice(setups)
+        regime = random.choice(regimes)
+        session = random.choice(sessions)
+        trade_type = random.choice(types)
+        
+        score = random.randint(60, 98)
+        
+        win_rate = 0.5
+        if score >= 90:
+            win_rate = 0.8
+        elif score >= 80:
+            win_rate = 0.7
+        elif score >= 70:
+            win_rate = 0.6
+            
+        if regime == "TRENDING" and setup in ["Liquidity Sweep", "FVG"]:
+            win_rate += 0.1
+        elif regime == "RANGING" and setup in ["Support/Resistance"]:
+            win_rate += 0.1
+            
+        is_win = random.random() < win_rate
+        
+        volume = round(random.choice([0.1, 0.2, 0.5, 1.0, 2.0]), 2)
+        price_base = {"XAUUSD": 2300.0, "EURUSD": 1.08500, "GBPUSD": 1.27000, "USDJPY": 155.00}[symbol]
+        
+        pip_size = 0.0001 if symbol != "XAUUSD" and symbol != "USDJPY" else 0.01
+        sl_pips = random.randint(15, 30)
+        tp_pips = random.randint(30, 80)
+        
+        if trade_type == "BUY":
+            price = price_base + random.uniform(-100, 100) * pip_size
+            sl = price - sl_pips * pip_size
+            tp = price + tp_pips * pip_size
+        else:
+            price = price_base + random.uniform(-100, 100) * pip_size
+            sl = price + sl_pips * pip_size
+            tp = price - tp_pips * pip_size
+            
+        if is_win:
+            pnl = volume * tp_pips * (10.0 if symbol == "XAUUSD" else 1.0)
+            r_multiple = round(tp_pips / sl_pips, 2)
+            status = "TP" + str(random.choice([1, 2, 3]))
+        else:
+            pnl = -volume * sl_pips * (10.0 if symbol == "XAUUSD" else 1.0)
+            r_multiple = -1.0
+            status = "SL"
+            
+        timestamp = (start_time + timedelta(hours=i * 4.5)).isoformat()
+        
+        c.execute("""
+            INSERT INTO trades (ticket, magic, symbol, action, type, volume, price, sl, tp, pnl, r_multiple, status, setup, score, timestamp, session, regime)
+            VALUES (?, ?, ?, 'close', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (ticket, magic, symbol, trade_type, volume, price, sl, tp, pnl, r_multiple, status, setup, score, timestamp, session, regime))
+
+    # Add 2 open trades
+    c.execute("""
+        INSERT INTO trades (ticket, magic, symbol, action, type, volume, price, sl, tp, pnl, r_multiple, status, setup, score, timestamp, session, regime)
+        VALUES ('2000001', 88001, 'XAUUSD', 'open', 'BUY', 1.0, 2350.0, 2342.0, 2370.0, 120.0, 1.5, 'Open', 'FVG', 85, ?, 'LONDON', 'TRENDING')
+    """, (datetime.utcnow().isoformat(),))
+    c.execute("""
+        INSERT INTO trades (ticket, magic, symbol, action, type, volume, price, sl, tp, pnl, r_multiple, status, setup, score, timestamp, session, regime)
+        VALUES ('2000002', 88001, 'EURUSD', 'open', 'SELL', 2.0, 1.08200, 1.08450, 1.07700, -50.0, -0.5, 'Open', 'Liquidity Sweep', 78, ?, 'NEW YORK', 'RANGING')
+    """, (datetime.utcnow().isoformat(),))
+
+    c.execute("""
+        INSERT INTO settings_history (magic, key, old_value, new_value, status, timestamp) 
+        VALUES (88001, 'Risk per Trade', '0.5%', '1.0%', 'Applied', ?)
+    """, ((datetime.utcnow() - timedelta(hours=2)).isoformat(),))
+    c.execute("""
+        INSERT INTO settings_history (magic, key, old_value, new_value, status, timestamp) 
+        VALUES (88001, 'Minimum Score', '70', '80', 'Applied', ?)
+    """, ((datetime.utcnow() - timedelta(hours=1)).isoformat(),))
+
+    conn.commit()
+    conn.close()
+
+init_db()
+seed_db()
+
 mql5_ea_instances = {}
 mql5_ea_events = []
+
+def log_trade_db(req: dict):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    ticket = str(req.get("ticket", ""))
+    if not ticket:
+        conn.close()
+        return
+    c.execute("SELECT ticket FROM trades WHERE ticket = ?", (ticket,))
+    row = c.fetchone()
+    
+    timestamp = req.get("timestamp", datetime.utcnow().isoformat())
+    session = req.get("session", "LONDON")
+    regime = req.get("regime", "TRENDING")
+    status = req.get("status", "Open")
+    if req.get("action") == "close":
+        status = "Closed"
+    
+    if row:
+        c.execute("""
+            UPDATE trades 
+            SET action = ?, pnl = ?, r_multiple = ?, status = ?, timestamp = ?, session = ?, regime = ?
+            WHERE ticket = ?
+        """, (
+            req.get("action", "open"),
+            req.get("pnl", 0.0),
+            req.get("r_multiple", 0.0),
+            status,
+            timestamp,
+            session,
+            regime,
+            ticket
+        ))
+    else:
+        c.execute("""
+            INSERT INTO trades (ticket, magic, symbol, action, type, volume, price, sl, tp, pnl, r_multiple, status, setup, score, timestamp, session, regime)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            ticket,
+            req.get("magic", 0),
+            req.get("symbol", ""),
+            req.get("action", "open"),
+            req.get("type", "BUY"),
+            req.get("volume", 0.0),
+            req.get("price", 0.0),
+            req.get("sl", 0.0),
+            req.get("tp", 0.0),
+            req.get("pnl", 0.0),
+            req.get("r_multiple", 0.0),
+            status,
+            req.get("setup", "ICT+SMT"),
+            req.get("score", 80),
+            timestamp,
+            session,
+            regime
+        ))
+    conn.commit()
+    conn.close()
+
+def log_settings_change_db(magic: int, key: str, old_val: str, new_val: str):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("""
+        INSERT INTO settings_history (magic, key, old_value, new_value, status, timestamp)
+        VALUES (?, ?, ?, ?, 'Pending', ?)
+    """, (magic, key, str(old_val), str(new_val), datetime.utcnow().isoformat()))
+    conn.commit()
+    conn.close()
+
+def check_and_apply_pending_settings(magic: int, reported_settings: dict):
+    if not reported_settings:
+        return
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT id, key, new_value FROM settings_history WHERE magic = ? AND status = 'Pending'", (magic,))
+    rows = c.fetchall()
+    
+    for row_id, key, new_val in rows:
+        # Match keys (risk, min_score, min_rr, session, setup_type)
+        reported_val = reported_settings.get(key)
+        if reported_val is not None and str(reported_val) == str(new_val):
+            c.execute("UPDATE settings_history SET status = 'Applied' WHERE id = ?", (row_id,))
+    conn.commit()
+    conn.close()
 
 @app.post("/api/ea/report")
 async def post_ea_report(req: dict):
@@ -4316,12 +4646,47 @@ async def post_ea_report(req: dict):
     if not magic:
         return {"success": False, "error": "Missing magic number"}
     
+    reported_settings = req.get("settings", {})
+    check_and_apply_pending_settings(int(magic), reported_settings)
+    
     # Store or update EA registration
     mql5_ea_instances[str(magic)] = {
         "last_report": req,
         "timestamp": datetime.utcnow().isoformat(),
-        "status": req.get("status", "running")
+        "status": req.get("status", "running"),
+        "pending_settings": mql5_ea_instances.get(str(magic), {}).get("pending_settings"),
+        "pending_command": mql5_ea_instances.get(str(magic), {}).get("pending_command")
     }
+    
+    # Sync reported open trades to SQLite for live view
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    # Delete old open trades for this magic first so we have the absolute state
+    c.execute("DELETE FROM trades WHERE magic = ? AND action = 'open'", (int(magic),))
+    for t in req.get("open_trades", []):
+        c.execute("""
+            INSERT OR REPLACE INTO trades (ticket, magic, symbol, action, type, volume, price, sl, tp, pnl, r_multiple, status, setup, score, timestamp, session, regime)
+            VALUES (?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, 'Open', ?, ?, ?, ?, ?)
+        """, (
+            str(t.get("ticket")),
+            int(magic),
+            t.get("symbol"),
+            t.get("type"),
+            t.get("volume"),
+            t.get("price"),
+            t.get("sl"),
+            t.get("tp"),
+            t.get("pnl"),
+            t.get("r_multiple", 0.0),
+            t.get("setup", "ICT+SMT"),
+            t.get("score", 80),
+            t.get("timestamp", datetime.utcnow().isoformat()),
+            req.get("session", "LONDON"),
+            req.get("regime", "TRENDING")
+        ))
+    conn.commit()
+    conn.close()
+    
     return {"success": True}
 
 @app.get("/api/ea/status")
@@ -4332,18 +4697,22 @@ def get_ea_status():
     results = []
     now = datetime.utcnow()
     for magic, ea in mql5_ea_instances.items():
-        # Auto-mark offline if no report in 30 seconds
         last_seen = datetime.fromisoformat(ea["timestamp"])
         elapsed = (now - last_seen).total_seconds()
+        
         status = ea["status"]
         if elapsed > 30:
             status = "offline"
-        
+        elif elapsed > 8:
+            status = "stale"
+            
         results.append({
             "magic": int(magic),
             "last_report": ea["last_report"],
             "timestamp": ea["timestamp"],
-            "status": status
+            "status": status,
+            "pending_command": ea.get("pending_command"),
+            "elapsed_seconds": int(elapsed)
         })
     return {"success": True, "eas": results}
 
@@ -4353,27 +4722,46 @@ def post_ea_settings(magic: str, req: dict):
     Called by Dashboard to queue settings change for the MQL5 EA.
     """
     if magic not in mql5_ea_instances:
-        # Register a stub instance so we can track settings
         mql5_ea_instances[magic] = {
             "last_report": {},
             "timestamp": datetime.utcnow().isoformat(),
             "status": "offline"
         }
     
+    current_settings = mql5_ea_instances[magic].get("last_report", {}).get("settings", {})
+    for key, new_val in req.items():
+        old_val = current_settings.get(key, "N/A")
+        if str(old_val) != str(new_val):
+            log_settings_change_db(int(magic), key, old_val, new_val)
+            
     mql5_ea_instances[magic]["pending_settings"] = req
+    return {"success": True}
+
+@app.post("/api/ea/command/{magic}")
+def post_ea_command(magic: str, req: dict):
+    """
+    Called by Dashboard to send emergency commands to the MQL5 EA (e.g. CLOSE_ALL, PAUSE, DISABLE, RESUME).
+    """
+    if magic not in mql5_ea_instances:
+        return {"success": False, "error": "EA not registered"}
+    
+    command = req.get("command")
+    mql5_ea_instances[magic]["pending_command"] = command
     return {"success": True}
 
 @app.get("/api/ea/settings/{magic}")
 def get_ea_settings(magic: str):
     """
-    Called by MQL5 EA to retrieve and apply pending config changes.
+    Called by MQL5 EA to retrieve and apply pending config changes and emergency commands.
     """
     ea = mql5_ea_instances.get(magic)
-    if not ea or "pending_settings" not in ea:
-        return {"success": True, "settings": None}
+    if not ea:
+        return {"success": True, "settings": None, "command": None}
     
-    settings = ea.pop("pending_settings")
-    return {"success": True, "settings": settings}
+    settings = ea.pop("pending_settings", None)
+    command = ea.pop("pending_command", None)
+    
+    return {"success": True, "settings": settings, "command": command}
 
 @app.post("/api/ea/trade-event")
 def post_ea_trade_event(req: dict):
@@ -4383,10 +4771,401 @@ def post_ea_trade_event(req: dict):
     global mql5_ea_events
     req["timestamp"] = datetime.utcnow().isoformat()
     mql5_ea_events.append(req)
-    # Bounded history size
     if len(mql5_ea_events) > 100:
         mql5_ea_events = mql5_ea_events[-100:]
+        
+    log_trade_db(req)
     return {"success": True}
+
+class EASignalDetected(BaseModel):
+    id: str
+    symbol: str
+    type: str
+    entry_price: float
+    sl: float
+    tp: float
+    confidence: int
+    grade: str
+    timeframe: str
+
+ea_signals_db = []
+
+async def send_signal_alerts(sig: dict):
+    if _alert_config.get("alerts_paused", True) or _alert_config.get("signals_paused", False):
+        return
+
+    discord_msg = (
+        f"🔔 **NEW SCANNER SETUP** — {sig['symbol']} {sig['type']} ({sig['timeframe']}) [{sig['grade']}]\n"
+        f"**Score**: {sig['confidence']}/100\n"
+        f"**Preferred Entry**: {sig['entry_price']}\n"
+        f"**SL**: {sig['sl']}\n"
+        f"**TP**: {sig['tp']}\n"
+        f"**Why**: {sig['reason']}"
+    )
+
+    # Discord alert
+    webhook = _alert_config.get("discord_signals_webhook", "")
+    if webhook:
+        try:
+            async with aiohttp.ClientSession() as session:
+                await session.post(webhook, json={"content": discord_msg}, timeout=aiohttp.ClientTimeout(total=5))
+        except Exception as e:
+            logger.error(f"[ALERTS] Discord signal error: {e}")
+
+    # Telegram alert (MODE A & B)
+    bot_token = _alert_config.get("telegram_bot_token", "")
+    if bot_token:
+        chat_id = _alert_config.get("telegram_chat_signals") or _alert_config.get("telegram_chat_id", "")
+        thread_id = _alert_config.get("telegram_thread_signals", "")
+        
+        if chat_id:
+            tg_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+            payload = {
+                "chat_id": chat_id,
+                "text": discord_msg,
+                "parse_mode": "Markdown"
+            }
+            if thread_id:
+                payload["message_thread_id"] = int(thread_id)
+            try:
+                async with aiohttp.ClientSession() as session:
+                    await session.post(tg_url, json=payload, timeout=aiohttp.ClientTimeout(total=5))
+            except Exception as e:
+                logger.error(f"[ALERTS] Telegram signal error: {e}")
+
+@app.post("/api/ea/signal-detected")
+def post_ea_signal_detected(sig: EASignalDetected):
+    global ea_signals_db
+    new_sig = {
+        "id":           sig.id,
+        "symbol":       sig.symbol,
+        "type":         sig.type,
+        "entry_price":  sig.entry_price,
+        "sl":           sig.sl,
+        "sl_reason":    "Local EA Scanner",
+        "tp":           sig.tp,
+        "confidence":   sig.confidence,
+        "grade":        sig.grade,
+        "reason":       f"{sig.type} setup detected by EA on {sig.symbol} ({sig.timeframe}). Confidence: {sig.confidence}/100.",
+        "timestamp":    datetime.utcnow().isoformat(),
+        "timeframe":    sig.timeframe,
+        "rsi":          50,
+        "adx":          25,
+        "regime":       "trending",
+        "volatility":   "normal",
+        "confluence_matrix": {},
+        "tp1": {"price": sig.tp, "rr": 2.0, "reason": "Target 1"},
+        "tp2": {"price": sig.tp, "rr": 2.0, "reason": "Target 2"},
+        "tp3": {"price": sig.tp, "rr": 2.0, "reason": "Target 3"},
+        "invalidation": sig.sl,
+        "reasoning":    {"summary": f"{sig.type} setup detected by EA", "pros": [], "cons": []},
+    }
+    
+    # Deduplicate: if ID already in list, replace it, otherwise insert at beginning
+    for i, s in enumerate(ea_signals_db):
+        if s["id"] == sig.id:
+            ea_signals_db[i] = new_sig
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    loop.create_task(send_signal_alerts(new_sig))
+            except Exception:
+                pass
+            return {"success": True, "message": "Updated existing signal"}
+            
+    ea_signals_db.insert(0, new_sig)
+    if len(ea_signals_db) > 100:
+        ea_signals_db = ea_signals_db[:100]
+        
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            loop.create_task(send_signal_alerts(new_sig))
+    except Exception:
+        pass
+        
+    return {"success": True, "message": "Logged new signal"}
+
+@app.get("/api/ea/news-block")
+def get_news_block(symbol: str = "XAUUSD"):
+    """
+    Checks if high or medium impact economic news is scheduled within 30 min before or after.
+    """
+    currencies = ["USD"]
+    sym_upper = symbol.upper()
+    if len(sym_upper) >= 6:
+        base = sym_upper[:3]
+        quote = sym_upper[3:6]
+        for cur in [base, quote]:
+            if cur in ["EUR", "GBP", "AUD", "NZD", "USD", "CAD", "CHF", "JPY"] and cur not in currencies:
+                currencies.append(cur)
+                
+    res = get_calendar()
+    if not res.get("success", False):
+        return {"success": True, "blocked": False}
+        
+    events = res.get("events", [])
+    now_utc = datetime.now(timezone.utc)
+    
+    for e in events:
+        impact = e.get("impact", "").upper()
+        if impact not in ["HIGH", "MEDIUM"]:
+            continue
+            
+        country = e.get("country", "").upper()
+        country_to_currency = {
+            "US": "USD", "GB": "GBP", "EU": "EUR", "JP": "JPY", 
+            "AU": "AUD", "NZ": "NZD", "CA": "CAD", "CH": "CHF"
+        }
+        event_currency = country_to_currency.get(country, country)
+        
+        if event_currency not in currencies:
+            continue
+            
+        ds = e.get("date", "")
+        if len(ds) > 19 and ds[-5] in ("+", "-") and ":" not in ds[-6:]:
+            ds = ds[:-2] + ":" + ds[-2:]
+        try:
+            dt_aware = datetime.fromisoformat(ds)
+        except ValueError:
+            try:
+                dt_aware = datetime.strptime(ds[:19], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
+            except Exception:
+                continue
+                
+        dt_utc = dt_aware.astimezone(timezone.utc)
+        diff_seconds = abs((dt_utc - now_utc).total_seconds())
+        
+        if diff_seconds <= 1800:  # 30 minutes
+            return {
+                "success": True,
+                "blocked": True,
+                "reason": f"{impact} news: {e.get('title')} ({country}) at {ds}"
+            }
+            
+    return {"success": True, "blocked": False}
+
+@app.get("/api/ea/trades")
+def get_ea_trades(magic: int = None):
+    """
+    Retrieves logged trade events from SQLite DB.
+    """
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    if magic is not None:
+        c.execute("SELECT ticket, magic, symbol, action, type, volume, price, sl, tp, pnl, r_multiple, status, setup, score, timestamp, session, regime FROM trades WHERE magic = ? ORDER BY timestamp DESC LIMIT 100", (magic,))
+    else:
+        c.execute("SELECT ticket, magic, symbol, action, type, volume, price, sl, tp, pnl, r_multiple, status, setup, score, timestamp, session, regime FROM trades ORDER BY timestamp DESC LIMIT 100")
+    
+    rows = c.fetchall()
+    conn.close()
+    
+    events = []
+    for row in rows:
+        events.append({
+            "ticket": row[0],
+            "magic": row[1],
+            "symbol": row[2],
+            "action": row[3],
+            "type": row[4],
+            "volume": row[5],
+            "price": row[6],
+            "sl": row[7],
+            "tp": row[8],
+            "pnl": row[9],
+            "r_multiple": row[10],
+            "status": row[11],
+            "setup": row[12],
+            "score": row[13],
+            "timestamp": row[14],
+            "session": row[15],
+            "regime": row[16]
+        })
+    return {"success": True, "events": events}
+
+@app.get("/api/ea/analytics")
+def get_ea_analytics(magic: int = None):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    
+    magic_filter = "WHERE magic = ?" if magic else "WHERE 1=1"
+    params = (magic,) if magic else ()
+    
+    # 1. Overall stats
+    c.execute(f"SELECT pnl, r_multiple, status FROM trades {magic_filter} AND action = 'close'", params)
+    rows = c.fetchall()
+    
+    total_trades = len(rows)
+    wins = 0
+    losses = 0
+    total_pnl = 0.0
+    r_sum = 0.0
+    best_trade = 0.0
+    worst_trade = 0.0
+    
+    for pnl, r, status in rows:
+        total_pnl += pnl
+        r_sum += r
+        if pnl > 0:
+            wins += 1
+        else:
+            losses += 1
+        if pnl > best_trade:
+            best_trade = pnl
+        if pnl < worst_trade:
+            worst_trade = pnl
+            
+    win_rate = (wins / total_trades * 100) if total_trades > 0 else 0.0
+    avg_r = (r_sum / total_trades) if total_trades > 0 else 0.0
+    
+    # 2. Grade performance
+    c.execute(f"SELECT score, status FROM trades {magic_filter} AND action = 'close'", params)
+    score_rows = c.fetchall()
+    grades = {"A+": {"total": 0, "wins": 0}, "A": {"total": 0, "wins": 0}, "B": {"total": 0, "wins": 0}, "C": {"total": 0, "wins": 0}}
+    for score, status in score_rows:
+        if score >= 90:
+            grade = "A+"
+        elif score >= 80:
+            grade = "A"
+        elif score >= 70:
+            grade = "B"
+        else:
+            grade = "C"
+        
+        grades[grade]["total"] += 1
+        if "SL" not in status:
+            grades[grade]["wins"] += 1
+            
+    grade_perf = []
+    for g, data in grades.items():
+        wr = (data["wins"] / data["total"] * 100) if data["total"] > 0 else 0.0
+        grade_perf.append({"grade": g, "total": data["total"], "win_rate": round(wr, 1)})
+        
+    # 3. Market Regime performance
+    c.execute(f"SELECT regime, status FROM trades {magic_filter} AND action = 'close'", params)
+    regime_rows = c.fetchall()
+    regimes = {}
+    for regime, status in regime_rows:
+        if not regime: continue
+        regime = regime.upper()
+        if regime not in regimes:
+            regimes[regime] = {"total": 0, "wins": 0}
+        regimes[regime]["total"] += 1
+        if "SL" not in status:
+            regimes[regime]["wins"] += 1
+            
+    regime_perf = []
+    for r, data in regimes.items():
+        wr = (data["wins"] / data["total"] * 100) if data["total"] > 0 else 0.0
+        regime_perf.append({"regime": r, "total": data["total"], "win_rate": round(wr, 1)})
+        
+    # 4. Symbol performance
+    c.execute(f"SELECT symbol, status, r_multiple FROM trades {magic_filter} AND action = 'close'", params)
+    symbol_rows = c.fetchall()
+    symbols_data = {}
+    for symbol, status, r in symbol_rows:
+        if not symbol: continue
+        symbol = symbol.upper()
+        if symbol not in symbols_data:
+            symbols_data[symbol] = {"total": 0, "wins": 0, "r_sum": 0.0}
+        symbols_data[symbol]["total"] += 1
+        symbols_data[symbol]["r_sum"] += r
+        if "SL" not in status:
+            symbols_data[symbol]["wins"] += 1
+            
+    symbol_perf = []
+    for s, data in symbols_data.items():
+        wr = (data["wins"] / data["total"] * 100) if data["total"] > 0 else 0.0
+        avg_symbol_r = (data["r_sum"] / data["total"]) if data["total"] > 0 else 0.0
+        symbol_perf.append({
+            "symbol": s,
+            "total": data["total"],
+            "win_rate": round(wr, 1),
+            "avg_r": round(avg_symbol_r, 2)
+        })
+        
+    # 5. Session performance
+    c.execute(f"SELECT session, status, r_multiple FROM trades {magic_filter} AND action = 'close'", params)
+    session_rows = c.fetchall()
+    session_data = {}
+    for sess, status, r in session_rows:
+        if not sess: continue
+        sess = sess.upper()
+        if sess not in session_data:
+            session_data[sess] = {"total": 0, "wins": 0, "r_sum": 0.0}
+        session_data[sess]["total"] += 1
+        session_data[sess]["r_sum"] += r
+        if "SL" not in status:
+            session_data[sess]["wins"] += 1
+            
+    session_perf = []
+    for s, data in session_data.items():
+        wr = (data["wins"] / data["total"] * 100) if data["total"] > 0 else 0.0
+        avg_sess_r = (data["r_sum"] / data["total"]) if data["total"] > 0 else 0.0
+        session_perf.append({
+            "session": s,
+            "total": data["total"],
+            "win_rate": round(wr, 1),
+            "avg_r": round(avg_sess_r, 2)
+        })
+        
+    # 6. Setup Concept performance
+    c.execute(f"SELECT setup, status FROM trades {magic_filter} AND action = 'close'", params)
+    setup_rows = c.fetchall()
+    setup_data = {}
+    for setup, status in setup_rows:
+        if not setup: continue
+        if setup not in setup_data:
+            setup_data[setup] = {"total": 0, "wins": 0}
+        setup_data[setup]["total"] += 1
+        if "SL" not in status:
+            setup_data[setup]["wins"] += 1
+            
+    setup_perf = []
+    for s, data in setup_data.items():
+        wr = (data["wins"] / data["total"] * 100) if data["total"] > 0 else 0.0
+        setup_perf.append({
+            "setup": s,
+            "total": data["total"],
+            "win_rate": round(wr, 1)
+        })
+
+    # 7. Get Settings change history
+    c.execute(f"SELECT id, magic, key, old_value, new_value, status, timestamp FROM settings_history {magic_filter} ORDER BY id DESC LIMIT 20", params)
+    history_rows = c.fetchall()
+    settings_history = []
+    for row in history_rows:
+        settings_history.append({
+            "id": row[0],
+            "magic": row[1],
+            "key": row[2],
+            "old_value": row[3],
+            "new_value": row[4],
+            "status": row[5],
+            "timestamp": row[6]
+        })
+
+    conn.close()
+    
+    return {
+        "success": True,
+        "overall": {
+            "trades": total_trades,
+            "wins": wins,
+            "losses": losses,
+            "win_rate": round(win_rate, 1),
+            "net_pnl": round(total_pnl, 2),
+            "avg_r": round(avg_r, 2),
+            "best_trade": round(best_trade, 2),
+            "worst_trade": round(worst_trade, 2)
+        },
+        "grade_perf": grade_perf,
+        "regime_perf": regime_perf,
+        "symbol_perf": symbol_perf,
+        "session_perf": session_perf,
+        "setup_perf": setup_perf,
+        "settings_history": settings_history
+    }
 
 @app.get("/api/ea/trades")
 def get_ea_trades(magic: int = None):
@@ -5692,47 +6471,7 @@ def _compute_confluence_score(direction, setup_data, preset_name, regime_data=No
     # --- Preset Rule Validation ---
     rule_pass        = True
     rule_fail_reason = ""
-    preset           = preset_name.lower()
 
-    if preset == "ict_scalper":
-        if not (sweep and sweep["type"] == ("SSL" if direction == "BUY" else "BSL")):
-            rule_pass = False;  rule_fail_reason = "Missing required liquidity sweep"
-        elif setup_data["mss"] != ("bullish" if direction == "BUY" else "bearish"):
-            rule_pass = False;  rule_fail_reason = "Missing Market Structure Shift (MSS)"
-        elif not recent_fvg:
-            rule_pass = False;  rule_fail_reason = "Missing required Fair Value Gap (FVG)"
-
-    elif preset == "ict_intraday":
-        if setup_data["htf_bias"] != ("bullish" if direction == "BUY" else "bearish"):
-            rule_pass = False;  rule_fail_reason = "HTF Bias not aligned"
-        elif not (sweep and sweep["type"] == ("SSL" if direction == "BUY" else "BSL")):
-            rule_pass = False;  rule_fail_reason = "Missing required liquidity sweep"
-        elif setup_data["mss"] != ("bullish" if direction == "BUY" else "bearish"):
-            rule_pass = False;  rule_fail_reason = "Missing Market Structure Shift (MSS)"
-
-    elif preset == "supply_demand":
-        if not near_poi:
-            rule_pass = False;  rule_fail_reason = "Price not near Supply/Demand POI"
-        elif setup_data["mss"] != ("bullish" if direction == "BUY" else "bearish"):
-            rule_pass = False;  rule_fail_reason = "Missing MSS confirmation"
-        elif not near_sr:
-            rule_pass = False;  rule_fail_reason = "Not near daily S/R level"
-
-    elif preset == "momentum_breakout":
-        if setup_data["mss"] != ("bullish" if direction == "BUY" else "bearish"):
-            rule_pass = False;  rule_fail_reason = "Missing MSS"
-        elif not setup_data.get("displacement"):
-            rule_pass = False;  rule_fail_reason = "Missing strong displacement candle"
-
-    if not rule_pass:
-        total_score = 0
-
-    return total_score, score_matrix, rule_pass, rule_fail_reason
-
-
-_global_signal_history = []
-
-@app.get("/api/signals")
 async def get_signals(
     market: str = "all",
     timeframe: str = "ALL",
@@ -5744,371 +6483,28 @@ async def get_signals(
     max_signals: int = 15,
     clear: str = "false"
 ):
-    global _global_signal_history
+    global ea_signals_db
     try:
-        from datetime import datetime, timezone
-
         if clear == "true":
-            _global_signal_history = []
+            ea_signals_db = []
             return {"success": True, "signals": []}
-
-        market_map = {
-            "forex":       ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "GBPJPY"],
-            "crypto":      ["BTCUSD", "ETHUSD"],
-            "commodities": ["XAUUSD", "XAGUSD"],
-            "indices":     ["US30", "NAS100", "GER30"],
-            "all":         ["XAUUSD", "EURUSD", "GBPUSD", "USDJPY", "BTCUSD"],
-        }
-        symbols = market_map.get(market.lower(), market_map["all"])
-
-        if not mt5.initialize():
-            return {"success": False, "error": "MT5 not initialized"}
-
-        tf_map = {
-            "M1":  mt5.TIMEFRAME_M1  if mt5 else 1,
-            "M5":  mt5.TIMEFRAME_M5  if mt5 else 5,
-            "M15": mt5.TIMEFRAME_M15 if mt5 else 15,
-            "H1":  mt5.TIMEFRAME_H1  if mt5 else 16385,
-            "H4":  mt5.TIMEFRAME_H4  if mt5 else 16408,
-            "D1":  mt5.TIMEFRAME_D1  if mt5 else 16424,
-            "W1":  mt5.TIMEFRAME_W1  if mt5 else 26384,
-        }
-
-        tf_list = ["M5", "M15", "H1", "H4"] if timeframe.upper() == "ALL" else [timeframe]
-
-        utc_hour = datetime.now(timezone.utc).hour
-        london_active = 8  <= utc_hour <= 17
-        ny_active     = 13 <= utc_hour <= 22
-
-        session_active = False
-        if session.lower() == "london" and london_active:              session_active = True
-        elif session.lower() == "ny" and ny_active:                    session_active = True
-        elif session.lower() == "both" and (london_active or ny_active): session_active = True
-        elif session.lower() == "all":                                 session_active = True
-
-        rates_to_copy = 120
-
-        def ema(data, period):
-            if len(data) < period: return None
-            k = 2 / (period + 1)
-            e = sum(data[:period]) / period
-            res = [e]
-            for p in data[period:]:
-                e = (p - e) * k + e
-                res.append(e)
-            return res
-
-        symbol_timeframe_setups = {}
-
-        for symbol in symbols:
-            resolved = ensure_symbol(symbol)
-
-            # Previous Day High / Low
-            pdh, pdl = None, None
-            d1_rates = mt5.copy_rates_from_pos(resolved, mt5.TIMEFRAME_D1, 0, 3)
-            if d1_rates is None or len(d1_rates) < 2:
-                d1_rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_D1, 0, 3)
-            if d1_rates is not None and len(d1_rates) >= 2:
-                pdh = d1_rates[-2]['high']
-                pdl = d1_rates[-2]['low']
-
-            symbol_timeframe_setups[symbol] = []
-
-            for tf_str in tf_list:
-                tf    = tf_map.get(tf_str, mt5.TIMEFRAME_M15)
-                rates = mt5.copy_rates_from_pos(resolved, tf, 0, rates_to_copy)
-                if rates is None or len(rates) < 30:
-                    rates = mt5.copy_rates_from_pos(symbol, tf, 0, rates_to_copy)
-                    if rates is None or len(rates) < 30:
-                        continue
-
-                closes = [r['close'] for r in rates]
-                highs  = [r['high']  for r in rates]
-                lows   = [r['low']   for r in rates]
-                opens  = [r['open']  for r in rates]
-
-                # ATR
-                tr = []
-                for i in range(1, len(rates)):
-                    tr.append(max(highs[i] - lows[i], abs(highs[i] - closes[i-1]), abs(lows[i] - closes[i-1])))
-                atr = sum(tr[-14:]) / 14 if len(tr) >= 14 else (highs[-1] - lows[-1])
-                if atr <= 0: atr = closes[-1] * 0.001
-
-                # Market regime
-                regime_data = _detect_market_regime(rates, atr)
-
-                # Core ICT structure analysis
-                swings_high, swings_low = _find_swings(rates, window=5)
-                fvgs    = _find_fvgs(rates)
-                obs     = _find_order_blocks(rates)
-                sweep   = _check_liquidity_sweep(rates, swings_high, swings_low)
-                smt_div = _check_smt_divergence(symbol, tf, rates)
-                mss     = _check_mss(rates, swings_high, swings_low)
-
-                # HTF bias
-                htf_tf    = mt5.TIMEFRAME_H4 if tf in [mt5.TIMEFRAME_M15, mt5.TIMEFRAME_H1] else mt5.TIMEFRAME_H1
-                htf_rates = mt5.copy_rates_from_pos(resolved, htf_tf, 0, 50)
-                htf_bias  = "neutral"
-                htf_highs, htf_lows = [], []
-                if htf_rates is not None and len(htf_rates) >= 21:
-                    htf_closes = [r['close'] for r in htf_rates]
-                    htf_highs  = [r['high']  for r in htf_rates]
-                    htf_lows   = [r['low']   for r in htf_rates]
-                    hema9  = ema(htf_closes, 9)
-                    hema21 = ema(htf_closes, 21)
-                    if hema9 and hema21:
-                        htf_bias = "bullish" if hema9[-1] > hema21[-1] else "bearish"
-
-                # Displacement
-                bodies   = [abs(c - o) for c, o in zip(closes, opens)]
-                avg_body = sum(bodies[-10:]) / 10 if len(bodies) >= 10 else (sum(bodies) / len(bodies))
-                displacement = bodies[-1] > avg_body * 1.5
-
-                entry       = closes[-1]
-                candle_time = rates[-1]['time']
-                current_rsi = _compute_rsi(closes, 14)
-                current_adx = _compute_adx(rates, 14)
-
-                setup_data = {
-                    "htf_bias":       htf_bias,
-                    "fvgs":           fvgs,
-                    "obs":            obs,
-                    "sweep":          sweep,
-                    "smt_div":        smt_div,
-                    "mss":            mss,
-                    "pdh":            pdh,
-                    "pdl":            pdl,
-                    "entry":          entry,
-                    "atr":            atr,
-                    "displacement":   displacement,
-                    "session_active": session_active,
-                    "swings_high":    swings_high,
-                    "swings_low":     swings_low,
-                }
-
-                # Dynamic regime-aware scoring
-                buy_score,  buy_matrix,  buy_rule_pass,  buy_rule_fail  = _compute_confluence_score("BUY",  setup_data, signal_type, regime_data)
-                sell_score, sell_matrix, sell_rule_pass, sell_rule_fail = _compute_confluence_score("SELL", setup_data, signal_type, regime_data)
-
-                primary_setup = None
-
-                # --- BUY candidate ---
-                if direction.lower() in ["both", "buy"] and buy_rule_pass and buy_score >= min_score:
-                    sl, sl_reason = _compute_dynamic_sl("BUY", rates, swings_high, swings_low, obs, entry, atr)
-                    entry_zone    = _compute_entry_zone("BUY", entry, fvgs, obs, atr)
-                    tp1, tp2, tp3 = _validate_and_select_targets("BUY", entry, sl, swings_high, swings_low, pdh, pdl, htf_highs, htf_lows, atr)
-
-                    if tp2["rr"] >= min_rr:
-                        grade   = "A+" if buy_score >= 90 else "A" if buy_score >= 80 else "B"
-                        pros    = [f"{k}: {v['status']}" for k, v in buy_matrix.items() if v['points'] > 0]
-                        cons    = [f"Missing {k}" for k, v in buy_matrix.items() if v['points'] == 0]
-                        summary = (f"Bullish {regime_data['regime'].title()} setup on {symbol} ({tf_str}). "
-                                   f"Score {buy_score}/100 ({grade}). SL from {sl_reason}.")
-                        if htf_bias == "bullish": summary += " HTF bias aligned."
-
-                        primary_setup = {
-                            "id":           f"{symbol}-{tf_str}-{candle_time}-buy",
-                            "symbol":       symbol,
-                            "type":         "BUY",
-                            "entry_price":  round(entry_zone["preferred"], 5),
-                            "entry_zone":   entry_zone,
-                            "sl":           sl,
-                            "sl_reason":    sl_reason,
-                            "tp":           round(tp2["price"], 5),
-                            "confidence":   buy_score,
-                            "grade":        grade,
-                            "reason":       summary,
-                            "timestamp":    datetime.now().isoformat(),
-                            "timeframe":    tf_str,
-                            "rsi":          current_rsi,
-                            "adx":          current_adx,
-                            "regime":       regime_data["regime"],
-                            "volatility":   regime_data["volatility"],
-                            "confluence_matrix": buy_matrix,
-                            "weights_used": _get_dynamic_weights(regime_data),
-                            "conflict":     {"detected": False, "message": ""},
-                            "tp1": {"price": round(tp1["price"], 5), "rr": round(tp1["rr"], 2), "reason": tp1["reason"]},
-                            "tp2": {"price": round(tp2["price"], 5), "rr": round(tp2["rr"], 2), "reason": tp2["reason"]},
-                            "tp3": {"price": round(tp3["price"], 5), "rr": round(tp3["rr"], 2), "reason": tp3["reason"]},
-                            "invalidation": sl,
-                            "reasoning":    {"summary": summary, "pros": pros, "cons": cons},
-                        }
-
-                # --- SELL candidate ---
-                if not primary_setup and direction.lower() in ["both", "sell"] and sell_rule_pass and sell_score >= min_score:
-                    sl, sl_reason = _compute_dynamic_sl("SELL", rates, swings_high, swings_low, obs, entry, atr)
-                    entry_zone    = _compute_entry_zone("SELL", entry, fvgs, obs, atr)
-                    tp1, tp2, tp3 = _validate_and_select_targets("SELL", entry, sl, swings_high, swings_low, pdh, pdl, htf_highs, htf_lows, atr)
-
-                    if tp2["rr"] >= min_rr:
-                        grade   = "A+" if sell_score >= 90 else "A" if sell_score >= 80 else "B"
-                        pros    = [f"{k}: {v['status']}" for k, v in sell_matrix.items() if v['points'] > 0]
-                        cons    = [f"Missing {k}" for k, v in sell_matrix.items() if v['points'] == 0]
-                        summary = (f"Bearish {regime_data['regime'].title()} setup on {symbol} ({tf_str}). "
-                                   f"Score {sell_score}/100 ({grade}). SL from {sl_reason}.")
-                        if htf_bias == "bearish": summary += " HTF bias aligned."
-
-                        primary_setup = {
-                            "id":           f"{symbol}-{tf_str}-{candle_time}-sell",
-                            "symbol":       symbol,
-                            "type":         "SELL",
-                            "entry_price":  round(entry_zone["preferred"], 5),
-                            "entry_zone":   entry_zone,
-                            "sl":           sl,
-                            "sl_reason":    sl_reason,
-                            "tp":           round(tp2["price"], 5),
-                            "confidence":   sell_score,
-                            "grade":        grade,
-                            "reason":       summary,
-                            "timestamp":    datetime.now().isoformat(),
-                            "timeframe":    tf_str,
-                            "rsi":          current_rsi,
-                            "adx":          current_adx,
-                            "regime":       regime_data["regime"],
-                            "volatility":   regime_data["volatility"],
-                            "confluence_matrix": sell_matrix,
-                            "weights_used": _get_dynamic_weights(regime_data),
-                            "conflict":     {"detected": False, "message": ""},
-                            "tp1": {"price": round(tp1["price"], 5), "rr": round(tp1["rr"], 2), "reason": tp1["reason"]},
-                            "tp2": {"price": round(tp2["price"], 5), "rr": round(tp2["rr"], 2), "reason": tp2["reason"]},
-                            "tp3": {"price": round(tp3["price"], 5), "rr": round(tp3["rr"], 2), "reason": tp3["reason"]},
-                            "invalidation": sl,
-                            "reasoning":    {"summary": summary, "pros": pros, "cons": cons},
-                        }
-
-                # --- NO_TRADE fallback ---
-                if not primary_setup:
-                    is_bull_bias = htf_bias == "bullish"
-                    score_val    = buy_score  if is_bull_bias else sell_score
-                    matrix_val   = buy_matrix if is_bull_bias else sell_matrix
-                    fail_desc    = buy_rule_fail if is_bull_bias else sell_rule_fail
-
-                    rr_rejected = (
-                        (is_bull_bias     and buy_rule_pass  and buy_score  >= min_score) or
-                        (not is_bull_bias and sell_rule_pass and sell_score >= min_score)
-                    )
-                    if rr_rejected:
-                        fail_desc = f"Nearest valid target provides insufficient RR (required: {min_rr}R)"
-                    if not fail_desc:
-                        fail_desc = f"Insufficient confluence score ({score_val}/100, required: {min_score})"
-
-                    no_atr = atr if atr > 0 else entry * 0.001
-                    primary_setup = {
-                        "id":          f"{symbol}-{tf_str}-{candle_time}-notrade",
-                        "symbol":      symbol,
-                        "type":        "NO_TRADE",
-                        "entry_price": round(entry, 5),
-                        "entry_zone":  {"entry_low": round(entry - 0.1*no_atr, 5), "entry_high": round(entry + 0.1*no_atr, 5), "preferred": round(entry, 5), "reason": "Current price"},
-                        "sl":          round(entry - 1.5*no_atr if is_bull_bias else entry + 1.5*no_atr, 5),
-                        "sl_reason":   "ATR Safety",
-                        "tp":          round(entry + 2.5*no_atr if is_bull_bias else entry - 2.5*no_atr, 5),
-                        "confidence":  score_val,
-                        "grade":       "C" if score_val >= 60 else "NO TRADE",
-                        "reason":      f"No Trade on {symbol} ({tf_str}): {fail_desc}",
-                        "timestamp":   datetime.now().isoformat(),
-                        "timeframe":   tf_str,
-                        "rsi":         current_rsi,
-                        "adx":         current_adx,
-                        "regime":      regime_data["regime"],
-                        "volatility":  regime_data["volatility"],
-                        "confluence_matrix": matrix_val,
-                        "weights_used": _get_dynamic_weights(regime_data),
-                        "conflict":    {"detected": False, "message": ""},
-                        "tp1": {"price": round(entry + 1.25*no_atr if is_bull_bias else entry - 1.25*no_atr, 5), "rr": 1.25, "reason": "Standard level"},
-                        "tp2": {"price": round(entry + 2.50*no_atr if is_bull_bias else entry - 2.50*no_atr, 5), "rr": 2.50, "reason": "Standard expansion"},
-                        "tp3": {"price": round(entry + 4.50*no_atr if is_bull_bias else entry - 4.50*no_atr, 5), "rr": 4.50, "reason": "Standard HTF projection"},
-                        "invalidation": round(entry - 1.5*no_atr if is_bull_bias else entry + 1.5*no_atr, 5),
-                        "reasoning": {
-                            "summary": f"Setup did not reach required threshold: {fail_desc}",
-                            "pros":    [f"{k}: {v['status']}" for k, v in matrix_val.items() if v['points'] > 0],
-                            "cons":    [f"Missing {k}" for k, v in matrix_val.items() if v['points'] == 0],
-                        },
-                    }
-
-                symbol_timeframe_setups[symbol].append(primary_setup)
-
-        # --- Asset-level: conflict detection + deduplication ---
-        active_signals = []
-        for symbol in symbols:
-            setups = symbol_timeframe_setups.get(symbol, [])
-            if not setups:
-                continue
-
-            active_trades  = [s for s in setups if s["type"] in ["BUY", "SELL"]]
-            primary_signal = None
-
-            if active_trades:
-                tf_priority = {"H4": 4, "H1": 3, "M15": 2, "M5": 1}
-                active_trades.sort(key=lambda x: (x["confidence"], tf_priority.get(x["timeframe"], 0)), reverse=True)
-                primary_signal = active_trades[0]
-
-                conflict_info = _detect_conflict(setups, primary_signal["type"])
-                primary_signal["conflict"] = conflict_info
-
-                if conflict_info["conflict"]:
-                    primary_signal["type"]   = "NO_TRADE"
-                    primary_signal["reason"] = f"Signal suppressed: {conflict_info['message']}"
-                    primary_signal["grade"]  = "NO TRADE"
-            else:
-                setups.sort(key=lambda x: x["confidence"], reverse=True)
-                primary_signal = setups[0]
-
-            # MTF alignment grid
-            alignment_dict = {}
-            aligned_count  = 0
-            scanned_count  = len(setups)
-            target_type    = primary_signal["type"] if primary_signal["type"] in ["BUY", "SELL"] else "BUY"
-
-            for s in setups:
-                alignment_dict[s["timeframe"]] = {"type": s["type"], "score": s["confidence"]}
-                if s["type"] == target_type:
-                    aligned_count += 1
-
-            primary_signal["alignment"]         = alignment_dict
-            primary_signal["overall_alignment"] = f"{aligned_count}/{scanned_count}"
-            active_signals.append(primary_signal)
-
-        # --- Persist & alert ---
-        for sig in active_signals:
-            if sig["type"] in ["BUY", "SELL"]:
-                if not any(s['id'] == sig['id'] for s in _global_signal_history):
-                    _global_signal_history.append(sig)
-
-                    if not _alert_config.get("alerts_paused", True):
-                        ez     = sig.get("entry_zone", {})
-                        grade  = sig.get("grade", "")
-                        regime = sig.get("regime", "").title()
-                        discord_msg = (
-                            f"\U0001f514 **NEW SETUP** \u2014 {sig['symbol']} {sig['type']} ({sig['timeframe']}) [{grade}]\n"
-                            f"**Regime**: {regime} | **Score**: {sig['confidence']}/100\n"
-                            f"**Entry Zone**: {ez.get('entry_low', sig['entry_price'])} \u2013 {ez.get('entry_high', sig['entry_price'])}\n"
-                            f"**Preferred**: {ez.get('preferred', sig['entry_price'])} ({ez.get('reason', '')})\n"
-                            f"**SL**: {sig['sl']} ({sig.get('sl_reason', '')})\n"
-                            f"**TP1**: {sig['tp1']['price']} ({sig['tp1']['rr']}R)\n"
-                            f"**TP2**: {sig['tp2']['price']} ({sig['tp2']['rr']}R)\n"
-                            f"**TP3**: {sig['tp3']['price']} ({sig['tp3']['rr']}R)\n"
-                            f"**Why**: {sig['reason']}"
-                        )
-                        webhook = _alert_config.get("discord_signals_webhook", "")
-                        if webhook:
-                            try:
-                                import requests as _req
-                                _req.post(webhook, json={"content": discord_msg}, timeout=3)
-                            except Exception as e:
-                                print("Discord signal alert err:", e)
-
-        if len(_global_signal_history) > 100:
-            _global_signal_history = _global_signal_history[-100:]
-
-        active_filtered = [s for s in active_signals if s["type"] in ["BUY", "SELL"]]
-        no_trade_setups = [s for s in active_signals if s["type"] == "NO_TRADE"]
-        res_list = (active_filtered + no_trade_setups)[:max_signals]
-
-        return {"success": True, "signals": res_list}
-
+        # Filter signals in memory
+        filtered = ea_signals_db.copy()
+        
+        # Filter by timeframe
+        if timeframe.upper() != "ALL":
+            filtered = [s for s in filtered if s["timeframe"].upper() == timeframe.upper()]
+            
+        # Filter by min_score
+        filtered = [s for s in filtered if s["confidence"] >= min_score]
+        
+        # Filter by direction
+        if direction.lower() != "both":
+            filtered = [s for s in filtered if s["type"].lower() == direction.lower()]
+            
+        return {"success": True, "signals": filtered[:max_signals]}
+        
     except Exception as e:
-        import traceback
-        traceback.print_exc()
         return {"success": False, "error": str(e)}
 
 import threading

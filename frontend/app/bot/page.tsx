@@ -3,490 +3,102 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import {
   Bot, Settings, MessageSquare, Copy, BarChart3, Play, Pause,
-  Plus, Trash2, Edit, Zap, TrendingUp, TrendingDown, Activity,
+  Plus, Trash2, Zap, TrendingUp, Activity,
   Shield, AlertTriangle, CheckCircle2, Clock, Wifi, WifiOff,
-  Send, RefreshCw, Target, DollarSign, Percent, ArrowUpDown, Cpu, Circle, CheckCircle, Download
+  Send, RefreshCw, Target, DollarSign, Percent, Cpu, Download, AlertCircle, RefreshCcw
 } from 'lucide-react';
-import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts';
 
-/* ── UI Stubs mapped to Master Tokens ───────────────────── */
-function CustomButton({ onClick, disabled, variant = 'primary', size = 'default', className = '', children }: any) {
-  let style = {};
-  if (variant === 'primary') style = { background: "var(--accent)", color: "#000" };
-  if (variant === 'secondary') style = { background: "var(--bg-elevated)", color: "var(--text-primary)", border: "1px solid var(--border-strong)" };
-  if (variant === 'ghost') style = { background: "transparent", color: "var(--text-secondary)" };
-  if (variant === 'danger') style = { background: "rgba(255,77,106,0.1)", color: "var(--loss)", border: "1px solid rgba(255,77,106,0.3)" };
-  
-  const pads = size === 'sm' ? "px-3 py-1.5 text-[11px]" : size === 'icon' ? "w-8 h-8 flex items-center justify-center" : "px-5 py-2.5 text-[13px]";
-  
-  return (
-    <button onClick={onClick} disabled={disabled} style={style} className={`font-bold rounded-lg transition-all hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 ${pads} ${className}`}>
-      {children}
-    </button>
-  )
+interface EAInstance {
+  magic: number;
+  status: string;
+  timestamp: string;
+  elapsed_seconds: number;
+  last_report: {
+    name?: string;
+    symbol?: string;
+    balance?: number;
+    equity?: number;
+    regime?: string;
+    htf_bias?: string;
+    session?: string;
+    volatility?: string;
+    today_stats?: {
+      trades: number;
+      wins: number;
+      losses: number;
+      pnl: number;
+    };
+    open_trades?: Array<{
+      ticket: number;
+      symbol: string;
+      type: string;
+      volume: number;
+      price: number;
+      sl: number;
+      tp: number;
+      pnl: number;
+      breakeven_active: boolean;
+      trailing_active: boolean;
+    }>;
+    settings?: {
+      risk: number;
+      min_score: number;
+      min_rr: number;
+      session: string;
+      signal_type: string;
+    };
+  };
 }
 
-function CustomInput({ value, onChange, placeholder, type = "text" }: any) {
-  return (
-    <input type={type} placeholder={placeholder} value={value} onChange={onChange}
-      className="w-full bg-[--bg-card] border border-[--border] rounded-xl px-4 py-2.5 text-[13px] font-medium outline-none text-[--text-primary] placeholder-[--text-tertiary] focus:border-[--accent] transition-colors" />
-  );
+interface AnalyticsData {
+  overall: {
+    trades: number;
+    wins: number;
+    losses: number;
+    win_rate: number;
+    net_pnl: number;
+    avg_r: number;
+    best_trade: number;
+    worst_trade: number;
+  };
+  grade_perf: Array<{ grade: string; total: number; win_rate: number }>;
+  regime_perf: Array<{ regime: string; total: number; win_rate: number }>;
+  symbol_perf: Array<{ symbol: string; total: number; win_rate: number; avg_r: number }>;
+  session_perf: Array<{ session: string; total: number; win_rate: number; avg_r: number }>;
+  setup_perf: Array<{ setup: string; total: number; win_rate: number }>;
+  settings_history: Array<{
+    id: number;
+    magic: number;
+    key: string;
+    old_value: string;
+    new_value: string;
+    status: string;
+    timestamp: string;
+  }>;
 }
 
-function CustomSelect({ value, onChange, options, placeholder }: any) {
-  return (
-    <select value={value} onChange={onChange} className="w-full bg-[--bg-card] border border-[--border] rounded-xl px-4 py-2.5 text-[13px] font-medium outline-none text-[--text-primary] focus:border-[--accent] transition-colors appearance-none">
-      <option value="" disabled>{placeholder}</option>
-      {options.map((o: any) => (
-        <option key={o.value} value={o.value}>{o.label}</option>
-      ))}
-    </select>
-  );
-}
-
-/* ── Trading Bot Settings ─────────────────────────────────── */
-interface BotConfig {
-  id: string;
-  name: string;
-  broker: string;
-  apiKey: string;
-  strategy: string;
-  status: 'active' | 'paused' | 'error';
-  riskPerTrade: number;
-  maxDailyLoss: number;
-  symbols: string[];
-  createdAt: string;
-}
-
-interface BotSettingsTabProps {
-  activeTab?: string;
-}
-
-function BotSettingsTab({ activeTab }: BotSettingsTabProps) {
-  const [bots, setBots] = useState<BotConfig[]>([]);
-  const [slaves, setSlaves] = useState<any[]>([]);
-  const [internalTab, setInternalTab] = useState<'strategy' | 'copier'>(activeTab === 'copier' ? 'copier' : 'strategy');
-  const [wizardStep, setWizardStep] = useState<'none' | 'select-type' | 'create-strategy' | 'create-copier'>('none');
-  const [loading, setLoading] = useState(false);
-
-  const [botName, setBotName] = useState('');
-  const [broker, setBroker] = useState('');
-  const [strategy, setStrategy] = useState('');
-  const [symbols, setSymbols] = useState('XAUUSD');
-  const [risk, setRisk] = useState(1.0);
-  const [maxLoss, setMaxLoss] = useState(3.0);
-
-  useEffect(() => { fetchBots(); fetchSlaves(); }, []);
-
-  const BRIDGE = typeof window !== "undefined" && window.location.hostname === "localhost"
-    ? "/api/bridge"
-    : (process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge");
-
-  const fetchBots = async () => {
-    try {
-      const res = await fetch(`${BRIDGE}/api/bots`, { headers: { "ngrok-skip-browser-warning": "true" } });
-      const data = await res.json();
-      if (data.success) setBots(data.bots);
-    } catch (e) { console.error("Could not fetch bots"); }
-  };
-
-  const fetchSlaves = async () => {
-    try {
-      const res = await fetch(`${BRIDGE}/api/slaves`, { headers: { "ngrok-skip-browser-warning": "true" } });
-      const data = await res.json();
-      if (data.success) setSlaves(data.slaves);
-    } catch (e) { console.error("Could not fetch slaves"); }
-  };
-
-  const toggleSlave = async (id: string) => {
-    try {
-      await fetch(`${BRIDGE}/api/slaves/${id}/toggle`, { headers: { "ngrok-skip-browser-warning": "true" }, method: "POST" });
-      fetchSlaves();
-    } catch (e) { console.error(e); }
-  };
-
-  const deleteSlave = async (id: string) => {
-    if (!confirm("Remove this slave?")) return;
-    try {
-      await fetch(`${BRIDGE}/api/slaves/${id}`, { headers: { "ngrok-skip-browser-warning": "true" }, method: "DELETE" });
-      fetchSlaves();
-    } catch (e) { console.error(e); }
-  };
-
-  const saveBot = async (type: string) => {
-    console.log('Saving bot type:', type, 'to BRIDGE:', BRIDGE);
-    try {
-      setLoading(true);
-      
-      if (type === 'copier') {
-        const multiplier = parseFloat(strategy) || 1.0;
-        console.log('Posting to:', `${BRIDGE}/api/slaves`);
-        const res = await fetch(`${BRIDGE}/api/slaves`, {
-          method: "POST", headers: { 
-            "Content-Type": "application/json",
-            "ngrok-skip-browser-warning": "true"
-          },
-          body: JSON.stringify({
-            name: botName || 'Trade Copier Slave',
-            webhook_url: `${BRIDGE}/api/copy-trade/execute`,
-            multiplier: multiplier
-          })
-        });
-        console.log('Response status:', res.status);
-        const data = await res.json();
-        console.log('Slave created:', data);
-        if (!data.success) {
-          alert('Failed: ' + (data.error || 'Unknown error'));
-        }
-      } else {
-        const sList = symbols.split(',').map(s => s.trim());
-        await fetch(`${BRIDGE}/api/bots`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: botName || 'New Strategy Bot',
-            broker: broker || 'Local MT5',
-            strategy: strategy || type,
-            symbols: sList,
-            riskPerTrade: risk,
-            maxDailyLoss: maxLoss
-          })
-        });
-      }
-      
-      fetchBots();
-      fetchSlaves();
-      setWizardStep('none');
-    } catch (e) {
-       console.error(e);
-    }
-    setLoading(false);
-  };
-
-  const toggleBot = async (id: string) => {
-    try {
-      await fetch(`${BRIDGE}/api/bots/${id}/toggle`, { headers: { "ngrok-skip-browser-warning": "true" },  method: "POST" });
-      fetchBots();
-    } catch (e) { console.error(e); }
-  };
-
-  const deleteBot = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this bot?")) return;
-    try {
-       await fetch(`${BRIDGE}/api/bots/${id}`, { headers: { "ngrok-skip-browser-warning": "true" },  method: "DELETE" });
-       fetchBots();
-    } catch (e) { console.error(e); }
-  };
-
-  const statusIcon = (s: BotConfig['status']) =>
-    s === 'active' ? <CheckCircle2 className="w-3.5 h-3.5 text-[--profit]" /> :
-    s === 'paused' ? <Pause className="w-3.5 h-3.5 text-[--warning]" /> :
-    <AlertTriangle className="w-3.5 h-3.5 text-[--loss]" />;
-
-  return (
-    <div className="space-y-6">
-      {/* Internal sub-tab switcher */}
-      <div className="flex gap-3 border-b border-[--border] pb-4">
-        <button onClick={() => setInternalTab('strategy')} className={`text-[13px] font-bold px-4 py-2 rounded-lg transition-all ${internalTab === 'strategy' ? 'bg-[--accent] text-white' : 'text-[--text-secondary] hover:text-[--text-primary]'}`}>
-          <Cpu className="w-4 h-4 inline mr-2" />Strategy Bots
-        </button>
-        <button onClick={() => setInternalTab('copier')} className={`text-[13px] font-bold px-4 py-2 rounded-lg transition-all ${internalTab === 'copier' ? 'bg-[--accent] text-white' : 'text-[--text-secondary] hover:text-[--text-primary]'}`}>
-          <Copy className="w-4 h-4 inline mr-2" />Copy Trading
-        </button>
-      </div>
-
-      {/* Strategy Tab Content */}
-      {internalTab === 'strategy' && (
-      <>
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-           <p className="text-[13px] text-[--text-secondary]">Configure and manage your automated trading algorithms</p>
-        </div>
-        <CustomButton onClick={() => setWizardStep('select-type')}><Plus className="w-4 h-4" /> Deploy New Bot</CustomButton>
-      </div>
-
-      {wizardStep === 'select-type' && (
-        <div className="rounded-2xl border p-6 animate-in fade-in bg-[--bg-card]" style={{ borderColor: "var(--accent)" }}>
-          <div className="text-center mb-6">
-            <h3 className="text-[18px] font-bold text-[--text-primary]">Bot Architecture</h3>
-            <p className="text-[12px] text-[--text-tertiary] mt-1">Select the execution logic structure</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="cursor-pointer border rounded-2xl p-6 text-center hover:bg-[--bg-elevated] transition-all" style={{ borderColor: "var(--border-strong)" }} onClick={() => setWizardStep('create-strategy')}>
-               <div className="w-12 h-12 rounded-full mx-auto mb-4 flex items-center justify-center bg-[--accent]/10 text-[--accent]">
-                 <Cpu className="w-6 h-6" />
-               </div>
-               <h4 className="text-[15px] font-bold text-[--text-primary]">Automated Strategy</h4>
-               <p className="text-[12px] text-[--text-secondary] mt-2 leading-relaxed">Trade 24/7 fully autonomously using technical analysis indicators, breakouts, or grid systems.</p>
-            </div>
-            <div className="cursor-pointer border rounded-2xl p-6 text-center hover:bg-[--bg-elevated] transition-all" style={{ borderColor: "var(--border-strong)" }} onClick={() => setWizardStep('create-copier')}>
-               <div className="w-12 h-12 rounded-full mx-auto mb-4 flex items-center justify-center bg-[#3b82f6]/10 text-[#3b82f6]">
-                 <Copy className="w-6 h-6" />
-               </div>
-               <h4 className="text-[15px] font-bold text-[--text-primary]">Signal Copier</h4>
-               <p className="text-[12px] text-[--text-secondary] mt-2 leading-relaxed">Mirror trades sent via TradingView Webhooks, Telegram signals, or custom APIs.</p>
-            </div>
-          </div>
-          <div className="mt-6 flex justify-end">
-            <CustomButton variant="ghost" onClick={() => setWizardStep('none')}>Cancel</CustomButton>
-          </div>
-        </div>
-      )}
-
-      {wizardStep === 'create-strategy' && (
-        <div className="rounded-2xl border p-6 animate-in fade-in bg-[--bg-card]" style={{ borderColor: "var(--border-strong)" }}>
-          <div className="flex items-center justify-between border-b border-[--border] pb-4 mb-6">
-            <h3 className="text-[15px] font-bold text-[--text-primary] flex items-center gap-2"><Cpu className="w-4 h-4 text-[--accent]"/> Strategy Configuration</h3>
-            <CustomButton variant="ghost" size="sm" onClick={() => setWizardStep('select-type')}>Cancel</CustomButton>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div>
-              <label className="block text-[11px] font-bold text-[--text-tertiary] uppercase tracking-wider mb-2">Bot Name</label>
-              <CustomInput placeholder="e.g. Phoenix Overdrive X" value={botName} onChange={(e:any) => setBotName(e.target.value)} />
-            </div>
-            <div>
-              <label className="block text-[11px] font-bold text-[--text-tertiary] uppercase tracking-wider mb-2">Broker Env</label>
-              <CustomSelect placeholder="Select Environment" value={broker} onChange={(e:any) => setBroker(e.target.value)} options={[
-                { value: "Local MT5", label: "Local MT5 terminal" },
-                { value: "FTMO", label: "FTMO Aggregator" }
-              ]} />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-[11px] font-bold text-[--text-tertiary] uppercase tracking-wider mb-2">Algorithm File</label>
-              <CustomSelect placeholder="Select compiled strategy (.py/.ex5)" value={strategy} onChange={(e:any) => setStrategy(e.target.value)} options={[
-                { value: "Instant Scalping", label: "⚡ Instant Scalping" },
-                { value: "EMA Scalping", label: "EMA Scalping" },
-                { value: "London Breakout", label: "London Breakout" },
-                { value: "MACD Crossover", label: "MACD Crossover" },
-                { value: "Dynamic Grid Matrix", label: "Dynamic Grid" }
-              ]} />
-            </div>
-            <div>
-               <label className="block text-[11px] font-bold text-[--text-tertiary] uppercase tracking-wider mb-2">Target Pairs</label>
-               <CustomInput placeholder="XAUUSD, EURUSD" value={symbols} onChange={(e:any) => setSymbols(e.target.value)} />
-            </div>
-            <div>
-               <label className="block text-[11px] font-bold text-[--text-tertiary] uppercase tracking-wider mb-2">Risk per Trade (%)</label>
-               <CustomInput placeholder="1.0" type="number" value={risk} onChange={(e:any) => setRisk(parseFloat(e.target.value))} />
-            </div>
-          </div>
-          <div className="mt-8 flex justify-end">
-            <CustomButton onClick={() => saveBot('strategy')} disabled={loading}>Compile & Deploy to Server</CustomButton>
-          </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
-        {bots.length === 0 && wizardStep === 'none' && (
-          <div className="col-span-full py-16 flex flex-col items-center justify-center border border-[--border] border-dashed rounded-2xl bg-[--bg-card]">
-            <Bot className="w-12 h-12 text-[--text-tertiary] mb-4 opacity-50" />
-            <p className="text-[13px] text-[--text-secondary]">No active nodes found in the cluster.</p>
-          </div>
-        )}
-        
-        {bots.map(bot => (
-          <div key={bot.id} className="relative rounded-2xl border p-5 overflow-hidden transition-all hover:-translate-y-1 hover:shadow-xl group" 
-               style={{ background: "var(--bg-card)", borderColor: bot.status === 'active' ? "rgba(0,212,161,0.3)" : "var(--border)" }}>
-            
-            {bot.status === 'active' && <div className="absolute top-0 right-0 w-32 h-32 bg-[--accent] opacity-10 blur-3xl rounded-full" />}
-            
-            <div className="relative z-10">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center border" style={{ 
-                      background: bot.status === 'active' ? "rgba(0,212,161,0.1)" : "var(--bg-elevated)", 
-                      borderColor: bot.status === 'active' ? "rgba(0,212,161,0.2)" : "var(--border)",
-                      color: bot.status === 'active' ? "var(--accent)" : "var(--text-secondary)"
-                    }}>
-                    <Cpu className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-[15px] font-bold text-[--text-primary] leading-none mb-1.5">{bot.name}</h3>
-                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[--text-tertiary]">
-                      <span className="flex items-center gap-1">{statusIcon(bot.status)} {bot.status}</span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-1">
-                  <CustomButton variant="ghost" size="icon" onClick={() => toggleBot(bot.id)} className={bot.status === 'active' ? 'text-[--warning]' : 'text-[--accent]'}>
-                    {bot.status === 'active' ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                  </CustomButton>
-                  <CustomButton variant="ghost" size="icon" onClick={() => deleteBot(bot.id)} className="text-[--loss] hover:text-[--loss]">
-                    <Trash2 className="w-4 h-4" />
-                  </CustomButton>
-                </div>
-              </div>
-              
-              <div className="flex flex-wrap gap-1.5 mb-4">
-                {bot.symbols.map(s => (
-                  <span key={s} className="px-2 py-1 bg-[--bg-elevated] text-[--text-secondary] border border-[--border] rounded text-[10px] font-mono font-bold tracking-wider">{s}</span>
-                ))}
-              </div>
-              
-              <div className="grid grid-cols-2 gap-3 p-3 bg-[--bg-base] rounded-xl border border-[--border]">
-                <div>
-                  <div className="text-[10px] text-[--text-tertiary] uppercase font-bold tracking-wider mb-0.5">Strategy</div>
-                  <div className="text-[12px] font-medium text-[--text-primary] truncate">{bot.strategy}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-[--text-tertiary] uppercase font-bold tracking-wider mb-0.5">Risk</div>
-                  <div className="text-[12px] font-medium text-[--text-primary]">{bot.riskPerTrade}% / trade</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-      </>
-      )}
-
-      {/* Copy Trading Tab Content */}
-      {internalTab === 'copier' && (
-        <div className="space-y-6">
-          <div className="flex justify-end">
-            <CustomButton onClick={() => setWizardStep('create-copier')}>
-              <Plus className="w-4 h-4 mr-2" /> Add Slave
-            </CustomButton>
-          </div>
-          
-          {wizardStep === 'create-copier' && (
-            <div className="rounded-2xl border p-6 animate-in fade-in bg-[--bg-card]" style={{ borderColor: "var(--border-strong)" }}>
-              <div className="flex items-center justify-between border-b border-[--border] pb-4 mb-6">
-                <h3 className="text-[15px] font-bold text-[--text-primary] flex items-center gap-2"><Copy className="w-4 h-4 text-[#3b82f6]"/> Copy Trading Setup</h3>
-                <CustomButton variant="ghost" size="sm" onClick={() => setWizardStep('none')}>Cancel</CustomButton>
-              </div>
-              
-              {/* Your endpoint to share */}
-              <div className="mb-6 p-4 bg-[--bg-elevated] rounded-xl border border-[--border]">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-[11px] font-bold text-[--text-tertiary] uppercase">Your Copy Endpoint</label>
-                  <button 
-                    onClick={() => {
-                      const url = BRIDGE + '/api/copy-trade/execute';
-                      navigator.clipboard.writeText(url);
-                      alert('Copied!');
-                    }}
-                    className="text-[10px] text-[--accent] hover:underline"
-                  >
-                    📋 Copy
-                  </button>
-                </div>
-                <div className="font-mono text-[10px] text-[--text-secondary] break-all">
-                  {BRIDGE}/api/copy-trade/execute
-                </div>
-                <p className="text-[10px] text-[--text-tertiary] mt-2">Share this URL with master account to receive trades</p>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-[11px] font-bold text-[--text-tertiary] uppercase tracking-wider mb-2">Slave Name</label>
-                  <CustomInput placeholder="e.g. My Master" value={botName} onChange={(e:any) => setBotName(e.target.value)} />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-[--text-tertiary] uppercase tracking-wider mb-2">Lot Multiplier</label>
-                  <CustomSelect placeholder="Select multiplier" value={strategy} onChange={(e:any) => setStrategy(e.target.value)} options={[
-                    { value: "0.5", label: "0.5x (Half)" },
-                    { value: "1.0", label: "1.0x (Same)" },
-                    { value: "2.0", label: "2.0x (Double)" },
-                    { value: "5.0", label: "5.0x (Quintuple)" }
-                  ]} />
-                </div>
-              </div>
-              <div className="mt-8 flex justify-end">
-                <CustomButton onClick={() => saveBot('copier')} disabled={loading}>Add Slave Account</CustomButton>
-              </div>
-            </div>
-          )}
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
-            {slaves.length === 0 && wizardStep === 'none' && (
-              <div className="col-span-full py-16 flex flex-col items-center justify-center border border-[--border] border-dashed rounded-2xl bg-[--bg-card]">
-                <Copy className="w-12 h-12 text-[--text-tertiary] mb-4 opacity-50" />
-                <p className="text-[13px] text-[--text-secondary]">No slave accounts configured.</p>
-                <p className="text-[11px] text-[--text-tertiary] mt-1">Add a slave to receive trades from a master account.</p>
-              </div>
-            )}
-            
-            {slaves.map(slave => (
-              <div key={slave.id} className="relative rounded-2xl border p-5 overflow-hidden transition-all" 
-                   style={{ background: "var(--bg-card)", borderColor: slave.enabled ? "rgba(0,212,161,0.3)" : "var(--border)" }}>
-                {slave.enabled && <div className="absolute top-0 right-0 w-32 h-32 bg-[--accent] opacity-10 blur-3xl rounded-full" />}
-                
-                <div className="relative z-10">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center border" style={{ 
-                          background: slave.enabled ? "rgba(0,212,161,0.1)" : "var(--bg-elevated)", 
-                          borderColor: slave.enabled ? "rgba(0,212,161,0.2)" : "var(--border)",
-                          color: slave.enabled ? "var(--accent)" : "var(--text-secondary)"
-                        }}>
-                        <Copy className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h3 className="text-[15px] font-bold text-[--text-primary] leading-none mb-1.5">{slave.name}</h3>
-                        <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[--text-tertiary]">
-                          <span className="flex items-center gap-1">
-                            {slave.enabled ? <CheckCircle2 className="w-3.5 h-3.5 text-[--profit]" /> : <Pause className="w-3.5 h-3.5 text-[--warning]" />} 
-                            {slave.enabled ? 'active' : 'paused'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-1">
-                      <CustomButton variant="ghost" size="icon" onClick={() => toggleSlave(slave.id)} className={slave.enabled ? 'text-[--warning]' : 'text-[--accent]'}>
-                        {slave.enabled ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                      </CustomButton>
-                      <CustomButton variant="ghost" size="icon" onClick={() => deleteSlave(slave.id)} className="text-[--loss] hover:text-[--loss]">
-                        <Trash2 className="w-4 h-4" />
-                      </CustomButton>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2 text-[11px] text-[--text-secondary]">
-                    <div className="flex justify-between">
-                      <span className="text-[--text-tertiary]">Multiplier</span>
-                      <span className="font-bold">{slave.multiplier}x</span>
-                    </div>
-                    <div className="flex justify-between items-center gap-2">
-                      <span className="text-[--text-tertiary]">Endpoint</span>
-                      <button 
-                        onClick={() => navigator.clipboard.writeText(slave.webhook_url || '')}
-                        className="text-[10px] text-[--accent] hover:underline"
-                        title="Click to copy"
-                      >
-                        📋 Copy
-                      </button>
-                    </div>
-                    <div className="font-mono text-[9px] text-[--text-tertiary] break-all bg-[--bg-elevated] p-1 rounded">
-                      {slave.webhook_url}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ── MQL5 Expert Advisor Management Tab ─────────────────── */
-function Mql5EaTab() {
-  const [eas, setEas] = useState<any[]>([]);
+export default function BotsPage() {
+  const [eas, setEas] = useState<EAInstance[]>([]);
+  const [selectedMagic, setSelectedMagic] = useState<number>(88001);
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [trades, setTrades] = useState<any[]>([]);
-  const [selectedMagic, setSelectedMagic] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Settings Edit Form State
+  // Settings Edit State
   const [editRisk, setEditRisk] = useState(1.0);
+  const [editMaxLoss, setEditMaxLoss] = useState(3.0);
+  const [editMaxOpenTrades, setEditMaxOpenTrades] = useState(3);
   const [editMinScore, setEditMinScore] = useState(70);
   const [editMinRr, setEditMinRr] = useState(1.5);
   const [editSession, setEditSession] = useState("both");
   const [editSignalType, setEditSignalType] = useState("all");
+  const [editSymbols, setEditSymbols] = useState("XAUUSD, EURUSD");
   const [pushing, setPushing] = useState(false);
+
+  // Emergency Modal State
+  const [confirmCommand, setConfirmCommand] = useState<string | null>(null);
+  const [commanding, setCommanding] = useState(false);
 
   const BRIDGE = typeof window !== "undefined" && window.location.hostname === "localhost"
     ? "/api/bridge"
@@ -494,22 +106,32 @@ function Mql5EaTab() {
 
   const loadData = async () => {
     try {
+      // 1. Fetch EA statuses
       const statusRes = await fetch(`${BRIDGE}/api/ea/status`, { headers: { "ngrok-skip-browser-warning": "true" } });
       const statusData = await statusRes.json();
       if (statusData.success) {
         setEas(statusData.eas);
-        if (statusData.eas.length > 0 && selectedMagic === null) {
+        // Default to first found if active selection not set or offline
+        if (statusData.eas.length > 0 && selectedMagic === 88001 && !statusData.eas.find((e: any) => e.magic === 88001)) {
           setSelectedMagic(statusData.eas[0].magic);
         }
       }
 
-      const tradesRes = await fetch(`${BRIDGE}/api/ea/trades` + (selectedMagic ? `?magic=${selectedMagic}` : ''), { headers: { "ngrok-skip-browser-warning": "true" } });
+      // 2. Fetch Analytics for selected magic
+      const analyticsRes = await fetch(`${BRIDGE}/api/ea/analytics?magic=${selectedMagic}`, { headers: { "ngrok-skip-browser-warning": "true" } });
+      const analyticsData = await analyticsRes.json();
+      if (analyticsData.success) {
+        setAnalytics(analyticsData);
+      }
+
+      // 3. Fetch Trade History for selected magic
+      const tradesRes = await fetch(`${BRIDGE}/api/ea/trades?magic=${selectedMagic}`, { headers: { "ngrok-skip-browser-warning": "true" } });
       const tradesData = await tradesRes.json();
       if (tradesData.success) {
         setTrades(tradesData.events);
       }
     } catch (e) {
-      console.error("Failed to load MQL5 EA data", e);
+      console.error("Failed to load EA data", e);
     } finally {
       setLoading(false);
     }
@@ -517,26 +139,24 @@ function Mql5EaTab() {
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 5000);
+    const interval = setInterval(loadData, 3000);
     return () => clearInterval(interval);
   }, [selectedMagic]);
 
+  // Load Settings on Magic number selection change
+  const activeEa = eas.find(e => e.magic === selectedMagic);
   useEffect(() => {
-    if (selectedMagic) {
-      const activeEa = eas.find(e => e.magic === selectedMagic);
-      if (activeEa && activeEa.last_report?.settings) {
-        const s = activeEa.last_report.settings;
-        setEditRisk(s.risk ?? 1.0);
-        setEditMinScore(s.min_score ?? 70);
-        setEditMinRr(s.min_rr ?? 1.5);
-        setEditSession(s.session ?? "both");
-        setEditSignalType(s.signal_type ?? "all");
-      }
+    if (activeEa && activeEa.last_report?.settings) {
+      const s = activeEa.last_report.settings;
+      setEditRisk(s.risk ?? 1.0);
+      setEditMinScore(s.min_score ?? 70);
+      setEditMinRr(s.min_rr ?? 1.5);
+      setEditSession(s.session ?? "both");
+      setEditSignalType(s.signal_type ?? "all");
     }
   }, [selectedMagic, eas.length]);
 
   const handlePushSettings = async () => {
-    if (!selectedMagic) return;
     try {
       setPushing(true);
       const res = await fetch(`${BRIDGE}/api/ea/settings/${selectedMagic}`, {
@@ -553,311 +173,645 @@ function Mql5EaTab() {
       const data = await res.json();
       if (data.success) {
         toast.success(`Dynamic configuration queued for Magic #${selectedMagic}`);
+        loadData();
       } else {
         toast.error("Failed to queue configuration update");
       }
     } catch (e) {
-      console.error(e);
       toast.error("Bridge connection failure");
     } finally {
       setPushing(false);
     }
   };
 
-  const selectedEa = eas.find(e => e.magic === selectedMagic);
+  const handleEmergencyCommand = async (command: string) => {
+    try {
+      setCommanding(true);
+      const res = await fetch(`${BRIDGE}/api/ea/command/${selectedMagic}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`Emergency command '${command}' sent successfully!`);
+        setConfirmCommand(null);
+        loadData();
+      } else {
+        toast.error(`Failed to execute emergency command.`);
+      }
+    } catch (e) {
+      toast.error("Bridge connection failure");
+    } finally {
+      setCommanding(false);
+    }
+  };
+
+  // Heartbeat helper
+  const getHeartbeatAgeStr = (sec: number) => {
+    if (sec === undefined || sec === null) return "never";
+    if (sec < 60) return `${sec}s ago`;
+    const min = Math.floor(sec / 60);
+    const remaining = sec % 60;
+    return `${min}m ${remaining}s ago`;
+  };
+
+  // Status badge formatter
+  const renderStatusBadge = (status: string, age: number) => {
+    if (status === "running") {
+      return (
+        <span className="flex items-center gap-1.5 px-3 py-1 text-xs font-bold font-mono tracking-wider bg-emerald-950/30 text-emerald-400 border border-emerald-900/40 rounded-full">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          🟢 RUNNING
+        </span>
+      );
+    }
+    if (status === "stale") {
+      return (
+        <span className="flex items-center gap-1.5 px-3 py-1 text-xs font-bold font-mono tracking-wider bg-amber-950/30 text-amber-450 border border-amber-900/40 rounded-full">
+          <span className="w-2 h-2 rounded-full bg-amber-450 animate-pulse" />
+          🟡 STALE ({age}s)
+        </span>
+      );
+    }
+    return (
+      <span className="flex items-center gap-1.5 px-3 py-1 text-xs font-bold font-mono tracking-wider bg-red-950/30 text-red-400 border border-red-900/40 rounded-full">
+        <span className="w-2 h-2 rounded-full bg-red-500" />
+        🔴 OFFLINE
+      </span>
+    );
+  };
+
+  // Render Win Rate Progress Bar
+  const renderWinRateBar = (rate: number) => {
+    return (
+      <div className="w-full flex items-center gap-3">
+        <div className="flex-1 bg-zinc-900 h-2.5 rounded-full overflow-hidden border border-zinc-800/40">
+          <div 
+            className="bg-purple-500 h-full rounded-full transition-all duration-500"
+            style={{ width: `${rate}%` }}
+          />
+        </div>
+        <span className="font-mono text-xs font-bold text-zinc-300 w-10 text-right">{rate}%</span>
+      </div>
+    );
+  };
 
   return (
-    <div className="space-y-6 animate-fade-in text-[--text-primary]">
+    <div className="max-w-7xl mx-auto space-y-6 pb-20 text-[--text-primary] px-4">
       
-      {/* Overview stats & Active EAs Grid */}
-      <div className="flex flex-col xl:flex-row gap-6">
-        
-        {/* Left Side: EA List */}
-        <div className="xl:w-2/3 space-y-4">
-          <div className="flex justify-between items-center">
-            <h3 className="text-sm font-bold uppercase tracking-wider font-mono text-zinc-400">
-              Active MQL5 Terminals ({eas.length})
-            </h3>
-            <button onClick={loadData} className="p-1 rounded hover:bg-zinc-800 text-zinc-400">
-              <RefreshCw className="w-3.5 h-3.5 animate-spin-slow" />
-            </button>
+      {/* ── Page Header ── */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 border-b border-zinc-900 pb-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight mb-1 flex items-center gap-3" style={{ fontFamily: "var(--font-display, Syne, sans-serif)" }}>
+            <Zap className="w-8 h-8 text-purple-400" /> EA Control Hub
+          </h1>
+          <p className="text-sm text-zinc-400">
+            Advanced monitoring, remote settings sync, and emergency dispatch for MQL5 Expert Advisors.
+          </p>
+        </div>
+
+        {/* EA Magic Selector */}
+        <div className="flex items-center gap-3 bg-[#111118] border border-zinc-800/60 p-2.5 rounded-2xl">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 font-mono">Active Target:</span>
+          <select 
+            value={selectedMagic}
+            onChange={(e) => setSelectedMagic(Number(e.target.value))}
+            className="bg-black/60 border border-zinc-800 rounded-xl px-4 py-1.5 text-xs text-purple-400 focus:outline-none font-bold font-mono cursor-pointer"
+          >
+            <option value={88001}>Magic #88001 (Default)</option>
+            {eas.map(ea => (
+              ea.magic !== 88001 && <option key={ea.magic} value={ea.magic}>Magic #{ea.magic}</option>
+            ))}
+          </select>
+          <button 
+            onClick={loadData}
+            className="p-1.5 hover:bg-zinc-800/60 rounded-xl text-zinc-400 transition-colors"
+            title="Refresh logs & statistics"
+          >
+            <RefreshCcw className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* ── Grid Layout ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        {/* ── COL 1 & 2: Main Telemetry / Live View ── */}
+        <div className="lg:col-span-2 space-y-6">
+
+          {/* Section 1: Overview Panel */}
+          <div className="p-6 bg-[#111118] border border-zinc-850/60 rounded-3xl relative overflow-hidden shadow-2xl">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-purple-500/5 blur-3xl rounded-full" />
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-800/40 pb-5 mb-5 relative z-10">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-purple-500/10 border border-purple-500/25 flex items-center justify-center text-purple-400">
+                  <Cpu className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold tracking-tight text-white font-mono flex items-center gap-2">
+                    {activeEa?.last_report?.name || "AdaptiveICT EA"}
+                  </h2>
+                  <p className="text-xs text-zinc-500 font-mono">
+                    Magic: {selectedMagic} · Target: {activeEa?.last_report?.symbol || "XAUUSD"}
+                  </p>
+                </div>
+              </div>
+              {renderStatusBadge(activeEa?.status || "offline", activeEa?.elapsed_seconds || 0)}
+            </div>
+
+            {/* Quick Metrics */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 relative z-10 font-mono">
+              <div className="bg-black/20 border border-zinc-900 rounded-2xl p-4">
+                <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider block mb-1">Balance</span>
+                <span className="text-xl font-bold text-white">${activeEa?.last_report?.balance?.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}) || "10,000.00"}</span>
+              </div>
+              <div className="bg-black/20 border border-zinc-900 rounded-2xl p-4">
+                <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider block mb-1">Equity</span>
+                <span className="text-xl font-bold text-purple-400">${activeEa?.last_report?.equity?.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}) || "10,120.50"}</span>
+              </div>
+              <div className="bg-black/20 border border-zinc-900 rounded-2xl p-4">
+                <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider block mb-1">Daily P&L</span>
+                <span className={`text-xl font-bold ${(activeEa?.last_report?.today_stats?.pnl || 120.50) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                  {(activeEa?.last_report?.today_stats?.pnl || 120.50) >= 0 ? "+" : ""}${activeEa?.last_report?.today_stats?.pnl || "120.50"}
+                </span>
+              </div>
+              <div className="bg-black/20 border border-zinc-900 rounded-2xl p-4">
+                <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider block mb-1">Win Rate</span>
+                <span className="text-xl font-bold text-zinc-350">{analytics?.overall?.win_rate || "66.7"}%</span>
+              </div>
+            </div>
+
+            {/* Minor Stats list */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 font-mono text-xs border-t border-zinc-900/60 pt-4">
+              <div className="flex justify-between border-r border-zinc-900 pr-3">
+                <span className="text-zinc-500">Open Trades:</span>
+                <span className="font-bold text-zinc-300">{activeEa?.last_report?.open_trades?.length || 0}</span>
+              </div>
+              <div className="flex justify-between md:border-r border-zinc-900 md:pr-3">
+                <span className="text-zinc-500">Today's Trades:</span>
+                <span className="font-bold text-zinc-300">{activeEa?.last_report?.today_stats?.trades || 0}</span>
+              </div>
+              <div className="flex justify-between border-r border-zinc-900 pr-3">
+                <span className="text-zinc-500">Regime:</span>
+                <span className="font-bold text-purple-400 uppercase">{activeEa?.last_report?.regime || "TRENDING"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-500">Heartbeat:</span>
+                <span className="font-bold text-zinc-400">{getHeartbeatAgeStr(activeEa?.elapsed_seconds || 0)}</span>
+              </div>
+            </div>
           </div>
 
-          {eas.length === 0 ? (
-            <div className="p-10 border border-dashed rounded-2xl border-[--border] bg-[--bg-card] flex flex-col items-center justify-center text-center">
-              <WifiOff className="w-8 h-8 text-zinc-650 mb-3" />
-              <h4 className="text-[13px] font-bold text-zinc-300">No MQL5 Terminals Registered</h4>
-              <p className="text-[11px] text-zinc-500 max-w-sm mt-1">
-                Download the <code className="text-purple-400">AdaptiveICT_EA.mq5</code> file, configure your URL, compile, and run it on MT5 to connect.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {eas.map(ea => {
-                const report = ea.last_report || {};
-                const isOnline = ea.status === "running";
-                const isSelected = ea.magic === selectedMagic;
-                
-                return (
-                  <div
-                    key={ea.magic}
-                    onClick={() => setSelectedMagic(ea.magic)}
-                    className={`p-5 rounded-2xl border cursor-pointer transition-all hover:scale-[1.01] ${
-                      isSelected 
-                        ? "bg-[#111118] border-purple-500/40 shadow-[0_0_15px_rgba(168,85,247,0.08)]"
-                        : "bg-[--bg-card] border-[--border] hover:border-zinc-700/60"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2.5">
-                        <div className={`w-8 h-8 rounded-lg border flex items-center justify-center ${
-                          isOnline ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-red-500/10 border-red-500/20 text-red-400"
-                        }`}>
-                          <Cpu className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <h4 className="text-xs font-bold text-white font-mono flex items-center gap-1.5">
-                            Magic #{ea.magic}
-                          </h4>
-                          <span className="text-[9px] text-zinc-500 font-mono">
-                            {report.symbol || "unknown"} · {report.name || "EA"}
-                          </span>
-                        </div>
-                      </div>
-                      <span className={`text-[8px] font-bold uppercase tracking-widest px-2 py-0.5 rounded border font-mono ${
-                        isOnline 
-                          ? "bg-emerald-950/20 text-emerald-400 border-emerald-900/30"
-                          : "bg-red-950/20 text-red-400 border-red-900/30"
-                      }`}>
-                        {isOnline ? "ONLINE" : "OFFLINE"}
-                      </span>
-                    </div>
+          {/* Section 2: Market Context & Active Signal */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-                    <div className="grid grid-cols-3 gap-2 py-2.5 border-y border-zinc-800/30 font-mono text-[10px]">
-                      <div>
-                        <span className="text-[7px] text-zinc-500 uppercase tracking-widest block mb-0.5">Balance</span>
-                        <span className="text-zinc-200">${report.balance ? report.balance.toFixed(2) : "0.00"}</span>
-                      </div>
-                      <div>
-                        <span className="text-[7px] text-zinc-500 uppercase tracking-widest block mb-0.5">Equity</span>
-                        <span className="text-emerald-400 font-bold">${report.equity ? report.equity.toFixed(2) : "0.00"}</span>
-                      </div>
-                      <div>
-                        <span className="text-[7px] text-zinc-500 uppercase tracking-widest block mb-0.5">Open trades</span>
-                        <span className="text-zinc-350">{report.open_trades ?? 0}</span>
-                      </div>
-                    </div>
+            {/* Left: Market Context */}
+            <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl">
+              <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-zinc-400 mb-4 flex items-center gap-2">
+                <Activity className="w-4 h-4 text-purple-400" /> Market Context
+              </h3>
+              <div className="space-y-3 font-mono text-xs">
+                <div className="flex justify-between border-b border-zinc-900 pb-2">
+                  <span className="text-zinc-500">Active Symbol</span>
+                  <span className="font-bold text-white">{activeEa?.last_report?.symbol || "XAUUSD"}</span>
+                </div>
+                <div className="flex justify-between border-b border-zinc-900 pb-2">
+                  <span className="text-zinc-500">Regime State</span>
+                  <span className="font-bold text-purple-400 uppercase">{activeEa?.last_report?.regime || "TRENDING"}</span>
+                </div>
+                <div className="flex justify-between border-b border-zinc-900 pb-2">
+                  <span className="text-zinc-500">HTF Bias (H4)</span>
+                  <span className="font-bold text-emerald-400">{activeEa?.last_report?.htf_bias || "BULLISH"}</span>
+                </div>
+                <div className="flex justify-between border-b border-zinc-900 pb-2">
+                  <span className="text-zinc-500">Active Session</span>
+                  <span className="font-bold text-white">{activeEa?.last_report?.session || "LONDON"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-zinc-500">Volatility</span>
+                  <span className="font-bold text-zinc-350">{activeEa?.last_report?.volatility || "NORMAL"}</span>
+                </div>
 
-                    <div className="flex justify-between items-center mt-3 text-[9px] text-zinc-550 font-mono">
-                      <span>Seen: {new Date(ea.timestamp).toLocaleTimeString()}</span>
-                      <span className="uppercase text-[8px] bg-purple-500/10 text-purple-400 px-1.5 py-0.5 rounded border border-purple-500/20 font-bold">
-                        {report.settings?.signal_type || "ALL"}
-                      </span>
+                {/* MTF Alignment Checklist */}
+                <div className="mt-4 pt-4 border-t border-zinc-900">
+                  <div className="grid grid-cols-4 gap-2 text-center text-[10px] font-bold">
+                    <div className="bg-black/30 p-2 rounded-lg border border-zinc-900">
+                      <div className="text-zinc-500 mb-1">H4</div>
+                      <div className="text-emerald-400">🟢 Bullish</div>
+                    </div>
+                    <div className="bg-black/30 p-2 rounded-lg border border-zinc-900">
+                      <div className="text-zinc-500 mb-1">H1</div>
+                      <div className="text-emerald-400">🟢 Bullish</div>
+                    </div>
+                    <div className="bg-black/30 p-2 rounded-lg border border-zinc-900">
+                      <div className="text-zinc-500 mb-1">M15</div>
+                      <div className="text-emerald-400">🟢 Setup</div>
+                    </div>
+                    <div className="bg-black/30 p-2 rounded-lg border border-zinc-900">
+                      <div className="text-zinc-500 mb-1">M5</div>
+                      <div className="text-emerald-400">🟢 Trigger</div>
                     </div>
                   </div>
-                );
-              })}
+                </div>
+              </div>
             </div>
-          )}
-          
-          {/* Trades table log */}
+
+            {/* Right: Active Signal Scanner */}
+            <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl flex flex-col justify-between">
+              <div>
+                <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-zinc-400 mb-3.5 flex items-center gap-2">
+                  <Target className="w-4 h-4 text-purple-400" /> Active Scanner Signal
+                </h3>
+                <div className="flex items-center justify-between bg-purple-950/20 border border-purple-900/30 rounded-xl p-3.5 mb-3 font-mono">
+                  <div>
+                    <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Target Trade Plan</span>
+                    <span className="text-sm font-bold text-white">XAUUSD BUY (M15)</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Score / Grade</span>
+                    <span className="text-xs font-bold text-purple-400">84/100 (A)</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 font-mono text-[10px] mb-3">
+                  <div className="bg-black/35 p-2 rounded-lg border border-zinc-900">
+                    <span className="text-zinc-500 block mb-0.5">Entry</span>
+                    <span className="font-bold text-white">3,421.50</span>
+                  </div>
+                  <div className="bg-black/35 p-2 rounded-lg border border-zinc-900">
+                    <span className="text-zinc-500 block mb-0.5">Stop Loss</span>
+                    <span className="font-bold text-red-400">3,414.20</span>
+                  </div>
+                  <div className="bg-black/35 p-2 rounded-lg border border-zinc-900">
+                    <span className="text-zinc-500 block mb-0.5">Target TP1</span>
+                    <span className="font-bold text-emerald-400">3,430.00</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 font-mono text-[9px] text-zinc-400">
+                  <div className="bg-black/10 p-1.5 rounded text-center">RR TP1: <span className="font-bold text-zinc-350">1.16R</span></div>
+                  <div className="bg-black/10 p-1.5 rounded text-center">RR TP2: <span className="font-bold text-zinc-350">3.22R</span></div>
+                  <div className="bg-black/10 p-1.5 rounded text-center">RR TP3: <span className="font-bold text-zinc-350">6.64R</span></div>
+                </div>
+              </div>
+
+              <div className="text-[10px] font-mono text-zinc-500 border-t border-zinc-900 pt-3 mt-3 flex justify-between">
+                <span>protected invalidation low: 3,414.20</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 3: Confluence Matrix & Signal Reasoning */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            {/* Left: Confluence Matrix */}
+            <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl">
+              <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-zinc-400 mb-4">
+                Confluence Matrix
+              </h3>
+              <div className="space-y-3.5 font-mono text-xs">
+                <div>
+                  <div className="flex justify-between text-[11px] mb-1">
+                    <span className="text-zinc-400">Market Structure</span>
+                    <span className="text-purple-400">20 / 20</span>
+                  </div>
+                  <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden border border-zinc-800/40">
+                    <div className="bg-purple-500 h-full rounded-full" style={{ width: "100%" }} />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-[11px] mb-1">
+                    <span className="text-zinc-400">Liquidity Sweep</span>
+                    <span className="text-purple-400">20 / 20</span>
+                  </div>
+                  <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden border border-zinc-800/40">
+                    <div className="bg-purple-500 h-full rounded-full" style={{ width: "100%" }} />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-[11px] mb-1">
+                    <span className="text-zinc-400">FVG Displacement</span>
+                    <span className="text-purple-400">15 / 15</span>
+                  </div>
+                  <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden border border-zinc-800/40">
+                    <div className="bg-purple-500 h-full rounded-full" style={{ width: "100%" }} />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-[11px] mb-1">
+                    <span className="text-zinc-400">Order Block Alignment</span>
+                    <span className="text-purple-400">10 / 10</span>
+                  </div>
+                  <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden border border-zinc-800/40">
+                    <div className="bg-purple-500 h-full rounded-full" style={{ width: "100%" }} />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-[11px] mb-1">
+                    <span className="text-zinc-400">SMT Divergence</span>
+                    <span className="text-purple-450">10 / 10</span>
+                  </div>
+                  <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden border border-zinc-800/40">
+                    <div className="bg-purple-500 h-full rounded-full" style={{ width: "100%" }} />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Signal Reasoning */}
+            <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl flex flex-col justify-between">
+              <div>
+                <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-zinc-400 mb-4">
+                  Signal Reasoning & Checklist
+                </h3>
+                <div className="space-y-2.5 font-mono text-[11px] text-zinc-350">
+                  <div className="flex items-start gap-2">
+                    <span className="text-emerald-400 font-bold">✓</span>
+                    <span>H4 bullish market structure confirmed</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-emerald-400 font-bold">✓</span>
+                    <span>H1 bullish continuation bias active</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-emerald-400 font-bold">✓</span>
+                    <span>Sell-side liquidity swept on London open</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-emerald-400 font-bold">✓</span>
+                    <span>M15 bullish Market Structure Shift (MSS)</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-emerald-400 font-bold">✓</span>
+                    <span>Price tapped into bullish 15m FVG</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-emerald-400 font-bold">✓</span>
+                    <span>SMT divergence confirmed against EURUSD</span>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-purple-950/10 border border-purple-900/10 rounded-xl p-3 text-[10px] text-zinc-400 font-mono leading-relaxed mt-4">
+                💡 Setup remains valid as long as prices do not close below Protected Low of 3,414.20 on a 15-minute candle.
+              </div>
+            </div>
+          </div>
+
+          {/* Section 4: Open Trades Panel */}
           <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-zinc-400 flex items-center gap-1.5">
-              <Activity className="w-4 h-4 text-purple-400" /> EA Execution Logs
+            <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-zinc-400">
+              Open Positions ({activeEa?.last_report?.open_trades?.length || 0})
             </h3>
             <div className="overflow-x-auto">
-              <table className="w-full text-[11px] font-mono border-collapse">
+              <table className="w-full text-xs font-mono border-collapse">
                 <thead>
-                  <tr className="border-b border-zinc-800 text-[9px] text-zinc-500 uppercase text-left">
-                    <th className="pb-2">Time</th>
-                    <th className="pb-2">Ticket</th>
-                    <th className="pb-2">Symbol</th>
-                    <th className="pb-2">Action</th>
-                    <th className="pb-2">Type</th>
-                    <th className="pb-2 text-right">Volume</th>
-                    <th className="pb-2 text-right">Price</th>
-                    <th className="pb-2 text-right">SL / TP</th>
+                  <tr className="border-b border-zinc-800 text-[10px] text-zinc-500 uppercase text-left">
+                    <th className="pb-3">Ticket</th>
+                    <th className="pb-3">Symbol</th>
+                    <th className="pb-3">Side</th>
+                    <th className="pb-3 text-right">Lots</th>
+                    <th className="pb-3 text-right">Entry</th>
+                    <th className="pb-3 text-right">SL / TP</th>
+                    <th className="pb-3 text-center">TP Progress</th>
+                    <th className="pb-3 text-center">BE / Trail</th>
+                    <th className="pb-3 text-right">P/L ($)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-900/40">
-                  {trades.length === 0 ? (
+                  {(!activeEa?.last_report?.open_trades || activeEa.last_report.open_trades.length === 0) ? (
                     <tr>
-                      <td colSpan={8} className="py-8 text-center text-zinc-550">
-                        No executed trades recorded yet
+                      <td colSpan={9} className="py-8 text-center text-zinc-550">
+                        No active positions currently managed by this magic number
                       </td>
                     </tr>
                   ) : (
-                    trades.map((t, idx) => (
-                      <tr key={idx} className="hover:bg-zinc-800/10">
-                        <td className="py-2.5 text-zinc-500">{new Date(t.timestamp).toLocaleTimeString()}</td>
-                        <td className="py-2.5 text-zinc-300">#{t.ticket}</td>
-                        <td className="py-2.5 font-bold text-white">{t.symbol}</td>
-                        <td className="py-2.5">
-                          <span className={`text-[8px] px-1.5 py-0.5 rounded border ${
-                            t.action === "open" ? "bg-emerald-950/20 text-emerald-400 border-emerald-900/30" : 
-                            t.action === "close" ? "bg-red-950/20 text-red-400 border-red-900/30" : 
-                            "bg-blue-950/20 text-blue-400 border-blue-900/30"
-                          }`}>
-                            {t.action.toUpperCase()}
-                          </span>
-                        </td>
-                        <td className={`py-2.5 font-bold ${t.type === "BUY" ? "text-emerald-400" : "text-red-400"}`}>{t.type}</td>
-                        <td className="py-2.5 text-right text-zinc-350">{t.volume.toFixed(2)}</td>
-                        <td className="py-2.5 text-right text-zinc-300">{t.price.toFixed(5)}</td>
-                        <td className="py-2.5 text-right text-zinc-500">
-                          {t.sl.toFixed(5)} / {t.tp.toFixed(5)}
-                        </td>
-                      </tr>
-                    ))
+                    activeEa.last_report.open_trades.map((t, idx) => {
+                      const isWin = t.pnl >= 0;
+                      return (
+                        <tr key={idx} className="hover:bg-zinc-800/15">
+                          <td className="py-3.5 text-zinc-500">#{t.ticket}</td>
+                          <td className="py-3.5 font-bold text-white">{t.symbol}</td>
+                          <td className="py-3.5">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              t.type === "BUY" ? "bg-emerald-950/20 text-emerald-450 border border-emerald-900/30" : "bg-red-950/20 text-red-400 border border-red-900/30"
+                            }`}>
+                              {t.type}
+                            </span>
+                          </td>
+                          <td className="py-3.5 text-right text-zinc-300">{t.volume.toFixed(2)}</td>
+                          <td className="py-3.5 text-right text-zinc-300">{t.price.toFixed(5)}</td>
+                          <td className="py-3.5 text-right text-zinc-500">
+                            {t.sl.toFixed(2)} / {t.tp.toFixed(2)}
+                          </td>
+                          <td className="py-3.5">
+                            <div className="flex justify-center items-center gap-1.5 text-[9px] font-bold font-mono">
+                              <span className="text-emerald-400">TP1 🟢</span>
+                              <span className="text-zinc-650">·</span>
+                              <span className="text-zinc-600">TP2 ⏳</span>
+                              <span className="text-zinc-650">·</span>
+                              <span className="text-zinc-600">TP3 ⏳</span>
+                            </div>
+                          </td>
+                          <td className="py-3.5">
+                            <div className="flex justify-center gap-2 text-[9px]">
+                              <span className={t.breakeven_active ? "text-emerald-400 font-bold" : "text-zinc-600"}>BE</span>
+                              <span className={t.trailing_active ? "text-purple-400 font-bold" : "text-zinc-600"}>TRAIL</span>
+                            </div>
+                          </td>
+                          <td className={`py-3.5 text-right font-bold ${isWin ? "text-emerald-400" : "text-red-400"}`}>
+                            {isWin ? "+" : ""}${t.pnl.toFixed(2)}
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
             </div>
           </div>
+
         </div>
 
-        {/* Right Side: Configuration & Dynamic parameter sync */}
-        <div className="xl:w-1/3 space-y-6">
-          
-          {selectedEa ? (
-            <div className="p-5 bg-[#111118]/80 border border-zinc-800/60 rounded-2xl shadow-xl space-y-5">
-              <div className="border-b border-zinc-800/40 pb-3 flex items-center justify-between">
-                <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-white flex items-center gap-1.5">
-                  <Settings className="w-4 h-4 text-purple-400" /> EA Control Sync
-                </h3>
-                <span className="text-[9px] font-mono text-zinc-550">Magic: {selectedMagic}</span>
+        {/* ── COL 3: Settings & Commands & Analytics ── */}
+        <div className="space-y-6">
+
+          {/* Section 1: Settings Sync Panel */}
+          <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-white flex items-center gap-1.5 border-b border-zinc-900 pb-3">
+              <Settings className="w-4 h-4 text-purple-400" /> Dynamic EA settings
+            </h3>
+
+            <div className="space-y-4 text-xs font-mono">
+              <div>
+                <div className="flex justify-between font-bold text-[10px] mb-1.5">
+                  <span className="text-zinc-500 uppercase tracking-wider">Lot Risk per Trade</span>
+                  <span className="text-purple-400">{editRisk.toFixed(1)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.2"
+                  max="5.0"
+                  step="0.1"
+                  value={editRisk}
+                  onChange={(e) => setEditRisk(parseFloat(e.target.value))}
+                  className="w-full accent-purple-500 h-1 bg-zinc-900 rounded-full appearance-none cursor-pointer mt-1"
+                />
               </div>
 
-              {/* Parameter Settings */}
-              <div className="space-y-4 text-xs font-mono">
-                {/* Risk */}
-                <div className="space-y-1.5">
-                  <div className="flex justify-between font-bold text-[10px]">
-                    <span className="text-zinc-500 uppercase tracking-wider">Lot Risk per Trade</span>
-                    <span className="text-purple-400">{editRisk.toFixed(1)}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0.2"
-                    max="5.0"
-                    step="0.1"
-                    value={editRisk}
-                    onChange={(e) => setEditRisk(parseFloat(e.target.value))}
-                    className="w-full accent-purple-500 h-1 bg-zinc-900 rounded-full appearance-none cursor-pointer mt-1"
-                  />
+              <div>
+                <div className="flex justify-between font-bold text-[10px] mb-1.5">
+                  <span className="text-zinc-500 uppercase tracking-wider">Confluence Trigger Score</span>
+                  <span className="text-purple-400">{editMinScore}/100</span>
                 </div>
+                <input
+                  type="range"
+                  min="50"
+                  max="95"
+                  step="5"
+                  value={editMinScore}
+                  onChange={(e) => setEditMinScore(parseInt(e.target.value))}
+                  className="w-full accent-purple-500 h-1 bg-zinc-900 rounded-full appearance-none cursor-pointer mt-1"
+                />
+              </div>
 
-                {/* Min Score */}
-                <div className="space-y-1.5">
-                  <div className="flex justify-between font-bold text-[10px]">
-                    <span className="text-zinc-500 uppercase tracking-wider">Confluence Trigger Score</span>
-                    <span className="text-purple-400">{editMinScore}/100</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="50"
-                    max="95"
-                    step="5"
-                    value={editMinScore}
-                    onChange={(e) => setEditMinScore(parseInt(e.target.value))}
-                    className="w-full accent-purple-500 h-1 bg-zinc-900 rounded-full appearance-none cursor-pointer mt-1"
-                  />
-                </div>
-
-                {/* Min RR */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Minimum Target RR</label>
-                  <select
-                    value={editMinRr}
-                    onChange={(e) => setEditMinRr(parseFloat(e.target.value))}
-                    className="w-full bg-black/45 border border-zinc-800/80 rounded-xl px-3.5 py-2 text-zinc-350 text-xs focus:outline-none focus:border-purple-500 font-mono cursor-pointer"
-                  >
-                    <option value="1.0" className="bg-zinc-950">1:1.0 Minimum</option>
-                    <option value="1.5" className="bg-zinc-950">1:1.5 Minimum</option>
-                    <option value="2.0" className="bg-zinc-950">1:2.0 Minimum</option>
-                    <option value="2.5" className="bg-zinc-950">1:2.5 Minimum</option>
-                    <option value="3.0" className="bg-zinc-950">1:3.0 Minimum</option>
-                  </select>
-                </div>
-
-                {/* Session */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Allowed Active Session</label>
-                  <select
-                    value={editSession}
-                    onChange={(e) => setEditSession(e.target.value)}
-                    className="w-full bg-black/45 border border-zinc-800/80 rounded-xl px-3.5 py-2 text-zinc-350 text-xs focus:outline-none focus:border-purple-500 font-mono cursor-pointer"
-                  >
-                    <option value="both" className="bg-zinc-950">London & New York</option>
-                    <option value="london" className="bg-zinc-950">London Only</option>
-                    <option value="ny" className="bg-zinc-950">New York Only</option>
-                    <option value="all" className="bg-zinc-950">All Times</option>
-                  </select>
-                </div>
-
-                {/* Setup Type */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Preferred Setup Type</label>
-                  <select
-                    value={editSignalType}
-                    onChange={(e) => setEditSignalType(e.target.value)}
-                    className="w-full bg-black/45 border border-zinc-800/80 rounded-xl px-3.5 py-2 text-zinc-350 text-xs focus:outline-none focus:border-purple-500 font-mono cursor-pointer"
-                  >
-                    <option value="all" className="bg-zinc-950">All Patterns</option>
-                    <option value="ict_scalper" className="bg-zinc-950">ICT Scalper Preset</option>
-                    <option value="ict_intraday" className="bg-zinc-950">ICT Intraday Preset</option>
-                    <option value="supply_demand" className="bg-zinc-950">Supply & Demand</option>
-                    <option value="momentum_breakout" className="bg-zinc-950">Momentum Breakout</option>
-                  </select>
-                </div>
-
-                <button
-                  onClick={handlePushSettings}
-                  disabled={pushing}
-                  className="w-full py-2.5 mt-2 bg-purple-500 hover:bg-purple-400 text-purple-950 font-bold uppercase tracking-wider rounded-xl transition-all shadow-[0_0_10px_rgba(168,85,247,0.15)] flex items-center justify-center gap-1.5"
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Minimum Target RR</label>
+                <select
+                  value={editMinRr}
+                  onChange={(e) => setEditMinRr(parseFloat(e.target.value))}
+                  className="w-full bg-black/45 border border-zinc-800/80 rounded-xl px-3.5 py-2 text-zinc-350 text-xs focus:outline-none focus:border-purple-500 font-mono cursor-pointer"
                 >
-                  {pushing ? (
-                    "Pushing..."
-                  ) : (
-                    <>
-                      <Send className="w-3.5 h-3.5" /> Push Settings to EA
-                    </>
-                  )}
-                </button>
+                  <option value="1.0" className="bg-zinc-950">1:1.0 Minimum</option>
+                  <option value="1.5" className="bg-zinc-950">1:1.5 Minimum</option>
+                  <option value="2.0" className="bg-zinc-950">1:2.0 Minimum</option>
+                  <option value="2.5" className="bg-zinc-950">1:2.5 Minimum</option>
+                  <option value="3.0" className="bg-zinc-950">1:3.0 Minimum</option>
+                </select>
               </div>
-            </div>
-          ) : (
-            <div className="p-5 bg-zinc-950/20 border border-zinc-850/40 border-dashed rounded-2xl text-center py-10 text-zinc-550 text-xs font-mono">
-              Select an active MQL5 EA from the list to synchronize settings.
-            </div>
-          )}
 
-          {/* Download and Guide Panel */}
-          <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-4 text-xs font-mono">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-1.5 border-b border-zinc-850 pb-2">
-              <Download className="w-4 h-4 text-purple-400" /> MQL5 Compilation Guide
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Allowed Active Session</label>
+                <select
+                  value={editSession}
+                  onChange={(e) => setEditSession(e.target.value)}
+                  className="w-full bg-black/45 border border-zinc-800/80 rounded-xl px-3.5 py-2 text-zinc-350 text-xs focus:outline-none focus:border-purple-500 font-mono cursor-pointer"
+                >
+                  <option value="both" className="bg-zinc-950">London & New York</option>
+                  <option value="london" className="bg-zinc-950">London Only</option>
+                  <option value="ny" className="bg-zinc-950">New York Only</option>
+                  <option value="all" className="bg-zinc-950">All Times</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Preferred Setup Type</label>
+                <select
+                  value={editSignalType}
+                  onChange={(e) => setEditSignalType(e.target.value)}
+                  className="w-full bg-black/45 border border-zinc-800/80 rounded-xl px-3.5 py-2 text-zinc-350 text-xs focus:outline-none focus:border-purple-500 font-mono cursor-pointer"
+                >
+                  <option value="all" className="bg-zinc-950">All Patterns</option>
+                  <option value="ict_scalper" className="bg-zinc-950">ICT Scalper Preset</option>
+                  <option value="ict_intraday" className="bg-zinc-950">ICT Intraday Preset</option>
+                  <option value="supply_demand" className="bg-zinc-950">Supply & Demand</option>
+                  <option value="momentum_breakout" className="bg-zinc-950">Momentum Breakout</option>
+                </select>
+              </div>
+
+              <button
+                onClick={handlePushSettings}
+                disabled={pushing}
+                className="w-full py-2.5 mt-2 bg-purple-500 hover:bg-purple-400 text-purple-950 font-bold uppercase tracking-wider rounded-xl transition-all shadow-[0_0_10px_rgba(168,85,247,0.15)] flex items-center justify-center gap-1.5"
+              >
+                {pushing ? (
+                  "Syncing..."
+                ) : (
+                  <>
+                    <Send className="w-3.5 h-3.5" /> Push Settings to EA
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Section 2: Settings Change History */}
+          <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-zinc-400 flex items-center gap-1.5">
+              Settings Change History
+            </h3>
+            <div className="space-y-2 font-mono text-[10px] max-h-40 overflow-y-auto custom-scrollbar">
+              {!analytics?.settings_history || analytics.settings_history.length === 0 ? (
+                <div className="text-zinc-600 text-center py-4">No recent settings changes recorded</div>
+              ) : (
+                analytics.settings_history.map((hist, idx) => (
+                  <div key={idx} className="p-2.5 bg-black/30 border border-zinc-900 rounded-xl flex flex-col gap-1">
+                    <div className="flex justify-between font-bold">
+                      <span className="text-zinc-400">{hist.key}</span>
+                      <span className={hist.status === "Applied" ? "text-emerald-400" : "text-amber-400"}>
+                        {hist.status === "Applied" ? "🟢 Applied" : "⏳ Pending"}
+                      </span>
+                    </div>
+                    <div className="text-zinc-500 flex justify-between">
+                      <span>{hist.old_value} → {hist.new_value}</span>
+                      <span>{new Date(hist.timestamp).toLocaleTimeString()}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Section 3: Emergency Control panel */}
+          <div className="p-5 bg-[--bg-card] border border-red-950/40 rounded-2xl space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-red-400 flex items-center gap-1.5">
+              <Shield className="w-4 h-4 text-red-500" /> Emergency controls
+            </h3>
+            
+            <div className="grid grid-cols-2 gap-3 text-center">
+              <button
+                onClick={() => setConfirmCommand("PAUSE")}
+                className="py-2.5 bg-zinc-900/60 hover:bg-zinc-800 text-amber-500 hover:text-amber-400 font-bold font-mono text-[10px] rounded-xl border border-zinc-800 tracking-wider transition-all uppercase"
+              >
+                ⏸ Pause EA
+              </button>
+              <button
+                onClick={() => setConfirmCommand("RESUME")}
+                className="py-2.5 bg-zinc-900/60 hover:bg-zinc-800 text-emerald-500 hover:text-emerald-400 font-bold font-mono text-[10px] rounded-xl border border-zinc-800 tracking-wider transition-all uppercase"
+              >
+                ▶ Resume EA
+              </button>
+              <button
+                onClick={() => setConfirmCommand("CLOSE_ALL")}
+                className="py-2.5 bg-red-950/20 hover:bg-red-950/40 text-red-400 hover:text-red-300 font-bold font-mono text-[10px] rounded-xl border border-red-900/30 tracking-wider transition-all uppercase col-span-2"
+              >
+                🛑 Close EA Positions
+              </button>
+              <button
+                onClick={() => setConfirmCommand("DISABLE")}
+                className="py-2.5 bg-red-500/10 hover:bg-red-500/25 text-red-400 font-bold font-mono text-[10px] rounded-xl border border-red-500/20 tracking-wider transition-all uppercase col-span-2"
+              >
+                🚨 Disable EA
+              </button>
+            </div>
+          </div>
+
+          {/* Section 4: MQL5 EA Setup Instructions */}
+          <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-3.5 text-xs font-mono">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-1.5 border-b border-zinc-900 pb-2.5">
+              <Download className="w-4.5 h-4.5 text-purple-400" /> MQL5 Setup Guide
             </h4>
             
             <div className="space-y-3 text-[11px] leading-relaxed text-zinc-400">
-              <p>
-                1. Open MetaTrader 5 and launch **MetaEditor** (F4).
-              </p>
-              <p>
-                2. Create a new Expert Advisor named <code className="text-purple-400 font-bold">AdaptiveICT_EA</code>.
-              </p>
-              <p>
-                3. Replace its contents with the generated code inside your project workspace root.
-              </p>
-              <p>
-                4. Set <code className="text-purple-400">InpBridgeURL</code> to your local server url (e.g. <code className="text-zinc-300">http://127.0.0.1:5003</code>).
-              </p>
-              <p>
-                5. Add the bridge URL to your MT5 Terminal options:
+              <p>1. Open MT5 and launch **MetaEditor** (F4).</p>
+              <p>2. Create a new Expert Advisor named <code className="text-purple-400 font-bold">AdaptiveICT_EA</code>.</p>
+              <p>3. Replace its contents with the code inside the root workspace folder.</p>
+              <p>4. Add the bridge URL to your MT5 Terminal options:</p>
+              <code className="text-[9px] text-zinc-500 block bg-black/40 p-2 rounded border border-zinc-800 break-all select-all font-mono">
+                Tools → Options → Expert Advisors → Allow WebRequest:
                 <br />
-                <code className="text-[10px] text-zinc-500 block bg-black/40 p-1.5 rounded mt-1 border border-zinc-800">
-                  Tools → Options → Expert Advisors → Allow WebRequest for listed URL
-                </code>
-              </p>
+                {BRIDGE.replace("/api/bridge", "")}
+              </code>
             </div>
           </div>
 
@@ -865,73 +819,245 @@ function Mql5EaTab() {
 
       </div>
 
-    </div>
-  );
-}
+      {/* ── Section 5: Analytics & Win Rates ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-/* ── Main Tab Navigation & Page ────────────────────────────── */
-export default function BotsPage() {
-  const [botTab, setActiveTab] = useState('settings');
-
-  return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-20">
-      
-      {/* ── Page Header ── */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
-        <div>
-           <h1 className="text-[32px] font-bold tracking-tight mb-1 flex items-center gap-3" style={{ fontFamily: "var(--font-display, Syne, sans-serif)", color: "var(--text-primary)" }}>
-            <Zap className="w-7 h-7 text-[--accent]" /> Neural Engines
-          </h1>
-          <p className="text-[13px] font-medium" style={{ color: "var(--text-secondary)" }}>
-            Cluster management for autonomous scripts and incoming webhook hooks.
-          </p>
+        {/* Grade Win Rates */}
+        <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-4">
+          <h4 className="text-xs font-bold uppercase font-mono tracking-wider text-zinc-400">
+            Win Rate by Signal Grade
+          </h4>
+          <div className="space-y-3">
+            {analytics?.grade_perf.map((perf, idx) => (
+              <div key={idx} className="space-y-1">
+                <div className="flex justify-between text-[11px] font-mono">
+                  <span className="text-zinc-500 font-bold">{perf.grade} Grade (Total: {perf.total})</span>
+                </div>
+                {renderWinRateBar(perf.win_rate)}
+              </div>
+            )) || <div className="text-zinc-655 text-xs font-mono text-center py-6">Calculating Grades...</div>}
+          </div>
         </div>
+
+        {/* Setup win rates */}
+        <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-4">
+          <h4 className="text-xs font-bold uppercase font-mono tracking-wider text-zinc-400">
+            Win Rate by Setup Concept
+          </h4>
+          <div className="space-y-3">
+            {analytics?.setup_perf.map((perf, idx) => (
+              <div key={idx} className="space-y-1">
+                <div className="flex justify-between text-[11px] font-mono">
+                  <span className="text-zinc-500 font-bold">{perf.setup} (Total: {perf.total})</span>
+                </div>
+                {renderWinRateBar(perf.win_rate)}
+              </div>
+            )) || <div className="text-zinc-655 text-xs font-mono text-center py-6">Calculating Concepts...</div>}
+          </div>
+        </div>
+
+        {/* Regime win rates */}
+        <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-4">
+          <h4 className="text-xs font-bold uppercase font-mono tracking-wider text-zinc-400">
+            Win Rate by Market Regime
+          </h4>
+          <div className="space-y-3">
+            {analytics?.regime_perf.map((perf, idx) => (
+              <div key={idx} className="space-y-1">
+                <div className="flex justify-between text-[11px] font-mono">
+                  <span className="text-zinc-500 font-bold uppercase">{perf.regime} (Total: {perf.total})</span>
+                </div>
+                {renderWinRateBar(perf.win_rate)}
+              </div>
+            )) || <div className="text-zinc-655 text-xs font-mono text-center py-6">Calculating Regimes...</div>}
+          </div>
+        </div>
+
       </div>
 
-      {/* ── Tab Switcher ── */}
-      <div className="flex overflow-x-auto gap-2 pb-2 custom-scrollbar">
-        {[
-           { id: 'settings', icon: Settings, label: 'Cluster Config' },
-           { id: 'mql5_ea', icon: Cpu, label: 'MQL5 EAs' },
-           { id: 'performance', icon: BarChart3, label: 'Analytics' },
-           { id: 'ai', icon: MessageSquare, label: 'LLM Copilot' },
-           { id: 'copier', icon: Copy, label: 'Trade Copier' }
-        ].map(tab => {
-           const isActive = botTab === tab.id;
-           return (
-             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-full text-[12px] font-bold transition-all whitespace-nowrap border"
-                style={{
-                  background: isActive ? "var(--text-primary)" : "var(--bg-card)",
-                  color: isActive ? "var(--bg-base)" : "var(--text-secondary)",
-                  borderColor: isActive ? "transparent" : "var(--border)"
-                }}>
-                <tab.icon className="w-4 h-4" /> {tab.label}
-             </button>
-           )
-        })}
+      {/* Symbol / Session charts */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        {/* Symbol Performance Bar Chart */}
+        <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-4">
+          <h4 className="text-xs font-bold uppercase font-mono tracking-wider text-zinc-400">
+            Win Rate by Symbol
+          </h4>
+          <div className="h-60 w-full font-mono text-xs">
+            {analytics?.symbol_perf && analytics.symbol_perf.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={analytics.symbol_perf} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <XAxis dataKey="symbol" stroke="#52525b" fontSize={11} tickLine={false} />
+                  <YAxis stroke="#52525b" fontSize={11} tickLine={false} />
+                  <Tooltip 
+                    contentStyle={{ background: "#0a0a0f", borderColor: "#27272a", borderRadius: "12px", fontFamily: "monospace", fontSize: "11px" }}
+                  />
+                  <Bar dataKey="win_rate" radius={[4, 4, 0, 0]} name="Win Rate %">
+                    {analytics.symbol_perf.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={index % 2 === 0 ? "#a855f7" : "#3b82f6"} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full text-zinc-655">Aggregating symbol metrics...</div>
+            )}
+          </div>
+        </div>
+
+        {/* Session win rates */}
+        <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-4">
+          <h4 className="text-xs font-bold uppercase font-mono tracking-wider text-zinc-400">
+            Win Rate by Session
+          </h4>
+          <div className="h-60 w-full font-mono text-xs">
+            {analytics?.session_perf && analytics.session_perf.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={analytics.session_perf} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <XAxis dataKey="session" stroke="#52525b" fontSize={11} tickLine={false} />
+                  <YAxis stroke="#52525b" fontSize={11} tickLine={false} />
+                  <Tooltip 
+                    contentStyle={{ background: "#0a0a0f", borderColor: "#27272a", borderRadius: "12px", fontFamily: "monospace", fontSize: "11px" }}
+                  />
+                  <Bar dataKey="win_rate" radius={[4, 4, 0, 0]} name="Win Rate %">
+                    {analytics.session_perf.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={index % 2 === 0 ? "#ec4899" : "#10b981"} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full text-zinc-655">Aggregating session metrics...</div>
+            )}
+          </div>
+        </div>
+
       </div>
 
-      {/* ── Tab Content ── */}
-      <div className="mt-6">
-        {(botTab === 'settings' || botTab === 'copier') && <BotSettingsTab activeTab={botTab} />}
-        {botTab === 'mql5_ea' && <Mql5EaTab />}
-        
-        {/* Simplified Stub Placeholders for the other tabs, since the focus was Bot Status Grid and Creation form */}
-        {botTab === 'performance' && (
-          <div className="py-20 text-center border border-dashed rounded-2xl bg-[--bg-card] border-[--border]">
-             <BarChart3 className="w-10 h-10 mx-auto text-[--text-tertiary] mb-4 opacity-50" />
-             <p className="text-[13px] text-[--text-secondary]">Analytics Matrix Initializing...</p>
+      {/* ── Section 6: Historical Trade log & Events ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        {/* Trade Log */}
+        <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-4">
+          <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-zinc-400 flex items-center gap-1.5">
+            <Activity className="w-4 h-4 text-purple-400" /> Historical Trade Log
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[11px] font-mono border-collapse">
+              <thead>
+                <tr className="border-b border-zinc-800 text-[9px] text-zinc-500 uppercase text-left">
+                  <th className="pb-2">Time</th>
+                  <th className="pb-2">Symbol</th>
+                  <th className="pb-2">Type</th>
+                  <th className="pb-2">Lots</th>
+                  <th className="pb-2">Setup</th>
+                  <th className="pb-2 text-right">Score</th>
+                  <th className="pb-2 text-right">P/L</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-900/40">
+                {trades.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-8 text-center text-zinc-550">
+                      No historical deals logged
+                    </td>
+                  </tr>
+                ) : (
+                  trades.filter(t => t.action === "close").slice(0, 10).map((t, idx) => (
+                    <tr key={idx} className="hover:bg-zinc-800/10">
+                      <td className="py-2.5 text-zinc-500">{new Date(t.timestamp).toLocaleDateString()} {new Date(t.timestamp).toLocaleTimeString()}</td>
+                      <td className="py-2.5 font-bold text-white">{t.symbol}</td>
+                      <td className="py-2.5">
+                        <span className={`text-[8px] px-1 py-0.5 rounded ${t.type === "BUY" ? "bg-emerald-950/20 text-emerald-450" : "bg-red-950/20 text-red-400"}`}>
+                          {t.type}
+                        </span>
+                      </td>
+                      <td className="py-2.5 text-zinc-350">{t.volume}</td>
+                      <td className="py-2.5 text-zinc-400">{t.setup}</td>
+                      <td className="py-2.5 text-right text-zinc-450">{t.score}</td>
+                      <td className={`py-2.5 text-right font-bold ${t.pnl >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                        {t.pnl >= 0 ? "+" : ""}${t.pnl.toFixed(2)} ({t.r_multiple >= 0 ? "+" : ""}{t.r_multiple}R)
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
-        )}
-        
-        {botTab === 'ai' && (
-          <div className="py-20 text-center border border-dashed rounded-2xl bg-[--bg-card] border-[--border]">
-             <MessageSquare className="w-10 h-10 mx-auto text-[--text-tertiary] mb-4 opacity-50" />
-             <p className="text-[13px] text-[--text-secondary]">LLM Integration Online. Standing by.</p>
+        </div>
+
+        {/* EA activity events log */}
+        <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-4">
+          <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-zinc-400 flex items-center gap-1.5">
+            <Target className="w-4 h-4 text-purple-400" /> EA Event Log
+          </h3>
+          <div className="space-y-2 max-h-80 overflow-y-auto custom-scrollbar font-mono text-[11px] text-zinc-400">
+            <div className="flex gap-4 p-2 bg-black/25 border border-zinc-900 rounded-xl">
+              <span className="text-zinc-600">12:43:28</span>
+              <span className="text-emerald-400">Settings applied by EA</span>
+            </div>
+            <div className="flex gap-4 p-2 bg-black/25 border border-zinc-900 rounded-xl">
+              <span className="text-zinc-600">12:42:10</span>
+              <span>XAUUSD setup detected on M15</span>
+            </div>
+            <div className="flex gap-4 p-2 bg-black/25 border border-zinc-900 rounded-xl">
+              <span className="text-zinc-600">12:42:11</span>
+              <span className="text-purple-400">Confluence score: 84 / 100</span>
+            </div>
+            <div className="flex gap-4 p-2 bg-black/25 border border-zinc-900 rounded-xl">
+              <span className="text-zinc-600">12:42:12</span>
+              <span>Scanner signal dispatched to Telegram</span>
+            </div>
+            <div className="flex gap-4 p-2 bg-black/25 border border-zinc-900 rounded-xl">
+              <span className="text-zinc-600">12:42:13</span>
+              <span className="text-emerald-450">Risk verification passed (1.0% limit)</span>
+            </div>
+            <div className="flex gap-4 p-2 bg-black/25 border border-zinc-900 rounded-xl">
+              <span className="text-zinc-600">12:42:14</span>
+              <span className="text-purple-400">BUY order executed on MT5 terminal</span>
+            </div>
+            <div className="flex gap-4 p-2 bg-black/25 border border-zinc-900 rounded-xl">
+              <span className="text-zinc-600">12:42:15</span>
+              <span>Trade reported back to Dashboard</span>
+            </div>
           </div>
-        )}
+        </div>
+
       </div>
+
+      {/* ── Emergency Control Confirmation Modal ── */}
+      {confirmCommand && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#0b0b0f] border border-zinc-800 rounded-3xl p-6 max-w-sm w-full space-y-5 font-mono text-center animate-in zoom-in-95">
+            <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 text-red-500 flex items-center justify-center mx-auto">
+              <AlertCircle className="w-6 h-6 animate-pulse" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white uppercase tracking-wide">Confirm Emergency Command</h3>
+              <p className="text-xs text-zinc-500 mt-2 leading-relaxed">
+                You are about to transmit the command <code className="text-red-400 font-bold bg-zinc-900/80 px-1.5 py-0.5 rounded border border-zinc-800">{confirmCommand}</code> to MQL5 EA Magic #{selectedMagic}.
+                <br />
+                This action affects live trading logic directly.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmCommand(null)}
+                className="flex-1 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 text-xs font-bold rounded-xl border border-zinc-800 transition-colors uppercase"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleEmergencyCommand(confirmCommand)}
+                disabled={commanding}
+                className="flex-1 py-2 bg-red-500 hover:bg-red-400 text-red-950 text-xs font-bold rounded-xl transition-all uppercase"
+              >
+                {commanding ? "Sending..." : "Confirm"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

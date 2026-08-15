@@ -56,3 +56,12 @@ coverage/
 
 .vercel
 .env*.local
+
+# MQL5 ignored files
+*.ex5
+*.xml
+journals/
+
+.venv/
+*.xlsx
+*.csv

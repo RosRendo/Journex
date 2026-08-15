@@ -40,7 +40,7 @@ export async function runNewsAlertsLoop(
       if (impact === "high" || tag === "BREAKING") {
         if (hasChannel) {
           try {
-            await dispatchAlert(keys, fmtNews(tag || "NEWS", headline, impact || "med"));
+            await dispatchAlert(keys, fmtNews(tag || "NEWS", headline, impact || "med"), undefined, "news");
           } catch (err: any) {
             console.warn("News alert dispatch failed:", err.message);
           }

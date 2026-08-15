@@ -126,14 +126,7 @@ export default function TerminalHeader({ symbol, onSymbolChange, connected, symb
           <Settings size={12} />
           Broker
         </button>
-        <button
-          data-testid="open-api-keys"
-          onClick={onOpenApiKeys}
-          className="flex items-center gap-1 text-[10px] uppercase tracking-widest border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-100 px-2 py-1 transition-colors"
-        >
-          <Key size={12} />
-          API Keys
-        </button>
+
       </div>
 
       <div className="flex items-center gap-4 text-[11px] font-mono">

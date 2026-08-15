@@ -9,7 +9,6 @@ import RightPanel from "../../components/terminal/RightPanel";
 import BottomPanel from "../../components/terminal/BottomPanel";
 import OrderTicket from "../../components/terminal/OrderTicket";
 import BrokerSettings from "../../components/terminal/BrokerSettings";
-import ApiKeysSettings from "../../components/terminal/ApiKeysSettings";
 import { useTerminalData } from "../../hooks/useTerminalData";
 
 export default function TerminalPage() {
@@ -25,7 +24,6 @@ export default function TerminalPage() {
     setOrderOpen(true);
   };
   const [brokerOpen, setBrokerOpen] = useState(false);
-  const [apiKeysOpen, setApiKeysOpen] = useState(false);
   const { snapshot, loading, refetch } = useTerminalData(symbol, timeframe);
 
   return (
@@ -40,7 +38,6 @@ export default function TerminalPage() {
         symbols={snapshot?.watchlist || []}
         onOpenOrderTicket={() => setOrderOpen(true)}
         onOpenBrokerSettings={() => setBrokerOpen(true)}
-        onOpenApiKeys={() => setApiKeysOpen(true)}
         isLive={snapshot?.status?.live === true}
         provider={snapshot?.status?.provider || "mock"}
         onPresetChange={(preset: string) => {
@@ -113,7 +110,6 @@ export default function TerminalPage() {
         }}
       />
       <BrokerSettings open={brokerOpen} onOpenChange={setBrokerOpen} onConnected={refetch} />
-      <ApiKeysSettings open={apiKeysOpen} onOpenChange={setApiKeysOpen} onSaved={refetch} />
     </div>
   );
 }

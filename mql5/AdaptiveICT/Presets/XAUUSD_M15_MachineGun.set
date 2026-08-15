@@ -1,0 +1,15 @@
+InpStrategyType=1
+InpSignalTimeframe=M15
+InpRiskPercent=1.0
+InpMaxOpenTrades=3
+InpMinRR=1.2
+InpMinScore=50
+InpMaxSpreadPoints=300
+InpUseRSI=true
+InpRSIPeriod=18
+InpRSIBuyMax=70.0
+InpRSISellMin=25.0
+InpTrailingStop=true
+InpTrailATRMult=4.0
+InpLiquidityLookback=60
+InpUseSMT=false

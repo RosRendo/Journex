@@ -25,14 +25,14 @@ export default function ApiKeysSettings({ open, onOpenChange, onSaved }: ApiKeys
     discord_webhook: "",
     telegram_bot_token: "",
     telegram_chat_id: "",
+    telegram_thread_news: "",
+    telegram_thread_calendar: "",
     myfxbook_email: "",
     myfxbook_password: "",
   });
   const [configured, setConfigured] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [testResult, setTestResult] = useState<any>(null);
-  const [testing, setTesting] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -45,6 +45,8 @@ export default function ApiKeysSettings({ open, onOpenChange, onSaved }: ApiKeys
         setKeys((prev) => ({
           ...prev,
           telegram_chat_id: r.data?.telegram_chat_id || "",
+          telegram_thread_news: r.data?.telegram_thread_news || "",
+          telegram_thread_calendar: r.data?.telegram_thread_calendar || "",
           myfxbook_email: r.data?.myfxbook_email || "",
         }));
       })
@@ -111,7 +113,7 @@ export default function ApiKeysSettings({ open, onOpenChange, onSaved }: ApiKeys
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 gap-3 mt-2">
+        <div className="grid grid-cols-1 gap-3 mt-2 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
           <Field
             name="marketaux"
             label="Marketaux API Token"
@@ -144,6 +146,18 @@ export default function ApiKeysSettings({ open, onOpenChange, onSaved }: ApiKeys
             hint="Send a message to your bot, then visit api.telegram.org/bot{TOKEN}/getUpdates"
           />
           <Field
+            name="telegram_thread_news"
+            label="Telegram Topic: News (ID)"
+            mask={false}
+            hint="The thread ID for News (e.g. 7)"
+          />
+          <Field
+            name="telegram_thread_calendar"
+            label="Telegram Topic: Calendar (ID)"
+            mask={false}
+            hint="The thread ID for Calendar Events (e.g. 8)"
+          />
+          <Field
             name="myfxbook_email"
             label="MyFXBook Email"
             mask={false}
@@ -161,36 +175,7 @@ export default function ApiKeysSettings({ open, onOpenChange, onSaved }: ApiKeys
             ✓ Saved
           </div>
         )}
-        {testResult && (
-          <div
-            data-testid="alerts-test-result"
-            className={`text-[11px] font-mono mt-2 ${testResult.ok ? "text-emerald-500" : "text-red-500"}`}
-          >
-            {testResult.ok
-              ? `✓ Sent to: ${(testResult.sent || []).join(", ")}`
-              : `✗ ${testResult.reason || "No alert channels reachable"}`}
-          </div>
-        )}
-
         <DialogFooter className="mt-3 gap-2">
-          <button
-            data-testid="alerts-test-btn"
-            onClick={async () => {
-              setTesting(true);
-              try {
-                const r = await api.post("/alerts/test");
-                setTestResult(r.data);
-              } catch (e: any) {
-                setTestResult({ ok: false, reason: e?.message || "error" });
-              } finally {
-                setTesting(false);
-              }
-            }}
-            disabled={testing || !(configured.discord_webhook || configured.telegram)}
-            className="text-[11px] uppercase tracking-widest border border-zinc-700 text-zinc-300 hover:border-emerald-500 hover:text-emerald-500 px-3 py-1.5 disabled:opacity-40 mr-auto"
-          >
-            {testing ? "Sending…" : "Test Alert"}
-          </button>
           <button
             onClick={() => onOpenChange(false)}
             className="text-[11px] uppercase tracking-widest border border-zinc-700 hover:border-zinc-500 px-3 py-1.5"

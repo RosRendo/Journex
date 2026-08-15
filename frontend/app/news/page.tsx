@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   TrendingUp, TrendingDown, Minus, Clock, Flame, Globe, BarChart3,
   AlertTriangle, Zap, Calendar, ArrowUpRight, ArrowDownRight,
-  RefreshCw, Activity, Send, Wifi, WifiOff, Bell, BellOff, Settings,
+  RefreshCw, Activity, Send, Wifi, WifiOff, Settings,
   CheckCircle, Circle, ExternalLink, Info, Newspaper, Radio, ListFilter,
   ShieldAlert, Activity as ActivityIcon, Target
 } from "lucide-react";
@@ -32,7 +32,6 @@ export default function MacroDeskPage() {
   const [signals, setSignals] = useState<Signal[]>([]);
   const [calEvents, setCalEvents] = useState<CalEvent[]>([]);
   
-  const [alertsOn, setAlertsOn] = useState(false);
   const [fearGreed, setFearGreed] = useState(42);
   const [newsFilter, setNewsFilter] = useState<"all" | "hot">("all");
   const [navDate, setNavDate] = useState(new Date());
@@ -43,7 +42,6 @@ export default function MacroDeskPage() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    setAlertsOn(localStorage.getItem("news_alerts_on") === "true");
     
     const fetchVolatility = async () => {
       try {
@@ -68,21 +66,6 @@ export default function MacroDeskPage() {
       if (data.success && Array.isArray(data.news) && data.news.length > 0) {
         setBridgeOn(true); setNews(data.news); setLastPoll(new Date().toLocaleTimeString());
         
-        if (alertsOn && !isFirstFetch.current) {
-          const fresh = data.news.filter((n: NewsItem) => n.isHot && !seenIds.current.has(n.id));
-          fresh.forEach((n: NewsItem) => {
-            seenIds.current.add(n.id);
-            toast.custom(() => (
-              <div className="bg-[#111118] border border-orange-500/35 rounded-xl p-4 w-[380px] shadow-[0_0_20px_rgba(245,158,11,0.15)] font-mono text-[11px]">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="flex items-center gap-1 bg-orange-500/10 text-orange-400 text-[8px] font-black uppercase px-1.5 py-0.5 rounded border border-orange-500/20"><Flame className="w-3 h-3" /> HOT</span>
-                  <span className="text-[9px] text-zinc-550">{n.source}</span>
-                </div>
-                <p className="font-bold text-white leading-tight line-clamp-3">{n.title}</p>
-              </div>
-            ), { duration: 5000 });
-          });
-        }
         isFirstFetch.current = false;
       } else { setBridgeOn(false); }
     } catch (e) { setBridgeOn(false); }
@@ -111,7 +94,7 @@ export default function MacroDeskPage() {
     const ivSig = setInterval(fetchSignals, 120000);
     const ivCal = setInterval(fetchCalendar, 300000);
     return () => { clearInterval(ivNews); clearInterval(ivSig); clearInterval(ivCal); };
-  }, [alertsOn]);
+  }, []);
 
   const fgColor = fearGreed < 25 ? "#ff4d6a" : fearGreed < 45 ? "#f59e0b" : fearGreed < 75 ? "#f4f4f5" : "#00d4a1";
   const fgLabel = fearGreed < 25 ? "Extreme Fear" : fearGreed < 45 ? "Fear" : fearGreed < 75 ? "Neutral" : fearGreed < 90 ? "Greed" : "Extreme Greed";
@@ -146,10 +129,6 @@ export default function MacroDeskPage() {
             {bridgeOn ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
             {bridgeOn ? `BRIDGE ACTIVE • ${lastPoll}` : "BRIDGE OFFLINE"}
           </div>
-          <button onClick={() => { setAlertsOn(!alertsOn); localStorage.setItem("news_alerts_on", String(!alertsOn)); }} 
-            className="px-3 py-1.5 rounded-lg border flex items-center gap-1.5 transition-all bg-white/5 border-white/5 text-zinc-350 hover:bg-white/10">
-            {alertsOn ? <Bell className="w-3.5 h-3.5 text-emerald-450" /> : <BellOff className="w-3.5 h-3.5" />} ALERTS {alertsOn?'ON':'OFF'}
-          </button>
         </div>
       </div>
 

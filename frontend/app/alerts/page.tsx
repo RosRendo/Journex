@@ -23,25 +23,45 @@ const BRIDGE = process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge";
 interface AlertConfig {
   discord_news_webhook: string;
   discord_calendar_webhook: string;
+  discord_signals_webhook: string;
+  discord_alerts_webhook: string;
   telegram_bot_token: string;
-  telegram_news_chat_id: string;
-  telegram_cal_chat_id: string;
+  telegram_chat_id: string;
+  telegram_thread_news: string;
+  telegram_thread_calendar: string;
+  telegram_thread_signals: string;
+  telegram_thread_alerts: string;
   dnd_enabled: boolean;
   dnd_start: string;
   dnd_end: string;
   alerts_paused: boolean;
+  news_paused: boolean;
+  calendar_paused: boolean;
+  signals_paused: boolean;
+  executions_paused: boolean;
+  custom_paused: boolean;
 }
 
 const DEFAULT: AlertConfig = {
   discord_news_webhook: "",
   discord_calendar_webhook: "",
+  discord_signals_webhook: "",
+  discord_alerts_webhook: "",
   telegram_bot_token: "",
-  telegram_news_chat_id: "",
-  telegram_cal_chat_id: "",
+  telegram_chat_id: "",
+  telegram_thread_news: "",
+  telegram_thread_calendar: "",
+  telegram_thread_signals: "",
+  telegram_thread_alerts: "",
   dnd_enabled: false,
   dnd_start: "22:00",
   dnd_end: "06:00",
   alerts_paused: true,
+  news_paused: false,
+  calendar_paused: false,
+  signals_paused: false,
+  executions_paused: false,
+  custom_paused: false,
 };
 
 function StatusDot({ active }: { active: boolean }) {
@@ -110,8 +130,9 @@ export default function AlertSettingsPage() {
     setSaving(false);
   };
 
-  const test = async (type: "news" | "calendar") => {
+  const test = async (type: "news" | "calendar" | "signals" | "executions") => {
     setTesting(type);
+    await save();
     try {
       const res = await fetch(`${BRIDGE}/api/alert-config/test?type=${type}`, {
         headers: { "ngrok-skip-browser-warning": "true" },
@@ -150,6 +171,8 @@ export default function AlertSettingsPage() {
 
   const discordNewsOk = config.discord_news_webhook.includes("discord.com/api/webhooks");
   const discordCalOk = config.discord_calendar_webhook.includes("discord.com/api/webhooks");
+  const discordSigOk = config.discord_signals_webhook.includes("discord.com/api/webhooks");
+  const discordAlertOk = config.discord_alerts_webhook.includes("discord.com/api/webhooks");
   const telegramOk = config.telegram_bot_token.length > 5;
 
   if (loading)
@@ -176,27 +199,83 @@ export default function AlertSettingsPage() {
       </div>
 
       {/* ── Global Status ── */}
-      <div className={`rounded-2xl border p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all ${config.alerts_paused ? "border-amber-500/30 bg-amber-500/5" : "border-emerald-500/30 bg-emerald-500/5"}`}>
-        <div>
-          <h2 className={`font-bold flex items-center gap-2 ${config.alerts_paused ? "text-amber-400" : "text-emerald-400"}`}>
-            <BellRing className="w-4 h-4" /> Status: {config.alerts_paused ? "PAUSED" : "ACTIVE"}
-          </h2>
-          <p className="text-xs mt-1 max-w-sm" style={{ color: "var(--text-secondary)" }}>
-            Mute or unmute all Discord and Telegram notifications globally.
-          </p>
+      <div className={`rounded-2xl border p-5 transition-all ${config.alerts_paused ? "border-amber-500/30 bg-amber-500/5" : "border-emerald-500/30 bg-emerald-500/5"}`}>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+          <div>
+            <h2 className={`font-bold flex items-center gap-2 ${config.alerts_paused ? "text-amber-400" : "text-emerald-400"}`}>
+              <BellRing className="w-4 h-4" /> Global Status: {config.alerts_paused ? "PAUSED" : "ACTIVE"}
+            </h2>
+            <p className="text-xs mt-1 max-w-sm" style={{ color: "var(--text-secondary)" }}>
+              Master switch to mute or unmute all notifications globally.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={async () => {
+                const newConfig = { ...config, alerts_paused: true };
+                setConfig(newConfig);
+                try {
+                  await fetch(`${BRIDGE}/api/alert-config`, {
+                    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newConfig),
+                  });
+                  toast.success("All Alerts are now turned OFF");
+                } catch { toast.error("Failed to update status"); }
+              }}
+              className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${config.alerts_paused ? "bg-amber-500 text-white shadow-md shadow-amber-500/20" : "hover:opacity-80"}`}
+              style={!config.alerts_paused ? { background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--text-secondary)" } : {}}
+            >
+              Turn Off
+            </button>
+            <button
+              onClick={async () => {
+                const newConfig = { ...config, alerts_paused: false };
+                setConfig(newConfig);
+                try {
+                  await fetch(`${BRIDGE}/api/alert-config`, {
+                    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newConfig),
+                  });
+                  toast.success("All Alerts are now turned ON");
+                } catch { toast.error("Failed to update status"); }
+              }}
+              className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${!config.alerts_paused ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/20" : "hover:opacity-80"}`}
+              style={config.alerts_paused ? { background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--text-secondary)" } : {}}
+            >
+              Turn On
+            </button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setConfig(prev => ({ ...prev, alerts_paused: true }))}
-            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${config.alerts_paused ? "bg-amber-500 text-white shadow-md shadow-amber-500/20" : "hover:opacity-80"}`}
-            style={!config.alerts_paused ? { background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--text-secondary)" } : {}}
-          >Pause</button>
-          <button
-            onClick={() => setConfig(prev => ({ ...prev, alerts_paused: false }))}
-            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${!config.alerts_paused ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/20" : "hover:opacity-80"}`}
-            style={config.alerts_paused ? { background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--text-secondary)" } : {}}
-          >Active</button>
-        </div>
+        
+        {/* Granular Toggles */}
+        {!config.alerts_paused && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mt-4 pt-4 border-t" style={{ borderColor: "var(--border)" }}>
+            {[
+              { id: "news_paused", label: "📰 News Alerts", paused: config.news_paused },
+              { id: "calendar_paused", label: "📅 Calendar Alerts", paused: config.calendar_paused },
+              { id: "signals_paused", label: "⚡ Scanner Signals", paused: config.signals_paused },
+              { id: "executions_paused", label: "🎯 Trade Executions", paused: config.executions_paused },
+              { id: "custom_paused", label: "🔔 Custom Rules", paused: config.custom_paused },
+            ].map(item => (
+              <div key={item.id} className="flex items-center justify-between p-3 rounded-xl border bg-black/20" style={{ borderColor: "var(--border)" }}>
+                <span className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{item.label}</span>
+                <button
+                  onClick={async () => {
+                    const newConfig = { ...config, [item.id]: !item.paused };
+                    setConfig(newConfig as any);
+                    try {
+                      await fetch(`${BRIDGE}/api/alert-config`, {
+                        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newConfig),
+                      });
+                      toast.success(`${item.label} turned ${!item.paused ? "OFF" : "ON"}`);
+                    } catch { toast.error("Failed to update"); }
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${item.paused ? "bg-red-500/20 text-red-400 border border-red-500/30" : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"}`}
+                >
+                  {item.paused ? "OFF" : "ON"}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ── DND ── */}
@@ -235,6 +314,8 @@ export default function AlertSettingsPage() {
           {[
             { key: "discord_news_webhook" as const, label: "📰 News Webhook URL", hint: "posts high-impact headlines", ok: discordNewsOk, testType: "news" as const },
             { key: "discord_calendar_webhook" as const, label: "📅 Calendar Webhook URL", hint: "posts ForexFactory events + 15-min alerts", ok: discordCalOk, testType: "calendar" as const },
+            { key: "discord_signals_webhook" as const, label: "⚡ Signals Webhook URL", hint: "posts scanner signals", ok: discordSigOk, testType: "signals" as const },
+            { key: "discord_alerts_webhook" as const, label: "🎯 Executions Webhook URL", hint: "posts trade executions", ok: discordAlertOk, testType: "executions" as const },
           ].map(({ key, label, hint, ok, testType }) => (
             <div key={key}>
               <label className="flex items-center justify-between text-sm font-medium mb-1.5" style={{ color: "var(--text-primary)" }}>
@@ -279,15 +360,18 @@ export default function AlertSettingsPage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {[
-              { key: "telegram_news_chat_id" as const, label: "📰 News Chat ID", testType: "news" as const, enabled: telegramOk && !!config.telegram_news_chat_id },
-              { key: "telegram_cal_chat_id" as const, label: "📅 Calendar Chat ID", testType: "calendar" as const, enabled: telegramOk && !!config.telegram_cal_chat_id },
+              { key: "telegram_chat_id" as const, label: "💬 Main Chat ID", testType: "news" as const, enabled: telegramOk && !!config.telegram_chat_id },
+              { key: "telegram_thread_news" as const, label: "📰 News Topic ID", testType: "news" as const, enabled: telegramOk && !!config.telegram_thread_news },
+              { key: "telegram_thread_calendar" as const, label: "📅 Calendar Topic ID", testType: "calendar" as const, enabled: telegramOk && !!config.telegram_thread_calendar },
+              { key: "telegram_thread_signals" as const, label: "⚡ Signals Topic ID", testType: "signals" as const, enabled: telegramOk && !!config.telegram_thread_signals },
+              { key: "telegram_thread_alerts" as const, label: "🎯 Executions Topic ID", testType: "executions" as const, enabled: telegramOk && !!config.telegram_thread_alerts },
             ].map(({ key, label, testType, enabled }) => (
               <div key={key}>
                 <label className="flex items-center gap-2 text-sm font-medium mb-1.5" style={{ color: "var(--text-primary)" }}>
                   <MessageCircle className="w-3.5 h-3.5 text-[#24A1DE]" />{label}
                 </label>
                 <div className="flex gap-2">
-                  <input type="text" value={config[key]} onChange={setField(key)} placeholder="-100123456789"
+                  <input type="text" value={config[key] || ""} onChange={setField(key)} placeholder="-100123456789 or Thread ID (e.g. 7)"
                     className={inputCls} style={inputStyle} />
                   <button onClick={() => test(testType)} disabled={!enabled || testing !== null}
                     className="px-3 py-2 rounded-xl border text-sm font-bold flex items-center gap-1.5 disabled:opacity-40 transition-colors hover:bg-white/5"

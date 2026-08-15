@@ -1532,7 +1532,7 @@ router.post("/orders", async (req, res) => {
     try {
       const keys = getSettings().api_keys || {};
       const content = fmtTradeOpen(result.symbol, result.side, result.volume, result.entry, result.sl, result.tp);
-      dispatchAlert(keys, content).catch(err => console.warn("Failed to dispatch order open alert:", err.message));
+      dispatchAlert(keys, content, undefined, "executions").catch(err => console.warn("Failed to dispatch order open alert:", err.message));
     } catch (alertErr: any) {
       console.warn("Failed to format/dispatch trade open alert:", alertErr.message);
     }
@@ -1556,7 +1556,7 @@ router.post("/orders/:trade_id/close", async (req, res) => {
     try {
       const keys = getSettings().api_keys || {};
       const content = fmtTradeClose(result.symbol, result.side, result.exit || result.current || result.entry, result.pnl || 0);
-      dispatchAlert(keys, content).catch(err => console.warn("Failed to dispatch order close alert:", err.message));
+      dispatchAlert(keys, content, undefined, "executions").catch(err => console.warn("Failed to dispatch order close alert:", err.message));
     } catch (alertErr: any) {
       console.warn("Failed to format/dispatch trade close alert:", alertErr.message);
     }
@@ -1702,6 +1702,8 @@ router.get("/settings/api-keys", (req, res) => {
     discord_webhook: keys.discord_webhook ? "***" : "",
     telegram_bot_token: keys.telegram_bot_token ? "***" : "",
     telegram_chat_id: keys.telegram_chat_id || "",
+    telegram_thread_news: keys.telegram_thread_news || "",
+    telegram_thread_calendar: keys.telegram_thread_calendar || "",
     myfxbook_email: keys.myfxbook_email || "",
     myfxbook_password: keys.myfxbook_password ? "***" : "",
     emergent_llm_key: keys.emergent_llm_key ? "***" : "",
