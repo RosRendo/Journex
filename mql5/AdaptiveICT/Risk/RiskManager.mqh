@@ -123,9 +123,9 @@ bool IsTradeAllowed(const TradeSignal &signal)
 //+------------------------------------------------------------------+
 //| Get position size for a given TradeSignal                        |
 //+------------------------------------------------------------------+
-double GetPositionSize(const TradeSignal &signal)
+double GetPositionSize(const TradeSignal &signal, int score = 0)
   {
-   return CalculateLotSize(signal.entry_price, signal.invalidation_price);
+   return CalculateLotSize(signal.entry_price, signal.invalidation_price, score);
   }
 
 //+------------------------------------------------------------------+

@@ -14,7 +14,7 @@
 //+------------------------------------------------------------------+
 int HttpGet(string path, string &response)
   {
-   string url = InpBridgeURL + path;
+   string url = SanitizeStringInput(InpBridgeURL) + path;
    string headers = "Content-Type: application/json\r\n";
    char post_data[];
    char result[];
@@ -30,10 +30,11 @@ int HttpGet(string path, string &response)
 
 int HttpPost(string path, string body, string &response)
   {
-   string url = InpBridgeURL + path;
+   string url = SanitizeStringInput(InpBridgeURL) + path;
    string headers = "Content-Type: application/json\r\n";
    char post_data[];
-   StringToCharArray(body, post_data, 0, WHOLE_ARRAY, CP_UTF8);
+   StringToCharArray(body, post_data, 0, StringLen(body), CP_UTF8);
+   if(ArraySize(post_data) > 0) ArrayResize(post_data, ArraySize(post_data) - 1);
    char result[];
    string result_headers;
    

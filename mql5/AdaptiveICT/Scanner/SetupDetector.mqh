@@ -38,7 +38,7 @@ bool DetectSetup(ENUM_TIMEFRAMES tf, string tf_str, SignalCandidate &candidate)
    MqlRates rates[];
    int copied = GetRates(tf, 5, rates);
    if(copied < 2) return false;
-   double current_price = rates[0].close;
+   double current_price = rates[copied - 1].close;
 
    // Scenario A: Liquidity Sweep followed by MSS (Strong SMC Reversal setup)
    if(mss == "BULLISH" && has_sweep && sweep.type == "SSL")

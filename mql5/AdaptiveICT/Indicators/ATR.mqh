@@ -12,11 +12,29 @@
 //+------------------------------------------------------------------+
 double GetATR(ENUM_TIMEFRAMES tf, int period)
   {
-   double atr[];
-   ArraySetAsSeries(atr, true);
-   int handle = iATR(_Symbol, tf, period);
-   if(handle == INVALID_HANDLE) return 0.0;
-   int copied = CopyBuffer(handle, 0, 0, 1, atr);
-   if(copied > 0) return atr[0];
-   return 0.0;
+   MqlRates rates[];
+   // We need period + 1 bars to calculate True Ranges
+   int copied = CopyRates(_Symbol, tf, 0, period + 1, rates);
+   if(copied < period + 1) return 0.0;
+   
+   ArraySetAsSeries(rates, true);
+   
+   double tr_sum = 0.0;
+   for(int i = 0; i < period; i++)
+     {
+      double high = rates[i].high;
+      double low = rates[i].low;
+      double prev_close = rates[i+1].close;
+      
+      double tr = high - low;
+      double diff1 = MathAbs(high - prev_close);
+      double diff2 = MathAbs(low - prev_close);
+      
+      if(diff1 > tr) tr = diff1;
+      if(diff2 > tr) tr = diff2;
+      
+      tr_sum += tr;
+     }
+   
+   return tr_sum / period;
   }

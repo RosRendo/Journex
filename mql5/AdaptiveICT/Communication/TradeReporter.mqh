@@ -14,13 +14,11 @@
 //+------------------------------------------------------------------+
 void SendTradeEvent(string action, ulong ticket, string type, double volume, double price, double sl, double tp, int confidence, string sig_id)
   {
-   if(MQLInfoInteger(MQL_TESTER) || MQLInfoInteger(MQL_OPTIMIZATION)) return;
-   string url = InpBridgeURL + "/api/ea/trade-event";
+   string url = SanitizeStringInput(InpBridgeURL) + "/api/ea/trade-event";
    string headers = "Content-Type: application/json\r\n";
    
    string body = "{";
    body += "\"magic\":" + IntegerToString(InpMagic) + ",";
-   body += "\"account_id\":" + IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN)) + ",";
    body += "\"ticket\":" + IntegerToString(ticket) + ",";
    body += "\"action\":\"" + action + "\",";
    body += "\"symbol\":\"" + _Symbol + "\",";
@@ -34,7 +32,8 @@ void SendTradeEvent(string action, ulong ticket, string type, double volume, dou
    body += "}";
    
    char post_data[];
-   StringToCharArray(body, post_data, 0, WHOLE_ARRAY, CP_UTF8);
+   StringToCharArray(body, post_data, 0, StringLen(body), CP_UTF8);
+   if(ArraySize(post_data) > 0) ArrayResize(post_data, ArraySize(post_data) - 1);
    
    char result[];
    string result_headers;
@@ -44,10 +43,12 @@ void SendTradeEvent(string action, ulong ticket, string type, double volume, dou
 //+------------------------------------------------------------------+
 //| Report detected signal to the Python Bridge                      |
 //+------------------------------------------------------------------+
-void ReportSignalDetected(string id, string type, double entry, double sl, double tp, int score, string grade, string tf_str)
+void ReportSignalDetected(string id, string type, double entry, double sl, double tp, int score, string grade, string tf_str,
+                          const string &reasons[], int reason_count,
+                          const string &warnings[], int warning_count)
   {
    if(MQLInfoInteger(MQL_TESTER) || MQLInfoInteger(MQL_OPTIMIZATION)) return;
-   string url = InpBridgeURL + "/api/ea/signal-detected";
+   string url = SanitizeStringInput(InpBridgeURL) + "/api/ea/signal-detected";
    string headers = "Content-Type: application/json\r\n";
    
    string body = "{";
@@ -60,11 +61,31 @@ void ReportSignalDetected(string id, string type, double entry, double sl, doubl
    body += "\"tp\":" + DoubleToString(tp, 5) + ",";
    body += "\"confidence\":" + IntegerToString(score) + ",";
    body += "\"grade\":\"" + grade + "\",";
-   body += "\"timeframe\":\"" + tf_str + "\"";
+   body += "\"timeframe\":\"" + tf_str + "\",";
+   
+   // reasons array
+   body += "\"reasons\":[";
+   for(int i = 0; i < reason_count; i++)
+     {
+      if(i > 0) body += ",";
+      body += "\"" + reasons[i] + "\"";
+     }
+   body += "],";
+   
+   // warnings array
+   body += "\"warnings\":[";
+   for(int i = 0; i < warning_count; i++)
+     {
+      if(i > 0) body += ",";
+      body += "\"" + warnings[i] + "\"";
+     }
+   body += "]";
+   
    body += "}";
    
    char post_data[];
-   StringToCharArray(body, post_data, 0, WHOLE_ARRAY, CP_UTF8);
+   StringToCharArray(body, post_data, 0, StringLen(body), CP_UTF8);
+   if(ArraySize(post_data) > 0) ArrayResize(post_data, ArraySize(post_data) - 1);
    
    char result[];
    string result_headers;

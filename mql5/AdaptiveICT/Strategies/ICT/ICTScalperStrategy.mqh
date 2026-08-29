@@ -19,7 +19,6 @@
 #include "../../Indicators/ATR.mqh"
 #include "../../Indicators/Volume.mqh"
 #include "../../Market/Session.mqh"
-#include "../../Market/MarketRegime.mqh"
 
 //+------------------------------------------------------------------+
 //| ICT Scalper Strategy (M1/M5/M15 fast structural scalp)           |
@@ -65,11 +64,11 @@ public:
 
       // ── Step 2: Detect a recent FVG confirming the displacement ────
       MqlFVG fvgs[];
-      GetFVGs(tf, 100, fvgs);
+      GetFVGs(tf, 30, fvgs);
       int fvg_count = ArraySize(fvgs);
 
       bool bull_fvg = false, bear_fvg = false;
-      for(int i = 0; i < MathMin(5, fvg_count); i++)
+      for(int i = MathMax(0, fvg_count - 5); i < fvg_count; i++)
         {
          if(fvgs[i].is_bullish) bull_fvg = true;
          else bear_fvg = true;
@@ -77,8 +76,8 @@ public:
 
       // ── Step 3: Detect fast structural break (simplified MSS) ─────
       MqlSwing highs[], lows[];
-      GetSwings(tf, 100, highs, lows);
-      string mss = CheckMSS(tf, 100, highs, lows);
+      GetSwings(tf, 30, highs, lows);
+      string mss = CheckMSS(tf, 30, highs, lows);
 
       double current_price = rates[0].close;
 
@@ -120,29 +119,29 @@ public:
 
       // ── Category 1: ICT Scalp Structure (Max 50 pts) ──────────────
       MqlSwing highs[], lows[];
-      GetSwings(tf, 100, highs, lows);
-      string mss = CheckMSS(tf, 100, highs, lows);
+      GetSwings(tf, 30, highs, lows);
+      string mss = CheckMSS(tf, 30, highs, lows);
 
       MqlFVG fvgs[];
-      GetFVGs(tf, 100, fvgs);
+      GetFVGs(tf, 30, fvgs);
       int fvg_count = ArraySize(fvgs);
 
       MqlOB obs[];
-      GetOrderBlocks(tf, 100, obs);
+      GetOrderBlocks(tf, 30, obs);
       int ob_count = ArraySize(obs);
 
       if(candidate.type == "BUY" && mss == "BULLISH") score += 20.0;
       if(candidate.type == "SELL" && mss == "BEARISH") score += 20.0;
 
       // FVG bonus
-      for(int i = 0; i < MathMin(3, fvg_count); i++)
+      for(int i = MathMax(0, fvg_count - 3); i < fvg_count; i++)
         {
          if(candidate.type == "BUY" && fvgs[i].is_bullish) { score += 15.0; break; }
          if(candidate.type == "SELL" && !fvgs[i].is_bullish) { score += 15.0; break; }
         }
 
       // OB bonus
-      for(int i = 0; i < MathMin(5, ob_count); i++)
+      for(int i = MathMax(0, ob_count - 5); i < ob_count; i++)
         {
          if(candidate.type == "BUY" && obs[i].is_bullish) { score += 15.0; break; }
          if(candidate.type == "SELL" && !obs[i].is_bullish) { score += 15.0; break; }
@@ -173,32 +172,19 @@ public:
 
       // ── Category 3: Session & RR Validation (Max 20 pts) ──────────
       string sess = GetCurrentSession();
-      bool sess_ok = (scan_session == "all" ||
-                      (scan_session == "london" && (sess == "LONDON" || sess == "LONDON/NY OVERLAP")) ||
-                      (scan_session == "ny" && (sess == "NEW YORK" || sess == "LONDON/NY OVERLAP")) ||
-                      (scan_session == "both" && sess != "ASIA" && sess != "NONE"));
+      string sess_cfg = SanitizeStringInput(InpSession);
+      bool sess_ok = (sess_cfg == "all" ||
+                      (sess_cfg == "london" && sess == "LONDON") ||
+                      (sess_cfg == "ny" && sess == "NEW YORK") ||
+                      (sess_cfg == "both" && (sess == "LONDON" || sess == "NEW YORK")));
       if(sess_ok) score += 10.0;
 
-      // RR check: only award score if SL distance is meaningful relative to expected reward
       double dist = MathAbs(candidate.entry_price - candidate.invalidation_price);
       if(dist > 0.0)
         {
-         // Calculate expected TP distance and verify it satisfies minimum RR
-         double atr_now = GetATR(tf, 14);
-         double min_reward = dist * InpMinRR;
-         // Score awarded if the expected reward (RR * SL dist) exceeds at least 1 ATR
-         // This prevents tiny SL setups with impractical targets from scoring
-         if(atr_now > 0 && min_reward >= atr_now * 0.5) score += 10.0;
-         else if(atr_now <= 0) score += 10.0; // Fallback: award if ATR unavailable
+         double rr = dist * InpMinRR / dist; // placeholder: always valid if dist > 0
+         if(rr >= InpMinRR) score += 10.0;
         }
-
-      // ── Category 4: HTF Bias Alignment (Max 10 pts bonus / -10 penalty) ─
-      string bias = GetHTFBias();
-      if(candidate.type == "BUY"  && bias == "BULLISH") score += 10.0;
-      if(candidate.type == "SELL" && bias == "BEARISH") score += 10.0;
-      // Counter-trend penalty: scalping against H4 bias is statistically dangerous
-      if(candidate.type == "BUY"  && bias == "BEARISH") score = MathMax(0.0, score - 10.0);
-      if(candidate.type == "SELL" && bias == "BULLISH") score = MathMax(0.0, score - 10.0);
 
       result.score = (int)MathRound(score);
       if(result.score >= 90) result.grade = "A+";

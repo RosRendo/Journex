@@ -84,6 +84,25 @@ struct ConfluenceResult
    bool              is_valid;
   };
 
+struct DecisionResult
+  {
+   int               score;
+   string            grade;
+   string            regime;
+   int               regime_confidence;
+   string            volatility;
+   double            vol_multiplier;
+   int               execution_score;
+   int               spread_points;
+   bool              session_pass;
+   bool              risk_pass;
+   bool              is_approved;
+   string            reasons[10];
+   string            warnings[5];
+   int               reason_count;
+   int               warning_count;
+  };
+
 struct TradePlan
   {
    string            symbol;

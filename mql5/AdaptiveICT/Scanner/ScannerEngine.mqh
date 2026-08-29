@@ -18,7 +18,6 @@
 //+------------------------------------------------------------------+
 bool IsNewsBlocked()
   {
-   if(MQLInfoInteger(MQL_TESTER) || MQLInfoInteger(MQL_OPTIMIZATION)) return false;
    if(!InpUseNewsFilter) return false;
    
    string url = "/api/ea/news-block?symbol=" + _Symbol;
@@ -28,7 +27,7 @@ bool IsNewsBlocked()
    char result[];
    string result_headers;
    
-   int res = WebRequest("GET", InpBridgeURL + url, headers, 1000, post_data, result, result_headers);
+   int res = WebRequest("GET", SanitizeStringInput(InpBridgeURL) + url, headers, 1000, post_data, result, result_headers);
    if(res == 200)
      {
       string response = CharArrayToString(result, 0, WHOLE_ARRAY, CP_UTF8);

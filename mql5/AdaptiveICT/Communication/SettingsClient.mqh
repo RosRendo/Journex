@@ -18,8 +18,7 @@ void ExecuteEmergencyClose();
 //+------------------------------------------------------------------+
 void PollRemoteSettings()
   {
-   if(MQLInfoInteger(MQL_TESTER) || MQLInfoInteger(MQL_OPTIMIZATION)) return;
-   string url = InpBridgeURL + "/api/ea/settings/" + IntegerToString(InpMagic) + "/" + IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN));
+   string url = SanitizeStringInput(InpBridgeURL) + "/api/ea/settings/" + IntegerToString(InpMagic);
    string headers = "Content-Type: application/json\r\n";
    
    char post_data[];
@@ -47,10 +46,32 @@ void PollRemoteSettings()
          if(new_score > 0) min_score = new_score;
          
          string new_session = ParseJsonString(response, "session");
-         if(new_session != "") scan_session = new_session;
+         if(new_session != "") scan_session = SanitizeStringInput(new_session);
          
          string new_type = ParseJsonString(response, "signal_type");
-         if(new_type != "") scan_type = new_type;
+         if(new_type != "") scan_type = SanitizeStringInput(new_type);
+         
+         // Parse Preset fields
+         string pos_mode = ParseJsonString(response, "position_mode");
+         if(pos_mode == "SINGLE") dyn_position_mode = MODE_SINGLE;
+         else if(pos_mode == "PARTIAL_EXIT") dyn_position_mode = MODE_PARTIAL_EXIT;
+         else if(pos_mode == "GRID") dyn_position_mode = MODE_GRID;
+         
+         string use_trail = ParseJsonString(response, "use_equity_trail");
+         if(use_trail == "true" || use_trail == "1") dyn_use_equity_trail = true;
+         else if(use_trail == "false" || use_trail == "0") dyn_use_equity_trail = false;
+         
+         double eq_trail_act = ParseJsonDouble(response, "equity_trail_activate");
+         if(eq_trail_act > 0) dyn_equity_trail_activate = eq_trail_act;
+         
+         double hard_stop = ParseJsonDouble(response, "hard_stop_pct");
+         if(hard_stop > 0) dyn_hard_stop_pct = hard_stop;
+         
+         int cd = ParseJsonInt(response, "pyramid_cooldown");
+         if(cd > 0) dyn_pyramid_cooldown = cd;
+
+         double max_comp = ParseJsonDouble(response, "max_balance_compounding");
+         if(max_comp >= 0) dyn_max_balance_compounding = max_comp;
         }
         
       // Parse commands

@@ -53,7 +53,7 @@ public:
       MqlRates rates[];
       int copied = GetRates(tf, 5, rates);
       if(copied < 2) return false;
-      double current_price = rates[0].close;
+      double current_price = rates[copied - 1].close;
 
       // Scenario A: Liquidity Sweep followed by MSS (Strong SMC Reversal setup)
       if(mss == "BULLISH" && has_sweep && sweep.type == "SSL")
@@ -128,7 +128,7 @@ public:
       GetFVGs(tf, InpLiquidityLookback, fvgs);
       bool recent_fvg = false;
       int fvg_size = ArraySize(fvgs);
-      for(int i = 0; i < MathMin(10, fvg_size); i++)
+      for(int i = MathMax(0, fvg_size - 10); i < fvg_size; i++)
         {
          if(candidate.type == "BUY" && fvgs[i].is_bullish) recent_fvg = true;
          if(candidate.type == "SELL" && !fvgs[i].is_bullish) recent_fvg = true;
@@ -138,7 +138,7 @@ public:
       GetOrderBlocks(tf, InpLiquidityLookback, obs);
       bool recent_ob = false;
       int ob_size = ArraySize(obs);
-      for(int i = 0; i < MathMin(15, ob_size); i++)
+      for(int i = MathMax(0, ob_size - 15); i < ob_size; i++)
         {
          if(candidate.type == "BUY" && obs[i].is_bullish) recent_ob = true;
          if(candidate.type == "SELL" && !obs[i].is_bullish) recent_ob = true;
@@ -149,7 +149,7 @@ public:
       double plus_di = 0.0, minus_di = 0.0;
       double adx_val = GetADX(tf, InpADXPeriod, plus_di, minus_di);
       bool vol_spike = CheckVolumeSpike(tf, InpVolAvgPeriod, InpVolMinRatio);
-      bool smt_div = CheckSMT(tf, smt_symbol);
+      bool smt_div = CheckSMT(tf, SanitizeStringInput(InpSMTSymbol));
 
       // ── Category 1: ICT Smart Money (Max 60 pts) ──────────────────────
       if(candidate.type == "BUY")
@@ -199,12 +199,14 @@ public:
       // ── Category 3: Market Conditions (Max 10 pts) ───────────────────
       // Session Hour Match
       string current_session = GetCurrentSession();
+      string sess_cfg = SanitizeStringInput(InpSession);
+      string sess_upper = sess_cfg;
+      StringToUpper(sess_upper);
       bool sess_ok = false;
-      if(scan_session == "all" || 
-         (scan_session == "london" && (current_session == "LONDON" || current_session == "LONDON/NY OVERLAP")) ||
-         (scan_session == "ny"     && (current_session == "NEW YORK" || current_session == "LONDON/NY OVERLAP")) ||
-         (scan_session == "both"   && current_session != "ASIA" && current_session != "NONE"))
-         sess_ok = true;
+      if(sess_upper == "ALL" || sess_upper == "BOTH") sess_ok = true;
+      else if(sess_upper == "LONDON" && (current_session == "LONDON" || current_session == "LONDON & NY")) sess_ok = true;
+      else if(sess_upper == "NY"     && (current_session == "NEW YORK" || current_session == "LONDON & NY")) sess_ok = true;
+      else if(current_session != "NONE" && current_session != "ASIAN") sess_ok = true;
       if(sess_ok) score += 5.0;
 
       // Multi-Timeframe Confirmation

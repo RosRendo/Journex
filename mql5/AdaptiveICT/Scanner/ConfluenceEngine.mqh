@@ -71,7 +71,7 @@ ConfluenceResult CalculateConfluence(const SignalCandidate &candidate)
    double plus_di = 0.0, minus_di = 0.0;
    double adx_val = GetADX(tf, InpADXPeriod, plus_di, minus_di);
    bool vol_spike = CheckVolumeSpike(tf, InpVolAvgPeriod, InpVolMinRatio);
-   bool smt_div = CheckSMT(tf, InpSMTSymbol);
+   bool smt_div = CheckSMT(tf, SanitizeStringInput(InpSMTSymbol));
 
    // ── Category 1: ICT Smart Money (Max 60 pts) ──────────────────────
    if(candidate.type == "BUY")

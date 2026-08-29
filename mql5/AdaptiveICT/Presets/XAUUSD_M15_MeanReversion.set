@@ -12,11 +12,8 @@ InpMRRSIOS=30.0||0||0||0||N
 InpRiskPercent=2.0||0||0||0||N
 InpMaxDailyLossPct=4.0||0||0||0||N
 InpMaxDrawdownPct=10.0||0||0||0||N
-InpUseNewsFilter=false||0||0||0||N
-InpMinScore=70||50||5||80||Y
-InpMaxSpreadPoints=500||0||0||0||N
+InpUseNewsFilter=true||0||0||0||N
 InpPartialExitRR=1.0||0||0||0||N
 InpPartialExitPct=50.0||0||0||0||N
 InpMoveSLToBE=true||0||0||0||N
 InpShowDashboard=true||0||0||0||N
-

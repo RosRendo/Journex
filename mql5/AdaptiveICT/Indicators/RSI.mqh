@@ -17,6 +17,7 @@ double GetRSI(ENUM_TIMEFRAMES tf, int period)
    int handle = iRSI(_Symbol, tf, period, PRICE_CLOSE);
    if(handle == INVALID_HANDLE) return 50.0;
    int copied = CopyBuffer(handle, 0, 0, 1, rsi_buf);
+   IndicatorRelease(handle);
    if(copied > 0) return rsi_buf[0];
    return 50.0;
   }

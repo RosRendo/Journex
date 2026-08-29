@@ -35,6 +35,7 @@ private:
    double basket_entry_balance; // Account balance at the time basket was opened
    int    basket_order_count;   // Current grid order count
    bool   basket_active;        // Is there an active basket?
+   datetime last_recovery_time; // Last time a recovery order was placed
 
    //+------------------------------------------------------------------+
    //| Count active positions belonging to this EA                     |
@@ -67,11 +68,11 @@ private:
      }
 
    //+------------------------------------------------------------------+
-   //| Emergency close all basket positions                             |
+   //| Close all basket positions (for profit target or emergency loss) |
    //+------------------------------------------------------------------+
-   void ExecuteEmergencyBasketClose()
+   void ExecuteBasketClose(string reason)
      {
-      Print("GRID EMERGENCY CLOSE: Basket loss >= ", InpMaxBasketLossPct, "%. Closing ALL positions.");
+      Print("GRID BASKET CLOSE: ", reason, ". Closing ALL positions.");
       for(int i = PositionsTotal() - 1; i >= 0; i--)
         {
          if(PositionGetSymbol(i) == _Symbol && PositionGetInteger(POSITION_MAGIC) == InpMagic)
@@ -79,10 +80,10 @@ private:
             ulong ticket = PositionGetInteger(POSITION_TICKET);
             if(trade.PositionClose(ticket))
               {
-               Print("Grid emergency closed ticket: ", ticket);
-               TradeJournal::LogEvent("grid_emergency_close", ticket, _Symbol, "CLOSE",
+               Print("Grid closed ticket: ", ticket);
+               TradeJournal::LogEvent("grid_close", ticket, _Symbol, "CLOSE",
                                      PositionGetDouble(POSITION_VOLUME),
-                                     PositionGetDouble(POSITION_PRICE_CURRENT), 0, 0, "EMERGENCY");
+                                     PositionGetDouble(POSITION_PRICE_CURRENT), 0, 0, reason);
               }
            }
         }
@@ -91,6 +92,7 @@ private:
       basket_order_count  = 0;
       basket_direction    = "";
       basket_entry_balance = 0;
+      last_recovery_time  = 0;
      }
 
    //+------------------------------------------------------------------+
@@ -104,14 +106,23 @@ private:
          return;
         }
 
+      datetime now = TimeCurrent();
+      if(now - last_recovery_time < dyn_pyramid_cooldown)
+        {
+         return;
+        }
+
       // Compute grid entry
       double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
       double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
       double atr = GetATR(PERIOD_CURRENT, 14);
 
       // Lot sizing escalation: double lot size with each grid level
-      // (conservative: use fixed lots = InpRiskPercent-based)
       double balance  = AccountInfoDouble(ACCOUNT_BALANCE);
+      if(dyn_max_balance_compounding > 0.0 && balance > dyn_max_balance_compounding)
+        {
+         balance = dyn_max_balance_compounding;
+        }
       double risk_amt = balance * (InpRiskPercent / 100.0);
       double tick_v   = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
       double tick_s   = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
@@ -140,6 +151,7 @@ private:
       if(success)
         {
          basket_order_count++;
+         last_recovery_time = now;
          ulong ticket = trade.ResultOrder();
          Print("Grid recovery order placed: ticket=", ticket, " dir=", direction, " lot=", lots, " (#", basket_order_count, ")");
          TradeJournal::LogEvent("grid_recovery", ticket, _Symbol, direction, lots, entry, sl, 0, comment);
@@ -157,6 +169,7 @@ public:
       basket_order_count  = 0;
       basket_direction    = "";
       basket_entry_balance = 0;
+      last_recovery_time  = 0;
      }
 
    //+------------------------------------------------------------------+
@@ -173,6 +186,7 @@ public:
             basket_entry_balance = AccountInfoDouble(ACCOUNT_BALANCE);
             basket_active       = true;
             basket_order_count  = 1;
+            last_recovery_time  = TimeCurrent();
             Print("Grid basket opened: direction=", basket_direction, " balance=", basket_entry_balance);
            }
         }
@@ -180,6 +194,7 @@ public:
         {
          // Basket already active — just increment count
          basket_order_count++;
+         last_recovery_time  = TimeCurrent();
         }
      }
 
@@ -200,13 +215,27 @@ public:
          return;
         }
 
-      // ── Step 1: EMERGENCY CLOSE CHECK (always first) ─────────────────
-      if(basket_active && InpGridEmergencyClose)
+      // Sync basket order count (in case positions were closed externally via SL/TP)
+      if(active != basket_order_count)
+        {
+         basket_order_count = active;
+        }
+
+      // ── Step 1: BASKET CLOSURE CHECK (PROFIT & EMERGENCY LOSS) ─────────────────
+      if(basket_active)
         {
          double loss_pct = GetBasketLossPct();
-         if(loss_pct >= InpMaxBasketLossPct)
+         // Check Profit Target (loss_pct is negative when in profit)
+         if(InpGridTargetPct > 0 && loss_pct <= -InpGridTargetPct)
            {
-            ExecuteEmergencyBasketClose();
+            ExecuteBasketClose("PROFIT TARGET MET");
+            return;
+           }
+         
+         // Check Emergency Loss Limit
+         if(InpGridEmergencyClose && loss_pct >= InpMaxBasketLossPct)
+           {
+            ExecuteBasketClose("EMERGENCY MAX LOSS");
             return;
            }
         }
@@ -242,13 +271,11 @@ public:
         }
 
       // ── Step 3: GRID EXPANSION CHECK ──────────────────────────────────
-      // Add a recovery order if price has moved InpGridStep points against
-      // the basket direction AND we haven't hit the hard order cap yet.
       if(!basket_active || basket_order_count >= InpMaxGridOrders) return;
 
       double grid_step_price = InpGridStep * SymbolInfoDouble(_Symbol, SYMBOL_POINT);
 
-      // Find the WORST open position (deepest in loss)
+      // Find the average open price
       double worst_price = 0, avg_open = 0;
       int pos_count = 0;
       for(int i = PositionsTotal() - 1; i >= 0; i--)
@@ -267,7 +294,6 @@ public:
 
       if(basket_direction == "BUY")
         {
-         // Price has dropped InpGridStep below the average open
          if(avg_open - current_mid >= grid_step_price)
            {
             Print("Grid BUY recovery trigger: avg_open=", avg_open, " current=", current_mid, " step=", grid_step_price);
@@ -276,7 +302,6 @@ public:
         }
       else if(basket_direction == "SELL")
         {
-         // Price has risen InpGridStep above the average open
          if(current_mid - avg_open >= grid_step_price)
            {
             Print("Grid SELL recovery trigger: avg_open=", avg_open, " current=", current_mid, " step=", grid_step_price);

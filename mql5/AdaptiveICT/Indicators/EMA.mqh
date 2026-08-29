@@ -29,6 +29,9 @@ bool GetEMAs(ENUM_TIMEFRAMES tf, int p1, int p2, int p3, double &ema1, double &e
    int c1 = CopyBuffer(h1, 0, 0, 1, buf1);
    int c2 = CopyBuffer(h2, 0, 0, 1, buf2);
    int c3 = CopyBuffer(h3, 0, 0, 1, buf3);
+   IndicatorRelease(h1);
+   IndicatorRelease(h2);
+   IndicatorRelease(h3);
    if(c1 > 0 && c2 > 0 && c3 > 0)
      {
       ema1 = buf1[0];

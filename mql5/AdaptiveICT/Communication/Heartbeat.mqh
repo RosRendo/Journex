@@ -62,8 +62,7 @@ string BuildOpenTradesJson()
 //+------------------------------------------------------------------+
 void SendHeartbeatReport()
   {
-   if(MQLInfoInteger(MQL_TESTER) || MQLInfoInteger(MQL_OPTIMIZATION)) return;
-   string url = InpBridgeURL + "/api/ea/report";
+   string url = SanitizeStringInput(InpBridgeURL) + "/api/ea/report";
    string headers = "Content-Type: application/json\r\n";
    
    double balance = AccountInfoDouble(ACCOUNT_BALANCE);
@@ -81,7 +80,6 @@ void SendHeartbeatReport()
    
    string body = "{";
    body += "\"magic\":" + IntegerToString(InpMagic) + ",";
-   body += "\"account_id\":" + IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN)) + ",";
    body += "\"name\":\"" + MQLInfoString(MQL_PROGRAM_NAME) + "\",";
    body += "\"symbol\":\"" + _Symbol + "\",";
    body += "\"status\":\"" + ea_status + "\",";
@@ -112,7 +110,7 @@ void SendHeartbeatReport()
    body += "}";
    
    char post_data[];
-   StringToCharArray(body, post_data, 0, WHOLE_ARRAY, CP_UTF8);
+   StringToCharArray(body, post_data, 0, StringLen(body), CP_UTF8);
     
    char result[];
    string result_headers;

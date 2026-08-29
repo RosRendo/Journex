@@ -28,7 +28,7 @@ double GetCurrentExposurePct()
          double leverage = (double)AccountInfoInteger(ACCOUNT_LEVERAGE);
 
          if(leverage > 0)
-            total_margin += (lots * contract * price) / leverage;
+            pos_margin += (lots * contract * price) / leverage;
         }
      }
 

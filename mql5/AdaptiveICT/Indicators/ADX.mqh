@@ -21,6 +21,7 @@ double GetADX(ENUM_TIMEFRAMES tf, int period, double &plus_di, double &minus_di)
    int copied = CopyBuffer(handle, 0, 0, 1, adx_buf);
    int copied_p = CopyBuffer(handle, 1, 0, 1, plus_buf);
    int copied_m = CopyBuffer(handle, 2, 0, 1, minus_buf);
+   IndicatorRelease(handle);
    if(copied > 0 && copied_p > 0 && copied_m > 0)
      {
       plus_di = plus_buf[0];

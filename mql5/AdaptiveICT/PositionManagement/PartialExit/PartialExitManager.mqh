@@ -151,6 +151,22 @@ public:
             bool   is_buy = (PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY);
             string dir = is_buy ? "BUY" : "SELL";
             
+            // ── Time-Decay Exit: Close stagnant trades before market reversals ──
+            datetime open_time = (datetime)PositionGetInteger(POSITION_TIME);
+            int elapsed = (int)(TimeCurrent() - open_time);
+            ENUM_TIMEFRAMES current_tf = (ENUM_TIMEFRAMES)Period();
+            int max_hold = (current_tf == PERIOD_M1 || current_tf == PERIOD_M5) ? 900 : 2700; // 15 mins vs 45 mins
+            
+            if(elapsed >= max_hold)
+              {
+               Print("[TimeDecay] Position ", ticket, " stale (held ", elapsed, "s >= ", max_hold, "s). Force closing.");
+               if(trade.PositionClose(ticket))
+                 {
+                  TradeJournal::LogEvent("close", ticket, _Symbol, dir, volume, current_price, current_sl, current_price, "TimeDecay");
+                  continue; // Position is closed, skip further processing
+                 }
+              }
+            
             bool   tp1_hit = false, tp2_hit = false;
             double reg_sl = 0, tp1_val = 0, tp2_val = 0, tp3_val = 0;
             bool   has_state = GetPositionState(ticket, tp1_hit, tp2_hit, reg_sl, tp1_val, tp2_val, tp3_val);

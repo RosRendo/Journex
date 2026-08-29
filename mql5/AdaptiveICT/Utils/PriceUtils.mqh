@@ -81,9 +81,27 @@ string ParseJsonStringAt(string json, string key, int search_start)
 
 //+------------------------------------------------------------------+
 //| Manage Executed Signal tracking to prevent double executions      |
+//| Signals are only blocked within the same calendar day.           |
+//| The array auto-clears at the start of each new trading day so    |
+//| the bot never goes silent for multiple days due to stale IDs.   |
 //+------------------------------------------------------------------+
+datetime _last_signal_clear_day = 0;
+
+void ClearSignalsIfNewDay()
+  {
+   datetime now = TimeCurrent();
+   // Get the start of the current day (midnight)
+   datetime today_start = now - (now % 86400);
+   if(today_start != _last_signal_clear_day)
+     {
+      ArrayResize(executed_signals, 0);
+      _last_signal_clear_day = today_start;
+     }
+  }
+
 bool IsSignalExecuted(string sig_id)
   {
+   ClearSignalsIfNewDay();
    for(int i = 0; i < ArraySize(executed_signals); i++)
      {
       if(executed_signals[i] == sig_id) return true;
@@ -93,17 +111,8 @@ bool IsSignalExecuted(string sig_id)
 
 void AddExecutedSignal(string sig_id)
   {
+   ClearSignalsIfNewDay();
    int size = ArraySize(executed_signals);
    ArrayResize(executed_signals, size + 1);
    executed_signals[size] = sig_id;
-   
-   // Keep bounded tracking size
-   if(ArraySize(executed_signals) > 100)
-     {
-      for(int i = 1; i < ArraySize(executed_signals); i++)
-        {
-         executed_signals[i-1] = executed_signals[i];
-        }
-      ArrayResize(executed_signals, 100);
-     }
   }

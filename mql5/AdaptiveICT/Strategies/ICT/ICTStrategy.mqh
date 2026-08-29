@@ -52,7 +52,7 @@ public:
       MqlRates rates[];
       int copied = GetRates(tf, 5, rates);
       if(copied < 2) return false;
-      double current_price = rates[0].close;
+      double current_price = rates[copied - 1].close;
 
       // Scenario A: Liquidity Sweep followed by MSS (Strong SMC Reversal setup)
       if(mss == "BULLISH" && has_sweep && sweep.type == "SSL")
@@ -127,28 +127,28 @@ public:
       GetFVGs(tf, 120, fvgs);
       bool recent_fvg = false;
       int fvg_size = ArraySize(fvgs);
-       for(int i = 0; i < MathMin(10, fvg_size); i++)
-         {
-          if(candidate.type == "BUY" && fvgs[i].is_bullish) recent_fvg = true;
-          if(candidate.type == "SELL" && !fvgs[i].is_bullish) recent_fvg = true;
-         }
+      for(int i = MathMax(0, fvg_size - 10); i < fvg_size; i++)
+        {
+         if(candidate.type == "BUY" && fvgs[i].is_bullish) recent_fvg = true;
+         if(candidate.type == "SELL" && !fvgs[i].is_bullish) recent_fvg = true;
+        }
 
       MqlOB obs[];
       GetOrderBlocks(tf, 120, obs);
       bool recent_ob = false;
       int ob_size = ArraySize(obs);
-       for(int i = 0; i < MathMin(15, ob_size); i++)
-         {
-          if(candidate.type == "BUY" && obs[i].is_bullish) recent_ob = true;
-          if(candidate.type == "SELL" && !obs[i].is_bullish) recent_ob = true;
-         }
+      for(int i = MathMax(0, ob_size - 15); i < ob_size; i++)
+        {
+         if(candidate.type == "BUY" && obs[i].is_bullish) recent_ob = true;
+         if(candidate.type == "SELL" && !obs[i].is_bullish) recent_ob = true;
+        }
 
       // Technical Indicators
       double rsi_val = GetRSI(tf, InpRSIPeriod);
       double plus_di = 0.0, minus_di = 0.0;
       double adx_val = GetADX(tf, InpADXPeriod, plus_di, minus_di);
       bool vol_spike = CheckVolumeSpike(tf, InpVolAvgPeriod, InpVolMinRatio);
-      bool smt_div = CheckSMT(tf, smt_symbol);
+      bool smt_div = CheckSMT(tf, SanitizeStringInput(InpSMTSymbol));
 
       // ── Category 1: ICT Smart Money (Max 60 pts) ──────────────────────
       if(candidate.type == "BUY")

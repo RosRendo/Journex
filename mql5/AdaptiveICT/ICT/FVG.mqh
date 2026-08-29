@@ -24,27 +24,27 @@ int GetFVGs(ENUM_TIMEFRAMES tf, int count, MqlFVG &fvgs[])
    
    for(int i = 2; i < copied; i++)
      {
-      // Bullish FVG: Newest Low (i-2) > Oldest High (i)
-      if(rates[i-2].low > rates[i].high)
+      // Bullish FVG
+      if(rates[i].low > rates[i-2].high)
         {
          int size = ArraySize(fvgs);
          ArrayResize(fvgs, size + 1);
          fvgs[size].is_bullish = true;
          fvgs[size].index = i - 1;
-         fvgs[size].top = rates[i-2].low;
-         fvgs[size].bottom = rates[i].high;
+         fvgs[size].top = rates[i].low;
+         fvgs[size].bottom = rates[i-2].high;
          fvgs[size].time = rates[i-1].time;
          fvg_count++;
         }
-      // Bearish FVG: Newest High (i-2) < Oldest Low (i)
-      else if(rates[i-2].high < rates[i].low)
+      // Bearish FVG
+      else if(rates[i].high < rates[i-2].low)
         {
          int size = ArraySize(fvgs);
          ArrayResize(fvgs, size + 1);
          fvgs[size].is_bullish = false;
          fvgs[size].index = i - 1;
-         fvgs[size].top = rates[i].low;
-         fvgs[size].bottom = rates[i-2].high;
+         fvgs[size].top = rates[i-2].low;
+         fvgs[size].bottom = rates[i].high;
          fvgs[size].time = rates[i-1].time;
          fvg_count++;
         }

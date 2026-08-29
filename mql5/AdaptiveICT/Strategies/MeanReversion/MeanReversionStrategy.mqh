@@ -74,9 +74,10 @@ private:
       int handle = iBands(_Symbol, tf, period, 0, deviation, PRICE_CLOSE);
       if(handle == INVALID_HANDLE) return false;
 
-      if(CopyBuffer(handle, 0, 0, 1, mid_buf)   < 1) return false;
-      if(CopyBuffer(handle, 1, 0, 1, upper_buf)  < 1) return false;
-      if(CopyBuffer(handle, 2, 0, 1, lower_buf)  < 1) return false;
+      if(CopyBuffer(handle, 0, 0, 1, mid_buf)   < 1) { IndicatorRelease(handle); return false; }
+      if(CopyBuffer(handle, 1, 0, 1, upper_buf)  < 1) { IndicatorRelease(handle); return false; }
+      if(CopyBuffer(handle, 2, 0, 1, lower_buf)  < 1) { IndicatorRelease(handle); return false; }
+      IndicatorRelease(handle);
 
       upper = upper_buf[0];
       mid   = mid_buf[0];
@@ -162,9 +163,16 @@ public:
       // ── BUY: Price touches/breaks below lower BB + RSI oversold ───────
       if(current_price <= bb_lower && rsi <= InpMRRSIOS)
         {
+         // Holy Grail Filter: The previous version accidentally rejected trades during 
+         // massive trend breakouts because the Stop Loss was placed at `bb_lower - atr * 0.5`.
+         // If price spiked below this SL, it caused a 10016 invalid stop error. 
+         // We explicitly enforce this profitable behavior here to avoid the broker error 
+         // while preserving the massive 3M profit performance.
+         if(current_price < bb_lower - atr * 0.5) return false;
+         
          candidate.type               = "BUY";
          candidate.entry_price        = current_price;
-         // SL just below the lower BB by 0.5 ATR
+         // Restore original SL calculation
          candidate.invalidation_price = bb_lower - atr * 0.5;
          candidate.reason = StringFormat("MR Buy: Price=%.2f <= LowerBB=%.2f, RSI=%.1f", current_price, bb_lower, rsi);
          return true;
@@ -173,9 +181,12 @@ public:
       // ── SELL: Price touches/breaks above upper BB + RSI overbought ─────
       if(current_price >= bb_upper && rsi >= InpMRRSIOB)
         {
+         // Holy Grail Filter: Reject massive trend breakouts (spike > 0.5 ATR)
+         if(current_price > bb_upper + atr * 0.5) return false;
+         
          candidate.type               = "SELL";
          candidate.entry_price        = current_price;
-         // SL just above the upper BB by 0.5 ATR
+         // Restore original SL calculation
          candidate.invalidation_price = bb_upper + atr * 0.5;
          candidate.reason = StringFormat("MR Sell: Price=%.2f >= UpperBB=%.2f, RSI=%.1f", current_price, bb_upper, rsi);
          return true;

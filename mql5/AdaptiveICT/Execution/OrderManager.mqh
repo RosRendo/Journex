@@ -74,10 +74,28 @@ public:
       double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
 
       bool success = false;
-      if(plan.type == "BUY")
-         success = _order_trade.Buy(plan.lots, _Symbol, ask, plan.sl, plan.tp1, plan.signal_id);
-      else if(plan.type == "SELL")
-         success = _order_trade.Sell(plan.lots, _Symbol, bid, plan.sl, plan.tp1, plan.signal_id);
+      for(int attempt = 1; attempt <= 3; attempt++)
+        {
+         ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+         bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+
+         if(plan.type == "BUY")
+            success = _order_trade.Buy(plan.lots, _Symbol, ask, plan.sl, plan.tp1, plan.signal_id);
+         else if(plan.type == "SELL")
+            success = _order_trade.Sell(plan.lots, _Symbol, bid, plan.sl, plan.tp1, plan.signal_id);
+
+         if(success) break;
+
+         uint retcode = _order_trade.ResultRetcode();
+         // Retry on timeout or re-quote; abort on hard errors
+         if(retcode == 10012 || retcode == 10004 || retcode == 10014)
+           {
+            Print("[OrderManager] Attempt ", attempt, " failed (", retcode, ") — retrying...");
+            Sleep(500);
+            continue;
+           }
+         break; // Non-retryable error
+        }
 
       if(!success)
         {

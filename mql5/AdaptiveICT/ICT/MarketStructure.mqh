@@ -84,19 +84,10 @@ string CheckMSS(ENUM_TIMEFRAMES tf, int count, MqlSwing &swings_high[], MqlSwing
    double last_swing_high = swings_high[0].price; // Index 0 is newest swing (smallest index i)
    double last_swing_low = swings_low[0].price;
    
-   // Check if crossover happened in the last 3 bars
-   bool bullish_mss = false;
-   bool bearish_mss = false;
-   
-   for(int i = 0; i <= 3; i++)
-     {
-      if(i+1 >= copied) break;
-      if(rates[i].close > last_swing_high && rates[i+1].close <= last_swing_high) bullish_mss = true;
-      if(rates[i].close < last_swing_low && rates[i+1].close >= last_swing_low) bearish_mss = true;
-     }
-     
-   if(bullish_mss) return "BULLISH";
-   if(bearish_mss) return "BEARISH";
+   if(last_close > last_swing_high && prev_close <= last_swing_high)
+      return "BULLISH";
+   if(last_close < last_swing_low && prev_close >= last_swing_low)
+      return "BEARISH";
       
    return "NONE";
   }
