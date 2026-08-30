@@ -261,12 +261,15 @@ async def startup_mt5_executor():
 async def health_check():
     # Attempt reconnect if dropped
     global connected
-    if not connected or mt5.terminal_info() is None:
-        init_mt5()
+    
+    def _do_health_check():
+        if not connected or mt5.terminal_info() is None:
+            init_mt5()
+        if connected:
+            return mt5.account_info()
+        return None
 
-    acc = None
-    if connected:
-        acc = mt5.account_info()
+    acc = await _run_in_mt5_thread(_do_health_check)
 
     return {
         "connected": connected,
@@ -278,53 +281,64 @@ async def health_check():
 async def get_account():
     """Return full MT5 account details (balance, equity, profit, margin_level, etc.)"""
     global connected
-    if not connected or mt5.terminal_info() is None:
-        init_mt5()
-    if not connected:
-        return {"success": False, "error": "MT5 not connected"}
-    acc = mt5.account_info()
-    if acc is None:
-        return {"success": False, "error": "No account logged in"}
-    return {
-        "success": True,
-        "login": acc.login,
-        "balance": acc.balance,
-        "equity": acc.equity,
-        "profit": acc.profit,
-        "margin": acc.margin,
-        "margin_free": acc.margin_free,
-        "margin_level": acc.margin_level,
-        "currency": acc.currency,
-        "server": acc.server,
-    }
+    
+    def _do_get_account():
+        if not connected or mt5.terminal_info() is None:
+            init_mt5()
+        if not connected:
+            return {"success": False, "error": "MT5 not connected"}
+        acc = mt5.account_info()
+        if acc is None:
+            return {"success": False, "error": "No account logged in"}
+        return {
+            "success": True,
+            "login": acc.login,
+            "balance": acc.balance,
+            "equity": acc.equity,
+            "profit": acc.profit,
+            "margin": acc.margin,
+            "margin_free": acc.margin_free,
+            "margin_level": acc.margin_level,
+            "currency": acc.currency,
+            "server": acc.server,
+        }
+        
+    return await _run_in_mt5_thread(_do_get_account)
 
 @app.get("/api/positions")
 async def get_positions():
     """Return all active open positions"""
     global connected
-    if not connected or mt5.terminal_info() is None:
-        init_mt5()
-    if not connected:
-        return {"success": False, "error": "MT5 not connected"}
-        
-    positions = mt5.positions_get()
-    if positions is None:
-        err = mt5.last_error()
-        return {"success": False, "error": str(err)}
-        
-    data = []
-    for p in positions:
-        data.append({
-            "ticket": p.ticket,
-            "pair": p.symbol,
-            "direction": "Long" if p.type == 0 else "Short",
-            "volume": p.volume,
-            "entry": p.price_open,
-            "current": p.price_current,
-            "sl": p.sl,
-            "tp": p.tp,
-            "pnl": p.profit,
-            "swap": p.swap,
+    
+    def _do_get_positions():
+        if not connected or mt5.terminal_info() is None:
+            init_mt5()
+        if not connected:
+            return {"success": False, "error": "MT5 not connected"}
+            
+        positions = mt5.positions_get()
+        if positions is None:
+            err = mt5.last_error()
+            return {"success": False, "error": str(err)}
+            
+        data = []
+        for p in positions:
+            data.append({
+                "ticket": p.ticket,
+                "pair": p.symbol,
+                "direction": "Long" if p.type == 0 else "Short",
+                "volume": p.volume,
+                "entry": p.price_open,
+                "current": p.price_current,
+                "sl": p.sl,
+                "tp": p.tp,
+                "pnl": p.profit,
+                "swap": p.swap,
+                "openTime": datetime.fromtimestamp(p.time).isoformat() + "Z"
+            })
+        return {"success": True, "positions": data}
+
+    return await _run_in_mt5_thread(_do_get_positions)
             "openTime": datetime.fromtimestamp(p.time).isoformat() + "Z"
         })
         
