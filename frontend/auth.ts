@@ -52,15 +52,16 @@ providers.push(
           body: JSON.stringify(bodyPayload),
         });
 
-        const user = await res.json();
+        const responseData = await res.json();
         
-        if (res.ok && user) {
+        if (res.ok && responseData) {
+          const user = credentials.isRegister === "true" ? responseData.user : responseData;
           return {
-            id: user.id,
+            id: user.id || user._id,
             name: user.name,
             email: user.email,
             image: null,
-            role: user.role,
+            role: user.role || "user",
           };
         }
       } catch (error) {
