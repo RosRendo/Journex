@@ -248,8 +248,11 @@ def init_mt5():
 
 init_mt5()
 
-# Re-init MT5 on the dedicated executor thread so subsequent calls use the same thread
-asyncio.get_event_loop().run_in_executor(_mt5_executor, init_mt5)
+@app.on_event("startup")
+async def startup_mt5_executor():
+    # Re-init MT5 on the dedicated executor thread so subsequent calls use the same thread
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(_mt5_executor, init_mt5)
 
 @app.get("/health")
 async def health_check():
