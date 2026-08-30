@@ -50,6 +50,11 @@ services:
       - "3000:3000"
     environment:
       NODE_ENV: production
+      AUTH_SECRET: ${AUTH_SECRET:-supersecret_random_string_12345}
+      AUTH_URL: http://${VPS_IP:-localhost}:3000
+      AUTH_TRUST_HOST: "true"
+      INTERNAL_API_URL: http://backend:5000
+      BRIDGE_URL: http://3.104.66.16:5003
       NEXT_PUBLIC_BACKEND_URL: http://${VPS_IP:-localhost}:5000
       NEXT_PUBLIC_API_URL: http://${VPS_IP:-localhost}:3000
       NEXT_PUBLIC_BRIDGE_URL: http://3.104.66.16:5003
