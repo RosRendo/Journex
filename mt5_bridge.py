@@ -224,6 +224,9 @@ def init_mt5():
         init_args["password"] = MT5_PASSWORD
     if MT5_SERVER:
         init_args["server"] = MT5_SERVER
+    
+    init_args["portable"] = True
+    init_args["timeout"] = 60000
 
     print(f"[bridge] Initializing MT5 with options: {init_args}")
     if not mt5.initialize(**init_args):
