@@ -38,13 +38,17 @@ providers.push(
 
       try {
         const baseUrl = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
-        const endpoint = credentials.isRegister === "true" ? "/api/backend-auth/register" : "/api/backend-auth/login";
+        const isReg = credentials.isRegister === "true" || credentials.isRegister === true || String(credentials.isRegister) === "true";
+        const endpoint = isReg ? "/api/backend-auth/register" : "/api/backend-auth/login";
         
-        // If registering, we should also pass the name
+        console.log(`[AUTH-DIAGNOSTIC] Attempting ${isReg ? 'registration' : 'login'} at: ${baseUrl}${endpoint} for email: ${email}`);
+
         const bodyPayload: any = { email, password };
-        if (credentials.isRegister === "true" && credentials.name) {
+        if (isReg && credentials.name) {
           bodyPayload.name = credentials.name;
         }
+
+        console.log(`[AUTH-DIAGNOSTIC] Sending payload:`, JSON.stringify({ ...bodyPayload, password: "***" }));
 
         const res = await fetch(`${baseUrl}${endpoint}`, {
           method: "POST",
@@ -52,20 +56,35 @@ providers.push(
           body: JSON.stringify(bodyPayload),
         });
 
-        const responseData = await res.json();
-        
+        console.log(`[AUTH-DIAGNOSTIC] Response status: ${res.status}`);
+
+        let responseData;
+        try {
+          responseData = await res.json();
+          console.log(`[AUTH-DIAGNOSTIC] Response body:`, JSON.stringify(responseData));
+        } catch (e) {
+          console.error(`[AUTH-DIAGNOSTIC] Failed to parse response JSON:`, e);
+        }
+
         if (res.ok && responseData) {
-          const user = credentials.isRegister === "true" ? responseData.user : responseData;
+          const user = isReg ? responseData.user : responseData;
+          if (!user) {
+            console.error(`[AUTH-DIAGNOSTIC] User object is missing from responseData!`);
+            return null;
+          }
+          console.log(`[AUTH-DIAGNOSTIC] Authentication successful. User:`, JSON.stringify(user));
           return {
-            id: user.id || user._id,
+            id: String(user.id || user._id),
             name: user.name,
             email: user.email,
             image: null,
             role: user.role || "user",
           };
+        } else {
+          console.warn(`[AUTH-DIAGNOSTIC] Request failed or invalid. Status: ${res.status}`);
         }
       } catch (error) {
-        console.error("Auth error:", error);
+        console.error("[AUTH-DIAGNOSTIC] Exception in authorize:", error);
       }
       return null;
     },
