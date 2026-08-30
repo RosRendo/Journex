@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState } from "react";
 import { Brain, Heart, Battery, Sun, Moon, CloudRain, Zap, AlertTriangle, CheckCircle2, Coffee, Clock, TrendingUp, TrendingDown } from "lucide-react";
 
@@ -54,9 +54,9 @@ export default function EmotionalStateChecker() {
     const inIdeal = value >= ideal[0] && value <= ideal[1];
     if (inIdeal) return "#10b981";
     if (inverted) {
-      return value > ideal[1] ? "#ef4444" : "#f59e0b";
+      return value > ideal[1] ? "#ff5c73" : "#f59e0b";
     }
-    return value >= ideal[0] ? "#10b981" : "#ef4444";
+    return value >= ideal[0] ? "#10b981" : "#ff5c73";
   };
 
   const calculateOverall = () => {
@@ -102,7 +102,7 @@ export default function EmotionalStateChecker() {
         max={state.maxValue}
         value={state.value}
         onChange={(e) => updateRating(type, state.id, Number(e.target.value))}
-        className="w-full appearance-none bg-black/25 border border-zinc-850 h-2 rounded-full outline-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-emerald-500 cursor-pointer"
+        className="w-full appearance-none bg-black/25 border border-zinc-850 h-2 rounded-full outline-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#20e0b2] cursor-pointer"
       />
       <div className="flex justify-between text-[8px] text-zinc-555 mt-1">
         <span>0</span>
@@ -113,7 +113,7 @@ export default function EmotionalStateChecker() {
   );
 
   return (
-    <div className="bg-[#111118] border border-zinc-800/40 rounded-xl p-5 shadow-xl font-mono text-[10px]">
+    <div className="bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-xl p-5 font-mono text-[10px]">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Brain className="w-4 h-4 text-emerald-450" />
@@ -128,7 +128,7 @@ export default function EmotionalStateChecker() {
       </div>
 
       {!canTrade && overallScore > 0 && (
-        <div className="mb-4 p-3 rounded-lg flex items-start gap-2 bg-red-500/10 border border-red-500/20 text-red-400">
+        <div className="mb-4 p-3 rounded-lg flex items-start gap-2 bg-[#ff5c73]/10 border border-[#ff5c73]/20 text-[#ff5c73]">
           <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
           <div className="font-sans">
             <span className="text-xs font-bold block">Not recommended to trade</span>
@@ -140,7 +140,7 @@ export default function EmotionalStateChecker() {
       )}
 
       {canTrade && (
-        <div className="mb-4 p-3 rounded-lg flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+        <div className="mb-4 p-3 rounded-lg flex items-center gap-2 bg-[#20e0b2]/10 border border-[#20e0b2]/20 text-[#20e0b2]">
           <CheckCircle2 className="w-3.5 h-3.5" />
           <span className="font-bold uppercase tracking-wider text-[9px]">State is favorable for trading</span>
         </div>
@@ -164,10 +164,10 @@ export default function EmotionalStateChecker() {
               key={event.id}
               onClick={() => toggleEvent(event.id)}
               className={`text-[9px] font-bold font-sans px-2.5 py-1.5 rounded-lg text-left transition-colors ${
-                event.checked ? "bg-red-500/10 border border-red-500/25 text-red-400" : "bg-black/25 text-zinc-550 border border-zinc-850"
+                event.checked ? "bg-[#ff5c73]/10 border border-[#ff5c73]/25 text-[#ff5c73]" : "bg-black/25 text-zinc-550 border border-zinc-850"
               }`}
             >
-              {event.checked && <Zap className="w-3 h-3 inline mr-1 text-red-400" />}
+              {event.checked && <Zap className="w-3 h-3 inline mr-1 text-[#ff5c73]" />}
               {event.label}
             </button>
           ))}
@@ -181,13 +181,13 @@ export default function EmotionalStateChecker() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setRecentLosses(Math.max(0, recentLosses - 1))}
-            className="w-8 h-8 rounded-lg flex items-center justify-center bg-black/25 border border-zinc-800 text-zinc-500 hover:text-white cursor-pointer"
+            className="w-8 h-8 rounded-lg flex items-center justify-center bg-black/25 border border-[rgba(255,255,255,0.07)] text-zinc-500 hover:text-white cursor-pointer"
           >
             <TrendingDown className="w-4 h-4" />
           </button>
           <div 
             className={`flex-1 py-2 rounded-lg text-center font-bold font-mono text-[11px] border ${
-              recentLosses >= 3 ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-black/25 border-zinc-850 text-white"
+              recentLosses >= 3 ? "bg-[#ff5c73]/10 border-[#ff5c73]/20 text-[#ff5c73]" : "bg-black/25 border-zinc-850 text-white"
             }`}
           >
             <span className="text-sm font-black">{recentLosses}</span>
@@ -195,7 +195,7 @@ export default function EmotionalStateChecker() {
           </div>
           <button
             onClick={() => setRecentLosses(recentLosses + 1)}
-            className="w-8 h-8 rounded-lg flex items-center justify-center bg-black/25 border border-zinc-800 text-zinc-500 hover:text-white cursor-pointer"
+            className="w-8 h-8 rounded-lg flex items-center justify-center bg-black/25 border border-[rgba(255,255,255,0.07)] text-zinc-500 hover:text-white cursor-pointer"
           >
             <TrendingUp className="w-4 h-4" />
           </button>
@@ -209,3 +209,4 @@ export default function EmotionalStateChecker() {
     </div>
   );
 }
+

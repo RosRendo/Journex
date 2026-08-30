@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { 
@@ -147,7 +147,7 @@ export default function GoldTradingSimulator() {
         
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-[14px] shadow-[0_0_15px_rgba(245,158,11,0.2)]" style={{ background: "rgba(245,158,11,0.1)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.3)" }}>
+            <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-[14px]" style={{ background: "rgba(245,158,11,0.1)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.3)" }}>
               XAU
             </div>
             <div>
@@ -182,20 +182,20 @@ export default function GoldTradingSimulator() {
         </div>
 
         {/* Trade Execution Controls */}
-        <div className="flex items-center gap-3 backdrop-blur-sm bg-[--bg-base] p-1.5 rounded-xl border" style={{ borderColor: "var(--border-strong)" }}>
+        <div className="flex items-center gap-3 bg-[--bg-base] p-1.5 rounded-xl border" style={{ borderColor: "var(--border-strong)" }}>
           <div className="flex items-center px-3 border-r" style={{ borderColor: "var(--border)" }}>
             <span className="text-[10px] font-bold uppercase mr-2" style={{ color: "var(--text-tertiary)" }}>LOT</span>
             <button onClick={() => setLotSize((p) => Math.max(0.1, +(p - 0.1).toFixed(2)))} className="w-6 h-6 flex items-center justify-center rounded hover:bg-[--bg-card] text-[12px] font-bold text-[--text-secondary]">-</button>
             <input type="number" step="0.1" value={lotSize} onChange={(e) => setLotSize(parseFloat(e.target.value) || 0.1)} className="w-12 bg-transparent text-center text-[13px] font-mono font-bold mx-1 outline-none text-[--text-primary] no-spinners" />
             <button onClick={() => setLotSize((p) => +(p + 0.1).toFixed(2))} className="w-6 h-6 flex items-center justify-center rounded hover:bg-[--bg-card] text-[12px] font-bold text-[--text-secondary]">+</button>
           </div>
-          <CustomButton variant="danger" onClick={() => executeTrade('SELL')} className="px-5 shadow-lg shadow-red-500/10">SELL</CustomButton>
-          <CustomButton variant="success" onClick={() => executeTrade('BUY')} className="px-5 shadow-lg shadow-teal-500/10">BUY</CustomButton>
+          <CustomButton variant="danger" onClick={() => executeTrade('SELL')} className="px-5 shadow-[#ff5c73]/10">SELL</CustomButton>
+          <CustomButton variant="success" onClick={() => executeTrade('BUY')} className="px-5 shadow-teal-500/10">BUY</CustomButton>
         </div>
       </div>
 
       {riskWarning && (
-        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full border bg-red-500/10 border-red-500/30 text-red-500 text-[12px] font-bold flex items-center gap-2 shadow-2xl animate-in slide-in-from-top-4 fade-in">
+        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full border bg-[#ff5c73]/10 border-[#ff5c73]/30 text-[#ff5c73] text-[12px] font-bold flex items-center gap-2 animate-in slide-in-from-top-4 fade-in">
           <AlertTriangle className="w-4 h-4" /> {riskWarning}
         </div>
       )}
@@ -204,7 +204,7 @@ export default function GoldTradingSimulator() {
       <div className="flex-1 flex overflow-hidden">
         
         {/* Chart Viewport */}
-        <div className="flex-1 relative bg-[#0a0a0f] border-r border-[--border]">
+        <div className="flex-1 relative bg-[#09090b] border-r border-[--border]">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={visibleData} margin={{ top: 20, right: 60, left: 0, bottom: 20 }}>
               <defs>
@@ -305,9 +305,9 @@ export default function GoldTradingSimulator() {
                   const pct = (e.clientX - rect.left) / rect.width;
                   setCurrentIndex(Math.floor(pct * data.length));
                 }}>
-             <div className="absolute top-0 left-0 h-full bg-[--accent] rounded-full shadow-[0_0_10px_rgba(0,212,161,0.5)] transition-all ease-linear" style={{ width: `${(currentIndex / data.length) * 100}%` }} />
+             <div className="absolute top-0 left-0 h-full bg-[--accent] rounded-full transition-all ease-linear" style={{ width: `${(currentIndex / data.length) * 100}%` }} />
              {/* Readhead Thumb */}
-             <div className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-lg border-2 border-[--accent] opacity-0 group-hover:opacity-100 transition-opacity" style={{ left: `calc(${(currentIndex / data.length) * 100}% - 8px)` }} />
+             <div className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full border-2 border-[--accent] opacity-0 group-hover:opacity-100 transition-opacity" style={{ left: `calc(${(currentIndex / data.length) * 100}% - 8px)` }} />
            </div>
 
            <div className="text-[12px] font-bold text-[--text-tertiary] w-12 text-right">
@@ -323,7 +323,7 @@ export default function GoldTradingSimulator() {
              
              <button 
                onClick={() => setIsPlaying(!isPlaying)}
-               className="w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-xl"
+               className="w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-105 active:scale-95"
                style={{ background: isPlaying ? "var(--bg-card)" : "var(--accent)", color: isPlaying ? "var(--text-primary)" : "#000", border: isPlaying ? "1px solid var(--border-strong)" : "none" }}
              >
                {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 pl-0.5" />}
@@ -352,3 +352,5 @@ export default function GoldTradingSimulator() {
     </div>
   );
 }
+
+

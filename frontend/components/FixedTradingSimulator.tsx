@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import React, { useState, useEffect, useCallback } from "react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -90,14 +90,14 @@ export default function FixedTradingSimulator() {
   const actualWR = trades.length ? (wins / trades.length) * 100 : 0;
   const multiplier = finalBalance / startingBalance;
 
-  const lineColor = finalBalance >= startingBalance ? "#22c55e" : "#ef4444";
+  const lineColor = finalBalance >= startingBalance ? "#22c55e" : "#ff5c73";
 
   return (
     <div className="min-h-screen bg-background text-foreground space-y-6">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-blue-500/20">
             <Activity className="w-5 h-5 text-foreground" />
           </div>
           <div>
@@ -111,7 +111,7 @@ export default function FixedTradingSimulator() {
       </div>
 
       {/* Parameters */}
-      <div className="bg-card border border-border rounded-2xl p-6">
+      <div className="bg-card border border-border rounded-lg p-6">
         <div className="flex items-center gap-2 mb-5">
           <Zap className="w-4 h-4 text-blue-500" />
           <h2 className="text-sm font-semibold text-foreground">Fixed Strategy Parameters</h2>
@@ -138,7 +138,7 @@ export default function FixedTradingSimulator() {
           { label: "Exact Distributed WR", value: `${actualWR.toFixed(1)}%`, color: "text-foreground", Icon: Target, sub: `${wins}W / ${losses}L` },
           { label: "EV Multiplier", value: `${multiplier.toFixed(2)}×`, color: "text-blue-400", Icon: TrendingUp },
         ].map(s => (
-          <div key={s.label} className="bg-card border border-border rounded-2xl p-4 flex items-center gap-3">
+          <div key={s.label} className="bg-card border border-border rounded-lg p-4 flex items-center gap-3">
             <s.Icon className={`w-5 h-5 shrink-0 ${s.color}`} />
             <div>
               <p className={`text-xl font-bold tabular-nums ${s.color}`}>{s.value}</p>
@@ -150,7 +150,7 @@ export default function FixedTradingSimulator() {
       </div>
 
       {/* Equity Curve */}
-      <div className="bg-card border border-border rounded-2xl p-5">
+      <div className="bg-card border border-border rounded-lg p-5">
         <h3 className="text-sm font-semibold text-foreground mb-4">Deterministic Expected Equity Trajectory</h3>
         <ResponsiveContainer width="100%" height={260}>
           <LineChart data={chartData} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
@@ -161,7 +161,7 @@ export default function FixedTradingSimulator() {
             <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, fontSize: 11 }} />
             <Line type="monotone" dataKey="balance" stroke={lineColor} strokeWidth={2}
               dot={(p) => <circle key={p.key} cx={p.cx} cy={p.cy} r={3}
-                fill={trades[p.index - 1]?.result === "Win" ? "#22c55e" : p.index === 0 ? lineColor : "#ef4444"}
+                fill={trades[p.index - 1]?.result === "Win" ? "#22c55e" : p.index === 0 ? lineColor : "#ff5c73"}
                 stroke="none" />}
               activeDot={{ r: 5 }} />
           </LineChart>
@@ -170,14 +170,14 @@ export default function FixedTradingSimulator() {
       </div>
 
       {/* Trade table */}
-      <div className="bg-card border border-border rounded-2xl overflow-hidden">
+      <div className="bg-card border border-border rounded-lg overflow-hidden">
         <div className="px-5 py-4 border-b border-border flex items-center gap-2">
           <Activity className="w-4 h-4 text-blue-500" />
           <h3 className="text-sm font-semibold text-foreground">Expected Values per Execution Node</h3>
         </div>
         <div className="overflow-x-auto max-h-[400px]">
           <table className="w-full text-xs">
-            <thead className="sticky top-0 bg-muted/80 backdrop-blur-sm">
+            <thead className="sticky top-0 bg-muted/80">
               <tr className="border-b border-border">
                 {["Sequence #", "Distributed Result", "Compounded Balance", "Gain/Loss", "Risk $", "Reward $", "Position Size", "Lot Size"].map(h => (
                   <th key={h} className="px-4 py-3 text-left font-semibold text-muted-foreground">{h}</th>
@@ -209,7 +209,7 @@ export default function FixedTradingSimulator() {
       </div>
       
       {/* Info */}
-      <div className="flex items-start gap-3 bg-blue-500/5 border border-blue-500/20 rounded-2xl p-4">
+      <div className="flex items-start gap-3 bg-blue-500/5 border border-blue-500/20 rounded-lg p-4">
         <AlertTriangle className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
         <p className="text-xs text-muted-foreground">
           <span className="font-semibold text-foreground">Deterministic Interleaving:</span>{" "}
@@ -220,3 +220,5 @@ export default function FixedTradingSimulator() {
     </div>
   );
 }
+
+

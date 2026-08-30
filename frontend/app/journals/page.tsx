@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from 'react';
 import { useSession } from "next-auth/react";
@@ -95,7 +95,7 @@ export default function JournalsPage() {
       {loading ? (
         <div className="text-center py-20 text-slate-400">Loading journals...</div>
       ) : error ? (
-        <div className="text-center py-20 text-red-400">{error}</div>
+        <div className="text-center py-20 text-[#ff5c73]">{error}</div>
       ) : journals.length === 0 ? (
         <div className="text-center py-20 border border-dashed border-slate-800 rounded-lg bg-slate-900/50">
           <h3 className="text-lg font-medium text-slate-300 mb-2">No Journals Found</h3>
@@ -116,3 +116,4 @@ export default function JournalsPage() {
     </div>
   );
 }
+

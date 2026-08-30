@@ -7,14 +7,13 @@ interface Props {
 }
 
 const SESSION_WINDOWS = [
-  { name: "Asia", label: "🌏 Asia", startUTC: 0, endUTC: 8, color: "#818cf8" },
-  { name: "London", label: "🏛️ London", startUTC: 7, endUTC: 16, color: "#34d399" },
-  { name: "New York", label: "🗽 New York", startUTC: 13, endUTC: 22, color: "#f59e0b" },
+  { name: "Asia", label: "ASIA", startUTC: 0, endUTC: 8, color: "#71717a" },
+  { name: "London", label: "LONDON", startUTC: 7, endUTC: 16, color: "#a1a1aa" },
+  { name: "New York", label: "NEW YORK", startUTC: 13, endUTC: 22, color: "#e4e4e7" },
 ];
 
 function getSessionForTrade(trade: TradeData): string {
   const hour = new Date(trade.date).getUTCHours();
-  // Assign to the session with the most overlap; NY takes priority near open
   if (hour >= 13 && hour < 22) return "New York";
   if (hour >= 7 && hour < 16) return "London";
   return "Asia";
@@ -49,17 +48,20 @@ export function SessionPerformanceGrid({ trades }: Props) {
 
   if (!trades.length) {
     return (
-      <div className="w-full bg-[#0c0c0d]/90 border border-white/5 rounded-xl shadow-lg p-5 flex items-center justify-center min-h-[160px]">
-        <p className="text-gray-500 text-sm">Import trades to see session performance</p>
+      <div className="w-full bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-lg p-5 flex items-center justify-center min-h-[160px] font-mono text-[10px]">
+        <p className="text-zinc-500">Awaiting sufficient trade records to analyze session efficiency...</p>
       </div>
     );
   }
 
   return (
-    <div className="w-full bg-[#0c0c0d]/90 border border-white/5 rounded-xl shadow-lg p-5">
-      <div className="mb-5">
-        <h3 className="text-sm font-bold uppercase tracking-widest text-white">Session Performance</h3>
-        <p className="text-[10px] text-gray-400 mt-0.5">P&L breakdown by trading session (UTC)</p>
+    <div className="w-full bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-lg p-5 font-mono text-[9px]">
+      <div className="mb-5 flex items-center justify-between">
+        <div>
+          <h3 className="text-[9px] font-bold uppercase tracking-widest text-zinc-500">Session Performance</h3>
+          <p className="text-[8px] text-zinc-600 mt-0.5">P&L distribution aligned by execution window (UTC)</p>
+        </div>
+        <span className="text-[8px] text-zinc-650 uppercase">Timing Edge</span>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -70,31 +72,19 @@ export function SessionPerformanceGrid({ trades }: Props) {
           return (
             <div
               key={s.name}
-              className="relative p-4 rounded-xl border overflow-hidden"
-              style={{ background: "rgba(255,255,255,0.02)", borderColor: `${s.color}25` }}
+              className="relative p-4 rounded border overflow-hidden bg-[#141419] border-[rgba(255,255,255,0.07)]"
             >
-              {/* Ambient glow */}
-              <div
-                className="absolute top-0 right-0 w-20 h-20 rounded-full blur-[30px] pointer-events-none"
-                style={{ background: `${s.color}20` }}
-              />
-
               {/* Session name */}
               <div className="flex items-center justify-between mb-3 relative z-10">
-                <span className="text-[11px] font-bold text-white">{s.label}</span>
-                <span
-                  className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
-                  style={{ background: `${s.color}20`, color: s.color }}
-                >
+                <span className="text-[10px] font-bold text-white tracking-widest uppercase">{s.label}</span>
+                <span className="text-[8px] font-bold uppercase px-2 py-0.5 border border-zinc-700 text-zinc-400 bg-zinc-900 rounded">
                   {s.trades} trades
                 </span>
               </div>
 
               {/* P&L */}
               <div className="relative z-10 mb-3">
-                <span
-                  className={`text-2xl font-bold font-mono ${isProfitable ? "text-[#00dc82]" : "text-red-400"}`}
-                >
+                <span className={`text-[16px] font-bold font-mono ${isProfitable ? "text-[#20e0b2]" : "text-[#ff5c73]"}`}>
                   {isProfitable ? "+" : "-"}${Math.abs(s.pnl).toFixed(2)}
                 </span>
               </div>
@@ -102,27 +92,27 @@ export function SessionPerformanceGrid({ trades }: Props) {
               {/* Win Rate bar */}
               <div className="relative z-10">
                 <div className="flex justify-between items-center mb-1.5">
-                  <span className="text-[9px] text-gray-500 font-bold uppercase tracking-wider">Win Rate</span>
-                  <span className="text-[11px] font-bold font-mono" style={{ color: s.color }}>
+                  <span className="text-[8px] text-zinc-500 uppercase tracking-wider">Win Rate</span>
+                  <span className="text-[10px] font-bold font-mono text-white">
                     {s.winRate.toFixed(0)}%
                   </span>
                 </div>
-                <div className="w-full h-1.5 rounded-full bg-white/5 overflow-hidden">
+                <div className="w-full h-1 rounded bg-black/40 overflow-hidden">
                   <div
-                    className="h-full rounded-full transition-all duration-500"
-                    style={{ width: `${s.winRate}%`, background: s.color }}
+                    className="h-full rounded transition-all duration-500"
+                    style={{ width: `${s.winRate}%`, background: isProfitable ? "#20e0b2" : "#ff5c73" }}
                   />
                 </div>
-                <div className="flex justify-between mt-2 text-[9px] text-gray-500 font-mono">
-                  <span>{s.wins}W</span>
-                  <span>{s.losses}L</span>
+                <div className="flex justify-between mt-2 text-[8px] text-zinc-650 font-mono">
+                  <span>{s.wins} W</span>
+                  <span>{s.losses} L</span>
                 </div>
               </div>
 
               {/* Volume bar at bottom */}
               <div
-                className="absolute bottom-0 left-0 h-0.5"
-                style={{ width: `${barWidth}%`, background: s.color, opacity: 0.4 }}
+                className="absolute bottom-0 left-0 h-0.5 bg-zinc-700"
+                style={{ width: `${barWidth}%`, opacity: 0.5 }}
               />
             </div>
           );
@@ -131,3 +121,4 @@ export function SessionPerformanceGrid({ trades }: Props) {
     </div>
   );
 }
+

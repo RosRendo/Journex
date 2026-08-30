@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState } from "react";
 import { Star, Target, TrendingUp, Zap, CheckCircle2, AlertCircle, BarChart3, Activity } from "lucide-react";
 
@@ -48,7 +48,7 @@ export default function SetupQualityScorer() {
     if (score >= 6) return { label: "Good Setup", color: "#22d3ee" };
     if (score >= 4) return { label: "Average Setup", color: "#f59e0b" };
     if (score >= 2) return { label: "Weak Setup", color: "#f97316" };
-    return { label: "Poor Setup", color: "#ef4444" };
+    return { label: "Poor Setup", color: "#ff5c73" };
   };
 
   const resetScores = () => {
@@ -60,7 +60,7 @@ export default function SetupQualityScorer() {
   const quality = getQualityLabel(weightedScore);
 
   return (
-    <div className="bg-[#111118] border border-zinc-800/40 rounded-xl p-5 shadow-xl font-mono text-[10px]">
+    <div className="bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-xl p-5 font-mono text-[10px]">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Target className="w-4 h-4" style={{ color: quality.color }} />
@@ -69,13 +69,13 @@ export default function SetupQualityScorer() {
         <div className="flex gap-1">
           <button
             onClick={() => setDirection("BUY")}
-            className={`px-2.5 py-1 text-[9px] rounded-l font-bold transition-all uppercase tracking-wider ${direction === "BUY" ? "bg-emerald-500 text-emerald-950" : "bg-black/25 text-zinc-550 border border-zinc-850"}`}
+            className={`px-2.5 py-1 text-[9px] rounded-l font-bold transition-all uppercase tracking-wider ${direction === "BUY" ? "bg-[#20e0b2] text-emerald-950" : "bg-black/25 text-zinc-550 border border-zinc-850"}`}
           >
             BUY
           </button>
           <button
             onClick={() => setDirection("SELL")}
-            className={`px-2.5 py-1 text-[9px] rounded-r font-bold transition-all uppercase tracking-wider ${direction === "SELL" ? "bg-red-500 text-white" : "bg-black/25 text-zinc-550 border border-zinc-850"}`}
+            className={`px-2.5 py-1 text-[9px] rounded-r font-bold transition-all uppercase tracking-wider ${direction === "SELL" ? "bg-[#ff5c73] text-white" : "bg-black/25 text-zinc-550 border border-zinc-850"}`}
           >
             SELL
           </button>
@@ -86,7 +86,7 @@ export default function SetupQualityScorer() {
         <select
           value={selectedPair}
           onChange={(e) => setSelectedPair(e.target.value)}
-          className="flex-1 text-xs px-2.5 py-1.5 rounded-lg bg-black/25 border border-zinc-800/60 text-white cursor-pointer"
+          className="flex-1 text-xs px-2.5 py-1.5 rounded-lg bg-black/25 border border-[rgba(255,255,255,0.07)] text-white cursor-pointer"
         >
           {tradingPairs.map(pair => (
             <option key={pair} value={pair} className="bg-zinc-950 text-white">{pair}</option>
@@ -134,7 +134,7 @@ export default function SetupQualityScorer() {
             <div className="flex items-center gap-0.5 font-mono">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => {
                 const isSelected = c.score >= num;
-                const scoreColor = num <= 3 ? "bg-red-500/20 text-red-400 border border-red-500/30" : num <= 6 ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" : "bg-emerald-500/20 text-emerald-450 border border-emerald-500/30";
+                const scoreColor = num <= 3 ? "bg-[#ff5c73]/20 text-[#ff5c73] border border-[#ff5c73]/30" : num <= 6 ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" : "bg-[#20e0b2]/20 text-emerald-450 border border-[#20e0b2]/30";
                 
                 return (
                   <button
@@ -157,20 +157,20 @@ export default function SetupQualityScorer() {
 
       <button
         onClick={resetScores}
-        className="w-full mt-3 py-2 bg-black/25 border border-zinc-800 text-zinc-500 hover:text-white rounded-lg flex items-center justify-center gap-1 transition-all uppercase tracking-wider font-bold"
+        className="w-full mt-3 py-2 bg-black/25 border border-[rgba(255,255,255,0.07)] text-zinc-500 hover:text-white rounded-lg flex items-center justify-center gap-1 transition-all uppercase tracking-wider font-bold"
       >
         <Zap className="w-3.5 h-3.5" /> Reset Scores
       </button>
 
       {weightedScore >= 6 && (
-        <div className="mt-3 p-2.5 rounded-lg flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+        <div className="mt-3 p-2.5 rounded-lg flex items-center gap-2 bg-[#20e0b2]/10 border border-[#20e0b2]/20 text-[#20e0b2]">
           <CheckCircle2 className="w-3.5 h-3.5" />
           <span className="font-bold uppercase tracking-wider text-[9px]">High quality setup - favorable conditions</span>
         </div>
       )}
 
       {weightedScore < 4 && weightedScore > 0 && (
-        <div className="mt-3 p-2.5 rounded-lg flex items-center gap-2 bg-red-500/10 border border-red-500/20 text-red-400">
+        <div className="mt-3 p-2.5 rounded-lg flex items-center gap-2 bg-[#ff5c73]/10 border border-[#ff5c73]/20 text-[#ff5c73]">
           <AlertCircle className="w-3.5 h-3.5" />
           <span className="font-bold uppercase tracking-wider text-[9px]">Low quality setup - consider skipping</span>
         </div>
@@ -178,3 +178,4 @@ export default function SetupQualityScorer() {
     </div>
   );
 }
+

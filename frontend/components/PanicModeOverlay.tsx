@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import { usePanicMode, PanicTrigger } from "./providers/PanicModeProvider";
@@ -58,13 +58,13 @@ export default function PanicModeOverlay() {
     <div className="fixed inset-0 z-[99999] flex items-center justify-center">
       {/* Backdrop — dark red tint */}
       <div
-        className="absolute inset-0 bg-black/80 backdrop-blur-md"
+        className="absolute inset-0 bg-black/80"
         style={{ background: "radial-gradient(ellipse at center, rgba(239,68,68,0.08) 0%, rgba(0,0,0,0.85) 70%)" }}
       />
 
       {/* Modal */}
       <div
-        className="relative w-full max-w-lg mx-4 rounded-2xl overflow-hidden shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-300"
+        className="relative w-full max-w-lg mx-4 rounded-lg overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300"
         style={{
           background: "linear-gradient(160deg, #0f0a0a 0%, #130909 100%)",
           border: "1px solid rgba(239,68,68,0.3)",
@@ -72,12 +72,12 @@ export default function PanicModeOverlay() {
         }}
       >
         {/* Top accent bar */}
-        <div className="h-1 w-full" style={{ background: "linear-gradient(90deg, #ef4444, #dc2626, #b91c1c)" }} />
+        <div className="h-1 w-full" style={{ background: "linear-gradient(90deg, #ff5c73, #dc2626, #b91c1c)" }} />
 
         <div className="p-8">
           {/* Header */}
           <div className="flex items-center gap-4 mb-6">
-            <div className="w-14 h-14 rounded-2xl bg-red-500/15 border border-red-500/30 flex items-center justify-center flex-shrink-0">
+            <div className="w-14 h-14 rounded-lg bg-red-500/15 border border-red-500/30 flex items-center justify-center flex-shrink-0">
               <TriggerIcon className="w-7 h-7 text-red-400" />
             </div>
             <div>
@@ -193,3 +193,4 @@ export default function PanicModeOverlay() {
     </div>
   );
 }
+

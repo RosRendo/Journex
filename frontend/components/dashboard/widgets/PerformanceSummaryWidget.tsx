@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+﻿import { useMemo } from "react";
 import { TradeData } from "@/hooks/useCsvTrades";
 
 interface Props {
@@ -56,16 +56,17 @@ export function PerformanceSummaryWidget({ trades }: Props) {
   );
 
   return (
-    <div className="w-full bg-[#0c0c0d]/90 border border-white/5 rounded-xl shadow-lg p-5">
+    <div className="w-full bg-[#0c0c0d]/90 border border-white/5 rounded-xl p-5">
       <h3 className="text-sm font-bold uppercase tracking-widest text-white mb-4">Performance Summary</h3>
       <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-        <MetricBox label="Win Rate" value={`${metrics.winRate.toFixed(1)}%`} color={metrics.winRate >= 50 ? "text-[#00dc82]" : "text-red-400"} />
-        <MetricBox label="Avg Win" value={`$${metrics.avgWin.toFixed(2)}`} color="text-[#00dc82]" />
-        <MetricBox label="Avg Loss" value={`$${metrics.avgLoss.toFixed(2)}`} color="text-red-400" />
-        <MetricBox label="Profit Factor" value={`${metrics.profitFactor.toFixed(2)}`} color={metrics.profitFactor >= 1 ? "text-[#00dc82]" : "text-red-400"} />
-        <MetricBox label="Sharpe Ratio" value={`${metrics.sharpeRatio.toFixed(2)}`} color={metrics.sharpeRatio >= 1 ? "text-[#00dc82]" : "text-white"} />
-        <MetricBox label="Expectancy" value={`$${metrics.expectancy.toFixed(2)}`} color={metrics.expectancy >= 0 ? "text-[#00dc82]" : "text-red-400"} />
+        <MetricBox label="Win Rate" value={`${metrics.winRate.toFixed(1)}%`} color={metrics.winRate >= 50 ? "text-[#20e0b2]" : "text-[#ff5c73]"} />
+        <MetricBox label="Avg Win" value={`$${metrics.avgWin.toFixed(2)}`} color="text-[#20e0b2]" />
+        <MetricBox label="Avg Loss" value={`$${metrics.avgLoss.toFixed(2)}`} color="text-[#ff5c73]" />
+        <MetricBox label="Profit Factor" value={`${metrics.profitFactor.toFixed(2)}`} color={metrics.profitFactor >= 1 ? "text-[#20e0b2]" : "text-[#ff5c73]"} />
+        <MetricBox label="Sharpe Ratio" value={`${metrics.sharpeRatio.toFixed(2)}`} color={metrics.sharpeRatio >= 1 ? "text-[#20e0b2]" : "text-white"} />
+        <MetricBox label="Expectancy" value={`$${metrics.expectancy.toFixed(2)}`} color={metrics.expectancy >= 0 ? "text-[#20e0b2]" : "text-[#ff5c73]"} />
       </div>
     </div>
   );
 }
+

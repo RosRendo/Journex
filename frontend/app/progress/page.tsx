@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { Target, Trophy, Bell, AlertTriangle, TrendingUp, TrendingDown, Calendar, DollarSign, Settings, Shield } from "lucide-react";
 import ProgressToProfitability from "@/components/progress/ProgressToProfitability";
 import FundedChallengeTracker from "@/components/progress/FundedChallengeTracker";
@@ -31,3 +31,4 @@ export default function ProgressPage() {
     </div>
   );
 }
+

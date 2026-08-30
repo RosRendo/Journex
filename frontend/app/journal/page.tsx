@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useCsvTrades } from "@/hooks/useCsvTrades";
 import type { TradeData } from "@/hooks/useCsvTrades";
 import { useMemo, useState, useEffect, useRef } from "react";
@@ -258,69 +258,72 @@ export default function JournalPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="w-10 h-10 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+        <div className="w-10 h-10 border-2 border-[#20e0b2] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 relative h-full max-w-[1600px] mx-auto pb-20 text-text-primary px-4 md:px-6 py-4 flex flex-col gap-4">
+    <div className="min-h-screen w-full bg-[#09090b] text-[#f4f4f5] flex flex-col pb-12 font-sans">
       
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-[#111118]/80 p-4 border border-zinc-800/40 rounded-2xl backdrop-blur-xl">
+      {/* ── TOPBAR ── */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(255,255,255,0.07)] sticky top-0 z-20 bg-[#09090b]">
         <div className="flex items-center gap-3">
           <div>
-            <h1 className="text-lg font-black tracking-tight text-white font-display">
-              Trading Journal
-            </h1>
-            <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest font-mono flex items-center gap-1 mt-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Journal Database Online
-            </p>
+            <h1 className="text-sm font-bold tracking-tight text-[#f4f4f5]">Trading Journal</h1>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#20e0b2] animate-pulse" />
+              <span className="text-[9px] font-bold uppercase tracking-widest font-mono text-[#71717a]">Database Online</span>
+            </div>
           </div>
         </div>
-        <div className="flex gap-2">
-          <button onClick={() => refresh()} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-white/5 border border-white/5 text-zinc-350 hover:bg-white/10 transition-all font-sans">
-            <RefreshCw className="w-3.5 h-3.5" /> Refresh
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 border border-[rgba(255,255,255,0.07)] rounded bg-[#141419]">
+            <Search className="w-3 h-3 text-[#71717a]" />
+            <input type="text" placeholder="Symbol..." value={searchSymbol} onChange={(e) => setSearchSymbol(e.target.value)}
+              className="w-14 bg-transparent border-none focus:outline-none text-[10px] font-bold text-[#f4f4f5] placeholder-[#71717a] font-mono" />
+          </div>
+          <button onClick={() => refresh()} className="flex items-center gap-1 px-3 py-1.5 rounded border border-[rgba(255,255,255,0.07)] text-[9px] font-bold uppercase tracking-wider text-[#71717a] hover:text-[#f4f4f5] hover:border-[rgba(255,255,255,0.15)] transition-all font-mono">
+            <RefreshCw className="w-3 h-3" /> Refresh
           </button>
-          <button onClick={() => setShowUpload(!showUpload)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-emerald-500 hover:bg-emerald-400 text-emerald-950 transition-all shadow-[0_0_10px_rgba(16,185,129,0.15)] font-sans">
-            <Upload className="w-3.5 h-3.5" /> {showUpload ? "Close" : "Import CSV"}
+          <button onClick={() => setShowUpload(!showUpload)} className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider bg-[#20e0b2] hover:bg-[#20e0b2] text-[#09090b] px-3 py-1.5 rounded transition-all font-mono">
+            <Upload className="w-3 h-3" /> {showUpload ? "Close" : "Import CSV"}
           </button>
-          <button onClick={exportCSV} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all font-sans">
-            <Download className="w-3.5 h-3.5" /> Export
+          <button onClick={exportCSV} className="flex items-center gap-1 px-3 py-1.5 rounded border border-[rgba(255,92,115,0.2)] text-[9px] font-bold uppercase tracking-wider text-[#ff5c73] hover:bg-[rgba(255,92,115,0.08)] transition-all font-mono">
+            <Download className="w-3 h-3" /> Export
           </button>
         </div>
       </div>
 
       <AnimatePresence>
         {showUpload && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden rounded-xl border border-zinc-800/40 bg-[#111118] shadow-2xl">
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#101014]">
             <div className="p-5"><CsvUploadComponent /></div>
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 divide-x divide-y md:divide-y-0 divide-[rgba(255,255,255,0.07)] border border-[rgba(255,255,255,0.07)] rounded-lg overflow-hidden">
         {[
-          { label: "Total Trades", value: analytics?.totalTrades || 0, color: "text-white" },
-          { label: "Win Rate", value: `${(analytics?.winRate || 0).toFixed(1)}%`, color: "text-white", hasGauge: true },
-          { label: "Total P&L", value: `$${(analytics?.totalProfit || 0).toFixed(2)}`, color: (analytics?.totalProfit || 0) >= 0 ? "text-[--bull]" : "text-[--bear]" },
-          { label: "Profit Factor", value: (analytics?.profitFactor || 0).toFixed(2), color: "text-white" },
-          { label: "Avg Win", value: `$${(analytics?.avgWin || 0).toFixed(2)}`, color: "text-[--bull]" },
+          { label: "Total Trades", value: analytics?.totalTrades || 0, color: "text-[#f4f4f5]" },
+          { label: "Win Rate", value: `${(analytics?.winRate || 0).toFixed(1)}%`, color: "text-[#f4f4f5]", hasGauge: true },
+          { label: "Total P&L", value: `$${(analytics?.totalProfit || 0).toFixed(2)}`, color: (analytics?.totalProfit || 0) >= 0 ? "text-[#20e0b2]" : "text-[#ff5c73]" },
+          { label: "Profit Factor", value: (analytics?.profitFactor || 0).toFixed(2), color: "text-[#f4f4f5]" },
+          { label: "Avg Win", value: `$${(analytics?.avgWin || 0).toFixed(2)}`, color: "text-[#20e0b2]" },
         ].map((stat, i) => (
-          <div key={i} className="bg-[#111118] border border-zinc-800/40 p-4 rounded-xl flex justify-between items-center relative overflow-hidden shadow-md">
+          <div key={i} className="bg-[#101014] px-4 py-3.5 flex justify-between items-center">
             <div>
-              <div className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest mb-1 font-mono">{stat.label}</div>
-              <div className={`text-xl font-black font-mono tracking-tight ${stat.color}`}>{stat.value}</div>
+              <div className="text-[9px] text-[#71717a] font-bold uppercase tracking-widest mb-1 font-mono">{stat.label}</div>
+              <div className={`text-lg font-black font-mono tracking-tight ${stat.color}`}>{stat.value}</div>
             </div>
             {stat.hasGauge && (
               <div className="relative flex items-center justify-center shrink-0 w-8 h-8">
-                <svg className="w-8 h-8 transform -rotate-90">
-                  <circle cx="16" cy="16" r="13" className="stroke-zinc-800" strokeWidth="2.5" fill="transparent" />
-                  <circle cx="16" cy="16" r="13" className="stroke-emerald-400" strokeWidth="2.5" fill="transparent"
-                          strokeDasharray={`${2 * Math.PI * 13}`}
-                          strokeDashoffset={`${2 * Math.PI * 13 * (1 - (analytics?.winRate || 0) / 100)}`}
+                <svg className="w-8 h-8 -rotate-90">
+                  <circle cx="16" cy="16" r="13" fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="2.5" />
+                  <circle cx="16" cy="16" r="13" fill="none" stroke="#20e0b2" strokeWidth="2.5"
+                    strokeDasharray={`${2 * Math.PI * 13}`}
+                    strokeDashoffset={`${2 * Math.PI * 13 * (1 - (analytics?.winRate || 0) / 100)}`}
                   />
                 </svg>
               </div>
@@ -330,15 +333,15 @@ export default function JournalPage() {
       </div>
 
       {error && (
-        <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold font-mono rounded-lg flex items-center gap-2">
+        <div className="p-3 bg-[#ff5c73]/10 border border-[#ff5c73]/20 text-[#ff5c73] text-xs font-bold font-mono rounded-lg flex items-center gap-2">
           <X className="w-4 h-4" /> {error}
         </div>
       )}
 
       {/* Filters & View Toggle */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-[#111118]/85 p-3.5 border border-zinc-800/40 rounded-xl backdrop-blur-xl">
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-[#101014]/85 p-3.5 border border-[rgba(255,255,255,0.07)] rounded-xl">
         <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-2 px-2.5 py-1 bg-black/30 border border-zinc-800/50 rounded-lg">
+          <div className="flex items-center gap-2 px-2.5 py-1 bg-black/30 border border-[rgba(255,255,255,0.07)] rounded-lg">
             <Search className="w-3 h-3 text-zinc-500" />
             <input
               type="text"
@@ -411,10 +414,10 @@ export default function JournalPage() {
         <div className="flex-1 w-full">
           <AnimatePresence mode="wait">
             {viewMode === "list" ? (
-              <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="bg-zinc-950/20 border border-zinc-800/40 rounded-xl overflow-hidden shadow-xl">
+              <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="bg-zinc-950/20 border border-[rgba(255,255,255,0.07)] rounded-xl overflow-hidden">
                 {paginatedTrades.length === 0 ? (
-                  <div className="text-center py-20 rounded-xl border border-zinc-800/40 bg-[#111118] backdrop-blur-xl">
-                    <div className="w-12 h-12 mx-auto mb-4 rounded-full flex items-center justify-center bg-zinc-900 border border-zinc-800">
+                  <div className="text-center py-20 rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#101014]">
+                    <div className="w-12 h-12 mx-auto mb-4 rounded-full flex items-center justify-center bg-zinc-900 border border-[rgba(255,255,255,0.07)]">
                       <List className="w-6 h-6 opacity-50" />
                     </div>
                     <h3 className="text-sm font-bold mb-1 text-white">No Trades Found</h3>
@@ -423,8 +426,8 @@ export default function JournalPage() {
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs whitespace-nowrap">
-                      <thead className="bg-[#111118]/85 text-[9px] uppercase font-bold text-zinc-500 tracking-wider">
-                        <tr className="border-b border-zinc-800/40">
+                      <thead className="bg-[#101014]/85 text-[9px] uppercase font-bold text-zinc-500 tracking-wider">
+                        <tr className="border-b border-[rgba(255,255,255,0.07)]">
                           <th className="px-4 py-3">Status</th>
                           <th className="px-4 py-3">Side</th>
                           <th className="px-4 py-3">Symbol</th>
@@ -443,15 +446,15 @@ export default function JournalPage() {
                             <tr
                               key={trade.id}
                               onClick={() => { setSelectedTrade(trade); setSelectedDay(null); }}
-                              className={`hover:bg-white/[0.01] border-b border-zinc-900/60 transition-colors cursor-pointer ${
+                              className={`hover:bg-white/[0.01] border-b border-[rgba(255,255,255,0.04)] transition-colors cursor-pointer ${
                                 isSelected ? "bg-white/[0.03]" : ""
                               }`}
                             >
                               <td className="px-4 py-3">
                                 {trade.profit > 0 ? (
-                                  <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded font-bold uppercase tracking-widest text-[8px]">Win</span>
+                                  <span className="px-2 py-0.5 bg-[#20e0b2]/10 text-[#20e0b2] border border-[#20e0b2]/20 rounded font-bold uppercase tracking-widest text-[8px]">Win</span>
                                 ) : trade.profit < 0 ? (
-                                  <span className="px-2 py-0.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded font-bold uppercase tracking-widest text-[8px]">Loss</span>
+                                  <span className="px-2 py-0.5 bg-[#ff5c73]/10 text-[#ff5c73] border border-[#ff5c73]/20 rounded font-bold uppercase tracking-widest text-[8px]">Loss</span>
                                 ) : (
                                   <span className="px-2 py-0.5 bg-zinc-800 text-zinc-400 rounded font-bold uppercase tracking-widest text-[8px]">BE</span>
                                 )}
@@ -486,7 +489,7 @@ export default function JournalPage() {
                     </table>
                     
                     {totalPages > 1 && (
-                      <div className="p-3 bg-[#111118]/80 border-t border-zinc-800/40 flex items-center justify-between text-xs text-zinc-500 font-mono">
+                      <div className="p-3 bg-[#101014]/80 border-t border-[rgba(255,255,255,0.07)] flex items-center justify-between text-xs text-zinc-500 font-mono">
                         <div>
                           Showing <span className="text-zinc-300">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="text-zinc-300">{Math.min(currentPage * itemsPerPage, filteredTrades.length)}</span> of {filteredTrades.length} trades
                         </div>
@@ -504,7 +507,7 @@ export default function JournalPage() {
                 )}
               </motion.div>
             ) : (
-              <motion.div key="calendar" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="rounded-xl border border-zinc-800/40 bg-[#111118] p-5 shadow-2xl">
+              <motion.div key="calendar" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#101014] p-5">
                 <JournalCalendar trades={filteredTrades} onDayClick={(dateStr, dayTrades) => { setSelectedTrade(null); setSelectedDay({ dateStr, trades: dayTrades }); }} />
               </motion.div>
             )}
@@ -517,10 +520,10 @@ export default function JournalPage() {
             <motion.div 
               key="sidebar"
               initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 30 }}
-              className="w-full xl:w-96 flex-shrink-0 relative xl:sticky top-6 rounded-xl border border-zinc-800/40 bg-[#111118] max-h-[calc(100vh-48px)] overflow-y-auto custom-scrollbar shadow-2xl"
+              className="w-full xl:w-96 flex-shrink-0 relative xl:sticky top-6 rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#101014] max-h-[calc(100vh-48px)] overflow-y-auto custom-scrollbar"
             >
               <div className="p-5 space-y-5">
-                <div className="flex items-center justify-between border-b border-zinc-800/40 pb-2.5">
+                <div className="flex items-center justify-between border-b border-[rgba(255,255,255,0.07)] pb-2.5">
                   <div className="flex items-center gap-2">
                     {selectedTrade && selectedDay && (
                        <button onClick={() => setSelectedTrade(null)} className="p-1 -ml-1 rounded-full transition-colors hover:bg-white/10 text-zinc-400">
@@ -537,7 +540,7 @@ export default function JournalPage() {
                 </div>
 
                 {selectedTrade && (
-                  <div className="p-3.5 rounded-lg border border-zinc-800/50 bg-black/25 flex flex-col gap-2 font-mono text-[11px]">
+                  <div className="p-3.5 rounded-lg border border-[rgba(255,255,255,0.07)] bg-black/25 flex flex-col gap-2 font-mono text-[11px]">
                      <div className="flex items-center justify-between">
                           <div>
                              <div className="text-xs font-bold text-white">#{selectedTrade.pair} • <span className={selectedTrade.direction === "Long" ? "text-blue-400" : "text-purple-400"}>{selectedTrade.direction}</span></div>
@@ -560,7 +563,7 @@ export default function JournalPage() {
 
                 {selectedDay && !selectedTrade && (
                   <div className="space-y-3 font-mono">
-                    <div className="p-3 rounded-lg border border-zinc-800/50 bg-black/25 text-[11px]">
+                    <div className="p-3 rounded-lg border border-[rgba(255,255,255,0.07)] bg-black/25 text-[11px]">
                        <div className="text-xs font-bold text-white">{selectedDay.dateStr}</div>
                        <div className="text-[10px] text-zinc-500 mt-0.5">{selectedDay.trades.length} trades recorded</div>
                     </div>
@@ -571,7 +574,7 @@ export default function JournalPage() {
                           <div 
                             key={trade.id}
                             onClick={() => setSelectedTrade(trade)}
-                            className="p-2.5 rounded-lg border border-zinc-805/40 bg-[#111118] flex items-center justify-between cursor-pointer hover:border-emerald-500/30 transition-all group"
+                            className="p-2.5 rounded-lg border border-zinc-805/40 bg-[#101014] flex items-center justify-between cursor-pointer hover:border-[#20e0b2]/30 transition-all group"
                           >
                             <div>
                                <div className="text-[11px] font-bold text-white flex items-center gap-2">
@@ -603,14 +606,14 @@ export default function JournalPage() {
                 <div className="space-y-2">
                   <label className="text-[9px] font-bold uppercase tracking-widest flex items-center justify-between text-zinc-500 font-mono">
                     <span className="flex items-center gap-1.5"><Tag size={12} /> Playbook Strategy</span>
-                    <button onClick={handleAddStrategy} className="text-emerald-400 hover:text-emerald-300 flex items-center gap-0.5"><Plus size={10} /> Add</button>
+                    <button onClick={handleAddStrategy} className="text-[#20e0b2] hover:text-emerald-300 flex items-center gap-0.5"><Plus size={10} /> Add</button>
                   </label>
                   <div className="flex flex-wrap gap-1.5">
                     {strategies.map(s => {
                        const active = entry.strategy?.includes(s);
                        return (
                          <button key={s} onClick={() => toggleStrategy(s)}
-                           className="group relative px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border border-zinc-800/40 font-mono"
+                           className="group relative px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border border-[rgba(255,255,255,0.07)] font-mono"
                            style={{ 
                              background: active ? "rgba(16,185,129,0.08)" : "transparent", 
                              borderColor: active ? "#10b981" : "rgba(63,63,70,0.4)", 
@@ -619,7 +622,7 @@ export default function JournalPage() {
                            {s}
                            <div 
                              onClick={(e) => handleDeleteStrategy(s, e)} 
-                             className="absolute -top-1.5 -right-1.5 bg-red-500/80 hover:bg-red-500 text-white p-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                             className="absolute -top-1.5 -right-1.5 bg-[#ff5c73]/80 hover:bg-[#ff5c73] text-white p-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
                            >
                              <X size={8} />
                            </div>
@@ -637,7 +640,7 @@ export default function JournalPage() {
                     <select 
                       value={entry.linkedLessonId || ""} 
                       onChange={(e) => saveEntry({ linkedLessonId: e.target.value ? Number(e.target.value) : undefined })}
-                      className="w-full bg-black/25 border border-zinc-800/40 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-emerald-400 font-mono"
+                      className="w-full bg-black/25 border border-[rgba(255,255,255,0.07)] rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-[#20e0b2] font-mono"
                     >
                       <option value="" className="bg-zinc-950">-- No Lesson Linked --</option>
                       {availableLessons.map(l => (
@@ -652,14 +655,14 @@ export default function JournalPage() {
                 <div className="space-y-2">
                   <label className="text-[9px] font-bold uppercase tracking-widest flex items-center justify-between text-zinc-500 font-mono">
                     <span className="flex items-center gap-1.5"><TrendingUp size={12} /> Emotional State</span>
-                    <button onClick={handleAddEmotion} className="text-emerald-400 hover:text-emerald-300 flex items-center gap-0.5"><Plus size={10} /> Add</button>
+                    <button onClick={handleAddEmotion} className="text-[#20e0b2] hover:text-emerald-300 flex items-center gap-0.5"><Plus size={10} /> Add</button>
                   </label>
                   <div className="flex flex-wrap gap-1.5">
                     {emotions.map(e => {
                        const active = entry.emotion === e;
                        return (
                          <button key={e} onClick={() => saveEntry({ emotion: e })}
-                           className="group relative flex-1 py-1.5 rounded-lg text-[10px] font-bold transition-all border border-zinc-800/40 text-center font-mono"
+                           className="group relative flex-1 py-1.5 rounded-lg text-[10px] font-bold transition-all border border-[rgba(255,255,255,0.07)] text-center font-mono"
                            style={{ 
                              background: active ? "rgba(255,255,255,0.08)" : "transparent", 
                              borderColor: active ? "#fff" : "rgba(63,63,70,0.4)", 
@@ -668,7 +671,7 @@ export default function JournalPage() {
                            {e}
                            <div 
                              onClick={(ev) => handleDeleteEmotion(e, ev)} 
-                             className="absolute -top-1.5 -right-1.5 bg-red-500/80 hover:bg-red-500 text-white p-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                             className="absolute -top-1.5 -right-1.5 bg-[#ff5c73]/80 hover:bg-[#ff5c73] text-white p-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
                            >
                              <X size={8} />
                            </div>
@@ -686,7 +689,7 @@ export default function JournalPage() {
                     value={entry.reason || ""}
                     onChange={(e) => saveEntry({ reason: e.target.value })}
                     placeholder="Why did you take this setup? Did you follow your protocol?"
-                    className="w-full h-28 p-3 rounded-lg text-xs resize-none focus:outline-none focus:border-emerald-400 transition-all font-sans"
+                    className="w-full h-28 p-3 rounded-lg text-xs resize-none focus:outline-none focus:border-[#20e0b2] transition-all font-sans"
                     style={{ background: "rgba(0,0,0,0.25)", border: "1px solid rgba(63,63,70,0.4)", color: "#f4f4f5" }}
                   />
                 </div>
@@ -697,10 +700,10 @@ export default function JournalPage() {
                       <ImageIcon size={12} /> Chart Screenshots
                     </label>
                     <div className="flex gap-2 font-mono text-[9px] text-zinc-400">
-                       <button onClick={() => setShowScreenshotModal(true)} className="flex items-center gap-0.5 hover:text-emerald-400 transition-colors">
+                       <button onClick={() => setShowScreenshotModal(true)} className="flex items-center gap-0.5 hover:text-[#20e0b2] transition-colors">
                          <Camera size={11} /> Auto
                        </button>
-                       <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-0.5 hover:text-emerald-400 transition-colors">
+                       <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-0.5 hover:text-[#20e0b2] transition-colors">
                          <Upload size={11} /> File
                        </button>
                        <button onClick={async () => {
@@ -711,7 +714,7 @@ export default function JournalPage() {
                              await syncUrlToLesson(url);
                            }
                          }
-                       }} className="flex items-center gap-0.5 hover:text-emerald-400 transition-colors">
+                       }} className="flex items-center gap-0.5 hover:text-[#20e0b2] transition-colors">
                          <ImageIcon size={11} /> Link
                        </button>
                     </div>
@@ -721,20 +724,20 @@ export default function JournalPage() {
                   {entry.images && entry.images.length > 0 ? (
                     <div className="grid grid-cols-2 gap-2">
                       {entry.images.map((img, i) => (
-                        <div key={i} className="relative group rounded-lg overflow-hidden border border-zinc-800/40" style={{ borderColor: "var(--border)" }}>
+                        <div key={i} className="relative group rounded-lg overflow-hidden border border-[rgba(255,255,255,0.07)]" style={{ borderColor: "var(--border)" }}>
                           <img src={img} alt="Chart" className="w-full h-20 object-cover cursor-pointer hover:scale-105 transition-transform" onClick={() => window.open(img, "_blank")} />
                           <button onClick={() => {
                             const newImages = [...entry.images!];
                             newImages.splice(i, 1);
                             saveEntry({ images: newImages });
                           }} className="absolute top-1 right-1 p-1 bg-black/75 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Trash2 className="w-3 h-3 text-red-400" />
+                            <Trash2 className="w-3 h-3 text-[#ff5c73]" />
                           </button>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="p-5 rounded-lg border border-dashed border-zinc-800/50 text-center text-[10px] text-zinc-550">
+                    <div className="p-5 rounded-lg border border-dashed border-[rgba(255,255,255,0.07)] text-center text-[10px] text-zinc-550">
                       No charts attached. Attach screenshots to review execution.
                     </div>
                   )}
@@ -769,3 +772,5 @@ export default function JournalPage() {
     </div>
   );
 }
+
+

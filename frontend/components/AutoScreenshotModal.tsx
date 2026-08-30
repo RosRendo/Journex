@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import React, { useEffect, useRef, useState } from "react";
 import { X, Loader2, Camera, TrendingUp, TrendingDown } from "lucide-react";
 
@@ -103,10 +103,10 @@ async function drawChart(
 
   const series = chart.addCandlestickSeries({
     upColor: "#22c55e",
-    downColor: "#ef4444",
+    downColor: "#ff5c73",
     borderVisible: false,
     wickUpColor: "#22c55e",
-    wickDownColor: "#ef4444",
+    wickDownColor: "#ff5c73",
   });
   series.setData(candles as any);
 
@@ -142,7 +142,7 @@ async function drawChart(
       markers.push({
         time: closeCandle.time,
         position: "inBar",
-        color: "#ef4444", // red — exit
+        color: "#ff5c73", // red — exit
         shape: isLong ? "arrowDown" : "arrowUp",
         size: 1,
       });
@@ -162,7 +162,7 @@ async function drawChart(
     if (trade.closePrice !== undefined && trade.closePrice !== trade.entry) {
       series.createPriceLine({
         price: trade.closePrice,
-        color: "#ef4444",
+        color: "#ff5c73",
         lineWidth: 1,
         lineStyle: 2,
         axisLabelVisible: false,
@@ -270,13 +270,13 @@ export default function AutoScreenshotModal({
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center">
       <div
-        className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+        className="absolute inset-0 bg-background/80"
         onClick={onClose}
       />
 
-      <div className="relative bg-card w-full max-w-5xl max-h-[92vh] overflow-y-auto border border-border/50 shadow-2xl rounded-2xl animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative bg-card w-full max-w-5xl max-h-[92vh] overflow-y-auto border border-border/50 rounded-lg animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-border/50 bg-card/95 backdrop-blur-sm">
+        <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-border/50 bg-card/95">
           <div>
             <h3 className="font-bold text-lg flex items-center gap-2">
               <Camera className="w-5 h-5 text-primary" />
@@ -421,7 +421,7 @@ export default function AutoScreenshotModal({
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 p-4 border-t border-border/50 bg-card/95 backdrop-blur-sm flex justify-end gap-3">
+        <div className="sticky bottom-0 p-4 border-t border-border/50 bg-card/95 flex justify-end gap-3">
           <button
             onClick={onClose}
             className="px-5 py-2 rounded-xl text-sm font-bold text-muted-foreground hover:bg-secondary transition-colors"
@@ -442,3 +442,4 @@ export default function AutoScreenshotModal({
     </div>
   );
 }
+

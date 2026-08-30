@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Clock, Activity, Target, Zap } from "lucide-react";
@@ -108,7 +108,7 @@ export default function SessionKillzones({ trades = [] }: { trades?: any[] }) {
         {activeZone ? (
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-            className="p-3.5 rounded-2xl flex items-center gap-4 relative overflow-hidden shadow-lg border shrink-0"
+            className="p-3.5 rounded-lg flex items-center gap-4 relative overflow-hidden shadow-lg border shrink-0"
             style={{ background: "var(--bg-elevated)", borderColor: activeZone.color }}
           >
             <div className="absolute top-0 right-0 w-32 h-32 opacity-10 blur-2xl rounded-full" style={{ background: activeZone.color }} />
@@ -127,7 +127,7 @@ export default function SessionKillzones({ trades = [] }: { trades?: any[] }) {
             </div>
           </motion.div>
         ) : (
-          <div className="p-3.5 rounded-2xl border flex items-center justify-center gap-2 text-[12px] font-bold shrink-0"
+          <div className="p-3.5 rounded-lg border flex items-center justify-center gap-2 text-[12px] font-bold shrink-0"
                style={{ background: "rgba(255,255,255,0.02)", borderColor: "var(--border-strong)", color: "var(--text-tertiary)" }}>
             <Clock size={14} /> Between active sessions
           </div>
@@ -180,3 +180,4 @@ export default function SessionKillzones({ trades = [] }: { trades?: any[] }) {
     </div>
   );
 }
+

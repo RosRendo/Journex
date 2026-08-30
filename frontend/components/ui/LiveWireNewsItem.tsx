@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React from "react";
 import { Flame, TrendingUp, TrendingDown, Minus } from "lucide-react";
@@ -33,7 +33,7 @@ export function LiveWireNewsItem({
   return (
     <div 
       onClick={onClick}
-      className={`p-4 rounded-2xl border transition-all duration-200 cursor-pointer ${selected ? "ring-1" : ""}`} 
+      className={`p-4 rounded-lg border transition-all duration-200 cursor-pointer ${selected ? "ring-1" : ""}`} 
       style={{ 
         background: isHot ? "rgba(245,158,11,0.04)" : "var(--bg-card)",
         borderColor: selected ? (isHot ? "rgba(245,158,11,0.6)" : "var(--text-primary)") : isHot ? "rgba(245,158,11,0.2)" : "var(--border)",
@@ -79,3 +79,4 @@ export function LiveWireNewsItem({
     </div>
   );
 }
+

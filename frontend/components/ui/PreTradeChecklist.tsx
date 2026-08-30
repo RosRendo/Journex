@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect } from "react";
 import { resolveLocalUrl } from "@/lib/utils";
 import { CheckCircle2, XCircle, AlertTriangle, Loader2, Shield, X } from "lucide-react";
@@ -133,7 +133,7 @@ export function PreTradeChecklist({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       
-      <div className="relative w-full max-w-md bg-[--bg-card] border border-[--border] rounded-2xl shadow-2xl overflow-hidden animate-fade-in">
+      <div className="relative w-full max-w-md bg-[--bg-card] border border-[--border] rounded-lg shadow-2xl overflow-hidden animate-fade-in">
         <div className="p-6 border-b border-[--border] flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Shield className="w-5 h-5 text-[--accent]" />
@@ -233,3 +233,4 @@ export function PreTradeChecklist({
     </div>
   );
 }
+

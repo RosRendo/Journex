@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import TerminalHeader from "../../components/terminal/TerminalHeader";
@@ -59,7 +59,7 @@ export default function TerminalPage() {
       <div className="flex-1 flex flex-col lg:flex-row min-h-0 transition-all duration-300 overflow-y-auto lg:overflow-hidden">
         <aside
           data-testid="left-panel"
-          className={`border-b lg:border-r lg:border-b-0 border-zinc-800 flex flex-col min-h-0 transition-all duration-300 overflow-hidden ${
+          className={`border-b lg:border-r lg:border-b-0 border-[rgba(255,255,255,0.07)] flex flex-col min-h-0 transition-all duration-300 overflow-hidden ${
             isLeftOpen ? "w-full lg:w-[18%] lg:min-w-[240px]" : "hidden lg:flex lg:w-12 lg:min-w-[48px]"
           }`}
         >
@@ -68,7 +68,7 @@ export default function TerminalPage() {
 
         <main
           data-testid="center-panel"
-          className="flex-1 flex flex-col min-h-[50vh] lg:min-h-0 border-b lg:border-r lg:border-b-0 border-zinc-800 transition-all duration-300 overflow-hidden"
+          className="flex-1 flex flex-col min-h-[50vh] lg:min-h-0 border-b lg:border-r lg:border-b-0 border-[rgba(255,255,255,0.07)] transition-all duration-300 overflow-hidden"
         >
           <CenterPanel
             symbol={symbol}
@@ -113,3 +113,4 @@ export default function TerminalPage() {
     </div>
   );
 }
+

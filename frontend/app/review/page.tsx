@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { NotebookPen, Target, AlertTriangle, TrendingUp, Star, GitCompare, Calendar, BarChart3 } from "lucide-react";
 import TradeQualityRater from "@/components/review/TradeQualityRater";
 import MistakeLogger from "@/components/review/MistakeLogger";
@@ -45,3 +45,4 @@ export default function ReviewPage() {
     </div>
   );
 }
+

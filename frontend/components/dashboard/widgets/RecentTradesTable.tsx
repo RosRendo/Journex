@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+﻿import { useState, useMemo, useRef } from "react";
 import { TradeData, useCsvTrades } from "@/hooks/useCsvTrades";
 import { Filter, ChevronDown, ChevronUp, Image, Link, Upload, Check, AlertCircle, Trash2, Loader2 } from "lucide-react";
 import { getPairDigits } from "@/lib/format";
@@ -93,7 +93,7 @@ export function RecentTradesTable({ trades: externalTrades, loading: externalLoa
   }
 
   return (
-    <div className="rounded-xl border border-[--border] bg-[--bg-card] w-full flex flex-col h-full overflow-hidden shadow-lg animate-fade-in">
+    <div className="rounded-xl border border-[--border] bg-[--bg-card] w-full flex flex-col h-full overflow-hidden animate-fade-in">
       {/* Header and Controls */}
       <div className="p-5 border-b border-[--border] flex flex-col sm:flex-row items-center justify-between gap-4" style={{ backgroundColor: "rgba(255,255,255,0.02)" }}>
         <div>
@@ -371,7 +371,7 @@ function TradeReviewPanel({ trade, onUpdated }: TradeReviewPanelProps) {
   };
 
   return (
-    <div className="bg-white/[0.02] border border-white/5 backdrop-blur-md rounded-xl p-6 shadow-2xl animate-fade-in text-gray-200">
+    <div className="bg-white/[0.02] border border-white/5 rounded-xl p-6 animate-fade-in text-gray-200">
       <div className="flex flex-col xl:flex-row gap-6">
         
         {/* Left Column: Form Fields */}
@@ -449,13 +449,13 @@ function TradeReviewPanel({ trade, onUpdated }: TradeReviewPanelProps) {
 
               {!followedPlan && (
                 <div className="md:col-span-2 animate-slide-down">
-                  <label className="block text-[10px] uppercase font-bold text-red-400 tracking-wider mb-1.5">Plan Deviation Reason</label>
+                  <label className="block text-[10px] uppercase font-bold text-[#ff5c73] tracking-wider mb-1.5">Plan Deviation Reason</label>
                   <textarea
                     rows={2}
                     value={planDeviationReason}
                     onChange={(e) => setPlanDeviationReason(e.target.value)}
                     placeholder="Why did you deviate from the plan? (e.g. FOMO, early exit, chase...)"
-                    className="w-full bg-black/25 border border-red-500/20 focus:border-red-500 rounded-lg p-2.5 text-xs text-gray-200 placeholder-gray-600 focus:outline-none transition-colors resize-none"
+                    className="w-full bg-black/25 border border-[#ff5c73]/20 focus:border-[#ff5c73] rounded-lg p-2.5 text-xs text-gray-200 placeholder-gray-600 focus:outline-none transition-colors resize-none"
                   />
                 </div>
               )}
@@ -475,7 +475,7 @@ function TradeReviewPanel({ trade, onUpdated }: TradeReviewPanelProps) {
                 <button
                   onClick={handleSave}
                   disabled={saving}
-                  className="w-full sm:w-auto bg-gradient-to-r from-[--accent] to-cyan-500 text-black font-bold px-5 py-2 rounded-lg shadow-md hover:brightness-110 disabled:opacity-50 transition-all flex items-center justify-center gap-2 text-xs"
+                  className="w-full sm:w-auto bg-gradient-to-r from-[--accent] to-cyan-500 text-black font-bold px-5 py-2 rounded-lg hover:brightness-110 disabled:opacity-50 transition-all flex items-center justify-center gap-2 text-xs"
                 >
                   {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                   Save Journal Review
@@ -518,7 +518,7 @@ function TradeReviewPanel({ trade, onUpdated }: TradeReviewPanelProps) {
                         setImageUrl("");
                         setImageInput("");
                       }}
-                      className="p-1.5 rounded-full bg-red-500/20 hover:bg-red-500/40 text-red-400 transition-colors"
+                      className="p-1.5 rounded-full bg-[#ff5c73]/20 hover:bg-[#ff5c73]/40 text-[#ff5c73] transition-colors"
                       title="Remove image"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -580,3 +580,4 @@ function cleanTradingViewUrl(url: string): string {
   }
   return url;
 }
+

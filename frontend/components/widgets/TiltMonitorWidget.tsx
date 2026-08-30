@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useState } from "react";
 import { BrainCircuit, AlertOctagon, Activity } from "lucide-react";
@@ -29,7 +29,7 @@ export function TiltMonitorWidget({ trades }: { trades: any[] }) {
   const strokeDashoffset = circumference - (meterValue / 100) * circumference;
 
   return (
-    <div className={`bg-[#050505] border rounded-2xl shadow-2xl p-6 relative overflow-hidden transition-all duration-1000 group ${isTilting ? 'border-red-500/50 shadow-[0_0_30px_rgba(239,68,68,0.15)]' : 'border-[--border]'}`}>
+    <div className={`bg-[#050505] border rounded-lg shadow-2xl p-6 relative overflow-hidden transition-all duration-1000 group ${isTilting ? 'border-red-500/50 shadow-[0_0_30px_rgba(239,68,68,0.15)]' : 'border-[--border]'}`}>
       
       {/* Dynamic Background Glow */}
       <div className={`absolute top-0 right-0 w-[200px] h-[200px] blur-[80px] rounded-full pointer-events-none transition-colors duration-1000 ${
@@ -104,4 +104,5 @@ export function TiltMonitorWidget({ trades }: { trades: any[] }) {
     </div>
   );
 }
+
 

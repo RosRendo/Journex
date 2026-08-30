@@ -1,11 +1,13 @@
 "use client";
 import { useCsvTrades } from "@/hooks/useCsvTrades";
 import { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Loader2, CalendarDays, Globe } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ChevronLeft, ChevronRight, CalendarDays, Globe } from "lucide-react";
 import type { TradeData } from "@/hooks/useCsvTrades";
 import { EconomicCalendar } from "@/components/ui/EconomicCalendar";
 import { useRouter } from "next/navigation";
+import JournalCalendar from "@/components/JournalCalendar";
+
+const labelCls = "text-[9px] uppercase tracking-widest font-bold text-[#71717a] font-mono";
 
 export default function CalendarPage() {
   const router = useRouter();
@@ -14,8 +16,8 @@ export default function CalendarPage() {
   const [activeTab, setActiveTab] = useState<"trading" | "economic">("trading");
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
+  const monthName = currentDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
-  // Group trades by date
   const pnlMap = useMemo(() => {
     const m = new Map<string, { pnl: number; trades: number }>();
     if (trades && trades.length > 0) {
@@ -30,30 +32,14 @@ export default function CalendarPage() {
     return m;
   }, [trades]);
 
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const monthName = currentDate.toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-  });
-
-  const days: (number | null)[] = [];
-  for (let i = 0; i < firstDay; i++) days.push(null);
-  for (let i = 1; i <= daysInMonth; i++) days.push(i);
-
   const prev = () => setCurrentDate(new Date(year, month - 1, 1));
   const next = () => setCurrentDate(new Date(year, month + 1, 1));
+  const todayFn = () => setCurrentDate(new Date());
 
-  // Monthly stats
-  const monthTrades: TradeData[] = [];
-  if (trades && trades.length > 0) {
-    trades.forEach((t: TradeData) => {
-      const d = new Date(t.date);
-      if (d.getFullYear() === year && d.getMonth() === month) {
-        monthTrades.push(t);
-      }
-    });
-  }
+  const monthTrades: TradeData[] = trades.filter((t: TradeData) => {
+    const d = new Date(t.date);
+    return d.getFullYear() === year && d.getMonth() === month;
+  });
   const monthPnl = monthTrades.reduce((s, t) => s + t.profit, 0);
   const winDays = Array.from(pnlMap.entries()).filter(([dateStr, data]) => {
     const dt = new Date(dateStr);
@@ -61,148 +47,128 @@ export default function CalendarPage() {
   }).length;
   const lossDays = Array.from(pnlMap.entries()).filter(([dateStr, data]) => {
     const dt = new Date(dateStr);
-    return dt.getFullYear() === year && dt.getMonth() === month && data.pnl <= 0;
+    return dt.getFullYear() === year && dt.getMonth() === month && data.pnl <= 0 && data.trades > 0;
   }).length;
+  const winRate = (winDays + lossDays) > 0 ? Math.round((winDays / (winDays + lossDays)) * 100) : 0;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Trading Calendar</h1>
-          <p className="text-sm text-muted-foreground">
-            Daily performance overview & Economic Events
-          </p>
-        </div>
+    <div className="min-h-screen w-full bg-[#09090b] text-[#f4f4f5] flex flex-col pb-12 font-sans">
 
-        {/* Tab Switcher */}
-        <div className="flex p-1 rounded-lg border bg-muted/50 w-fit">
+      {/* ── TOPBAR ── */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(255,255,255,0.07)] sticky top-0 z-20 bg-[#09090b]">
+        <div>
+          <h1 className="text-sm font-bold tracking-tight text-[#f4f4f5]">Trading Calendar</h1>
+          <p className="text-[9px] font-bold uppercase tracking-widest font-mono text-[#71717a] mt-0.5">Daily performance · Economic events</p>
+        </div>
+        <div className="flex gap-0 border-l border-[rgba(255,255,255,0.07)]">
           <button
             onClick={() => setActiveTab("trading")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-              activeTab === "trading"
-                ? "bg-background shadow-sm text-foreground"
-                : "text-muted-foreground hover:text-foreground"
+            className={`py-3 px-4 text-[9px] uppercase tracking-widest font-bold font-mono transition-all border-b-2 whitespace-nowrap flex items-center gap-1.5 ${
+              activeTab === "trading" ? "border-[#20e0b2] text-[#20e0b2]" : "border-transparent text-[#71717a] hover:text-[#a1a1aa]"
             }`}
           >
-            <CalendarDays className="w-4 h-4" />
+            <CalendarDays className="w-3 h-3" />
             Performance
           </button>
           <button
             onClick={() => setActiveTab("economic")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-              activeTab === "economic"
-                ? "bg-background shadow-sm text-foreground"
-                : "text-muted-foreground hover:text-foreground"
+            className={`py-3 px-4 text-[9px] uppercase tracking-widest font-bold font-mono transition-all border-b-2 whitespace-nowrap flex items-center gap-1.5 ${
+              activeTab === "economic" ? "border-[#20e0b2] text-[#20e0b2]" : "border-transparent text-[#71717a] hover:text-[#a1a1aa]"
             }`}
           >
-            <Globe className="w-4 h-4" />
+            <Globe className="w-3 h-3" />
             Economic Events
           </button>
         </div>
       </div>
 
       {activeTab === "economic" ? (
-        <EconomicCalendar />
+        <div className="flex-1 p-5">
+          <EconomicCalendar />
+        </div>
       ) : (
-        <>
-          {/* Month stats */}
-          <div className="grid grid-cols-4 gap-3">
-            <div className="rounded-lg border border-border bg-card p-3 text-center">
-              <div className="text-xs text-muted-foreground mb-1">Month P&L</div>
-              <div
-                className={`text-lg font-bold font-mono-nums ${monthPnl >= 0 ? "text-profit" : "text-loss"}`}
-              >
-                {monthPnl >= 0 ? "+" : ""}${monthPnl.toFixed(0)}
+        <div className="flex flex-col flex-1">
+
+          {/* Month stats strip */}
+          <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-[rgba(255,255,255,0.07)] border-b border-[rgba(255,255,255,0.07)]">
+            
+            <div className="px-5 py-4 flex flex-col gap-1 bg-[#101014]">
+              <span className={labelCls}>Month PnL</span>
+              <div className={`text-2xl font-black font-mono tracking-tight mt-1 ${monthPnl >= 0 ? "text-[#20e0b2]" : "text-[#ff5c73]"}`}>
+                {monthPnl >= 0 ? "+" : ""}${monthPnl.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
               </div>
+              <span className="text-[8px] text-[#71717a] font-mono">{monthName}</span>
             </div>
-            <div className="rounded-lg border border-border bg-card p-3 text-center">
-              <div className="text-xs text-muted-foreground mb-1">Trades</div>
-              <div className="text-lg font-bold font-mono-nums">
+
+            <div className="px-5 py-4 flex flex-col gap-1 bg-[#101014]">
+              <span className={labelCls}>Trades</span>
+              <div className="text-2xl font-black font-mono tracking-tight text-[#f4f4f5] mt-1">
                 {monthTrades.length}
               </div>
+              <span className="text-[8px] text-[#71717a] font-mono">this month</span>
             </div>
-            <div className="rounded-lg border border-border bg-card p-3 text-center">
-              <div className="text-xs text-muted-foreground mb-1">Green Days</div>
-              <div className="text-lg font-bold font-mono-nums text-profit">
-                {winDays}
+
+            <div className="px-5 py-4 flex flex-col gap-1 bg-[#101014]">
+              <span className={labelCls}>Day Win Rate</span>
+              <div className="text-2xl font-black font-mono tracking-tight text-[#20e0b2] mt-1">
+                {winRate}%
+              </div>
+              <div className="w-full h-0.5 bg-[rgba(255,255,255,0.07)] rounded-full overflow-hidden mt-1.5">
+                <div className="h-full bg-[#20e0b2] transition-all" style={{ width: `${winRate}%` }} />
               </div>
             </div>
-            <div className="rounded-lg border border-border bg-card p-3 text-center">
-              <div className="text-xs text-muted-foreground mb-1">Red Days</div>
-              <div className="text-lg font-bold font-mono-nums text-loss">
-                {lossDays}
+
+            <div className="px-5 py-4 flex flex-col gap-1 bg-[#101014]">
+              <span className={labelCls}>Green / Red Days</span>
+              <div className="flex items-center gap-3 mt-1">
+                <span className="text-xl font-black font-mono text-[#20e0b2]">{winDays}</span>
+                <span className="text-[#71717a] font-mono text-sm">/</span>
+                <span className="text-xl font-black font-mono text-[#ff5c73]">{lossDays}</span>
               </div>
             </div>
           </div>
 
-          {/* Calendar */}
-          <div className="rounded-lg border border-border bg-card p-4">
-            <div className="flex items-center justify-between mb-4">
-              <Button variant="ghost" size="icon" onClick={prev}>
-                <ChevronLeft className="w-4 h-4" />
-              </Button>
-              <h2 className="text-lg font-semibold">{monthName}</h2>
-              <Button variant="ghost" size="icon" onClick={next}>
-                <ChevronRight className="w-4 h-4" />
-              </Button>
-            </div>
-
-            <div className="grid grid-cols-7 gap-1 mb-2">
-              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-                <div
-                  key={d}
-                  className="text-center text-xs text-muted-foreground py-2 font-medium"
-                >
-                  {d}
-                </div>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-7 gap-1">
-              {days.map((day, i) => {
-                if (day === null) return <div key={i} />;
-                const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-                const data = pnlMap.get(dateStr);
-                const isToday =
-                  new Date().toISOString().split("T")[0] === dateStr;
-
-                return (
-                  <div
-                    key={i}
-                    onClick={() => router.push(`/journal/day/${dateStr}`)}
-                    className={`aspect-square rounded-md flex flex-col items-center justify-center text-sm cursor-pointer transition-colors ${data
-                        ? data.pnl >= 0
-                          ? "bg-profit-muted border border-profit/20 hover:bg-profit/20"
-                          : "bg-loss-muted border border-loss/20 hover:bg-loss/20"
-                        : isToday
-                          ? "border border-primary/30 bg-primary/5 hover:bg-primary/10"
-                          : "border border-transparent hover:bg-secondary/50"
-                      }`}
-                  >
-                    <span
-                      className={`text-xs ${isToday ? "text-primary font-bold" : "text-muted-foreground"}`}
-                    >
-                      {day}
-                    </span>
-                    {data && (
-                      <>
-                        <span
-                          className={`text-xs font-mono-nums font-bold ${data.pnl >= 0 ? "text-profit" : "text-loss"}`}
-                        >
-                          {data.pnl >= 0 ? "+" : ""}
-                          {data.pnl.toFixed(0)}$
-                        </span>
-                        <span className="text-[10px] text-muted-foreground">
-                          {data.trades} trades
-                        </span>
-                      </>
-                    )}
-                  </div>
-                );
-              })}
+          {/* Month navigation header */}
+          <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(255,255,255,0.07)]">
+            <span className={`${labelCls} text-[10px]`}>{monthName}</span>
+            <div className="flex items-center gap-1.5">
+              <button onClick={prev} className="p-1 rounded border border-[rgba(255,255,255,0.07)] text-[#71717a] hover:text-[#f4f4f5] hover:border-[rgba(255,255,255,0.15)] transition-all">
+                <ChevronLeft className="w-3 h-3" />
+              </button>
+              <button onClick={todayFn} className="px-2.5 py-0.5 rounded border border-[rgba(255,255,255,0.07)] text-[8px] font-bold text-[#71717a] hover:text-[#f4f4f5] uppercase tracking-wider font-mono transition-all">
+                Today
+              </button>
+              <button onClick={next} className="p-1 rounded border border-[rgba(255,255,255,0.07)] text-[#71717a] hover:text-[#f4f4f5] hover:border-[rgba(255,255,255,0.15)] transition-all">
+                <ChevronRight className="w-3 h-3" />
+              </button>
             </div>
           </div>
-        </>
+
+          {/* Calendar grid */}
+          <div className="flex-1 p-5">
+            <JournalCalendar
+              trades={trades}
+              onDayClick={(dateStr) => router.push(`/journal/day/${dateStr}`)}
+            />
+          </div>
+
+          {/* Legend */}
+          <div className="flex items-center gap-5 px-5 py-3 border-t border-[rgba(255,255,255,0.07)]">
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-sm bg-[rgba(32,224,178,0.15)] border border-[rgba(32,224,178,0.3)]" />
+              <span className="text-[8px] font-mono text-[#71717a] uppercase tracking-wider">Profit day</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-sm bg-[rgba(255,92,115,0.15)] border border-[rgba(255,92,115,0.3)]" />
+              <span className="text-[8px] font-mono text-[#71717a] uppercase tracking-wider">Loss day</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-sm border border-[rgba(255,255,255,0.2)]" />
+              <span className="text-[8px] font-mono text-[#71717a] uppercase tracking-wider">Today</span>
+            </div>
+            <span className="text-[8px] font-mono text-[#71717a] ml-auto">Click any day → Journal entry</span>
+          </div>
+        </div>
       )}
     </div>
   );

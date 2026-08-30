@@ -1,4 +1,4 @@
-import React, { ReactNode } from "react";
+﻿import React, { ReactNode } from "react";
 import { Lock } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "@/lib/useSession";
@@ -22,7 +22,7 @@ export function ProLock({ children, featureName = "This feature" }: ProLockProps
         {children}
       </div>
       <div className="absolute inset-0 bg-background/60 flex flex-col items-center justify-center p-6 text-center z-10 backdrop-blur-[2px]">
-        <div className="w-14 h-14 rounded-2xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center mb-4">
+        <div className="w-14 h-14 rounded-lg bg-violet-600/20 border border-violet-500/30 flex items-center justify-center mb-4">
           <Lock className="w-6 h-6 text-violet-400" />
         </div>
         <h3 className="text-lg font-bold text-foreground mb-1 tracking-tight">Pro Feature</h3>
@@ -39,3 +39,4 @@ export function ProLock({ children, featureName = "This feature" }: ProLockProps
     </div>
   );
 }
+

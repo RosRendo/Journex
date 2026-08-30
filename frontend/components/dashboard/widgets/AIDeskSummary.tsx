@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from "react";
 import { Sparkles, ArrowRight, Loader2 } from "lucide-react";
@@ -42,13 +42,13 @@ export function AIDeskSummary({ borderless = false }: { borderless?: boolean }) 
 
           <div className="flex items-center justify-between text-[11px]">
              <span className="text-zinc-500 uppercase font-bold text-[9px] tracking-wider">Behavioral Risk</span>
-             <span className={`font-bold px-2 py-0.5 rounded text-[10px] ${insight?.type === 'danger' ? 'bg-red-500/10 text-red-400' : insight?.type === 'warning' ? 'bg-amber-500/10 text-amber-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+             <span className={`font-bold px-2 py-0.5 rounded text-[10px] ${insight?.type === 'danger' ? 'bg-[#ff5c73]/10 text-[#ff5c73]' : insight?.type === 'warning' ? 'bg-amber-500/10 text-amber-400' : 'bg-[#20e0b2]/10 text-[#20e0b2]'}`}>
                {insight?.title || "Monitoring"}
              </span>
           </div>
 
-          <div className="p-3 bg-black/25 border border-zinc-800/40 rounded-lg mt-1 font-sans">
-             <p className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest mb-1 font-mono">Recommendation</p>
+          <div className="p-3 bg-black/25 border border-[rgba(255,255,255,0.07)] rounded-lg mt-1 font-sans">
+             <p className="text-[9px] font-bold text-[#20e0b2] uppercase tracking-widest mb-1 font-mono">Recommendation</p>
              <p className="text-xs font-semibold text-zinc-300 leading-relaxed">{insight?.message}</p>
           </div>
         </>
@@ -61,16 +61,16 @@ export function AIDeskSummary({ borderless = false }: { borderless?: boolean }) 
   }
 
   return (
-    <div className="bg-[#111118] border border-zinc-800/40 min-h-[200px] flex flex-col shadow-xl overflow-hidden h-full relative group">
+    <div className="bg-[#101014] border border-[rgba(255,255,255,0.07)] min-h-[200px] flex flex-col overflow-hidden h-full relative group">
       {/* Background glow */}
-      <div className="absolute top-0 right-0 w-[200px] h-[200px] bg-emerald-500/5 blur-[60px] rounded-full pointer-events-none group-hover:bg-emerald-500/10 transition-colors" />
+      <div className="absolute top-0 right-0 w-[200px] h-[200px] bg-[#20e0b2]/5 blur-[60px] rounded-full pointer-events-none group-hover:bg-[#20e0b2]/10 transition-colors" />
 
-      <div className="px-5 py-3 border-b border-zinc-800/40 flex items-center justify-between bg-black/20 relative z-10">
+      <div className="px-5 py-3 border-b border-[rgba(255,255,255,0.07)] flex items-center justify-between bg-black/20 relative z-10">
         <div className="flex items-center gap-2">
-           <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+           <Sparkles className="w-3.5 h-3.5 text-[#20e0b2]" />
            <h2 className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 font-mono">AI Desk</h2>
         </div>
-        <Link href="/ai-desk" className="text-[9px] uppercase font-bold tracking-widest text-emerald-400 hover:text-white transition-colors flex items-center font-mono">
+        <Link href="/ai-desk" className="text-[9px] uppercase font-bold tracking-widest text-[#20e0b2] hover:text-white transition-colors flex items-center font-mono">
           Open Desk <ArrowRight className="w-3 h-3 ml-0.5" />
         </Link>
       </div>
@@ -81,3 +81,4 @@ export function AIDeskSummary({ borderless = false }: { borderless?: boolean }) 
     </div>
   );
 }
+

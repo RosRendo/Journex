@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import React, { useState, useEffect } from "react";
 import { BrainCircuit, AlertTriangle, CheckCircle, Info, Loader2 } from "lucide-react";
 import { getBackendUrl, fetchWithAuth } from "@/lib/utils";
@@ -33,9 +33,9 @@ export function AiCoachWidget() {
 
   const getTypeStyles = (type: Insight["type"]) => {
     switch (type) {
-      case "danger": return "bg-red-500/10 border-red-500/20 text-red-400";
+      case "danger": return "bg-[#ff5c73]/10 border-[#ff5c73]/20 text-[#ff5c73]";
       case "warning": return "bg-amber-500/10 border-amber-500/20 text-amber-400";
-      case "success": return "bg-emerald-500/10 border-emerald-500/20 text-emerald-450";
+      case "success": return "bg-[#20e0b2]/10 border-[#20e0b2]/20 text-emerald-450";
       case "info":
       default:
         return "bg-blue-500/10 border-blue-500/20 text-blue-400";
@@ -52,13 +52,13 @@ export function AiCoachWidget() {
   };
 
   return (
-    <div className="rounded-xl border border-zinc-800/40 p-5 flex flex-col h-full bg-[#111118] shadow-xl relative overflow-hidden group font-mono text-[10px]">
+    <div className="rounded-xl border border-[rgba(255,255,255,0.07)] p-5 flex flex-col h-full bg-[#101014] relative overflow-hidden group font-mono text-[10px]">
       
       {/* Header */}
       <div className="flex items-center justify-between mb-5 relative z-10">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-full flex items-center justify-center bg-emerald-500/10 border border-emerald-500/20">
-            <BrainCircuit className="w-4 h-4 text-emerald-400" />
+          <div className="w-7 h-7 rounded-full flex items-center justify-center bg-[#20e0b2]/10 border border-[#20e0b2]/20">
+            <BrainCircuit className="w-4 h-4 text-[#20e0b2]" />
           </div>
           <div>
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">AI Performance Coach</h3>
@@ -104,3 +104,4 @@ export function AiCoachWidget() {
     </div>
   );
 }
+

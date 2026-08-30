@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { Plus, Trash2, Upload, X, Save } from "lucide-react";
@@ -2466,7 +2466,7 @@ alertcondition(not validTrade, "Invalid Setup", "Check SL/TP placement!")
                 </div>
                 <button
                     onClick={() => setShowUpload(true)}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-bold transition-all shadow-[0_0_10px_rgba(59,130,246,0.3)] hover:shadow-[0_0_15px_rgba(59,130,246,0.5)] hover:bg-primary/90 active:scale-95"
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-bold transition-all hover:shadow-[0_0_15px_rgba(59,130,246,0.5)] hover:bg-primary/90 active:scale-95"
                 >
                     <Plus className="w-4 h-4" />
                     Add Script
@@ -2490,9 +2490,9 @@ alertcondition(not validTrade, "Invalid Setup", "Check SL/TP placement!")
 
             {showUpload && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
-                    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setShowUpload(false)} />
+                    <div className="fixed inset-0 bg-background/80" onClick={() => setShowUpload(false)} />
 
-                    <div className="relative w-full max-w-2xl bg-card border border-border/50 shadow-2xl rounded-2xl p-6 animate-in zoom-in-95 duration-200 z-10 m-auto mt-[40px] max-h-[90vh] overflow-y-auto custom-scrollbar">
+                    <div className="relative w-full max-w-2xl bg-card border border-border/50 rounded-lg p-6 animate-in zoom-in-95 duration-200 z-10 m-auto mt-[40px] max-h-[90vh] overflow-y-auto custom-scrollbar">
                         <div className="flex items-center justify-between mb-6">
                             <h2 className="text-2xl font-bold flex items-center gap-2">
                                 <Upload className="text-primary w-6 h-6" />
@@ -2665,7 +2665,7 @@ function Card({
                     {isCustom && onDelete && (
                         <button
                             onClick={onDelete}
-                            className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
+                            className="p-1 text-[#ff5c73] hover:bg-red-50 rounded transition-colors"
                             title="Delete Custom Script"
                         >
                             <Trash2 className="w-5 h-5" />
@@ -2701,3 +2701,4 @@ function Card({
         </div>
     );
 }
+

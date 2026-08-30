@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { Plus, Trash2, Upload, X, Save } from "lucide-react";
@@ -136,7 +136,7 @@ export default function LayoutGalleryPage() {
         </div>
         <button
           onClick={() => setShowUpload(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-bold transition-all shadow-[0_0_10px_rgba(59,130,246,0.3)] hover:shadow-[0_0_15px_rgba(59,130,246,0.5)] hover:bg-primary/90 active:scale-95"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-bold transition-all hover:shadow-[0_0_15px_rgba(59,130,246,0.5)] hover:bg-primary/90 active:scale-95"
         >
           <Plus className="w-4 h-4" />
           Add Layout
@@ -148,7 +148,7 @@ export default function LayoutGalleryPage() {
         {layouts.map((layout) => (
           <div
             key={layout.id}
-            className="flex flex-col bg-card/50 backdrop-blur-sm border border-border/50 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:border-primary/30 transition-all group"
+            className="flex flex-col bg-card/50 border border-border/50 rounded-lg overflow-hidden shadow-sm hover:shadow-xl hover:border-primary/30 transition-all group"
           >
             {/* Image Container */}
             <div className="relative aspect-video bg-black/20 overflow-hidden cursor-pointer" onClick={() => setZoomedImage(layout)}>
@@ -159,7 +159,7 @@ export default function LayoutGalleryPage() {
                 className="object-cover transition-transform duration-500 group-hover:scale-105"
               />
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                <div className="opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full text-foreground text-sm font-medium">
+                <div className="opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 bg-black/60 px-4 py-2 rounded-full text-foreground text-sm font-medium">
                   Click to Expand
                 </div>
               </div>
@@ -193,9 +193,9 @@ export default function LayoutGalleryPage() {
       {showUpload && (
         <div className="fixed inset-0 z-50 flex items-center justify-center py-4 px-4 overflow-y-auto">
           {/* Using a fixed container for backdrop */}
-          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setShowUpload(false)} />
+          <div className="fixed inset-0 bg-background/80" onClick={() => setShowUpload(false)} />
 
-          <div className="relative w-full max-w-lg bg-card border border-border/50 shadow-2xl rounded-2xl p-6 animate-in zoom-in-95 duration-200 z-10 m-auto mt-[40px] max-h-[90vh] overflow-y-auto custom-scrollbar">
+          <div className="relative w-full max-w-lg bg-card border border-border/50 rounded-lg p-6 animate-in zoom-in-95 duration-200 z-10 m-auto mt-[40px] max-h-[90vh] overflow-y-auto custom-scrollbar">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold flex items-center gap-2">
                 <Upload className="text-primary w-6 h-6" />
@@ -290,7 +290,7 @@ export default function LayoutGalleryPage() {
       {/* Lightbox / Zoom Overlay */}
       {zoomedImage && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 animate-in fade-in duration-200"
           onClick={() => setZoomedImage(null)}
         >
           <button
@@ -305,7 +305,7 @@ export default function LayoutGalleryPage() {
               <h3 className="text-2xl font-bold">{zoomedImage.title || "Layout Option"}</h3>
               <p className="text-foreground/70 mt-1 whitespace-pre-wrap">{zoomedImage.description}</p>
             </div>
-            <div className="relative aspect-video w-full rounded-lg overflow-hidden border border-white/10 shadow-2xl">
+            <div className="relative aspect-video w-full rounded-lg overflow-hidden border border-white/10">
               <Image
                 src={zoomedImage.src}
                 alt={zoomedImage.alt}
@@ -319,3 +319,4 @@ export default function LayoutGalleryPage() {
     </div>
   );
 }
+

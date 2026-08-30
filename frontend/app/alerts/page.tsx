@@ -183,26 +183,24 @@ export default function AlertSettingsPage() {
     );
 
   return (
-    <div className="space-y-8 max-w-3xl pb-20">
-
-      {/* ── HEADER ── */}
-      <div>
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold tracking-widest mb-3" style={{ background: "rgba(0,212,161,0.1)", border: "1px solid rgba(0,212,161,0.2)", color: "var(--accent)" }}>
-          <BellRing size={12} /> ALERT CONSOLE
+    <div className="min-h-screen w-full bg-[#09090b] text-[#f4f4f5] flex flex-col pb-12 font-sans">
+      
+      {/* ── TOPBAR ── */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(255,255,255,0.07)] sticky top-0 z-20 bg-[#09090b]">
+        <div>
+          <h1 className="text-sm font-bold tracking-tight text-[#f4f4f5]">Alert Configuration</h1>
+          <p className="text-[9px] font-bold uppercase tracking-widest font-mono text-[#71717a] mt-0.5">Discord webhooks and Telegram real-time integrations</p>
         </div>
-        <h1 className="text-[32px] font-black tracking-tight" style={{ fontFamily: "var(--font-display, Syne, sans-serif)", color: "var(--text-primary)" }}>
-          Alert <span style={{ color: "var(--accent)" }}>Configuration</span>
-        </h1>
-        <p className="text-[13px] mt-1" style={{ color: "var(--text-secondary)" }}>
-          Configure Discord webhooks and Telegram for real-time news and calendar alerts
-        </p>
       </div>
 
+      {/* Main container */}
+      <div className="flex-1 w-full max-w-3xl p-6 space-y-6">
+
       {/* ── Global Status ── */}
-      <div className={`rounded-2xl border p-5 transition-all ${config.alerts_paused ? "border-amber-500/30 bg-amber-500/5" : "border-emerald-500/30 bg-emerald-500/5"}`}>
+      <div className={`rounded-lg border p-5 transition-all ${config.alerts_paused ? "border-amber-500/30 bg-amber-500/5" : "border-[rgba(32,224,178,0.3)]/30 bg-[#20e0b2]/5"}`}>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
           <div>
-            <h2 className={`font-bold flex items-center gap-2 ${config.alerts_paused ? "text-amber-400" : "text-emerald-400"}`}>
+            <h2 className={`font-bold flex items-center gap-2 ${config.alerts_paused ? "text-[#f5c451]" : "text-[#20e0b2]"}`}>
               <BellRing className="w-4 h-4" /> Global Status: {config.alerts_paused ? "PAUSED" : "ACTIVE"}
             </h2>
             <p className="text-xs mt-1 max-w-sm" style={{ color: "var(--text-secondary)" }}>
@@ -237,7 +235,7 @@ export default function AlertSettingsPage() {
                   toast.success("All Alerts are now turned ON");
                 } catch { toast.error("Failed to update status"); }
               }}
-              className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${!config.alerts_paused ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/20" : "hover:opacity-80"}`}
+              className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${!config.alerts_paused ? "bg-[#20e0b2] text-white shadow-md shadow-emerald-500/20" : "hover:opacity-80"}`}
               style={config.alerts_paused ? { background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--text-secondary)" } : {}}
             >
               Turn On
@@ -268,7 +266,7 @@ export default function AlertSettingsPage() {
                       toast.success(`${item.label} turned ${!item.paused ? "OFF" : "ON"}`);
                     } catch { toast.error("Failed to update"); }
                   }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${item.paused ? "bg-red-500/20 text-red-400 border border-red-500/30" : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"}`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${item.paused ? "bg-[rgba(255,92,115,0.12)] text-[#ff5c73] border border-[rgba(255,92,115,0.2)]" : "bg-[#20e0b2]/20 text-[#20e0b2] border border-[rgba(32,224,178,0.3)]/30"}`}
                 >
                   {item.paused ? "OFF" : "ON"}
                 </button>
@@ -279,10 +277,10 @@ export default function AlertSettingsPage() {
       </div>
 
       {/* ── DND ── */}
-      <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="rounded-lg border border-[rgba(255,92,115,0.2)] bg-red-500/5 p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="font-bold text-red-400 flex items-center gap-2"><Bell className="w-4 h-4" /> Do Not Disturb</h2>
-          <p className="text-xs text-red-400/70 mt-1 max-w-sm">Pause non-critical notifications during these hours. Execution errors still bypass DND.</p>
+          <h2 className="font-bold text-[#ff5c73] flex items-center gap-2"><Bell className="w-4 h-4" /> Do Not Disturb</h2>
+          <p className="text-xs text-[#ff5c73]/70 mt-1 max-w-sm">Pause non-critical notifications during these hours. Execution errors still bypass DND.</p>
         </div>
         <div className="flex items-center gap-3 p-3 rounded-xl border flex-wrap" style={{ background: "var(--bg-base)", borderColor: "var(--border)" }}>
           <label className="flex items-center gap-2 cursor-pointer pr-3 border-r" style={{ borderColor: "var(--border)" }}>
@@ -300,7 +298,7 @@ export default function AlertSettingsPage() {
       </div>
 
       {/* ── Discord ── */}
-      <div className="rounded-2xl border overflow-hidden" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+      <div className="rounded-lg border overflow-hidden" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
         <div className="flex items-center gap-3 px-6 py-4 border-b" style={{ background: "rgba(88,101,242,0.08)", borderColor: "var(--border)" }}>
           <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "#5865F2" }}>
             <Hash className="w-4 h-4 text-white" />
@@ -338,7 +336,7 @@ export default function AlertSettingsPage() {
       </div>
 
       {/* ── Telegram ── */}
-      <div className="rounded-2xl border overflow-hidden" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+      <div className="rounded-lg border overflow-hidden" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
         <div className="flex items-center gap-3 px-6 py-4 border-b" style={{ background: "rgba(36,161,222,0.08)", borderColor: "var(--border)" }}>
           <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "#24A1DE" }}>
             <Send className="w-4 h-4 text-white" />
@@ -394,9 +392,9 @@ export default function AlertSettingsPage() {
       </div>
 
       {/* ── What Gets Sent ── */}
-      <div className="rounded-2xl border p-6 space-y-4" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+      <div className="rounded-lg border p-6 space-y-4" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
         <h2 className="font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-          <Bell className="w-4 h-4 text-violet-400" /> What Gets Sent
+          <Bell className="w-4 h-4 text-[#20e0b2]" /> What Gets Sent
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {[
@@ -417,9 +415,9 @@ export default function AlertSettingsPage() {
       </div>
 
       {/* ── Custom Pulse Rules ── */}
-      <div className="rounded-2xl border overflow-hidden" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+      <div className="rounded-lg border overflow-hidden" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
         <div className="flex items-center gap-3 px-6 py-4 border-b" style={{ background: "rgba(16,185,129,0.06)", borderColor: "var(--border)" }}>
-          <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-lg bg-[#20e0b2] flex items-center justify-center">
             <Activity className="w-4 h-4 text-white" />
           </div>
           <div>
@@ -445,7 +443,7 @@ export default function AlertSettingsPage() {
               <option>Discord</option>
               <option>Telegram</option>
             </select>
-            <button onClick={addRule} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-bold flex items-center gap-2 transition-colors ml-auto">
+            <button onClick={addRule} className="px-4 py-2 bg-[#20e0b2] hover:bg-emerald-600 text-white rounded-xl text-sm font-bold flex items-center gap-2 transition-colors ml-auto">
               <Plus className="w-4 h-4" /> Add Rule
             </button>
           </div>
@@ -455,13 +453,13 @@ export default function AlertSettingsPage() {
               {customRules.map(rule => (
                 <div key={rule.id} className="flex items-center justify-between p-3 rounded-xl border" style={{ background: "var(--bg-elevated)", borderColor: "var(--border)" }}>
                   <div className="flex items-center gap-3 text-sm">
-                    <span className={`w-2 h-2 rounded-full ${rule.condition === ">" ? "bg-emerald-500" : "bg-red-500"}`} />
+                    <span className={`w-2 h-2 rounded-full ${rule.condition === ">" ? "bg-[#20e0b2]" : "bg-red-500"}`} />
                     <span className="font-bold" style={{ color: "var(--text-primary)" }}>{rule.pair}</span>
                     <span style={{ color: "var(--text-secondary)" }}>{rule.condition === ">" ? "Above" : "Below"}</span>
                     <span className="font-mono px-2 py-0.5 rounded border text-xs" style={{ background: "var(--bg-base)", borderColor: "var(--border)", color: "var(--text-primary)" }}>{rule.price}</span>
                     <span className="text-xs ml-2" style={{ color: "var(--text-tertiary)" }}>→ {rule.dest}</span>
                   </div>
-                  <button onClick={() => deleteRule(rule.id)} className="p-1.5 rounded-lg text-red-400/70 hover:bg-red-500/10 hover:text-red-400 transition-colors">
+                  <button onClick={() => deleteRule(rule.id)} className="p-1.5 rounded-lg text-[#ff5c73]/70 hover:bg-[rgba(255,92,115,0.08)] hover:text-[#ff5c73] transition-colors">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
@@ -472,14 +470,14 @@ export default function AlertSettingsPage() {
       </div>
 
       {/* ── Alert History Log ── */}
-      <div className="rounded-2xl border p-6" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+      <div className="rounded-lg border p-6" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
         <h2 className="font-bold flex items-center gap-2 mb-4" style={{ color: "var(--text-primary)" }}>
-          <History className="w-4 h-4 text-violet-400" /> Alert History Log
+          <History className="w-4 h-4 text-[#20e0b2]" /> Alert History Log
         </h2>
         <div className="space-y-3 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
           {history.length > 0 ? history.map((h, i) => (
             <div key={h.id + i} className="flex items-start gap-3 p-3 rounded-xl border" style={{ background: "var(--bg-elevated)", borderColor: "var(--border)" }}>
-              <div className={`mt-0.5 w-6 h-6 rounded flex items-center justify-center text-[10px] ${h.type === "news" ? "bg-red-500/20 text-red-400" : h.type === "calendar" ? "bg-violet-500/20 text-violet-400" : "bg-emerald-500/20 text-emerald-400"}`}>
+              <div className={`mt-0.5 w-6 h-6 rounded flex items-center justify-center text-[10px] ${h.type === "news" ? "bg-[rgba(255,92,115,0.12)] text-[#ff5c73]" : h.type === "calendar" ? "bg-[#20e0b2]/20 text-[#20e0b2]" : "bg-[#20e0b2]/20 text-[#20e0b2]"}`}>
                 {h.type === "news" ? "📰" : h.type === "calendar" ? "📅" : "⚡"}
               </div>
               <div className="flex-1">
@@ -498,11 +496,13 @@ export default function AlertSettingsPage() {
 
       {/* Save button */}
       <button onClick={save} disabled={saving}
-        className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all hover:opacity-90 disabled:opacity-60 shadow-[0_0_20px_rgba(0,212,161,0.2)] hover:shadow-[0_0_30px_rgba(0,212,161,0.3)]"
+        className="w-full py-4 rounded-lg font-bold text-base flex items-center justify-center gap-2 transition-all hover:opacity-90 disabled:opacity-60 hover:shadow-[0_0_30px_rgba(0,212,161,0.3)]"
         style={{ background: "var(--accent)", color: "#000" }}>
         {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
         {saving ? "Saving…" : "Save Alert Configuration"}
       </button>
     </div>
+  </div>
   );
 }
+

@@ -40,9 +40,9 @@ export function DailyRiskWidget({
     totalUsed >= 90 ? "danger" : totalUsed >= 65 ? "warning" : "safe";
 
   const statusColors = {
-    safe: { text: "text-[--bull]", bg: "bg-[--bull]", border: "border-[--bull]/30", glow: "shadow-[0_0_12px_rgba(0,220,130,0.4)]" },
-    warning: { text: "text-yellow-400", bg: "bg-yellow-500", border: "border-yellow-500/30", glow: "shadow-[0_0_12px_rgba(234,179,8,0.4)]" },
-    danger: { text: "text-[--bear]", bg: "bg-[--bear]", border: "border-[--bear]/30", glow: "shadow-[0_0_12px_rgba(239,68,68,0.4)]" },
+    safe: { text: "text-[#20e0b2]", bg: "bg-[#20e0b2]", border: "border-[rgba(32,224,178,0.2)]" },
+    warning: { text: "text-[#f5c451]", bg: "bg-[#f5c451]", border: "border-[rgba(245,196,81,0.2)]" },
+    danger: { text: "text-[#ff5c73]", bg: "bg-[#ff5c73]", border: "border-[rgba(255,92,115,0.2)]" },
   };
 
   const ruleChecks = [
@@ -65,16 +65,7 @@ export function DailyRiskWidget({
   ];
 
   return (
-    <div className="bg-[#111118] border border-zinc-800/40 p-5 rounded-xl shadow-xl animate-fade-in relative overflow-hidden group">
-      <div
-        className={`absolute top-0 right-0 w-[200px] h-[200px] blur-[80px] rounded-full pointer-events-none transition-colors ${
-          dailyStatus === "danger"
-            ? "bg-[--bear]/5"
-            : dailyStatus === "warning"
-            ? "bg-yellow-500/5"
-            : "bg-emerald-500/5"
-        }`}
-      />
+    <div className="bg-[#101014] border border-[rgba(255,255,255,0.07)] p-5 rounded-lg animate-fade-in relative overflow-hidden">
 
       {/* Header */}
       <div className="flex items-center gap-2 mb-4 relative z-10">
@@ -88,8 +79,8 @@ export function DailyRiskWidget({
         <div
           className={`px-4 py-3.5 rounded-lg border ${
             todayPnl >= 0
-              ? "bg-emerald-500/5 border-emerald-500/10"
-              : "bg-red-500/5 border-red-500/10"
+              ? "bg-[#20e0b2]/5 border-[#20e0b2]/10"
+              : "bg-[#ff5c73]/5 border-[#ff5c73]/10"
           }`}
         >
           <div className="text-[9px] uppercase tracking-widest font-bold text-zinc-500 mb-1.5">
@@ -97,12 +88,12 @@ export function DailyRiskWidget({
           </div>
           <div
             className={`text-2xl font-black ${
-              todayPnl >= 0 ? "text-[--bull]" : "text-[--bear]"
+              todayPnl >= 0 ? "text-[#20e0b2]" : "text-[#ff5c73]"
             }`}
           >
             {todayPnl >= 0 ? "+" : "-"}${Math.abs(todayPnl).toFixed(2)}
           </div>
-          <div className={`text-[10px] mt-0.5 ${todayPnl >= 0 ? "text-emerald-400/80" : "text-red-400/80"}`}>
+          <div className={`text-[10px] mt-0.5 ${todayPnl >= 0 ? "text-[#20e0b2]/80" : "text-[#ff5c73]/80"}`}>
             {todayPnlPct.toFixed(2)}% of balance
           </div>
         </div>
@@ -121,7 +112,7 @@ export function DailyRiskWidget({
             <div className="w-full h-1.5 bg-zinc-900 rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all duration-1000 ${
-                  dailyStatus === "danger" ? "bg-red-500" : dailyStatus === "warning" ? "bg-amber-450" : "bg-emerald-400"
+                  dailyStatus === "danger" ? "bg-[#ff5c73]" : dailyStatus === "warning" ? "bg-amber-450" : "bg-[#20e0b2]"
                 }`}
                 style={{ width: `${dailyUsed}%` }}
               />
@@ -141,7 +132,7 @@ export function DailyRiskWidget({
             <div className="w-full h-1.5 bg-zinc-900 rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all duration-1000 ${
-                  totalStatus === "danger" ? "bg-red-500" : totalStatus === "warning" ? "bg-amber-450" : "bg-emerald-400"
+                  totalStatus === "danger" ? "bg-[#ff5c73]" : totalStatus === "warning" ? "bg-amber-450" : "bg-[#20e0b2]"
                 }`}
                 style={{ width: `${totalUsed}%` }}
               />
@@ -151,7 +142,7 @@ export function DailyRiskWidget({
 
         {/* Risk Rules */}
         <div>
-          <div className="text-[9px] uppercase tracking-widest font-bold text-zinc-500 mb-2.5 flex items-center gap-1.5 border-t border-zinc-800/40 pt-3">
+          <div className="text-[9px] uppercase tracking-widest font-bold text-zinc-500 mb-2.5 flex items-center gap-1.5 border-t border-[rgba(255,255,255,0.07)] pt-3">
             <Target className="w-3 h-3" /> Risk Rules Parameters
           </div>
           <div className="space-y-2">
@@ -159,15 +150,15 @@ export function DailyRiskWidget({
               <div key={i} className="flex items-center justify-between text-[11px] py-0.5">
                 <div className="flex items-center gap-2">
                   {rule.pass ? (
-                    <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full" />
+                    <div className="w-1.5 h-1.5 bg-[#20e0b2] rounded-full" />
                   ) : (
-                    <div className="w-1.5 h-1.5 bg-red-400 rounded-full animate-pulse" />
+                    <div className="w-1.5 h-1.5 bg-[#ff5c73] rounded-full animate-pulse" />
                   )}
-                  <span className={rule.pass ? "text-zinc-300" : "text-red-400 font-bold"}>
+                  <span className={rule.pass ? "text-zinc-300" : "text-[#ff5c73] font-bold"}>
                     {rule.label}
                   </span>
                 </div>
-                <span className={`text-[9px] font-bold uppercase tracking-wider ${rule.pass ? "text-emerald-400" : "text-red-400"}`}>
+                <span className={`text-[9px] font-bold uppercase tracking-wider ${rule.pass ? "text-[#20e0b2]" : "text-[#ff5c73]"}`}>
                   {rule.pass ? "Pass" : "Fail"}
                 </span>
               </div>
@@ -179,4 +170,5 @@ export function DailyRiskWidget({
     </div>
   );
 }
+
 

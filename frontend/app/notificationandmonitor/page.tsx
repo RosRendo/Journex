@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Bell, Activity, ArrowUpCircle, ArrowDownCircle, Target as TargetIcon,
@@ -101,7 +101,7 @@ const XAUUSDMonitor: React.FC = () => {
       new Notification(title, { body: body, icon: "/favicon.ico", tag: `price-alert-${target.id}` });
     }
     toast.custom(() => (
-      <div className="bg-[--bg-card] border border-[--warning] rounded-xl p-4 w-[380px] shadow-[0_0_20px_rgba(245,158,11,0.2)]">
+      <div className="bg-[--bg-card] border border-[--warning] rounded-xl p-4 w-[380px]">
         <div className="flex items-center gap-2 mb-2">
           <span className="flex items-center gap-1 bg-[--warning]/20 text-[--warning] text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-sm"><TargetIcon className="w-3 h-3" /> ALERT TRIGGERED</span>
         </div>
@@ -208,14 +208,14 @@ const XAUUSDMonitor: React.FC = () => {
 
               if (!data) {
                 return (
-                  <div key={sym} className="border p-6 rounded-2xl flex items-center justify-center h-[140px]" style={{ background: "var(--bg-base)", borderColor: "var(--border)" }}>
+                  <div key={sym} className="border p-6 rounded-lg flex items-center justify-center h-[140px]" style={{ background: "var(--bg-base)", borderColor: "var(--border)" }}>
                     <span className="text-[11px] font-bold uppercase tracking-widest text-[--text-tertiary] animate-pulse">Scanning {sym}...</span>
                   </div>
                 );
               }
 
               return (
-                <div key={sym} className="border rounded-2xl p-6 relative overflow-hidden group" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+                <div key={sym} className="border rounded-lg p-6 relative overflow-hidden group" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
                   <div className="absolute top-0 right-0 w-32 h-32 bg-[--accent] opacity-[0.03] rounded-bl-full pointer-events-none group-hover:opacity-[0.06] transition-opacity" />
                   
                   <div className="flex justify-between items-start mb-4 relative z-10">
@@ -251,7 +251,7 @@ const XAUUSDMonitor: React.FC = () => {
         {/* ── RIGHT: Alert Config & Matrix ── */}
         <div className="space-y-6">
           
-          <div className="border rounded-2xl p-6" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+          <div className="border rounded-lg p-6" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
             <h2 className="text-[16px] font-bold mb-5 flex items-center gap-2 text-[--text-primary]">
               <TargetIcon className="w-5 h-5 text-[--accent]" /> Alert Matrix Deployment
             </h2>
@@ -289,7 +289,7 @@ const XAUUSDMonitor: React.FC = () => {
               </div>
 
               <div className="pt-4 flex flex-col gap-2">
-                <button onClick={addTarget} className="w-full py-3.5 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(0,212,161,0.2)] hover:shadow-[0_0_30px_rgba(0,212,161,0.4)]" style={{ background: "var(--accent)", color: "#000" }}>
+                <button onClick={addTarget} className="w-full py-3.5 rounded-xl font-bold transition-all flex items-center justify-center gap-2 hover:shadow-[0_0_30px_rgba(0,212,161,0.4)]" style={{ background: "var(--accent)", color: "#000" }}>
                   Deploy Tracking Node
                 </button>
                 <button onClick={requestNotificationPermission} className="w-full py-2 border rounded-xl text-[11px] uppercase tracking-wider font-bold hover:bg-[--bg-elevated] transition-all mt-2" style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>
@@ -299,7 +299,7 @@ const XAUUSDMonitor: React.FC = () => {
             </div>
           </div>
 
-          <div className="border rounded-2xl p-6" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+          <div className="border rounded-lg p-6" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
             <h2 className="text-[16px] font-bold mb-4 flex items-center justify-between text-[--text-primary]">
               <span>Active Target Grid</span>
               <span className="bg-[--accent]/20 text-[--accent] text-[10px] font-bold px-2 py-0.5 rounded border border-[--accent]/30">
@@ -326,7 +326,7 @@ const XAUUSDMonitor: React.FC = () => {
                         {target.type === 'above' ? '▲' : target.type === 'below' ? '▼' : '⊙'} {target.price.toFixed(5)} <span className="text-[--text-tertiary]">({target.priceType})</span>
                       </div>
                     </div>
-                    <button onClick={() => removeTarget(target.id)} className="p-2 text-[--text-tertiary] hover:bg-red-500/10 hover:text-[--loss] rounded-lg transition-colors">
+                    <button onClick={() => removeTarget(target.id)} className="p-2 text-[--text-tertiary] hover:bg-[rgba(255,92,115,0.08)] hover:text-[--loss] rounded-lg transition-colors">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -340,8 +340,8 @@ const XAUUSDMonitor: React.FC = () => {
       {/* ── Integrations Settings Modal ── */}
       {showSettings && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowSettings(false)} />
-          <div className="relative w-full max-w-lg border rounded-3xl p-8 z-10" style={{ background: "var(--bg-card)", borderColor: "var(--border-strong)" }}>
+          <div className="fixed inset-0 bg-black/80" onClick={() => setShowSettings(false)} />
+          <div className="relative w-full max-w-lg border rounded-lg p-8 z-10" style={{ background: "var(--bg-card)", borderColor: "var(--border-strong)" }}>
             <div className="flex items-center justify-between mb-6 border-b pb-4" style={{ borderColor: "var(--border)" }}>
               <h2 className="text-[20px] font-bold flex items-center gap-3 text-[--text-primary]" style={{ fontFamily: "var(--font-display, Syne, sans-serif)" }}>
                 <LinkIcon className="text-[--accent] w-6 h-6" /> Webhook Integrations
@@ -372,7 +372,7 @@ const XAUUSDMonitor: React.FC = () => {
 
               <div className="pt-4 flex justify-end gap-3">
                 <button onClick={() => setShowSettings(false)} className="px-6 py-3 rounded-xl font-bold text-[12px] uppercase tracking-wider text-[--text-secondary] hover:bg-[--bg-elevated] transition-colors">Abort</button>
-                <button onClick={saveSettings} className="px-6 py-3 rounded-xl font-bold text-[12px] uppercase tracking-wider shadow-[0_0_15px_rgba(0,212,161,0.2)] transition-all flex items-center gap-2" style={{ background: "var(--accent)", color: "#000" }}>
+                <button onClick={saveSettings} className="px-6 py-3 rounded-xl font-bold text-[12px] uppercase tracking-wider transition-all flex items-center gap-2" style={{ background: "var(--accent)", color: "#000" }}>
                   <Radio className="w-4 h-4" /> Save Bindings
                 </button>
               </div>
@@ -386,3 +386,4 @@ const XAUUSDMonitor: React.FC = () => {
 };
 
 export default XAUUSDMonitor;
+

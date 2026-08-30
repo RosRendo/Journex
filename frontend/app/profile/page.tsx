@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from "react";
 import { getBackendUrl, fetchWithAuth } from "@/lib/utils";
@@ -161,7 +161,7 @@ export default function ProfilePage() {
                 <div className="lg:col-span-1 space-y-4">
 
                     {/* Profile Identity Card */}
-                    <div className="bg-card border border-border/60 rounded-2xl overflow-hidden shadow-sm">
+                    <div className="bg-card border border-border/60 rounded-lg overflow-hidden shadow-sm">
 
                         {/* Banner */}
                         <div className="h-24 bg-gradient-to-br from-primary/40 via-violet-500/30 to-blue-600/20 relative">
@@ -176,7 +176,7 @@ export default function ProfilePage() {
                                 <img
                                     src={isEditing ? (form.avatar && !form.avatar.includes("dicebear") ? form.avatar : `https://api.dicebear.com/7.x/avataaars/svg?seed=${form.avatarSeed}`) : profile.avatar}
                                     alt="Avatar"
-                                    className="w-20 h-20 rounded-2xl border-4 border-card bg-secondary shadow-xl"
+                                    className="w-20 h-20 rounded-lg border-4 border-card bg-secondary"
                                 />
                                 {isEditing && (
                                     <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center cursor-pointer">
@@ -195,7 +195,7 @@ export default function ProfilePage() {
                                                     const hl = profile.id?.length || profile.name.length;
                                                     const tier = hl % 3 === 0 ? { name: "Elite", icon: "👑", color: "bg-amber-500/20 text-amber-500 border-amber-500/30", wr: "72%" } :
                                                                 hl % 2 === 0 ? { name: "Pro", icon: "⚡", color: "bg-indigo-500/20 text-indigo-400 border-indigo-500/30", wr: "58%" } :
-                                                                { name: "Novice", icon: "🌱", color: "bg-emerald-500/20 text-emerald-500 border-emerald-500/30", wr: "45%" };
+                                                                { name: "Novice", icon: "🌱", color: "bg-[#20e0b2]/20 text-[#20e0b2] border-[rgba(32,224,178,0.3)]/30", wr: "45%" };
                                                     return (
                                                         <div className="flex gap-2">
                                                             <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border uppercase tracking-wider flex items-center gap-1 ${tier.color}`}>
@@ -275,7 +275,7 @@ export default function ProfilePage() {
                                             {form.avatar && !form.avatar.includes("dicebear") && (
                                                 <button 
                                                     onClick={() => setForm({...form, avatar: ""})}
-                                                    className="px-3 py-2 text-xs font-bold text-red-400 hover:text-red-300 transition-colors"
+                                                    className="px-3 py-2 text-xs font-bold text-[#ff5c73] hover:text-red-300 transition-colors"
                                                 >
                                                     Remove
                                                 </button>
@@ -339,7 +339,7 @@ export default function ProfilePage() {
                     </div>
 
                     {/* Quick Links */}
-                    <div className="bg-card border border-border/60 rounded-2xl p-4 space-y-1">
+                    <div className="bg-card border border-border/60 rounded-lg p-4 space-y-1">
                         <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-3">Quick Links</p>
                         {[
                             { href: "/settings", label: "Account Settings", icon: Shield },
@@ -380,7 +380,7 @@ export default function ProfilePage() {
                     {activeTab === "posts" && (
                         <div className="space-y-3">
                             {posts.length === 0 ? (
-                                <div className="bg-card border border-border/50 rounded-2xl p-12 text-center">
+                                <div className="bg-card border border-border/50 rounded-lg p-12 text-center">
                                     <MessageSquare className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
                                     <p className="font-semibold text-muted-foreground">No posts yet</p>
                                     <p className="text-sm text-muted-foreground/60 mt-1">Share your first trade setup in the community!</p>
@@ -389,7 +389,7 @@ export default function ProfilePage() {
                                     </Link>
                                 </div>
                             ) : posts.map(post => (
-                                <div key={post.id} className="bg-card border border-border/50 rounded-2xl p-5 hover:border-border transition-colors">
+                                <div key={post.id} className="bg-card border border-border/50 rounded-lg p-5 hover:border-border transition-colors">
                                     <div className="flex items-start justify-between gap-3">
                                         <p className="text-sm text-foreground leading-relaxed flex-1 line-clamp-3">{post.content}</p>
                                         {post.community && (
@@ -401,7 +401,7 @@ export default function ProfilePage() {
 
                                     {post.pair && (
                                         <div className="mt-3 flex flex-wrap gap-2">
-                                            <span className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg border ${post.direction === "Long" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-red-500/10 text-red-400 border-red-500/20"}`}>
+                                            <span className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg border ${post.direction === "Long" ? "bg-[#20e0b2]/10 text-[#20e0b2] border-[rgba(32,224,178,0.3)]/20" : "bg-[rgba(255,92,115,0.08)] text-[#ff5c73] border-[rgba(255,92,115,0.2)]"}`}>
                                                 <TrendingUp className="w-3 h-3" /> {post.pair} {post.direction}
                                             </span>
                                             {post.result && (
@@ -424,7 +424,7 @@ export default function ProfilePage() {
                     {activeTab === "communities" && (
                         <div className="space-y-3">
                             {(!profile.communities || profile.communities.length === 0) ? (
-                                <div className="bg-card border border-border/50 rounded-2xl p-12 text-center">
+                                <div className="bg-card border border-border/50 rounded-lg p-12 text-center">
                                     <Users className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
                                     <p className="font-semibold text-muted-foreground">No communities joined yet</p>
                                     <p className="text-sm text-muted-foreground/60 mt-1">Explore and join trading spaces that match your style.</p>
@@ -433,7 +433,7 @@ export default function ProfilePage() {
                                     </Link>
                                 </div>
                             ) : profile.communities.map(c => (
-                                <Link key={c.id} href="/community" className="block bg-card border border-border/50 hover:border-border/80 rounded-2xl p-5 transition-colors group">
+                                <Link key={c.id} href="/community" className="block bg-card border border-border/50 hover:border-border/80 rounded-lg p-5 transition-colors group">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-3">
                                             <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
@@ -451,7 +451,7 @@ export default function ProfilePage() {
 
                             <Link
                                 href="/community"
-                                className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl border border-dashed border-border/60 text-sm text-muted-foreground hover:text-foreground hover:border-border transition-all"
+                                className="flex items-center justify-center gap-2 w-full py-3 rounded-lg border border-dashed border-border/60 text-sm text-muted-foreground hover:text-foreground hover:border-border transition-all"
                             >
                                 <Users className="w-4 h-4" /> Explore more spaces
                             </Link>
@@ -462,3 +462,4 @@ export default function ProfilePage() {
         </div>
     );
 }
+

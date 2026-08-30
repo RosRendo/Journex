@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from "react";
 import { resolveLocalUrl } from "@/lib/utils";
@@ -68,9 +68,9 @@ export default function CommunityPage() {
 
     const getTraderTier = (userId: string) => {
         const hl = userId.length;
-        if (hl % 3 === 0) return { name: "Elite", icon: "👑", color: "bg-amber-500/10 text-amber-400 border border-amber-500/20" };
-        if (hl % 2 === 0) return { name: "Pro", icon: "⚡", color: "bg-blue-500/10 text-blue-400 border border-blue-500/20" };
-        return { name: "Novice", icon: "🌱", color: "bg-emerald-500/10 text-emerald-450 border border-emerald-500/20" };
+        if (hl % 3 === 0) return { name: "Elite", icon: "👑", color: "bg-amber-500/10 text-[#f5c451] border border-amber-500/20" };
+        if (hl % 2 === 0) return { name: "Pro", icon: "⚡", color: "bg-blue-500/10 text-[#20e0b2] border border-blue-500/20" };
+        return { name: "Novice", icon: "🌱", color: "bg-[#20e0b2]/10 text-emerald-450 border border-[rgba(32,224,178,0.3)]/20" };
     };
 
     const [profile, setProfile] = useState<UserProfile>(DEFAULT_PROFILE);
@@ -444,7 +444,7 @@ export default function CommunityPage() {
             <div className="flex-1 flex flex-col min-w-0 lg:max-h-full">
                 
                 {/* Header */}
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-[#111118]/80 p-4 border border-zinc-800/40 rounded-2xl backdrop-blur-xl mt-4 mb-4">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-[#101014]/80 p-4 border border-[rgba(255,255,255,0.07)] rounded-lg mt-4 mb-4">
                     <div>
                         <h1 className="text-lg font-black tracking-tight text-white font-display flex items-center gap-2">
                             <Users className="w-5 h-5 text-emerald-450" />
@@ -455,7 +455,7 @@ export default function CommunityPage() {
                         </p>
                     </div>
                     {!activeCommunityId && (
-                        <div className="flex bg-black/35 border border-zinc-800/60 p-1 rounded-xl font-mono text-[10px]">
+                        <div className="flex bg-black/35 border border-[rgba(255,255,255,0.07)] p-1 rounded-xl font-mono text-[10px]">
                             <button onClick={() => setFeedFilter("Global")} className={`px-4 py-1.5 rounded-lg font-bold transition-all ${feedFilter === "Global" ? "bg-white/10 text-white" : "text-zinc-500 hover:text-zinc-350"}`}>Global</button>
                             <button onClick={() => setFeedFilter("Following")} className={`px-4 py-1.5 rounded-lg font-bold transition-all ${feedFilter === "Following" ? "bg-white/10 text-white" : "text-zinc-500 hover:text-zinc-350"}`}>Following</button>
                         </div>
@@ -465,7 +465,7 @@ export default function CommunityPage() {
                 <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-4 pb-12">
 
                     {/* Create Post */}
-                    <div className="bg-[#111118] border border-zinc-800/40 rounded-xl p-5 shadow-xl">
+                    <div className="bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-xl p-5">
                         <div className="flex items-start gap-4">
                             <img src={profile.avatar} alt="Profile" className="w-9 h-9 rounded-full bg-black/25" />
                             <div className="flex-1">
@@ -485,7 +485,7 @@ export default function CommunityPage() {
                                             <select 
                                                 value={signalStrategy} 
                                                 onChange={e => handleAutoStrategyFill(e.target.value)} 
-                                                className="bg-[#111118] border border-zinc-800/60 rounded-lg px-2 py-1.5 text-xs text-zinc-305 focus:outline-none w-full"
+                                                className="bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-lg px-2 py-1.5 text-xs text-zinc-305 focus:outline-none w-full"
                                             >
                                                 <option value="Custom">Custom Entry</option>
                                                 <option value="Scalp (1:1.5)">Scalp (1:1.5 RRR)</option>
@@ -499,7 +499,7 @@ export default function CommunityPage() {
                                             <select value={signalPair} onChange={e => {
                                                 setSignalPair(e.target.value);
                                                 if (signalStrategy !== "Custom") handleAutoStrategyFill(signalStrategy);
-                                            }} className="bg-[#111118] border border-zinc-800/60 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none">
+                                            }} className="bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none">
                                                 <option value="XAUUSD">XAUUSD</option>
                                                 <option value="EURUSD">EURUSD</option>
                                                 <option value="GBPUSD">GBPUSD</option>
@@ -515,18 +515,18 @@ export default function CommunityPage() {
                                             <select value={signalDirection} onChange={e => {
                                                 setSignalDirection(e.target.value as any);
                                                 if (signalStrategy !== "Custom") handleAutoStrategyFill(signalStrategy);
-                                            }} className="bg-[#111118] border border-zinc-800/60 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none">
+                                            }} className="bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none">
                                                 <option value="Long">Long</option>
                                                 <option value="Short">Short</option>
                                             </select>
                                         </div>
                                         <div className="flex flex-col gap-1 w-32">
-                                            <label className="text-[8px] uppercase font-bold text-emerald-500 flex items-center gap-1"><Target className="w-3 h-3"/> TP {priceLoading && <span className="text-[8px] animate-pulse text-zinc-600">fetching...</span>}</label>
-                                            <input type="number" step="0.001" value={signalTP} onChange={e => setSignalTP(e.target.value)} className="bg-black/35 border border-zinc-800/60 rounded-lg px-2 py-1 text-xs font-mono focus:border-emerald-500/50 w-full" placeholder="0.00" />
+                                            <label className="text-[8px] uppercase font-bold text-[#20e0b2] flex items-center gap-1"><Target className="w-3 h-3"/> TP {priceLoading && <span className="text-[8px] animate-pulse text-zinc-600">fetching...</span>}</label>
+                                            <input type="number" step="0.001" value={signalTP} onChange={e => setSignalTP(e.target.value)} className="bg-black/35 border border-[rgba(255,255,255,0.07)] rounded-lg px-2 py-1 text-xs font-mono focus:border-[rgba(32,224,178,0.3)]/50 w-full" placeholder="0.00" />
                                         </div>
                                         <div className="flex flex-col gap-1 w-32">
-                                            <label className="text-[8px] uppercase font-bold text-red-500 flex items-center gap-1"><AlertCircle className="w-3 h-3"/> SL {priceLoading && <span className="text-[8px] animate-pulse text-zinc-600">fetching...</span>}</label>
-                                            <input type="number" step="0.001" value={signalSL} onChange={e => setSignalSL(e.target.value)} className="bg-black/35 border border-zinc-800/60 rounded-lg px-2 py-1 text-xs font-mono focus:border-red-500/50 w-full" placeholder="0.00" />
+                                            <label className="text-[8px] uppercase font-bold text-[#ff5c73] flex items-center gap-1"><AlertCircle className="w-3 h-3"/> SL {priceLoading && <span className="text-[8px] animate-pulse text-zinc-600">fetching...</span>}</label>
+                                            <input type="number" step="0.001" value={signalSL} onChange={e => setSignalSL(e.target.value)} className="bg-black/35 border border-[rgba(255,255,255,0.07)] rounded-lg px-2 py-1 text-xs font-mono focus:border-red-500/50 w-full" placeholder="0.00" />
                                         </div>
                                     </div>
                                 )}
@@ -543,7 +543,7 @@ export default function CommunityPage() {
                                             />
                                             <label 
                                                 htmlFor="post-image"
-                                                className={`p-2 rounded-lg cursor-pointer flex transition-colors ${newPostImage ? 'text-blue-400 bg-blue-500/10' : 'text-zinc-500 hover:bg-black/20'}`}
+                                                className={`p-2 rounded-lg cursor-pointer flex transition-colors ${newPostImage ? 'text-[#20e0b2] bg-blue-500/10' : 'text-zinc-500 hover:bg-black/20'}`}
                                                 title="Attach Image"
                                             >
                                                 <ImageIcon className={`w-4 h-4 ${uploadingPostImage ? 'animate-pulse' : ''}`} />
@@ -559,7 +559,7 @@ export default function CommunityPage() {
                                         </div>
                                         <button 
                                             onClick={() => setIsSignal(!isSignal)}
-                                            className={`p-2 rounded-lg transition-colors ${isSignal ? 'text-blue-400 bg-blue-500/10' : 'text-zinc-500 hover:bg-black/20'}`}
+                                            className={`p-2 rounded-lg transition-colors ${isSignal ? 'text-[#20e0b2] bg-blue-500/10' : 'text-zinc-500 hover:bg-black/20'}`}
                                             title="Attach Trade Signal"
                                         >
                                             <TrendingUp className="w-4 h-4" />
@@ -569,7 +569,7 @@ export default function CommunityPage() {
                                     <button
                                         onClick={handlePost}
                                         disabled={!newPostContent.trim()}
-                                        className="bg-emerald-500 text-emerald-950 font-mono font-black text-[10px] uppercase tracking-wider px-5 py-2 rounded-lg disabled:opacity-30 transition-all flex items-center gap-1.5"
+                                        className="bg-[#20e0b2] text-emerald-950 font-mono font-black text-[10px] uppercase tracking-wider px-5 py-2 rounded-lg disabled:opacity-30 transition-all flex items-center gap-1.5"
                                     >
                                         <Send className="w-3.5 h-3.5" /> Post Feed
                                     </button>
@@ -580,7 +580,7 @@ export default function CommunityPage() {
 
                     {/* Posts Feed */}
                     {(feedFilter === "Following" ? posts.filter(p => followingIds.includes(p.author.userId) || p.author.userId === (session?.user?.email || "demo-user-1")) : posts).map(post => (
-                        <div key={post.id} className="bg-[#111118] border border-zinc-800/40 rounded-xl p-5 shadow-xl font-sans">
+                        <div key={post.id} className="bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-xl p-5 font-sans">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <img src={post.author.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=Unknown"} alt="Avatar" className="w-9 h-9 rounded-full bg-black/25" />
@@ -624,7 +624,7 @@ export default function CommunityPage() {
                                         </button>
                                         <button 
                                             onClick={() => handleDeletePost(post.id)}
-                                            className="p-1.5 text-red-500/70 hover:text-red-400 rounded transition-colors"
+                                            className="p-1.5 text-[#ff5c73]/70 hover:text-[#ff5c73] rounded transition-colors"
                                             title="Delete Post"
                                         >
                                             <Trash2 className="w-4 h-4" />
@@ -639,7 +639,7 @@ export default function CommunityPage() {
                                         <textarea
                                             value={editContent}
                                             onChange={e => setEditContent(e.target.value)}
-                                            className="w-full bg-black/25 border border-zinc-800/50 rounded-lg p-3 text-xs focus:outline-none focus:border-blue-500/55 min-h-[80px]"
+                                            className="w-full bg-black/25 border border-[rgba(255,255,255,0.07)] rounded-lg p-3 text-xs focus:outline-none focus:border-blue-500/55 min-h-[80px]"
                                         />
                                         <div className="flex justify-end gap-2 text-[9px] font-bold uppercase tracking-wider">
                                             <button 
@@ -667,27 +667,27 @@ export default function CommunityPage() {
                             {/* Trade Pill Attachment */}
                             {post.pair && (
                                 <div className="mt-4 flex flex-wrap gap-2 font-mono text-[10px] font-bold">
-                                    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded border ${post.direction === 'Long' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-405 border-red-500/20'}`}>
+                                    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded border ${post.direction === 'Long' ? 'bg-[#20e0b2]/10 text-[#20e0b2] border-[rgba(32,224,178,0.3)]/20' : 'bg-[rgba(255,92,115,0.08)] text-red-405 border-[rgba(255,92,115,0.2)]'}`}>
                                         {post.direction === 'Long' ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
                                         {post.pair} {post.direction}
                                     </div>
                                     {post.entry && (
-                                        <div className="flex items-center px-2.5 py-1 rounded bg-black/25 border border-zinc-800/40 text-zinc-450">
+                                        <div className="flex items-center px-2.5 py-1 rounded bg-black/25 border border-[rgba(255,255,255,0.07)] text-zinc-450">
                                             Entry: <span className="ml-1 text-white">{post.entry}</span>
                                         </div>
                                     )}
                                     {post.tp && (
-                                        <div className="flex items-center px-2.5 py-1 rounded bg-emerald-500/5 border border-emerald-500/15 text-emerald-400">
+                                        <div className="flex items-center px-2.5 py-1 rounded bg-[#20e0b2]/5 border border-[rgba(32,224,178,0.3)]/15 text-[#20e0b2]">
                                             TP: <span className="ml-1">{post.tp}</span>
                                         </div>
                                     )}
                                     {post.sl && (
-                                        <div className="flex items-center px-2.5 py-1 rounded bg-red-500/5 border border-red-500/15 text-red-400">
+                                        <div className="flex items-center px-2.5 py-1 rounded bg-red-500/5 border border-red-500/15 text-[#ff5c73]">
                                             SL: <span className="ml-1">{post.sl}</span>
                                         </div>
                                     )}
                                     {post.result && (
-                                        <div className="flex items-center px-2.5 py-1 rounded bg-blue-500/10 border border-blue-500/20 text-blue-400">
+                                        <div className="flex items-center px-2.5 py-1 rounded bg-blue-500/10 border border-blue-500/20 text-[#20e0b2]">
                                             {post.result}
                                         </div>
                                     )}
@@ -699,7 +699,7 @@ export default function CommunityPage() {
                                 <div className="mt-4 bg-black/20 border border-zinc-850 rounded-xl p-4 font-mono text-[10px]">
                                     <div className="flex items-center justify-between mb-3 font-bold">
                                         <span className="text-zinc-500 flex items-center gap-1"><AlertCircle className="w-4 h-4"/> Auto-Risk Allocation</span>
-                                        <span className={((executionRisk[post.id] || globalRisk) > 2) ? 'text-red-400' : 'text-emerald-450'}>
+                                        <span className={((executionRisk[post.id] || globalRisk) > 2) ? 'text-[#ff5c73]' : 'text-emerald-450'}>
                                             {(executionRisk[post.id] || globalRisk).toFixed(1)}% of Balance
                                         </span>
                                     </div>
@@ -710,11 +710,11 @@ export default function CommunityPage() {
                                         step="0.1" 
                                         value={executionRisk[post.id] || globalRisk}
                                         onChange={(e) => setExecutionRisk({...executionRisk, [post.id]: parseFloat(e.target.value)})}
-                                        className="w-full appearance-none bg-black/35 border border-zinc-850 h-2 rounded-full outline-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-emerald-500 cursor-pointer mb-4"
+                                        className="w-full appearance-none bg-black/35 border border-zinc-850 h-2 rounded-full outline-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#20e0b2] cursor-pointer mb-4"
                                     />
                                     <button 
                                         onClick={() => executeSignal(post)}
-                                        className="w-full bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-black py-3 rounded-lg flex items-center justify-center gap-2 transition-all shadow-md uppercase tracking-wider text-[11px]"
+                                        className="w-full bg-[#20e0b2] hover:bg-[#20e0b2] text-emerald-950 font-black py-3 rounded-lg flex items-center justify-center gap-2 transition-all shadow-md uppercase tracking-wider text-[11px]"
                                     >
                                         <Zap className="w-4 h-4 fill-current animate-pulse" /> 1-Click Execution
                                     </button>
@@ -737,14 +737,14 @@ export default function CommunityPage() {
                             <div className="mt-5 flex items-center justify-between border-t border-zinc-850 pt-4">
                                 <button
                                     onClick={() => handleLike(post.id)}
-                                    className="flex items-center gap-2 text-xs font-mono font-bold text-zinc-550 hover:text-red-400 transition-colors group"
+                                    className="flex items-center gap-2 text-xs font-mono font-bold text-zinc-550 hover:text-[#ff5c73] transition-colors group"
                                 >
                                     <Heart className="w-4 h-4 group-hover:scale-110 transition-transform" />
                                     {post._count?.likes > 0 && <span>{post._count.likes}</span>}
                                 </button>
                                 <button
                                     onClick={() => setActiveCommentPostId(activeCommentPostId === post.id ? null : post.id)}
-                                    className="flex items-center gap-2 text-xs font-mono font-bold text-zinc-550 hover:text-blue-400 transition-colors group"
+                                    className="flex items-center gap-2 text-xs font-mono font-bold text-zinc-550 hover:text-[#20e0b2] transition-colors group"
                                 >
                                     <MessageSquare className="w-4 h-4 group-hover:scale-110 transition-transform" />
                                     {post.comments.length > 0 && <span>{post.comments.length}</span>}
@@ -762,7 +762,7 @@ export default function CommunityPage() {
                                             {post.comments.map(c => (
                                                 <div key={c.id} className="flex items-start gap-3">
                                                     <img src={c.avatar} alt="Avatar" className="w-7 h-7 rounded-full bg-black/25" />
-                                                    <div className="bg-[#111118] border border-zinc-850 p-3 rounded-lg text-zinc-300 flex-1">
+                                                    <div className="bg-[#101014] border border-zinc-850 p-3 rounded-lg text-zinc-300 flex-1">
                                                         <div className="flex items-center justify-between mb-1 text-[9px] font-bold text-zinc-500">
                                                             <span className="font-bold text-zinc-300">{(c.author as any)?.name || c.author}</span>
                                                             <span>{formatTime((c as any).createdAt || c.timestamp)}</span>
@@ -780,7 +780,7 @@ export default function CommunityPage() {
                                         <img src={profile.avatar} alt="Me" className="w-7 h-7 rounded-full bg-black/25" />
                                         <input
                                             type="text"
-                                            className="flex-1 bg-black/25 border border-zinc-800/50 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500/50 text-white font-mono placeholder-zinc-700"
+                                            className="flex-1 bg-black/25 border border-[rgba(255,255,255,0.07)] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500/50 text-white font-mono placeholder-zinc-700"
                                             placeholder="Write a comment..."
                                             value={commentText}
                                             onChange={(e) => setCommentText(e.target.value)}
@@ -799,17 +799,17 @@ export default function CommunityPage() {
             <div className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-4 lg:mt-4">
 
                 {/* Profile Link Card */}
-                <div className="bg-[#111118] border border-zinc-800/40 rounded-xl overflow-hidden shadow-xl">
+                <div className="bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-xl overflow-hidden">
                     <div className="h-14 bg-gradient-to-br from-emerald-500/10 to-blue-600/5" />
                     <div className="px-5 pb-5 -mt-8 relative font-mono text-[10px] text-zinc-500">
                         <img
                             src={profile.avatar}
                             alt="Avatar"
-                            className="w-14 h-14 rounded-lg border-2 border-zinc-800 bg-black shadow-md"
+                            className="w-14 h-14 rounded-lg border-2 border-[rgba(255,255,255,0.07)] bg-black shadow-md"
                         />
                         <div className="mt-2.5">
                             <h2 className="text-sm font-bold truncate text-white">{profile.name}</h2>
-                            <p className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider mt-0.5">{profile.tradeStyle}</p>
+                            <p className="text-[9px] text-[#20e0b2] font-bold uppercase tracking-wider mt-0.5">{profile.tradeStyle}</p>
                         </div>
                         <div className="w-full grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-zinc-850">
                             <div className="text-center">
@@ -825,20 +825,20 @@ export default function CommunityPage() {
                                 <p className="text-[8px] uppercase text-zinc-555 font-bold leading-none mt-0.5">Likes</p>
                             </div>
                         </div>
-                        <Link href="/profile" className="mt-4 w-full flex items-center justify-center gap-1.5 py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/15 border border-emerald-500/20 text-emerald-400 font-bold uppercase tracking-wider text-[9px] transition-colors">
+                        <Link href="/profile" className="mt-4 w-full flex items-center justify-center gap-1.5 py-2 rounded-lg bg-[#20e0b2]/10 hover:bg-[#20e0b2]/15 border border-[rgba(32,224,178,0.3)]/20 text-[#20e0b2] font-bold uppercase tracking-wider text-[9px] transition-colors">
                             <User className="w-3.5 h-3.5" /> View Profile
                         </Link>
                     </div>
                 </div>
 
                 {/* Explore Communities */}
-                <div className="bg-[#111118] border border-zinc-800/40 rounded-xl p-5 shadow-xl flex flex-col max-h-[400px]">
+                <div className="bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-xl p-5 flex flex-col max-h-[400px]">
                     <div className="flex items-center justify-between mb-4 font-mono text-[9px] font-bold">
                         <h3 className="flex items-center gap-1.5 uppercase tracking-widest text-zinc-500">
                             <Users className="w-4 h-4" /> Explore Spaces
                         </h3>
                         {isPro && (
-                            <button onClick={() => setIsCreateCommunityModalOpen(true)} className="text-[9px] text-emerald-450 border border-emerald-500/25 px-2 py-0.5 bg-emerald-500/5 rounded font-black hover:bg-emerald-500/10">
+                            <button onClick={() => setIsCreateCommunityModalOpen(true)} className="text-[9px] text-emerald-450 border border-[rgba(32,224,178,0.3)]/25 px-2 py-0.5 bg-[#20e0b2]/5 rounded font-black hover:bg-[#20e0b2]/10">
                                 + NEW
                             </button>
                         )}
@@ -846,7 +846,7 @@ export default function CommunityPage() {
 
                     <button
                         onClick={() => setActiveCommunityId(null)}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-xs font-mono font-bold transition-all mb-3 ${!activeCommunityId ? 'bg-emerald-505 bg-emerald-500 text-emerald-950' : 'hover:bg-black/25 bg-black/10 text-zinc-450 border border-zinc-850'}`}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-xs font-mono font-bold transition-all mb-3 ${!activeCommunityId ? 'bg-emerald-505 bg-[#20e0b2] text-emerald-950' : 'hover:bg-black/25 bg-black/10 text-zinc-450 border border-zinc-850'}`}
                     >
                         🌍 Global Feed
                     </button>
@@ -859,7 +859,7 @@ export default function CommunityPage() {
                             return (
                                 <div
                                     key={c.id}
-                                    className={`p-3 rounded-lg border flex flex-col gap-1.5 transition-colors cursor-pointer ${isActive ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-black/20 border-zinc-850 hover:bg-black/35'}`}
+                                    className={`p-3 rounded-lg border flex flex-col gap-1.5 transition-colors cursor-pointer ${isActive ? 'bg-[#20e0b2]/5 border-[rgba(32,224,178,0.3)]/20' : 'bg-black/20 border-zinc-850 hover:bg-black/35'}`}
                                     onClick={() => setActiveCommunityId(c.id)}
                                 >
                                     {isActive && c.image && (
@@ -868,12 +868,12 @@ export default function CommunityPage() {
                                     <div className="flex items-start justify-between gap-2">
                                         <div className="flex items-center gap-2">
                                             {!isActive && c.image && <img src={c.image} alt="Logo" className="w-5 h-5 rounded object-cover" />}
-                                            <span className={`font-bold text-xs leading-tight ${isActive ? 'text-emerald-400' : 'text-zinc-200'}`}>{c.name}</span>
+                                            <span className={`font-bold text-xs leading-tight ${isActive ? 'text-[#20e0b2]' : 'text-zinc-200'}`}>{c.name}</span>
                                         </div>
                                         {!isMember ? (
-                                            <button onClick={(e) => { e.stopPropagation(); joinCommunity(c.id); }} className="shrink-0 text-[8px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded font-black hover:bg-emerald-500 hover:text-emerald-950 transition-all uppercase tracking-wider">Join</button>
+                                            <button onClick={(e) => { e.stopPropagation(); joinCommunity(c.id); }} className="shrink-0 text-[8px] bg-[#20e0b2]/10 text-[#20e0b2] border border-[rgba(32,224,178,0.3)]/20 px-2 py-0.5 rounded font-black hover:bg-[#20e0b2] hover:text-emerald-950 transition-all uppercase tracking-wider">Join</button>
                                         ) : (
-                                            <button onClick={(e) => { e.stopPropagation(); leaveCommunity(c.id); }} className="shrink-0 text-[8px] bg-red-500/10 text-red-405 border border-red-500/20 px-2 py-0.5 rounded font-black hover:bg-red-500 hover:text-white transition-all uppercase tracking-wider">Leave</button>
+                                            <button onClick={(e) => { e.stopPropagation(); leaveCommunity(c.id); }} className="shrink-0 text-[8px] bg-[rgba(255,92,115,0.08)] text-red-405 border border-[rgba(255,92,115,0.2)] px-2 py-0.5 rounded font-black hover:bg-red-500 hover:text-white transition-all uppercase tracking-wider">Leave</button>
                                         )}
                                     </div>
                                     {c.description && <span className="text-[10px] text-zinc-550 line-clamp-2 leading-relaxed">{c.description}</span>}
@@ -887,8 +887,8 @@ export default function CommunityPage() {
             </div>
 
             {isCreateCommunityModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className="bg-[#111118] border border-zinc-800/40 rounded-xl p-5 w-full max-w-sm shadow-2xl relative font-mono text-[10px]">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+                    <div className="bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-xl p-5 w-full max-w-sm relative font-mono text-[10px]">
                         <h2 className="text-xs font-bold mb-4 flex items-center gap-2 uppercase tracking-widest text-white">
                             <Users className="w-4 h-4 text-emerald-450" /> Create Space
                         </h2>
@@ -906,7 +906,7 @@ export default function CommunityPage() {
                                     />
                                     <label 
                                         htmlFor="comm-image"
-                                        className="w-12 h-12 rounded-lg border border-dashed border-zinc-800 flex items-center justify-center cursor-pointer hover:border-emerald-500 hover:bg-emerald-500/5 transition-colors flex-shrink-0 relative overflow-hidden"
+                                        className="w-12 h-12 rounded-lg border border-dashed border-[rgba(255,255,255,0.07)] flex items-center justify-center cursor-pointer hover:border-[rgba(32,224,178,0.3)] hover:bg-[#20e0b2]/5 transition-colors flex-shrink-0 relative overflow-hidden"
                                     >
                                         {newCommunityImage ? (
                                             <img src={newCommunityImage} alt="Preview" className="w-full h-full object-cover" />
@@ -926,7 +926,7 @@ export default function CommunityPage() {
                                     placeholder="e.g. ICT Gold Hunters"
                                     value={newCommunityName}
                                     onChange={e => setNewCommunityName(e.target.value)}
-                                    className="w-full bg-black/25 border border-zinc-800/50 rounded-lg px-3.5 py-2 text-xs focus:outline-none focus:border-emerald-500/50 text-white"
+                                    className="w-full bg-black/25 border border-[rgba(255,255,255,0.07)] rounded-lg px-3.5 py-2 text-xs focus:outline-none focus:border-[rgba(32,224,178,0.3)]/50 text-white"
                                 />
                             </div>
                             <div className="flex flex-col gap-1.5">
@@ -935,7 +935,7 @@ export default function CommunityPage() {
                                     placeholder="What is this space about?"
                                     value={newCommunityDesc}
                                     onChange={e => setNewCommunityDesc(e.target.value)}
-                                    className="w-full bg-black/25 border border-zinc-800/50 rounded-lg px-3.5 py-2 text-xs focus:outline-none focus:border-emerald-500/50 text-white resize-none h-20"
+                                    className="w-full bg-black/25 border border-[rgba(255,255,255,0.07)] rounded-lg px-3.5 py-2 text-xs focus:outline-none focus:border-[rgba(32,224,178,0.3)]/50 text-white resize-none h-20"
                                 />
                             </div>
                         </div>
@@ -944,13 +944,13 @@ export default function CommunityPage() {
                             <button
                                 onClick={handleCreateCommunity}
                                 disabled={!newCommunityName.trim() || uploadingCommImage}
-                                className="flex-1 bg-emerald-500 text-emerald-950 py-2 rounded-lg disabled:opacity-50 font-black"
+                                className="flex-1 bg-[#20e0b2] text-emerald-950 py-2 rounded-lg disabled:opacity-50 font-black"
                             >
                                 {uploadingCommImage ? "Uploading..." : "Create"}
                             </button>
                             <button
                                 onClick={() => setIsCreateCommunityModalOpen(false)}
-                                className="flex-1 bg-black/25 border border-zinc-800 text-zinc-350 py-2 rounded-lg"
+                                className="flex-1 bg-black/25 border border-[rgba(255,255,255,0.07)] text-zinc-350 py-2 rounded-lg"
                             >
                                 Cancel
                             </button>
@@ -961,3 +961,4 @@ export default function CommunityPage() {
         </div>
     );
 }
+

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import React, { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Play, Pause, SkipForward, Loader2, AlertCircle, FastForward } from "lucide-react";
@@ -75,8 +75,8 @@ export function TradeReplayModal({ tradeId, onClose }: TradeReplayModalProps) {
         crosshair: { mode: 0 },
       });
       seriesRef.current = chartRef.current.addCandlestickSeries({
-        upColor: "#00d4a1", downColor: "#ff4d6a", borderVisible: false,
-        wickUpColor: "#00d4a1", wickDownColor: "#ff4d6a",
+        upColor: "#20e0b2", downColor: "#ff5c73", borderVisible: false,
+        wickUpColor: "#20e0b2", wickDownColor: "#ff5c73",
       });
     }
 
@@ -106,7 +106,7 @@ export function TradeReplayModal({ tradeId, onClose }: TradeReplayModalProps) {
           markers.push({
              time: entryCandle.time as Time,
              position: tradeData.direction === 'Long' ? 'belowBar' : 'aboveBar',
-             color: tradeData.direction === 'Long' ? '#00dc82' : '#ff4d6a',
+             color: tradeData.direction === 'Long' ? '#20e0b2' : '#ff5c73',
              shape: tradeData.direction === 'Long' ? 'arrowUp' : 'arrowDown',
              text: `Entry: ${tradeData.price}`,
           });
@@ -184,7 +184,7 @@ export function TradeReplayModal({ tradeId, onClose }: TradeReplayModalProps) {
 
   return (
     <Dialog open={!!tradeId} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="w-[95vw] md:w-full max-w-5xl max-h-[90vh] overflow-y-auto bg-[#0c0c0d] border border-white/10 text-white shadow-2xl p-0">
+      <DialogContent className="w-[95vw] md:w-full max-w-5xl max-h-[90vh] overflow-y-auto bg-[#0c0c0d] border border-white/10 text-white p-0">
         <DialogHeader className="p-4 border-b border-white/5 bg-[#121214]">
           <DialogTitle className="flex items-center gap-3">
             <div className="w-8 h-8 rounded bg-blue-500/10 flex items-center justify-center">
@@ -206,7 +206,7 @@ export function TradeReplayModal({ tradeId, onClose }: TradeReplayModalProps) {
                <p className="text-gray-400 animate-pulse font-mono text-sm">Fetching historical OHLC data...</p>
             </div>
           ) : error ? (
-            <div className="h-[400px] flex flex-col items-center justify-center gap-3 text-red-400">
+            <div className="h-[400px] flex flex-col items-center justify-center gap-3 text-[#ff5c73]">
                <AlertCircle className="w-10 h-10" />
                <p>{error}</p>
             </div>
@@ -218,7 +218,7 @@ export function TradeReplayModal({ tradeId, onClose }: TradeReplayModalProps) {
                        onClick={() => setPlaying(!playing)}
                        className="p-2 rounded hover:bg-white/10 transition-colors"
                     >
-                       {playing ? <Pause className="w-5 h-5 text-yellow-500" /> : <Play className="w-5 h-5 text-[#00dc82]" />}
+                       {playing ? <Pause className="w-5 h-5 text-yellow-500" /> : <Play className="w-5 h-5 text-[#20e0b2]" />}
                     </button>
                     <button
                        onClick={handleNext}
@@ -262,3 +262,4 @@ export function TradeReplayModal({ tradeId, onClose }: TradeReplayModalProps) {
     </Dialog>
   );
 }
+

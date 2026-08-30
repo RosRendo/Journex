@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from "react";
 import { AlertTriangle, Clock, Loader2, Calendar } from "lucide-react";
@@ -107,7 +107,7 @@ export function NewsCountdownWidget() {
 function TimeBox({ value, label, isUrgent }: { value: number, label: string, isUrgent: boolean }) {
   return (
     <div className="flex flex-col items-center">
-      <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl flex items-center justify-center shadow-inner relative overflow-hidden" 
+      <div className="w-16 h-16 md:w-20 md:h-20 rounded-lg flex items-center justify-center shadow-inner relative overflow-hidden" 
            style={{ background: "var(--bg-elevated)", border: `1px solid ${isUrgent ? 'rgba(255,77,106,0.2)' : 'var(--border)'}` }}>
         <span className="text-3xl md:text-4xl font-black relative z-10" style={{ color: isUrgent ? "var(--bear)" : "var(--text-primary)" }}>
           {value.toString().padStart(2, '0')}
@@ -117,3 +117,4 @@ function TimeBox({ value, label, isUrgent }: { value: number, label: string, isU
     </div>
   );
 }
+

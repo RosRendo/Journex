@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect } from "react";
 import { Shield, CheckCircle2, XCircle, AlertTriangle, Edit2, Save, RotateCcw, TrendingUp, TrendingDown, Clock, Zap, Target, BarChart3 } from "lucide-react";
 
@@ -85,7 +85,7 @@ export default function TradingPlanEnforcer() {
   const totalRules = rules.length;
 
   return (
-    <div className="bg-[#111118] border border-zinc-800/40 rounded-xl p-5 shadow-xl font-mono text-[10px]">
+    <div className="bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-xl p-5 font-mono text-[10px]">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Shield className="w-4 h-4 text-emerald-450" />
@@ -116,7 +116,7 @@ export default function TradingPlanEnforcer() {
           </div>
           <div className="flex items-center gap-2 mt-1">
             <span className="text-sm font-bold text-white">{mockTodayStats.tradesThisWeek} <span className="text-[8px] text-zinc-600">trades</span></span>
-            <span className="text-xs font-bold text-emerald-400">
+            <span className="text-xs font-bold text-[#20e0b2]">
               -{mockTodayStats.weeklyLoss}%
             </span>
           </div>
@@ -124,7 +124,7 @@ export default function TradingPlanEnforcer() {
       </div>
 
       {violations.length > 0 && (
-        <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 font-mono">
+        <div className="mb-4 p-3 rounded-lg bg-[#ff5c73]/10 border border-[#ff5c73]/20 text-[#ff5c73] font-mono">
           <div className="flex items-center gap-1.5 mb-2 font-bold text-[9px] uppercase tracking-wider">
             <AlertTriangle className="w-3.5 h-3.5" />
             <span>ACTIVE VIOLATIONS</span>
@@ -140,7 +140,7 @@ export default function TradingPlanEnforcer() {
       )}
 
       {violations.length === 0 && (
-        <div className="mb-4 p-3 rounded-lg flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+        <div className="mb-4 p-3 rounded-lg flex items-center gap-2 bg-[#20e0b2]/10 border border-[#20e0b2]/20 text-[#20e0b2]">
           <CheckCircle2 className="w-3.5 h-3.5" />
           <span className="font-bold uppercase tracking-wider text-[9px]">All rules followed - Plan compliant</span>
         </div>
@@ -160,14 +160,14 @@ export default function TradingPlanEnforcer() {
                 {categoryRules.map(rule => (
                   <div
                     key={rule.id}
-                    className="flex items-center justify-between p-2 rounded-lg border bg-black/10 border-zinc-900/40"
+                    className="flex items-center justify-between p-2 rounded-lg border bg-black/10 border-[rgba(255,255,255,0.04)]"
                     style={{ opacity: rule.enabled ? 1 : 0.4 }}
                   >
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => toggleRule(rule.id)}
                         className={`w-3.5 h-3.5 rounded flex items-center justify-center transition-all ${
-                          rule.enabled ? "bg-emerald-500" : "bg-zinc-800"
+                          rule.enabled ? "bg-[#20e0b2]" : "bg-zinc-800"
                         }`}
                       >
                         {rule.enabled && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-950 font-black" />}
@@ -180,7 +180,7 @@ export default function TradingPlanEnforcer() {
                         {rule.type === "boolean" ? (
                           <button
                             onClick={() => setEditValue(!editValue)}
-                            className="px-2 py-0.5 rounded text-[9px] font-bold border border-emerald-500/20 text-emerald-400 bg-emerald-500/5"
+                            className="px-2 py-0.5 rounded text-[9px] font-bold border border-[#20e0b2]/20 text-[#20e0b2] bg-[#20e0b2]/5"
                           >
                             {editValue ? "ON" : "OFF"}
                           </button>
@@ -189,7 +189,7 @@ export default function TradingPlanEnforcer() {
                             type="number"
                             value={editValue as number}
                             onChange={(e) => setEditValue(Number(e.target.value))}
-                            className="w-12 text-[10px] px-1 py-0.5 rounded bg-[#111118] border border-zinc-800/80 text-white font-mono text-center focus:outline-none focus:border-blue-500"
+                            className="w-12 text-[10px] px-1 py-0.5 rounded bg-[#101014] border border-[rgba(255,255,255,0.07)]/80 text-white font-mono text-center focus:outline-none focus:border-blue-500"
                           />
                         )}
                         <button onClick={saveEdit} className="p-1 rounded text-emerald-450 hover:text-emerald-350">
@@ -216,3 +216,4 @@ export default function TradingPlanEnforcer() {
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+﻿import { useMemo } from "react";
 import { Bell, AlertTriangle, TrendingDown, CheckCircle2, Activity, Wifi, WifiOff } from "lucide-react";
 import { TradeData } from "@/hooks/useCsvTrades";
 import { Position } from "@/hooks/usePositions";
@@ -137,7 +137,7 @@ export function AlertsWidget({ trades, positions, mt5Connected, balance, equity,
   };
 
   return (
-    <div className="rounded-xl border border-[--border] bg-[--bg-card] h-full flex flex-col shadow-lg animate-fade-in relative overflow-hidden group">
+    <div className="rounded-xl border border-[--border] bg-[--bg-card] h-full flex flex-col animate-fade-in relative overflow-hidden group">
       <div className="absolute top-0 right-0 w-[200px] h-[200px] bg-yellow-500/5 blur-[80px] rounded-full pointer-events-none" />
 
       {/* Header */}
@@ -190,3 +190,4 @@ export function AlertsWidget({ trades, positions, mt5Connected, balance, equity,
     </div>
   );
 }
+

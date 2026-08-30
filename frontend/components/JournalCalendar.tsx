@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import { TradeData } from "@/hooks/useCsvTrades";
 import { ChevronLeft, ChevronRight, FileText, TrendingDown, TrendingUp } from "lucide-react";
 
@@ -82,122 +82,124 @@ export default function JournalCalendar({ trades, onDayClick }: JournalCalendarP
 
         const summaryEntries = Object.entries(tradesBySymbol).sort((a, b) => b[1].count - a[1].count);
 
+        // Premium styling matching the dashboard's new aesthetic
+        let tileClass = "border-[rgba(255,255,255,0.07)] bg-zinc-950/20 text-zinc-400 hover:border-[rgba(255,255,255,0.1)] hover:bg-zinc-900/10";
+        if (dayTrades.length > 0) {
+            if (totalProfit > 0) {
+                tileClass = "bg-[rgba(32,224,178,0.10)] border-[rgba(32,224,178,0.15)] hover:bg-[rgba(32,224,178,0.18)] text-[#20e0b2]";
+            } else if (totalProfit < 0) {
+                tileClass = "bg-[rgba(255,92,115,0.10)] border-[rgba(255,92,115,0.15)] hover:bg-[rgba(255,92,115,0.18)] text-[#ff5c73]";
+            } else {
+                tileClass = "bg-zinc-900/60 border-zinc-850 text-zinc-300 hover:bg-zinc-900";
+            }
+        } else if (isToday) {
+            tileClass = "bg-white/5 border-white/20 text-white";
+        }
+
         calendarCells.push(
             <div
                 key={`day-${i}`}
                 onClick={() => onDayClick(dateStr, dayTrades)}
-                className={`cursor-pointer min-h-[120px] p-3 border rounded-xl flex flex-col transition-all group ${isToday ? 'border-primary ring-2 ring-primary/20 shadow-[0_0_15px_rgba(59,130,246,0.2)] bg-primary/5' : 'border-border/50 bg-card/40 hover:bg-secondary/40'
-                    }`}
+                className={`cursor-pointer min-h-[140px] p-3 border rounded-xl flex flex-col justify-between transition-all duration-300 group ${tileClass}`}
             >
-                <div className="flex items-center justify-between mb-2">
-                    <span className={`text-sm font-bold w-7 h-7 flex items-center justify-center rounded-full ${isToday ? 'bg-primary text-primary-foreground' : 'text-muted-foreground group-hover:text-foreground'}`}>
+                <div className="flex items-center justify-between">
+                    <span className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-white text-black' : 'text-zinc-400 group-hover:text-white'}`}>
                         {i}
                     </span>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <span className="text-[9px] text-primary font-bold uppercase tracking-wider bg-primary/10 px-1.5 py-0.5 rounded">
+                    <div className="flex items-center gap-1.5">
+                        {dayJournal && (
+                            <span title="Journal Attached">
+                                <FileText className="w-3.5 h-3.5 text-[#20e0b2]" />
+                            </span>
+                        )}
+                        <span className="text-[8px] font-bold text-zinc-500 opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-wider font-mono">
                             {dayJournal ? "Edit" : "+ Add"}
                         </span>
                     </div>
-                    {dayJournal && (
-                        <div title="Daily journal attached" className="group-hover:hidden">
-                            <FileText className="w-4 h-4 text-primary" />
-                        </div>
-                    )}
                 </div>
 
-                {
-                    dayTrades.length > 0 ? (
-                        <div className="flex-1 flex flex-col gap-1 overflow-y-auto pr-1 mt-2 custom-scrollbar">
-                            {summaryEntries.map(([symbol, stats], idx) => {
-                                return (
-                                    <div
-                                        key={idx}
-                                        className={`text-[11px] p-1.5 rounded-lg border flex flex-col justify-between ${stats.profit >= 0
-                                            ? 'bg-profit/5 border-profit/20'
-                                            : 'bg-loss/5 border-loss/20'
-                                            }`}
-                                    >
-                                        <div className="flex items-center justify-between font-bold truncate">
-                                            <span className="flex items-center gap-1">
-                                                {symbol}
-                                                <span className="text-[9px] text-muted-foreground bg-secondary/80 px-1 rounded-sm">x{stats.count}</span>
-                                            </span>
-                                            <div className={`${stats.profit >= 0 ? 'text-profit' : 'text-loss'}`}>
-                                                {stats.profit >= 0 ? '+' : ''}${stats.profit.toFixed(0)}
-                                            </div>
-                                        </div>
-                                        <div className="flex gap-1.5 mt-0.5 text-[9px] font-semibold opacity-80">
-                                            {stats.win > 0 && <span className="text-profit">{stats.win}W</span>}
-                                            {stats.loss > 0 && <span className="text-loss">{stats.loss}L</span>}
-                                            {stats.be > 0 && <span className="text-muted-foreground">{stats.be}BE</span>}
-                                        </div>
+                {/* Compact symbol trade details */}
+                {dayTrades.length > 0 ? (
+                    <div className="flex-1 flex flex-col gap-1 overflow-y-auto pr-1 mt-2.5 max-h-[80px] custom-scrollbar">
+                        {summaryEntries.map(([symbol, stats], idx) => {
+                            const isSymWin = stats.profit >= 0;
+                            return (
+                                <div
+                                    key={idx}
+                                    className={`text-[9px] px-2 py-1 rounded-md border flex items-center justify-between font-mono font-bold ${
+                                        isSymWin
+                                            ? 'bg-[rgba(32,224,178,0.06)] border-[rgba(32,224,178,0.15)] text-[#20e0b2]'
+                                            : 'bg-[rgba(255,92,115,0.06)] border-[rgba(255,92,115,0.12)] text-[#ff5c73]'
+                                    }`}
+                                >
+                                    <div className="flex items-center gap-1.5 truncate max-w-[70%]">
+                                        <span>{symbol}</span>
+                                        <span className="text-[8px] opacity-65">x{stats.count}</span>
                                     </div>
-                                );
-                            })}
-                        </div>
-                    ) : (
-                        <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground/40 font-medium pb-2">
-                            No Trades
-                        </div>
-                    )
-                }
+                                    <div className="shrink-0 text-right">
+                                        {isSymWin ? '+' : ''}${Math.round(stats.profit)}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                ) : (
+                    <div className="flex-1 flex items-center justify-center text-[9px] text-zinc-600/40 font-bold uppercase tracking-wider pb-2 font-mono">
+                        No Trades
+                    </div>
+                )}
 
-                {/* Visual Daily Journal Content */}
+                {/* Day Journal Preview */}
                 {dayJournal && (dayJournal.images?.length > 0 || dayJournal.strategy || dayJournal.reason) && (
-                    <div className="mt-2 pt-2 border-t border-border/50 text-xs flex flex-col gap-1.5 opacity-90 group-hover:opacity-100 transition-opacity">
+                    <div className="mt-2 pt-2 border-t border-[rgba(255,255,255,0.07)] text-[9px] flex flex-col gap-1 opacity-90 group-hover:opacity-100 transition-all">
                         {dayJournal.images && dayJournal.images.length > 0 && (
-                            <img src={dayJournal.images[0]} alt="Day Screenshot" className="w-full h-16 object-cover rounded-md border border-border mt-1" />
+                            <img src={dayJournal.images[0]} alt="Screenshot" className="w-full h-10 object-cover rounded border border-[rgba(255,255,255,0.07)] mt-0.5" />
                         )}
                         {dayJournal.strategy && (
-                            <div className="font-bold text-[10px] text-primary break-words leading-tight uppercase tracking-wider">
+                            <div className="font-bold text-[8px] text-[#20e0b2] break-words uppercase tracking-wider">
                                 {dayJournal.strategy}
-                            </div>
-                        )}
-                        {dayJournal.reason && (
-                            <div className="text-[10px] text-muted-foreground italic line-clamp-2 leading-tight">
-                                {dayJournal.reason}
                             </div>
                         )}
                     </div>
                 )}
 
-                {
-                    dayTrades.length > 0 && (
-                        <div className="mt-2 pt-2 border-t border-border/50 text-right">
-                            <span className={`text-sm font-bold ${totalProfit >= 0 ? 'text-profit' : 'text-loss'}`}>
-                                {totalProfit >= 0 ? '+' : ''}${totalProfit.toFixed(2)}
-                            </span>
-                        </div>
-                    )
-                }
+                {/* Day total return */}
+                {dayTrades.length > 0 && (
+                    <div className="mt-2 pt-1.5 border-t border-[rgba(255,255,255,0.07)] flex justify-between items-center">
+                        <span className="text-[7px] text-zinc-500 font-mono uppercase tracking-widest font-bold">Day Net</span>
+                        <span className={`text-xs font-black font-mono ${totalProfit >= 0 ? 'text-[#20e0b2]' : 'text-[#ff5c73]'}`}>
+                            {totalProfit >= 0 ? '+' : ''}${totalProfit.toFixed(1)}
+                        </span>
+                    </div>
+                )}
             </div>
         );
     }
 
     return (
-        <div className="border border-border/50 rounded-2xl overflow-hidden bg-card/50 backdrop-blur-md shadow-lg p-5">
+        <div className="border border-[rgba(255,255,255,0.07)] rounded-lg overflow-hidden bg-[#101014] p-5">
             <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-extrabold text-foreground tracking-tight">
-                    {monthName} <span className="text-muted-foreground font-medium ml-1">{year}</span>
+                <h2 className="text-lg font-black text-white tracking-tight font-display uppercase">
+                    {monthName} <span className="text-zinc-500 font-medium ml-1">{year}</span>
                 </h2>
 
                 <div className="flex items-center gap-2">
                     <button
                         onClick={todayMonth}
-                        className="px-4 py-2 text-sm font-bold rounded-lg border border-border bg-secondary/50 hover:bg-secondary transition-colors"
+                        className="px-3.5 py-1.5 text-xs font-bold rounded-lg border border-[rgba(255,255,255,0.07)] bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors uppercase tracking-wider font-mono"
                     >
                         Today
                     </button>
-                    <div className="flex items-center p-1 bg-secondary/50 rounded-lg border border-border">
-                        <button onClick={prevMonth} className="p-1.5 hover:bg-background rounded-md transition-colors"><ChevronLeft className="w-5 h-5 text-muted-foreground hover:text-foreground" /></button>
-                        <button onClick={nextMonth} className="p-1.5 hover:bg-background rounded-md transition-colors"><ChevronRight className="w-5 h-5 text-muted-foreground hover:text-foreground" /></button>
+                    <div className="flex items-center p-1 bg-zinc-900 rounded-lg border border-[rgba(255,255,255,0.07)]">
+                        <button onClick={prevMonth} className="p-1 hover:bg-zinc-800 rounded-md transition-colors"><ChevronLeft className="w-4 h-4 text-zinc-400 hover:text-white" /></button>
+                        <button onClick={nextMonth} className="p-1 hover:bg-zinc-800 rounded-md transition-colors"><ChevronRight className="w-4 h-4 text-zinc-400 hover:text-white" /></button>
                     </div>
                 </div>
             </div>
 
             <div className="grid grid-cols-7 gap-3">
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                    <div key={day} className="text-center text-sm font-bold uppercase tracking-wider text-muted-foreground pb-2">
+                    <div key={day} className="text-center text-[10px] uppercase font-bold text-zinc-500 tracking-wider pb-2 font-mono">
                         {day}
                     </div>
                 ))}
@@ -206,3 +208,4 @@ export default function JournalCalendar({ trades, onDayClick }: JournalCalendarP
         </div>
     );
 }
+

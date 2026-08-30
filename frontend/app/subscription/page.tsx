@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useSession } from "@/lib/useSession";
@@ -148,7 +148,7 @@ export default function SubscriptionPage() {
 
         {/* Not‑configured warning */}
         {error && (
-          <div className="mt-6 inline-flex items-start gap-3 max-w-lg mx-auto px-4 py-3 rounded-xl bg-orange-500/10 border border-orange-500/30 text-orange-400 text-sm text-left">
+          <div className="mt-6 inline-flex items-start gap-3 max-w-lg mx-auto px-4 py-3 rounded-xl bg-[rgba(245,196,81,0.06)] border border-orange-500/30 text-[#f5c451] text-sm text-left">
             <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
@@ -160,9 +160,9 @@ export default function SubscriptionPage() {
         {PLANS.map((plan) => (
           <div
             key={plan.id}
-            className={`relative flex flex-col rounded-3xl overflow-hidden transition-all duration-300 ${
+            className={`relative flex flex-col rounded-lg overflow-hidden transition-all duration-300 ${
               plan.featured
-                ? "border-2 border-primary bg-card shadow-2xl shadow-primary/20 scale-105 z-10"
+                ? "border-2 border-primary bg-card shadow-primary/20 scale-105 z-10"
                 : "border border-border bg-card hover:border-border/80"
             }`}
           >
@@ -256,7 +256,7 @@ export default function SubscriptionPage() {
               {plan.featured && (
                 <div className="mt-4 flex flex-col items-center gap-1.5 text-[11px] font-semibold text-muted-foreground">
                   <div className="flex items-center gap-1.5">
-                    <ShieldCheck className="w-3.5 h-3.5 text-green-500" />
+                    <ShieldCheck className="w-3.5 h-3.5 text-[#20e0b2]" />
                     Secure Checkout via Polar
                   </div>
                   <div className="flex items-center gap-1.5">
@@ -272,3 +272,4 @@ export default function SubscriptionPage() {
     </div>
   );
 }
+

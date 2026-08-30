@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Play, Pause, SkipBack, SkipForward, X, Plus, Minus, Trash2, Type, SlidersHorizontal, BarChart2, Briefcase, TrendingUp, TrendingDown, Target, ShieldAlert, Activity, LayoutTemplate, Save, Database, History
@@ -93,8 +93,8 @@ export default function BacktestingPage() {
       crosshair: { mode: 0 },
     });
     const candlestickSeries = chart.addCandlestickSeries({
-      upColor: "#00d4a1", downColor: "#ff4d6a", borderVisible: false,
-      wickUpColor: "#00d4a1", wickDownColor: "#ff4d6a",
+      upColor: "#20e0b2", downColor: "#ff5c73", borderVisible: false,
+      wickUpColor: "#20e0b2", wickDownColor: "#ff5c73",
     });
     chartRef.current = chart; candlestickSeriesRef.current = candlestickSeries;
 
@@ -122,8 +122,8 @@ export default function BacktestingPage() {
             scaleMargins: { top: 0.8, bottom: 0 },
         });
         // Add RSI 30/70 boundary lines
-        rsiSeriesRef.current.createPriceLine({ price: 70, color: '#ff4d6a', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: false });
-        rsiSeriesRef.current.createPriceLine({ price: 30, color: '#00d4a1', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: false });
+        rsiSeriesRef.current.createPriceLine({ price: 70, color: '#ff5c73', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: false });
+        rsiSeriesRef.current.createPriceLine({ price: 30, color: '#20e0b2', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: false });
       }
       // Calculate RSI
       const rsiData: { time: Time; value: number }[] = [];
@@ -163,7 +163,7 @@ export default function BacktestingPage() {
     
     // Add new lines for each open position
     openPositions.forEach(pos => {
-      const color = pos.direction === "BUY" ? "#00d4a1" : "#ff4d6a";
+      const color = pos.direction === "BUY" ? "#20e0b2" : "#ff5c73";
       const line = candlestickSeriesRef.current!.createPriceLine({
         price: pos.entry,
         color: color,
@@ -176,12 +176,12 @@ export default function BacktestingPage() {
       
       if (pos.sl > 0) {
         priceLinesRef.current.push(candlestickSeriesRef.current!.createPriceLine({
-          price: pos.sl, color: "#ff4d6a", lineWidth: 1, lineStyle: 3, axisLabelVisible: true, title: "SL"
+          price: pos.sl, color: "#ff5c73", lineWidth: 1, lineStyle: 3, axisLabelVisible: true, title: "SL"
         }));
       }
       if (pos.tp > 0) {
         priceLinesRef.current.push(candlestickSeriesRef.current!.createPriceLine({
-          price: pos.tp, color: "#00d4a1", lineWidth: 1, lineStyle: 3, axisLabelVisible: true, title: "TP"
+          price: pos.tp, color: "#20e0b2", lineWidth: 1, lineStyle: 3, axisLabelVisible: true, title: "TP"
         }));
       }
     });
@@ -310,7 +310,7 @@ export default function BacktestingPage() {
 
   const addHorizontalLine = () => {
     if (!candlestickSeriesRef.current || !currentCandle) return;
-    const line = candlestickSeriesRef.current.createPriceLine({ price: currentCandle.close, color: "#00d4a1", lineWidth: 2, lineStyle: 2, axisLabelVisible: true });
+    const line = candlestickSeriesRef.current.createPriceLine({ price: currentCandle.close, color: "#20e0b2", lineWidth: 2, lineStyle: 2, axisLabelVisible: true });
     priceLinesRef.current.push(line);
   };
 
@@ -321,7 +321,7 @@ export default function BacktestingPage() {
     const value = param.point != null ? series.coordinateToPrice(param.point.y) : undefined;
     if (time == null || value == null) return;
     if (!trendPoint1) { setTrendPoint1({ time, value }); return; }
-    const lineSeries = chart.addLineSeries({ color: "#00d4a1", lineWidth: 2, lineStyle: 2 });
+    const lineSeries = chart.addLineSeries({ color: "#20e0b2", lineWidth: 2, lineStyle: 2 });
     lineSeries.setData([{ time: trendPoint1.time, value: trendPoint1.value }, { time, value }]);
     trendLinesRef.current.push({ id: `tl-${Date.now()}`, series: lineSeries });
     setTrendPoint1(null);
@@ -349,7 +349,7 @@ export default function BacktestingPage() {
         
         {/* Top Floating Header */}
         <div className="absolute top-4 left-4 right-4 z-10 flex justify-between items-start pointer-events-none">
-          <div className="backdrop-blur-md rounded-2xl px-5 py-3 flex items-center gap-3 shadow-2xl pointer-events-auto border" style={{ background: "rgba(10,10,15,0.8)", borderColor: "var(--border-strong)" }}>
+          <div className="backdrop-blur-md rounded-lg px-5 py-3 flex items-center gap-3 pointer-events-auto border" style={{ background: "rgba(10,10,15,0.8)", borderColor: "var(--border-strong)" }}>
             <div className="w-10 h-10 rounded-xl flex items-center justify-center text-[--accent] bg-[--accent]/10 border border-[--accent]/20">
               <Activity className="w-5 h-5" />
             </div>
@@ -366,7 +366,7 @@ export default function BacktestingPage() {
           {/* Drawing Tools */}
           {session && (
             <div className="flex gap-2 pointer-events-auto">
-              <div className="backdrop-blur-md border rounded-xl flex items-center p-1.5 shadow-2xl" style={{ background: "rgba(10,10,15,0.8)", borderColor: "var(--border-strong)" }}>
+              <div className="backdrop-blur-md border rounded-xl flex items-center p-1.5" style={{ background: "rgba(10,10,15,0.8)", borderColor: "var(--border-strong)" }}>
                 <button onClick={() => { setDrawTool("none"); setTrendPoint1(null); }} className={`p-2 rounded-lg transition-colors ${drawTool === "none" ? "bg-[--text-primary] text-[--bg-base]" : "text-[--text-secondary] hover:bg-[--bg-elevated]"}`}>
                   <LayoutTemplate size={16} />
                 </button>
@@ -377,15 +377,15 @@ export default function BacktestingPage() {
                   <Type size={16} />
                 </button>
                 <div className="w-[1px] h-6 mx-2" style={{ background: "var(--border)" }} />
-                <button onClick={() => setShowRSI(!showRSI)} className={`p-2 rounded-lg transition-colors font-bold text-xs px-3 ${showRSI ? "bg-purple-500/20 text-purple-400" : "text-[--text-secondary] hover:bg-[--bg-elevated]"}`}>
+                <button onClick={() => setShowRSI(!showRSI)} className={`p-2 rounded-lg transition-colors font-bold text-xs px-3 ${showRSI ? "bg-purple-500/20 text-[#a1a1aa]" : "text-[--text-secondary] hover:bg-[--bg-elevated]"}`}>
                   RSI
                 </button>
-                <button onClick={clearDrawings} className="p-2 ml-1 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors">
+                <button onClick={clearDrawings} className="p-2 ml-1 rounded-lg text-[#ff5c73] hover:bg-[rgba(255,92,115,0.08)] transition-colors">
                   <Trash2 size={16} />
                 </button>
               </div>
               
-              <button onClick={saveCurrentSession} className="backdrop-blur-md border rounded-xl p-3 flex items-center justify-center shadow-2xl hover:bg-[--bg-elevated] text-[--text-primary] transition-all" style={{ background: "rgba(10,10,15,0.8)", borderColor: "var(--border-strong)" }}>
+              <button onClick={saveCurrentSession} className="backdrop-blur-md border rounded-xl p-3 flex items-center justify-center hover:bg-[--bg-elevated] text-[--text-primary] transition-all" style={{ background: "rgba(10,10,15,0.8)", borderColor: "var(--border-strong)" }}>
                 <Save size={16} />
               </button>
             </div>
@@ -393,18 +393,18 @@ export default function BacktestingPage() {
         </div>
 
         {/* Chart Viewport */}
-        <div className="flex-1 relative z-0 bg-[#0a0a0f]">
+        <div className="flex-1 relative z-0 bg-[#09090b]">
           <div ref={chartContainerRef} className="absolute inset-0 bg-transparent flex items-center justify-center" />
           
           {/* Empty State Overlay */}
           {!session && (
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-20 flex-col gap-6">
+            <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-20 flex-col gap-6">
               
               {/* Main New Session Box */}
-              <div className="rounded-3xl p-8 max-w-2xl w-full shadow-[0_0_50px_rgba(0,0,0,0.5)] flex flex-col gap-6 backdrop-blur-3xl border transition-all hover:border-white/10" style={{ background: "rgba(15,15,20,0.8)", borderColor: "var(--border-strong)" }}>
+              <div className="rounded-lg p-8 max-w-2xl w-full flex flex-col gap-6 backdrop-blur-3xl border transition-all hover:border-white/10" style={{ background: "rgba(15,15,20,0.8)", borderColor: "var(--border-strong)" }}>
                 
                 <div className="text-center">
-                  <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 border" style={{ background: "rgba(0,212,161,0.1)", borderColor: "rgba(0,212,161,0.2)" }}>
+                  <div className="w-16 h-16 rounded-lg flex items-center justify-center mx-auto mb-4 border" style={{ background: "rgba(0,212,161,0.1)", borderColor: "rgba(0,212,161,0.2)" }}>
                     <BarChart2 className="w-8 h-8 text-[--accent]" />
                   </div>
                   <h2 className="text-[24px] font-bold text-[--text-primary]" style={{ fontFamily: "var(--font-display, Syne, sans-serif)" }}>Research Terminal</h2>
@@ -412,7 +412,7 @@ export default function BacktestingPage() {
                 </div>
 
                 {sessionError && (
-                  <div className="p-3 bg-red-500/10 border border-red-500/20 text-[--loss] rounded-lg text-[13px] text-center font-bold">
+                  <div className="p-3 bg-[rgba(255,92,115,0.08)] border border-[rgba(255,92,115,0.2)] text-[--loss] rounded-lg text-[13px] text-center font-bold">
                     {sessionError}
                   </div>
                 )}
@@ -449,14 +449,14 @@ export default function BacktestingPage() {
                   </div>
                 </div>
 
-                <button onClick={createSession} className="w-full font-bold py-4 rounded-xl shadow-[0_0_20px_rgba(0,212,161,0.2)] hover:shadow-[0_0_30px_rgba(0,212,161,0.4)] transition-all flex items-center justify-center gap-2" style={{ background: "var(--accent)", color: "#000" }}>
+                <button onClick={createSession} className="w-full font-bold py-4 rounded-xl hover:shadow-[0_0_30px_rgba(0,212,161,0.4)] transition-all flex items-center justify-center gap-2" style={{ background: "var(--accent)", color: "#000" }}>
                   <Play className="w-5 h-5" /> Launch Simulation Engine
                 </button>
               </div>
               
               {/* Saved Sessions Box */}
               {savedSessions.length > 0 && (
-                  <div className="rounded-3xl p-6 max-w-2xl w-full shadow-2xl border backdrop-blur-3xl transition-all" style={{ background: "rgba(15,15,20,0.8)", borderColor: "var(--border-strong)" }}>
+                  <div className="rounded-lg p-6 max-w-2xl w-full border backdrop-blur-3xl transition-all" style={{ background: "rgba(15,15,20,0.8)", borderColor: "var(--border-strong)" }}>
                       <h3 className="font-bold text-[14px] uppercase tracking-wider text-[--text-primary] mb-3 flex items-center gap-2">
                           <History size={16} className="text-blue-500"/> Saved Replay Sessions
                       </h3>
@@ -467,7 +467,7 @@ export default function BacktestingPage() {
                                       <p className="font-bold text-[13px] text-[--text-primary]">{s.symbol} • {s.timeframe}</p>
                                       <p className="text-[10px] text-[--text-tertiary] mt-0.5">Saved: {s.date} • {s.candles.length} bars</p>
                                   </div>
-                                  <div className="w-6 h-6 rounded bg-blue-500/20 text-blue-400 flex items-center justify-center"><Play size={12} className="ml-0.5 fill-current"/></div>
+                                  <div className="w-6 h-6 rounded bg-[rgba(32,224,178,0.08)] text-[#20e0b2] flex items-center justify-center"><Play size={12} className="ml-0.5 fill-current"/></div>
                               </button>
                           ))}
                       </div>
@@ -476,7 +476,7 @@ export default function BacktestingPage() {
               
               {/* Pro Feature: Monte Carlo Settings */}
               <ProLock featureName="Advanced Monte Carlo Simulations">
-                  <div className="rounded-3xl p-6 max-w-2xl w-full shadow-2xl border relative overflow-hidden" style={{ background: "var(--bg-card)", borderColor: "var(--border-strong)" }}>
+                  <div className="rounded-lg p-6 max-w-2xl w-full border relative overflow-hidden" style={{ background: "var(--bg-card)", borderColor: "var(--border-strong)" }}>
                       <h3 className="font-bold text-[14px] uppercase tracking-wider text-[--text-primary] mb-3 flex items-center gap-2">
                            <BarChart2 size={16} className="text-[--accent]"/> Advanced Monte Carlo Parameters
                       </h3>
@@ -500,7 +500,7 @@ export default function BacktestingPage() {
         {/* Bottom Floating Timeline Controls overlay */}
         {session && (
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-3xl z-10 pointer-events-none">
-            <div className="backdrop-blur-xl border rounded-2xl p-4 shadow-2xl pointer-events-auto flex flex-col gap-4" style={{ background: "rgba(15,15,20,0.85)", borderColor: "var(--border-strong)" }}>
+            <div className="backdrop-blur-xl border rounded-lg p-4 pointer-events-auto flex flex-col gap-4" style={{ background: "rgba(15,15,20,0.85)", borderColor: "var(--border-strong)" }}>
               
               <div className="w-full flex items-center gap-4">
                 <span className="text-[11px] font-mono font-bold text-[--text-tertiary]">{currentIndex}</span>
@@ -529,7 +529,7 @@ export default function BacktestingPage() {
                   <button onClick={previousCandle} disabled={isPlaying} className="w-10 h-10 rounded-full flex items-center justify-center border hover:bg-[--bg-elevated] transition-colors disabled:opacity-30" style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>
                     <SkipBack size={16} className="fill-current mr-0.5" />
                   </button>
-                  <button onClick={() => setIsPlaying(!isPlaying)} className="w-14 h-14 rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(0,212,161,0.3)] transition-transform hover:scale-105" style={{ background: isPlaying ? "var(--bg-card)" : "var(--accent)", color: isPlaying ? "var(--text-primary)" : "#000", border: isPlaying ? "1px solid var(--border-strong)" : "none" }}>
+                  <button onClick={() => setIsPlaying(!isPlaying)} className="w-14 h-14 rounded-full flex items-center justify-center transition-transform hover:scale-105" style={{ background: isPlaying ? "var(--bg-card)" : "var(--accent)", color: isPlaying ? "var(--text-primary)" : "#000", border: isPlaying ? "1px solid var(--border-strong)" : "none" }}>
                     {isPlaying ? <Pause size={24} className="fill-current" /> : <Play size={24} className="fill-current ml-1" />}
                   </button>
                   <button onClick={nextCandle} disabled={isPlaying} className="w-10 h-10 rounded-full flex items-center justify-center border hover:bg-[--bg-elevated] transition-colors disabled:opacity-30" style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>
@@ -549,7 +549,7 @@ export default function BacktestingPage() {
       </div>
 
       {/* ── RIGHT: Execution & Analytics Sidebar ── */}
-      <div className={`w-[360px] backdrop-blur-2xl h-full flex flex-col transition-all duration-300 border-l shadow-2xl ${!session ? 'opacity-30 pointer-events-none' : 'opacity-100'}`} style={{ background: "rgba(10,10,15,0.8)", borderColor: "var(--border-strong)" }}>
+      <div className={`w-[360px] backdrop-blur-2xl h-full flex flex-col transition-all duration-300 border-l ${!session ? 'opacity-30 pointer-events-none' : 'opacity-100'}`} style={{ background: "rgba(10,10,15,0.8)", borderColor: "var(--border-strong)" }}>
         
         {/* Equity Header */}
         <div className="p-6 border-b" style={{ borderColor: "var(--border)" }}>
@@ -570,11 +570,11 @@ export default function BacktestingPage() {
           
           <div className="flex gap-2 p-1.5 rounded-xl border mb-5" style={{ background: "var(--bg-base)", borderColor: "var(--border)" }}>
             <button onClick={() => setTradeFormData({...tradeFormData, direction: "SELL"})} 
-              className={`flex-1 py-2.5 rounded-lg text-[13px] font-bold transition-all flex justify-center items-center gap-2 ${tradeFormData.direction === "SELL" ? "bg-[--loss] text-white shadow-[0_0_15px_rgba(255,77,106,0.3)]" : "text-[--text-secondary]"}`}>
+              className={`flex-1 py-2.5 rounded-lg text-[13px] font-bold transition-all flex justify-center items-center gap-2 ${tradeFormData.direction === "SELL" ? "bg-[--loss] text-white" : "text-[--text-secondary]"}`}>
               SELL
             </button>
             <button onClick={() => setTradeFormData({...tradeFormData, direction: "BUY"})} 
-              className={`flex-1 py-2.5 rounded-lg text-[13px] font-bold transition-all flex justify-center items-center gap-2 ${tradeFormData.direction === "BUY" ? "bg-[--profit] text-black shadow-[0_0_15px_rgba(0,212,161,0.3)]" : "text-[--text-secondary]"}`}>
+              className={`flex-1 py-2.5 rounded-lg text-[13px] font-bold transition-all flex justify-center items-center gap-2 ${tradeFormData.direction === "BUY" ? "bg-[--profit] text-black" : "text-[--text-secondary]"}`}>
               BUY
             </button>
           </div>
@@ -618,7 +618,7 @@ export default function BacktestingPage() {
                 const floatingPnl = currentCandle ? calculateFloatingPnl(pos, currentCandle.close) : 0;
                 const isProfit = floatingPnl >= 0;
                 return (
-                <div key={pos.id} className="rounded-2xl border p-4 flex flex-col backdrop-blur-xl shadow-lg transition-all hover:border-white/10 group" style={{ background: "rgba(15,15,20,0.6)", borderColor: "var(--border)" }}>
+                <div key={pos.id} className="rounded-lg border p-4 flex flex-col shadow-lg transition-all hover:border-white/10 group" style={{ background: "rgba(15,15,20,0.6)", borderColor: "var(--border)" }}>
                   <div className="flex justify-between items-center mb-3">
                     <div className="flex flex-col">
                       <span className="font-bold font-mono text-[14px] text-[--text-primary]">{pos.symbol}</span>
@@ -648,7 +648,7 @@ export default function BacktestingPage() {
           
           <h3 className="text-[13px] font-bold uppercase tracking-wider text-[--text-primary] mb-4">Simulation Analytics</h3>
           {statistics ? (
-            <div className="rounded-2xl p-4 border space-y-2 backdrop-blur-xl shadow-lg" style={{ background: "rgba(15,15,20,0.6)", borderColor: "var(--border-strong)" }}>
+            <div className="rounded-lg p-4 border space-y-2 shadow-lg" style={{ background: "rgba(15,15,20,0.6)", borderColor: "var(--border-strong)" }}>
               <StatRow label="Win Rate" value={`${statistics.win_rate.toFixed(1)}%`} colorClass={statistics.win_rate > 50 ? "text-[--profit]" : "text-[--loss]"} />
               <StatRow label="Total Deals" value={statistics.total_trades} />
               <StatRow label="Wins / Defeats" value={`${statistics.wins} / ${statistics.losses}`} />
@@ -666,3 +666,4 @@ export default function BacktestingPage() {
     </div>
   );
 }
+

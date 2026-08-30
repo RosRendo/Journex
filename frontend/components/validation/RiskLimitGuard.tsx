@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect } from "react";
 import { AlertTriangle, Shield, TrendingDown, TrendingUp, DollarSign, Percent, Activity, Clock, Ban, Zap } from "lucide-react";
 
@@ -59,7 +59,7 @@ export default function RiskLimitGuard() {
   const getUsageColor = (current: number, limit: number, isLoss: boolean) => {
     const usage = (current / limit) * 100;
     if (isLoss) {
-      if (usage >= 100) return "#ef4444";
+      if (usage >= 100) return "#ff5c73";
       if (usage >= 80) return "#f97316";
       return "#10b981";
     }
@@ -73,19 +73,19 @@ export default function RiskLimitGuard() {
     const isTarget = limit.label.includes("Target");
 
     if (isTrades) {
-      if (limit.current >= limit.limit) return <Ban className="w-3.5 h-3.5 text-red-500" />;
+      if (limit.current >= limit.limit) return <Ban className="w-3.5 h-3.5 text-[#ff5c73]" />;
       if (limit.current >= limit.limit - 1) return <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />;
       return <Activity className="w-3.5 h-3.5 text-emerald-450" />;
     }
 
     if (isLoss) {
-      if (usage >= 100) return <Ban className="w-3.5 h-3.5 text-red-500" />;
+      if (usage >= 100) return <Ban className="w-3.5 h-3.5 text-[#ff5c73]" />;
       if (usage >= 80) return <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />;
       return <Shield className="w-3.5 h-3.5 text-emerald-450" />;
     }
 
     if (isTarget) {
-      if (limit.current >= limit.limit) return <Zap className="w-3.5 h-3.5 text-emerald-455 text-emerald-400" />;
+      if (limit.current >= limit.limit) return <Zap className="w-3.5 h-3.5 text-emerald-455 text-[#20e0b2]" />;
       return <TrendingUp className="w-3.5 h-3.5 text-zinc-500" />;
     }
 
@@ -146,7 +146,7 @@ export default function RiskLimitGuard() {
   );
 
   return (
-    <div className="bg-[#111118] border border-zinc-800/40 rounded-xl p-5 shadow-xl font-mono text-[10px]">
+    <div className="bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-xl p-5 font-mono text-[10px]">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Shield className="w-4 h-4 text-emerald-450" />
@@ -161,7 +161,7 @@ export default function RiskLimitGuard() {
       </div>
 
       {isBlocked && (
-        <div className="mb-4 p-4 rounded-xl flex flex-col items-center text-center bg-red-500/10 border border-red-500/25 text-red-400 font-mono">
+        <div className="mb-4 p-4 rounded-xl flex flex-col items-center text-center bg-[#ff5c73]/10 border border-[#ff5c73]/25 text-[#ff5c73] font-mono">
           <Ban className="w-6 h-6 mb-2" />
           <span className="text-[11px] font-black uppercase tracking-widest">TRADING BLOCKED</span>
           <span className="text-[9px] mt-1 text-zinc-550 leading-relaxed font-sans block">
@@ -182,7 +182,7 @@ export default function RiskLimitGuard() {
       )}
 
       {!isBlocked && activeWarnings.filter(w => w.includes("TARGET HIT")).length > 0 && (
-        <div className="mb-4 p-2.5 rounded-lg flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+        <div className="mb-4 p-2.5 rounded-lg flex items-center gap-2 bg-[#20e0b2]/10 border border-[#20e0b2]/20 text-[#20e0b2]">
           <Zap className="w-3.5 h-3.5 animate-pulse" />
           <span className="font-bold uppercase tracking-wider text-[9px]">Profit target achieved!</span>
         </div>
@@ -194,7 +194,7 @@ export default function RiskLimitGuard() {
 
       <button
         className={`w-full py-2.5 rounded-lg font-black text-[10px] uppercase tracking-wider transition-all disabled:opacity-30 ${
-          isBlocked ? "bg-red-505 bg-red-500 text-white cursor-not-allowed" : "bg-emerald-500 text-emerald-950 hover:bg-emerald-400 cursor-pointer"
+          isBlocked ? "bg-red-505 bg-[#ff5c73] text-white cursor-not-allowed" : "bg-[#20e0b2] text-emerald-950 hover:bg-[#20e0b2] cursor-pointer"
         }`}
         disabled={isBlocked}
       >
@@ -203,3 +203,4 @@ export default function RiskLimitGuard() {
     </div>
   );
 }
+

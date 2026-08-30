@@ -9,6 +9,7 @@ import { Toaster } from "sonner";
 import { SessionProvider } from "next-auth/react";
 import { WebSocketProvider } from "@/components/providers/WebSocketProvider";
 import { WorkspaceProvider } from "@/src/context/WorkspaceContext";
+import { TradingCoreProvider } from "@/components/providers/TradingCoreProvider";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -25,7 +26,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
           <AccountProvider>
             <TradeProvider>
               <WebSocketProvider>
-                {children}
+                <TradingCoreProvider>
+                  {children}
+                </TradingCoreProvider>
                 <Toaster
                   position="top-right"
                   theme="dark"

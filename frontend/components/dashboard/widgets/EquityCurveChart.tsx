@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+﻿import { useMemo } from "react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { TrendingUp, Activity } from "lucide-react";
 import { useCsvTrades } from "@/hooks/useCsvTrades";
@@ -45,7 +45,7 @@ export function EquityCurveChart({ data: externalData, loading: externalLoading,
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-[#0c0c0d] border border-white/10 rounded-lg p-3 shadow-xl backdrop-blur-md">
+        <div className="bg-[#0c0c0d] border border-white/10 rounded-lg p-3">
           <p className="text-[10px] text-gray-400 font-mono mb-1">{label}</p>
           <p className="text-sm font-bold text-white font-mono">
             ${payload[0].value.toFixed(2)}
@@ -65,7 +65,7 @@ export function EquityCurveChart({ data: externalData, loading: externalLoading,
   }
 
   return (
-    <div className="rounded-2xl border border-[--border] bg-[#050505] p-6 h-full flex flex-col shadow-2xl animate-fade-in relative overflow-hidden group">
+    <div className="rounded-lg border border-[--border] bg-[#050505] p-6 h-full flex flex-col animate-fade-in relative overflow-hidden group">
       {/* Dynamic Background glow behind chart */}
       <div className={`absolute bottom-0 right-0 w-[300px] h-[300px] blur-[100px] rounded-full pointer-events-none transition-colors duration-1000 ${
         change >= 0 ? 'bg-[--bull]/5 group-hover:bg-[--bull]/10' : 'bg-[--bear]/5 group-hover:bg-[--bear]/10'
@@ -90,8 +90,8 @@ export function EquityCurveChart({ data: externalData, loading: externalLoading,
         {data.length > 0 && (
           <div className={`flex flex-col items-end px-4 py-2 rounded-xl border ${
             change >= 0 
-              ? "bg-[--bull]/10 border-[--bull]/20 shadow-[0_0_15px_rgba(0,220,130,0.1)]" 
-              : "bg-[--bear]/10 border-[--bear]/20 shadow-[0_0_15px_rgba(239,68,68,0.1)]"
+              ? "bg-[--bull]/10 border-[--bull]/20" 
+              : "bg-[--bear]/10 border-[--bear]/20"
           }`}>
             <span className={`text-[9px] uppercase font-black tracking-widest ${change >= 0 ? "text-[--bull]" : "text-[--bear]"}`}>
               Net Change
@@ -125,12 +125,12 @@ export function EquityCurveChart({ data: externalData, loading: externalLoading,
             <AreaChart data={data} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="equityGradientBull" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#00dc82" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#00dc82" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#20e0b2" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#20e0b2" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="equityGradientBear" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#ff5c73" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#ff5c73" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
@@ -162,11 +162,11 @@ export function EquityCurveChart({ data: externalData, loading: externalLoading,
               <Area 
                 type="monotone" 
                 dataKey="balance" 
-                stroke={change >= 0 ? "#00dc82" : "#ef4444"} 
+                stroke={change >= 0 ? "#20e0b2" : "#ff5c73"} 
                 strokeWidth={3}
                 fillOpacity={1} 
                 fill={change >= 0 ? "url(#equityGradientBull)" : "url(#equityGradientBear)"} 
-                activeDot={{ r: 6, strokeWidth: 0, fill: '#fff', style: { filter: `drop-shadow(0 0 8px ${change >= 0 ? '#00dc82' : '#ef4444'})` } }}
+                activeDot={{ r: 6, strokeWidth: 0, fill: '#fff', style: { filter: `drop-shadow(0 0 8px ${change >= 0 ? '#20e0b2' : '#ff5c73'})` } }}
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -175,3 +175,4 @@ export function EquityCurveChart({ data: externalData, loading: externalLoading,
     </div>
   );
 }
+

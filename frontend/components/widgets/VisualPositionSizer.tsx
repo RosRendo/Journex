@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState } from "react";
 import { Calculator } from "lucide-react";
@@ -15,7 +15,7 @@ export function VisualPositionSizer({ balance }: { balance?: number }) {
   const lotSize = stopLossPips > 0 ? riskAmount / (stopLossPips * pipValuePerLot) : 0;
 
   return (
-    <div className="bg-[#0c0c0d]/90 border border-white/5 rounded-xl shadow-lg p-5 h-full flex flex-col">
+    <div className="bg-[#0c0c0d]/90 border border-white/5 rounded-xl p-5 h-full flex flex-col">
       <div className="flex items-center gap-2 mb-4">
          <Calculator className="w-5 h-5 text-blue-400" />
          <h3 className="text-sm font-bold text-gray-200 tracking-wide uppercase">Position Sizer</h3>
@@ -57,3 +57,4 @@ export function VisualPositionSizer({ balance }: { balance?: number }) {
     </div>
   );
 }
+

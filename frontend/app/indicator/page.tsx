@@ -1,4 +1,4 @@
-
+﻿
 
 "use client";
 
@@ -27,14 +27,14 @@ const indicatorRows: IndicatorRow[] = [
 ];
 
 const categoryColors: Record<string, string> = {
-  Trend: "text-emerald-400 border-emerald-500/20 bg-emerald-500/5",
+  Trend: "text-[#20e0b2] border-[rgba(32,224,178,0.3)]/20 bg-[#20e0b2]/5",
   Momentum: "text-sky-400 border-sky-500/20 bg-sky-500/5",
-  Volatility: "text-amber-400 border-amber-500/20 bg-amber-500/5",
-  Volume: "text-violet-400 border-violet-500/20 bg-violet-500/5",
-  "Price Action": "text-red-400 border-red-500/20 bg-red-500/5",
+  Volatility: "text-[#f5c451] border-amber-500/20 bg-amber-500/5",
+  Volume: "text-[#20e0b2] border-[rgba(32,224,178,0.3)]/20 bg-[#20e0b2]/5",
+  "Price Action": "text-[#ff5c73] border-[rgba(255,92,115,0.2)] bg-red-500/5",
   "Time/Session": "text-cyan-400 border-cyan-500/20 bg-cyan-500/5",
   Confirmation: "text-pink-400 border-pink-500/20 bg-pink-500/5",
-  "Risk/Reward": "text-green-400 border-green-500/20 bg-green-500/5",
+  "Risk/Reward": "text-[#20e0b2] border-green-500/20 bg-green-500/5",
 };
 
 export default function IndicatorPage() {
@@ -112,10 +112,10 @@ export default function IndicatorPage() {
       <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-sky-500/5 rounded-full blur-[120px] pointer-events-none" />
 
       {/* Header Panel */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 border-b border-zinc-900 pb-6 relative z-10">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 border-b border-[rgba(255,255,255,0.04)] pb-6 relative z-10">
         <div>
           <h1 className="text-3xl font-extrabold text-white tracking-tight mb-1 flex items-center gap-3" style={{ fontFamily: "var(--font-display, Syne, sans-serif)" }}>
-            <Sliders className="w-8 h-8 text-purple-400 animate-pulse" />
+            <Sliders className="w-8 h-8 text-[#a1a1aa] animate-pulse" />
             Indicator Calibration Desk
           </h1>
           <p className="text-sm text-zinc-400">
@@ -123,14 +123,14 @@ export default function IndicatorPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3 bg-[#111118] border border-zinc-800/60 p-2.5 rounded-2xl">
+        <div className="flex items-center gap-3 bg-[#101014] border border-[rgba(255,255,255,0.07)] p-2.5 rounded-lg">
           <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-550 font-mono">
             Active Target:
           </span>
           <select
             value={selectedMagic}
             onChange={(e) => setSelectedMagic(Number(e.target.value))}
-            className="bg-black/60 border border-zinc-800 rounded-xl px-4 py-1.5 text-xs text-purple-400 focus:outline-none font-bold font-mono cursor-pointer"
+            className="bg-black/60 border border-[rgba(255,255,255,0.07)] rounded-xl px-4 py-1.5 text-xs text-[#a1a1aa] focus:outline-none font-bold font-mono cursor-pointer"
           >
             <option value={88001}>Magic #88001 (Default)</option>
             {eas.map(ea => ea.magic !== 88001 && (
@@ -152,26 +152,26 @@ export default function IndicatorPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 relative z-10 font-mono">
         
         {/* Trend Bias Card */}
-        <div className="p-5 bg-[#111118]/80 border border-zinc-850/60 rounded-3xl space-y-4 shadow-xl backdrop-blur-xl relative overflow-hidden group hover:border-emerald-500/20 transition-all duration-300">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 blur-2xl rounded-full" />
+        <div className="p-5 bg-[#101014]/80 border border-zinc-850/60 rounded-lg space-y-4 relative overflow-hidden group hover:border-[rgba(32,224,178,0.3)]/20 transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-[#20e0b2]/5 blur-2xl rounded-full" />
           <div className="flex items-center justify-between text-[10px] text-zinc-500 uppercase tracking-widest font-bold">
             <span>HTF Trend Filter</span>
-            <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+            <TrendingUp className="w-3.5 h-3.5 text-[#20e0b2]" />
           </div>
           <div className="space-y-1">
             <span className="text-[10px] text-zinc-455 block">H4 200 EMA</span>
-            <span className={`text-2xl font-black ${getTrendBias() === "BULLISH" ? "text-emerald-400" : "text-red-400"}`}>
+            <span className={`text-2xl font-black ${getTrendBias() === "BULLISH" ? "text-[#20e0b2]" : "text-[#ff5c73]"}`}>
               {getTrendBias()}
             </span>
           </div>
-          <div className="text-[10px] text-zinc-500 flex justify-between border-t border-zinc-900/60 pt-2.5">
+          <div className="text-[10px] text-zinc-500 flex justify-between border-t border-[rgba(255,255,255,0.04)] pt-2.5">
             <span>Price Alignment</span>
             <span className="text-emerald-455 font-bold">✓ ACTIVE</span>
           </div>
         </div>
 
         {/* Momentum Card */}
-        <div className="p-5 bg-[#111118]/80 border border-zinc-850/60 rounded-3xl space-y-4 shadow-xl backdrop-blur-xl relative overflow-hidden group hover:border-sky-500/20 transition-all duration-300">
+        <div className="p-5 bg-[#101014]/80 border border-zinc-850/60 rounded-lg space-y-4 relative overflow-hidden group hover:border-sky-500/20 transition-all duration-300">
           <div className="absolute top-0 right-0 w-24 h-24 bg-sky-500/5 blur-2xl rounded-full" />
           <div className="flex items-center justify-between text-[10px] text-zinc-500 uppercase tracking-widest font-bold">
             <span>Momentum Engine</span>
@@ -184,7 +184,7 @@ export default function IndicatorPage() {
               <span className="text-[10px] text-zinc-550 font-bold">{rsiVal >= 75 ? "STRONG" : rsiVal >= 50 ? "NORMAL" : "WEAK"}</span>
             </div>
           </div>
-          <div className="space-y-1.5 border-t border-zinc-900/60 pt-2.5">
+          <div className="space-y-1.5 border-t border-[rgba(255,255,255,0.04)] pt-2.5">
             <div className="w-full bg-zinc-900 h-1 rounded-full overflow-hidden">
               <div className="bg-sky-400 h-full rounded-full transition-all duration-500" style={{ width: `${rsiVal}%` }} />
             </div>
@@ -196,34 +196,34 @@ export default function IndicatorPage() {
         </div>
 
         {/* Execution Card */}
-        <div className="p-5 bg-[#111118]/80 border border-zinc-850/60 rounded-3xl space-y-4 shadow-xl backdrop-blur-xl relative overflow-hidden group hover:border-purple-500/20 transition-all duration-300">
+        <div className="p-5 bg-[#101014]/80 border border-zinc-850/60 rounded-lg space-y-4 relative overflow-hidden group hover:border-purple-500/20 transition-all duration-300">
           <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 blur-2xl rounded-full" />
           <div className="flex items-center justify-between text-[10px] text-zinc-500 uppercase tracking-widest font-bold">
             <span>Execution Quality</span>
-            <Target className="w-3.5 h-3.5 text-purple-400" />
+            <Target className="w-3.5 h-3.5 text-[#a1a1aa]" />
           </div>
           <div className="space-y-1">
             <span className="text-[10px] text-zinc-450 block">Execution Score</span>
-            <span className="text-2xl font-black text-purple-400">{adxVal} / 100</span>
+            <span className="text-2xl font-black text-[#a1a1aa]">{adxVal} / 100</span>
           </div>
-          <div className="text-[10px] text-zinc-505 flex justify-between border-t border-zinc-900/60 pt-2.5">
+          <div className="text-[10px] text-zinc-505 flex justify-between border-t border-[rgba(255,255,255,0.04)] pt-2.5">
             <span>Active Session</span>
             <span className="text-purple-450 font-bold uppercase">{report?.session || "OFF-HOURS"}</span>
           </div>
         </div>
 
         {/* Volatility Card */}
-        <div className="p-5 bg-[#111118]/80 border border-zinc-850/60 rounded-3xl space-y-4 shadow-xl backdrop-blur-xl relative overflow-hidden group hover:border-amber-500/20 transition-all duration-300">
+        <div className="p-5 bg-[#101014]/80 border border-zinc-850/60 rounded-lg space-y-4 relative overflow-hidden group hover:border-amber-500/20 transition-all duration-300">
           <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 blur-2xl rounded-full" />
           <div className="flex items-center justify-between text-[10px] text-zinc-500 uppercase tracking-widest font-bold">
             <span>Volatility Meter</span>
-            <Zap className="w-3.5 h-3.5 text-amber-400" />
+            <Zap className="w-3.5 h-3.5 text-[#f5c451]" />
           </div>
           <div className="space-y-1">
             <span className="text-[10px] text-zinc-450 block">Regime / Volatility</span>
-            <span className="text-2xl font-black text-amber-400 uppercase">{getVolatility()}</span>
+            <span className="text-2xl font-black text-[#f5c451] uppercase">{getVolatility()}</span>
           </div>
-          <div className="text-[10px] text-zinc-550 flex justify-between border-t border-zinc-900/60 pt-2.5">
+          <div className="text-[10px] text-zinc-550 flex justify-between border-t border-[rgba(255,255,255,0.04)] pt-2.5">
             <span>Live Terminal Spread</span>
             <span className="text-amber-455 font-bold">{spreadPts} pts</span>
           </div>
@@ -236,12 +236,12 @@ export default function IndicatorPage() {
         
         {/* Table Column (Span 2) */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="p-6 bg-[#111118] border border-zinc-850/60 rounded-3xl shadow-xl space-y-4">
-            <div className="flex justify-between items-center pb-2 border-b border-zinc-900">
+          <div className="p-6 bg-[#101014] border border-zinc-850/60 rounded-lg space-y-4">
+            <div className="flex justify-between items-center pb-2 border-b border-[rgba(255,255,255,0.04)]">
               <h2 className="text-sm font-black font-mono uppercase tracking-widest text-zinc-400">
                 Technical Abstractions Matrix
               </h2>
-              <span className="px-2.5 py-1 rounded-full bg-purple-950/20 text-purple-400 border border-purple-900/30 text-[10px] font-bold font-mono">
+              <span className="px-2.5 py-1 rounded-full bg-purple-950/20 text-[#a1a1aa] border border-purple-900/30 text-[10px] font-bold font-mono">
                 {activeCount} / {indicatorRows.length} ACTIVE
               </span>
             </div>
@@ -249,7 +249,7 @@ export default function IndicatorPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-left font-mono text-xs border-collapse">
                 <thead>
-                  <tr className="border-b border-zinc-900 text-zinc-500 text-[10px] uppercase">
+                  <tr className="border-b border-[rgba(255,255,255,0.04)] text-zinc-500 text-[10px] uppercase">
                     <th className="pb-3 pr-4">Category</th>
                     <th className="pb-3 pr-4">Core Indicator</th>
                     <th className="pb-3 pr-4">Optional Variants</th>
@@ -259,7 +259,7 @@ export default function IndicatorPage() {
                 <tbody className="divide-y divide-zinc-900/40">
                   {indicatorRows.map((row, idx) => {
                     const isEnabled = enabled[row.category];
-                    const activeColorClass = categoryColors[row.category] || "text-white border-zinc-800 bg-zinc-900/10";
+                    const activeColorClass = categoryColors[row.category] || "text-white border-[rgba(255,255,255,0.07)] bg-zinc-900/10";
                     return (
                       <tr 
                         key={idx} 
@@ -293,21 +293,21 @@ export default function IndicatorPage() {
         <div className="space-y-6">
           
           {/* Active Calibration summary */}
-          <div className="p-6 bg-[#111118]/80 border border-zinc-850/60 rounded-3xl shadow-xl space-y-4 font-mono text-xs">
-            <h3 className="text-xs font-bold text-white uppercase tracking-widest pb-2 border-b border-zinc-900">
+          <div className="p-6 bg-[#101014]/80 border border-zinc-850/60 rounded-lg space-y-4 font-mono text-xs">
+            <h3 className="text-xs font-bold text-white uppercase tracking-widest pb-2 border-b border-[rgba(255,255,255,0.04)]">
               Active Strategy Engine
             </h3>
             
             <div className="space-y-3">
-              <div className="flex justify-between border-b border-zinc-900/60 pb-2">
+              <div className="flex justify-between border-b border-[rgba(255,255,255,0.04)] pb-2">
                 <span className="text-zinc-500">Asset Symbol</span>
                 <span className="font-bold text-white">{getSymbol()}</span>
               </div>
-              <div className="flex justify-between border-b border-zinc-900/60 pb-2">
+              <div className="flex justify-between border-b border-[rgba(255,255,255,0.04)] pb-2">
                 <span className="text-zinc-500">Trading Session</span>
                 <span className="font-bold text-white uppercase">{getSession()}</span>
               </div>
-              <div className="flex justify-between border-b border-zinc-900/60 pb-2">
+              <div className="flex justify-between border-b border-[rgba(255,255,255,0.04)] pb-2">
                 <span className="text-zinc-500">RSI Boundaries</span>
                 <span className="font-bold text-zinc-400">30.0 / 70.0</span>
               </div>
@@ -323,13 +323,13 @@ export default function IndicatorPage() {
           </div>
 
           {/* Quick HUD guide */}
-          <div className="p-6 bg-[#111118]/80 border border-zinc-850/60 rounded-3xl shadow-xl space-y-3.5 font-mono text-xs">
+          <div className="p-6 bg-[#101014]/80 border border-zinc-850/60 rounded-lg space-y-3.5 font-mono text-xs">
             <span className="text-zinc-450 block uppercase tracking-widest text-[9px] font-bold">Chart Drawing Tip</span>
             <div className="space-y-2 leading-relaxed text-[11px] text-zinc-400">
               <p>
                 To overlay these parameters directly on the MetaTrader 5 chart screen, load the compiled indicator on your chart:
               </p>
-              <code className="block bg-black/60 border border-zinc-900 p-2 rounded-xl text-purple-400 text-[10px] break-all">
+              <code className="block bg-black/60 border border-[rgba(255,255,255,0.04)] p-2 rounded-xl text-[#a1a1aa] text-[10px] break-all">
                 Indicators/DecisionDeskHUD.ex5
               </code>
               <p>
@@ -345,3 +345,4 @@ export default function IndicatorPage() {
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useSession } from "@/lib/useSession";
 import { useRouter } from "next/navigation";
@@ -46,7 +46,7 @@ export function TrialBanner() {
 
   return (
     <div
-      className="fixed bottom-5 right-5 z-[200] flex items-center gap-4 px-4 py-3 rounded-2xl border shadow-2xl max-w-[380px] backdrop-blur-md transition-all duration-300"
+      className="fixed bottom-5 right-5 z-[200] flex items-center gap-4 px-4 py-3 rounded-lg border shadow-2xl max-w-[380px] backdrop-blur-md transition-all duration-300"
       style={{
         background: accentColor,
         borderColor: borderColor,
@@ -95,3 +95,4 @@ export function TrialBanner() {
     </div>
   );
 }
+

@@ -39,15 +39,23 @@ export default function DayReviewPage() {
   }
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-8">
-      <button onClick={() => router.back()} className="flex items-center gap-2 text-sm font-bold text-zinc-400 hover:text-white transition-colors">
-        <ChevronLeft className="w-4 h-4" /> Back
-      </button>
-
-      <div>
-        <h1 className="text-3xl font-black tracking-tight text-white">Daily Review</h1>
-        <p className="text-zinc-400 mt-1">{new Date(dateStr).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+    <div className="min-h-screen w-full bg-[#09090b] text-[#f4f4f5] flex flex-col pb-12 font-sans">
+      
+      {/* ── TOPBAR ── */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(255,255,255,0.07)] sticky top-0 z-20 bg-[#09090b]">
+        <div>
+          <h1 className="text-sm font-bold tracking-tight text-[#f4f4f5]">Daily Review</h1>
+          <p className="text-[9px] font-bold uppercase tracking-widest font-mono text-[#71717a] mt-0.5">
+            {new Date(dateStr).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          </p>
+        </div>
+        <button onClick={() => router.back()} className="flex items-center gap-1 px-3 py-1.5 rounded border border-[rgba(255,255,255,0.07)] text-[9px] font-bold uppercase tracking-wider text-[#71717a] hover:text-[#f4f4f5] hover:border-[rgba(255,255,255,0.15)] transition-all font-mono">
+          <ChevronLeft className="w-3 h-3" /> Back
+        </button>
       </div>
+
+      {/* Main container */}
+      <div className="flex-1 w-full max-w-6xl mx-auto p-6 space-y-6">
 
       <div className="grid grid-cols-3 gap-4">
         <div className="p-6 rounded-2xl border bg-zinc-900/50 border-zinc-800">
@@ -172,5 +180,6 @@ export default function DayReviewPage() {
         )}
       </AnimatePresence>
     </div>
+  </div>
   );
 }

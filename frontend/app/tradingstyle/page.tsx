@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import {
@@ -10,19 +10,19 @@ const tradingStyles = ["Swing", "Day", "Intraday", "Scalping", "Hedging"] as con
 type TradingStyle = (typeof tradingStyles)[number];
 
 const styleColors: Record<TradingStyle, string> = {
-  Swing: "text-emerald-400",
+  Swing: "text-[#20e0b2]",
   Day: "text-sky-400",
-  Intraday: "text-amber-400",
-  Scalping: "text-red-400",
-  Hedging: "text-violet-400",
+  Intraday: "text-[#f5c451]",
+  Scalping: "text-[#ff5c73]",
+  Hedging: "text-[#20e0b2]",
 };
 
 const styleBg: Record<TradingStyle, string> = {
-  Swing: "bg-emerald-500/10 border-emerald-500/30",
+  Swing: "bg-[#20e0b2]/10 border-[rgba(32,224,178,0.3)]/30",
   Day: "bg-sky-500/10 border-sky-500/30",
   Intraday: "bg-amber-500/10 border-amber-500/30",
-  Scalping: "bg-red-500/10 border-red-500/30",
-  Hedging: "bg-violet-500/10 border-violet-500/30",
+  Scalping: "bg-[rgba(255,92,115,0.08)] border-[rgba(255,92,115,0.2)]",
+  Hedging: "bg-[#20e0b2]/10 border-[rgba(32,224,178,0.2)]",
 };
 
 export default function TradingStylesDashboard() {
@@ -34,7 +34,7 @@ export default function TradingStylesDashboard() {
           <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <TrendingUp className="text-emerald-500" size={24} />
+            <TrendingUp className="text-[#20e0b2]" size={24} />
             Trading Style & Planning
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
@@ -82,7 +82,7 @@ export default function TradingStylesDashboard() {
           {/* Key Characteristics */}
           <div className="rounded-xl border border-border bg-card p-5">
             <div className="flex items-center gap-2 mb-3">
-              <Target size={16} className="text-emerald-400" />
+              <Target size={16} className="text-[#20e0b2]" />
               <h3 className="text-sm font-semibold text-foreground">Key Characteristics</h3>
             </div>
             <ul className="space-y-2">
@@ -98,7 +98,7 @@ export default function TradingStylesDashboard() {
           {/* Risk Management */}
           <div className="rounded-xl border border-border bg-card p-5 md:col-span-2">
             <div className="flex items-center gap-2 mb-4">
-              <Shield size={16} className="text-red-400" />
+              <Shield size={16} className="text-[#ff5c73]" />
               <h3 className="text-sm font-semibold text-foreground">Risk Management</h3>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -119,7 +119,7 @@ export default function TradingStylesDashboard() {
           {/* Strategy Template */}
           <div className="rounded-xl border border-border bg-card p-5 md:col-span-2">
             <div className="flex items-center gap-2 mb-3">
-              <BarChart3 size={16} className="text-violet-400" />
+              <BarChart3 size={16} className="text-[#20e0b2]" />
               <h3 className="text-sm font-semibold text-foreground">Strategy Template</h3>
             </div>
             <pre className="text-xs text-muted-foreground bg-muted/40 rounded-lg border border-border p-4 whitespace-pre-wrap font-mono leading-relaxed overflow-x-auto">
@@ -145,7 +145,7 @@ export default function TradingStylesDashboard() {
           {/* Market Conditions */}
           <div className="rounded-xl border border-border bg-card p-5">
             <div className="flex items-center gap-2 mb-3">
-              <DollarSign size={16} className="text-amber-400" />
+              <DollarSign size={16} className="text-[#f5c451]" />
               <h3 className="text-sm font-semibold text-foreground">Best Market Conditions</h3>
             </div>
             <ul className="space-y-2">
@@ -159,14 +159,14 @@ export default function TradingStylesDashboard() {
           </div>
 
           {/* Pros */}
-          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-5">
-            <h3 className="text-sm font-semibold text-emerald-400 mb-3 flex items-center gap-2">
+          <div className="rounded-xl border border-[rgba(32,224,178,0.3)]/20 bg-[#20e0b2]/5 p-5">
+            <h3 className="text-sm font-semibold text-[#20e0b2] mb-3 flex items-center gap-2">
               <span>✓</span> Advantages
             </h3>
             <ul className="space-y-2">
               {styleData.pros.map((pro, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 flex-shrink-0" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#20e0b2] mt-1.5 flex-shrink-0" />
                   {pro}
                 </li>
               ))}
@@ -174,8 +174,8 @@ export default function TradingStylesDashboard() {
           </div>
 
           {/* Cons */}
-          <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-5">
-            <h3 className="text-sm font-semibold text-red-400 mb-3 flex items-center gap-2">
+          <div className="rounded-xl border border-[rgba(255,92,115,0.2)] bg-red-500/5 p-5">
+            <h3 className="text-sm font-semibold text-[#ff5c73] mb-3 flex items-center gap-2">
               <span>✗</span> Disadvantages
             </h3>
             <ul className="space-y-2">
@@ -191,7 +191,7 @@ export default function TradingStylesDashboard() {
           {/* Common Mistakes */}
           <div className="rounded-xl border border-border bg-card p-5 md:col-span-2">
             <div className="flex items-center gap-2 mb-4">
-              <AlertTriangle size={16} className="text-red-400" />
+              <AlertTriangle size={16} className="text-[#ff5c73]" />
               <h3 className="text-sm font-semibold text-foreground">Common Mistakes to Avoid</h3>
             </div>
             <div className="grid md:grid-cols-2 gap-3">
@@ -218,3 +218,4 @@ function getStyleData(style: TradingStyle) {
   };
   return data[style];
 }
+

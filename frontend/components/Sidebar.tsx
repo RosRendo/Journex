@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -9,7 +9,7 @@ import {
   BookOpen, CalendarDays, TrendingUp, CheckCircle2, AlertTriangle,
   Percent, BarChart2, Grid, Target, RotateCcw, Code, Newspaper,
   Bell, Users, Wallet, Eye, Crosshair, Shield, Command, Maximize2, Library,
-  Bot, Globe, GraduationCap
+  Bot, Globe, GraduationCap, Cpu
 } from "lucide-react";
 import { useFocusMode } from "./providers/FocusModeProvider";
 import { useFavorites } from "@/hooks/useFavorites";
@@ -28,14 +28,12 @@ interface NavItem {
 // TOP-LEVEL OS NAVIGATION
 const TOP_NAV: NavItem[] = [
   { id: "dashboard", label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { id: "terminal", label: "Terminal", href: "/terminal", icon: Terminal },
   { id: "journal", label: "Journal", href: "/journal", icon: BookOpen },
-  { id: "analytics", label: "Analytics", href: "/performance", icon: BarChart3 },
-  { id: "ai-desk", label: "AI Desk", href: "/ai-desk", icon: Bot },
-  { id: "markets", label: "Markets", href: "/news", icon: Globe },
-  { id: "risk-hub", label: "Risk Hub", href: "/risk-hub", icon: ShieldAlert },
-  { id: "education", label: "Education", href: "/lessons", icon: GraduationCap },
-  { id: "community", label: "Community", href: "/community", icon: Users },
+  { id: "calendar", label: "Calendar", href: "/calendar", icon: CalendarDays },
+  { id: "risk", label: "Risk Desk", href: "/risk", icon: ShieldAlert },
+  { id: "calculators", label: "Calculators", href: "/calculators", icon: Calculator },
+  { id: "practice", label: "Practice Terminal", href: "/practice", icon: Terminal },
+  { id: "playbook", label: "Playbook & AI", href: "/playbook", icon: Cpu },
   { id: "settings", label: "Settings", href: "/settings", icon: Settings },
 ];
 
@@ -67,17 +65,17 @@ const Sidebar = ({ onOpenCommandPalette }: SidebarProps) => {
   const isGroupActive = (children?: NavChild[]) => children?.some(c => pathname === c.href);
 
   return (
-    <aside className={`${isCollapsed ? "w-[72px]" : "w-[220px]"} h-screen bg-[#0A0C10] border-r border-zinc-800/60 flex flex-col flex-shrink-0 transition-all duration-300 relative ${focusMode ? "opacity-30 pointer-events-none" : ""}`}>
+    <aside className={`${isCollapsed ? "w-[72px]" : "w-[220px]"} h-screen bg-[#0A0C10] border-r border-[rgba(255,255,255,0.07)] flex flex-col flex-shrink-0 transition-all duration-300 relative ${focusMode ? "opacity-30 pointer-events-none" : ""}`}>
       {/* Collapse Toggle Button */}
       <button 
         onClick={() => setIsCollapsed(!isCollapsed)}
-        className="absolute -right-3 top-6 bg-zinc-800 border border-zinc-700 rounded-full p-1 text-zinc-400 hover:text-white hover:bg-zinc-700 z-50 transition-colors"
+        className="absolute -right-3 top-6 bg-zinc-800 border border-[rgba(255,255,255,0.1)] rounded-full p-1 text-zinc-400 hover:text-white hover:bg-zinc-700 z-50 transition-colors"
       >
         <ChevronDown className={`w-3 h-3 transition-transform duration-300 ${isCollapsed ? "-rotate-90" : "rotate-90"}`} />
       </button>
 
       {/* Logo */}
-      <div className={`px-5 py-4 border-b border-zinc-800/60 flex items-center ${isCollapsed ? 'justify-center px-0' : ''}`}>
+      <div className={`px-5 py-4 border-b border-[rgba(255,255,255,0.07)] flex items-center ${isCollapsed ? 'justify-center px-0' : ''}`}>
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg bg-blue-500/20 border border-blue-500/40 flex items-center justify-center flex-shrink-0">
             <span className="text-blue-400 text-xs font-bold">T</span>
@@ -95,14 +93,14 @@ const Sidebar = ({ onOpenCommandPalette }: SidebarProps) => {
       <div className="px-3 pt-3 pb-2">
         <button
           onClick={onOpenCommandPalette}
-          className={`w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-500 text-xs hover:border-zinc-600 hover:text-zinc-300 transition-all group ${!isCollapsed ? "px-3" : "px-0"}`}
+          className={`w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-zinc-900 border border-[rgba(255,255,255,0.07)] text-zinc-500 text-xs hover:border-zinc-600 hover:text-zinc-300 transition-all group ${!isCollapsed ? "px-3" : "px-0"}`}
           title={isCollapsed ? "Search (⌘K)" : ""}
         >
           <Command className="w-3.5 h-3.5 flex-shrink-0" />
           {!isCollapsed && (
             <>
               <span className="flex-1 text-left whitespace-nowrap overflow-hidden">Search or jump to...</span>
-              <kbd className="px-1.5 py-0.5 text-[9px] font-mono bg-zinc-800 border border-zinc-700 rounded opacity-70 group-hover:opacity-100 flex-shrink-0">⌘K</kbd>
+              <kbd className="px-1.5 py-0.5 text-[9px] font-mono bg-zinc-800 border border-[rgba(255,255,255,0.1)] rounded opacity-70 group-hover:opacity-100 flex-shrink-0">⌘K</kbd>
             </>
           )}
         </button>
@@ -140,7 +138,7 @@ const Sidebar = ({ onOpenCommandPalette }: SidebarProps) => {
         {favorites.length > 0 && (
           <div className="mb-4">
             {!isCollapsed && <p className="px-3 text-[10px] font-bold text-zinc-600 tracking-wider mb-2 whitespace-nowrap overflow-hidden">PINNED TOOLS</p>}
-            {isCollapsed && <div className="h-4 border-t border-zinc-800/30 mx-2 mt-2 mb-4"></div>}
+            {isCollapsed && <div className="h-4 border-t border-[rgba(255,255,255,0.07)]/30 mx-2 mt-2 mb-4"></div>}
             {favorites.map(favId => {
               const navItem = NAVIGATION.find(n => n.id === favId);
               if (!navItem || !navItem.href) return null;
@@ -169,7 +167,7 @@ const Sidebar = ({ onOpenCommandPalette }: SidebarProps) => {
       </nav>
 
       {/* Footer Actions */}
-      <div className="border-t border-zinc-800/60 p-3 space-y-1">
+      <div className="border-t border-[rgba(255,255,255,0.07)] p-3 space-y-1">
         {/* Focus Mode Toggle */}
         <button
           onClick={toggleFocusMode}
@@ -192,3 +190,4 @@ const Sidebar = ({ onOpenCommandPalette }: SidebarProps) => {
 };
 
 export default Sidebar;
+

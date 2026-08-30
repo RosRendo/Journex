@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState } from "react";
 import { resolveLocalUrl } from "@/lib/utils";
 import { Crosshair, TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, Loader2, ChevronDown } from "lucide-react";
@@ -81,7 +81,7 @@ export function QuickTradeEntry() {
   };
 
   return (
-    <div className="rounded-xl border border-[--border] bg-[--bg-card] p-6 h-full flex flex-col shadow-lg animate-fade-in relative overflow-hidden group">
+    <div className="rounded-xl border border-[--border] bg-[--bg-card] p-6 h-full flex flex-col animate-fade-in relative overflow-hidden group">
       {/* Glow */}
       <div className={`absolute top-0 left-0 w-[250px] h-[250px] blur-[100px] rounded-full pointer-events-none transition-colors duration-500 ${direction === "BUY" ? "bg-[--bull]/8" : "bg-[--bear]/8"}`} />
 
@@ -100,7 +100,7 @@ export function QuickTradeEntry() {
             onClick={() => setDirection("BUY")}
             className={`py-3 rounded-md text-sm font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
               direction === "BUY"
-                ? "bg-[--bull] text-black shadow-[0_0_20px_rgba(0,220,130,0.4)]"
+                ? "bg-[--bull] text-black"
                 : "text-gray-400 hover:text-white"
             }`}
           >
@@ -111,7 +111,7 @@ export function QuickTradeEntry() {
             onClick={() => setDirection("SELL")}
             className={`py-3 rounded-md text-sm font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
               direction === "SELL"
-                ? "bg-[--bear] text-white shadow-[0_0_20px_rgba(239,68,68,0.4)]"
+                ? "bg-[--bear] text-white"
                 : "text-gray-400 hover:text-white"
             }`}
           >
@@ -204,8 +204,8 @@ export function QuickTradeEntry() {
           disabled={loading}
           className={`mt-auto w-full py-4 rounded-xl font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
             direction === "BUY"
-              ? "bg-gradient-to-r from-[--bull] to-emerald-600 text-black shadow-[0_0_20px_rgba(0,220,130,0.3)] hover:shadow-[0_0_30px_rgba(0,220,130,0.5)]"
-              : "bg-gradient-to-r from-[--bear] to-red-700 text-white shadow-[0_0_20px_rgba(239,68,68,0.3)] hover:shadow-[0_0_30px_rgba(239,68,68,0.5)]"
+              ? "bg-gradient-to-r from-[--bull] to-emerald-600 text-black hover:shadow-[0_0_30px_rgba(0,220,130,0.5)]"
+              : "bg-gradient-to-r from-[--bear] to-red-700 text-white hover:shadow-[0_0_30px_rgba(239,68,68,0.5)]"
           }`}
         >
           {loading
@@ -216,3 +216,4 @@ export function QuickTradeEntry() {
     </div>
   );
 }
+

@@ -610,24 +610,24 @@ export default function BotsPage() {
   const renderStatusBadge = (status: string, age: number) => {
     if (status === "running") {
       return (
-        <span className="flex items-center gap-1.5 px-3 py-1 text-xs font-bold font-mono tracking-wider bg-emerald-950/30 text-emerald-400 border border-emerald-900/40 rounded-full">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          🟢 RUNNING
+        <span className="flex items-center gap-1.5 px-2 py-0.5 text-[9px] font-bold font-mono tracking-wider bg-[#20e0b2]/10 border border-[#20e0b2]/20 text-[#20e0b2] rounded">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#20e0b2] animate-pulse" />
+          RUNNING
         </span>
       );
     }
     if (status === "stale") {
       return (
-        <span className="flex items-center gap-1.5 px-3 py-1 text-xs font-bold font-mono tracking-wider bg-amber-950/30 text-amber-450 border border-amber-900/40 rounded-full">
-          <span className="w-2 h-2 rounded-full bg-amber-450 animate-pulse" />
-          🟡 STALE ({age}s)
+        <span className="flex items-center gap-1.5 px-2 py-0.5 text-[9px] font-bold font-mono tracking-wider bg-[#f5c451]/10 border border-[#f5c451]/20 text-[#f5c451] rounded">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#f5c451]" />
+          STALE ({age}s)
         </span>
       );
     }
     return (
-      <span className="flex items-center gap-1.5 px-3 py-1 text-xs font-bold font-mono tracking-wider bg-red-950/30 text-red-400 border border-red-900/40 rounded-full">
-        <span className="w-2 h-2 rounded-full bg-red-500" />
-        🔴 OFFLINE
+      <span className="flex items-center gap-1.5 px-2 py-0.5 text-[9px] font-bold font-mono tracking-wider bg-[#ff5c73]/10 border border-[#ff5c73]/20 text-[#ff5c73] rounded">
+        <span className="w-1.5 h-1.5 rounded-full bg-[#ff5c73]" />
+        OFFLINE
       </span>
     );
   };
@@ -636,87 +636,85 @@ export default function BotsPage() {
   const renderWinRateBar = (rate: number) => {
     return (
       <div className="w-full flex items-center gap-3">
-        <div className="flex-1 bg-zinc-900 h-2.5 rounded-full overflow-hidden border border-zinc-800/40">
+        <div className="flex-1 bg-zinc-900 h-1.5 rounded overflow-hidden border border-[rgba(255,255,255,0.07)]">
           <div 
-            className="bg-purple-500 h-full rounded-full transition-all duration-500"
+            className="bg-[#20e0b2] h-full rounded transition-all duration-500"
             style={{ width: `${rate}%` }}
           />
         </div>
-        <span className="font-mono text-xs font-bold text-zinc-300 w-10 text-right">{rate}%</span>
+        <span className="font-mono text-[10px] font-bold text-zinc-300 w-10 text-right">{rate}%</span>
       </div>
     );
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-20 text-[--text-primary] px-4">
+    <div className="min-h-screen w-full bg-[#09090b] text-[#f4f4f5] flex flex-col pb-12 font-sans">
       
-      {/* ── Page Header ── */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 border-b border-zinc-900 pb-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-1 flex items-center gap-3" style={{ fontFamily: "var(--font-display, Syne, sans-serif)" }}>
-            <Zap className="w-8 h-8 text-purple-400" /> EA Control Hub
-          </h1>
-          <p className="text-sm text-zinc-400">
-            Advanced monitoring, remote settings sync, and emergency dispatch for MQL5 Expert Advisors.
-          </p>
+      {/* ── TOPBAR ── */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(255,255,255,0.07)] sticky top-0 z-20 bg-[#09090b]">
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-sm font-bold tracking-tight text-[#f4f4f5]">EA Control Hub</h1>
+            <p className="text-[9px] font-bold uppercase tracking-widest font-mono text-[#71717a] mt-0.5">Advanced Monitoring &amp; MQL5 Settings Sync</p>
+          </div>
+          
+          {/* EA Magic Selector */}
+          <div className="flex items-center gap-2 bg-[#101014] border border-[rgba(255,255,255,0.07)] px-2.5 py-1 rounded">
+            <span className="text-[9px] font-bold uppercase tracking-widest text-[#71717a] font-mono">Magic Target:</span>
+            <select 
+              value={selectedMagic}
+              onChange={(e) => setSelectedMagic(Number(e.target.value))}
+              className="bg-transparent border-none text-[10px] text-[#f4f4f5] focus:outline-none font-bold font-mono cursor-pointer"
+            >
+              <option value={88001} className="bg-[#101014]">#88001 (Default)</option>
+              {eas.map(ea => (
+                ea.magic !== 88001 && <option key={ea.magic} value={ea.magic} className="bg-[#101014]">#{ea.magic}</option>
+              ))}
+            </select>
+            <button 
+              onClick={loadData}
+              className="p-0.5 text-zinc-400 hover:text-white transition-colors"
+              title="Refresh logs & statistics"
+            >
+              <RefreshCcw className="w-3 h-3" />
+            </button>
+          </div>
         </div>
 
-        {/* EA Magic Selector */}
-        <div className="flex items-center gap-3 bg-[#111118] border border-zinc-800/60 p-2.5 rounded-2xl">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-555 font-mono">Active Target:</span>
-          <select 
-            value={selectedMagic}
-            onChange={(e) => setSelectedMagic(Number(e.target.value))}
-            className="bg-black/60 border border-zinc-800 rounded-xl px-4 py-1.5 text-xs text-purple-400 focus:outline-none font-bold font-mono cursor-pointer"
+        {/* Navigation Tabs */}
+        <div className="flex gap-0 border-l border-[rgba(255,255,255,0.07)]">
+          <button
+            onClick={() => setMainTab("monitor")}
+            className={`py-3 px-4 text-[9px] uppercase tracking-widest font-bold font-mono transition-all border-b-2 whitespace-nowrap flex items-center gap-1.5 ${
+              mainTab === "monitor" ? "border-[#20e0b2] text-[#20e0b2]" : "border-transparent text-[#71717a] hover:text-[#a1a1aa]"
+            }`}
           >
-            <option value={88001}>Magic #88001 (Default)</option>
-            {eas.map(ea => (
-              ea.magic !== 88001 && <option key={ea.magic} value={ea.magic}>Magic #{ea.magic}</option>
-            ))}
-          </select>
-          <button 
-            onClick={loadData}
-            className="p-1.5 hover:bg-zinc-800/60 rounded-xl text-zinc-400 transition-colors"
-            title="Refresh logs & statistics"
+            <Activity className="w-3 h-3" />
+            Live Monitor
+          </button>
+          <button
+            onClick={() => setMainTab("desk")}
+            className={`py-3 px-4 text-[9px] uppercase tracking-widest font-bold font-mono transition-all border-b-2 whitespace-nowrap flex items-center gap-1.5 ${
+              mainTab === "desk" ? "border-[#20e0b2] text-[#20e0b2]" : "border-transparent text-[#71717a] hover:text-[#a1a1aa]"
+            }`}
           >
-            <RefreshCcw className="w-4 h-4" />
+            <Zap className="w-3 h-3" />
+            Decision Desk
+          </button>
+          <button
+            onClick={() => setMainTab("history")}
+            className={`py-3 px-4 text-[9px] uppercase tracking-widest font-bold font-mono transition-all border-b-2 whitespace-nowrap flex items-center gap-1.5 ${
+              mainTab === "history" ? "border-[#20e0b2] text-[#20e0b2]" : "border-transparent text-[#71717a] hover:text-[#a1a1aa]"
+            }`}
+          >
+            <Clock className="w-3 h-3" />
+            History Stream
           </button>
         </div>
       </div>
 
-      {/* Page-level navigation tabs */}
-      <div className="flex gap-2 border-b border-zinc-900/60 pb-3">
-        <button
-          onClick={() => setMainTab("monitor")}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-mono font-bold transition-all border ${
-            mainTab === "monitor"
-              ? "bg-purple-950/45 text-purple-400 border-purple-900/40 shadow-[0_0_15px_rgba(168,85,247,0.1)]"
-              : "text-zinc-500 hover:text-zinc-350 border-transparent"
-          }`}
-        >
-          <Activity className="w-4 h-4" /> Live Monitor
-        </button>
-        <button
-          onClick={() => setMainTab("desk")}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-mono font-bold transition-all border ${
-            mainTab === "desk"
-              ? "bg-purple-950/45 text-purple-400 border-purple-900/40 shadow-[0_0_15px_rgba(168,85,247,0.1)]"
-              : "text-zinc-500 hover:text-zinc-350 border-transparent"
-          }`}
-        >
-          <Zap className="w-4 h-4" /> Trade Decision Desk
-        </button>
-        <button
-          onClick={() => setMainTab("history")}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-mono font-bold transition-all border ${
-            mainTab === "history"
-              ? "bg-purple-950/45 text-purple-400 border-purple-900/40 shadow-[0_0_15px_rgba(168,85,247,0.1)]"
-              : "text-zinc-500 hover:text-zinc-350 border-transparent"
-          }`}
-        >
-          <Clock className="w-4 h-4" /> History Stream
-        </button>
-      </div>
+      {/* Main container */}
+      <div className="flex-1 w-full p-6">
 
       {/* ── Grid Layout ── */}
       {mainTab === "monitor" ? (
@@ -727,11 +725,11 @@ export default function BotsPage() {
         <div className="lg:col-span-2 space-y-6">
 
           {/* Section 1: Overview Panel */}
-          <div className="p-6 bg-[#111118] border border-zinc-850/60 rounded-3xl relative overflow-hidden shadow-2xl">
+          <div className="p-6 bg-[#101014] border border-zinc-850/60 rounded-lg relative overflow-hidden">
             <div className="absolute top-0 right-0 w-48 h-48 bg-purple-500/5 blur-3xl rounded-full" />
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-800/40 pb-5 mb-5 relative z-10">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[rgba(255,255,255,0.07)] pb-5 mb-5 relative z-10">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-purple-500/10 border border-purple-500/25 flex items-center justify-center text-purple-400">
+                <div className="w-10 h-10 rounded-lg bg-[rgba(255,255,255,0.04)] border border-purple-500/25 flex items-center justify-center text-[#a1a1aa]">
                   <Cpu className="w-5 h-5" />
                 </div>
                 <div>
@@ -748,39 +746,39 @@ export default function BotsPage() {
 
             {/* Quick Metrics */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 relative z-10 font-mono">
-              <div className="bg-black/20 border border-zinc-900 rounded-2xl p-4">
+              <div className="bg-black/20 border border-[rgba(255,255,255,0.04)] rounded-lg p-4">
                 <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider block mb-1">Balance</span>
                 <span className="text-xl font-bold text-white">${activeEa?.last_report?.balance?.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}) || "10,000.00"}</span>
               </div>
-              <div className="bg-black/20 border border-zinc-900 rounded-2xl p-4">
+              <div className="bg-black/20 border border-[rgba(255,255,255,0.04)] rounded-lg p-4">
                 <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider block mb-1">Equity</span>
-                <span className="text-xl font-bold text-purple-400">${activeEa?.last_report?.equity?.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}) || "10,120.50"}</span>
+                <span className="text-xl font-bold text-[#a1a1aa]">${activeEa?.last_report?.equity?.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}) || "10,120.50"}</span>
               </div>
-              <div className="bg-black/20 border border-zinc-900 rounded-2xl p-4">
+              <div className="bg-black/20 border border-[rgba(255,255,255,0.04)] rounded-lg p-4">
                 <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider block mb-1">Daily P&L</span>
-                <span className={`text-xl font-bold ${(activeEa?.last_report?.today_stats?.pnl || 120.50) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                <span className={`text-xl font-bold ${(activeEa?.last_report?.today_stats?.pnl || 120.50) >= 0 ? "text-[#20e0b2]" : "text-[#ff5c73]"}`}>
                   {(activeEa?.last_report?.today_stats?.pnl || 120.50) >= 0 ? "+" : ""}${activeEa?.last_report?.today_stats?.pnl || "120.50"}
                 </span>
               </div>
-              <div className="bg-black/20 border border-zinc-900 rounded-2xl p-4">
+              <div className="bg-black/20 border border-[rgba(255,255,255,0.04)] rounded-lg p-4">
                 <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider block mb-1">Win Rate</span>
                 <span className="text-xl font-bold text-zinc-350">{analytics?.overall?.win_rate || "66.7"}%</span>
               </div>
             </div>
 
             {/* Minor Stats list */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 font-mono text-xs border-t border-zinc-900/60 pt-4">
-              <div className="flex justify-between border-r border-zinc-900 pr-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 font-mono text-xs border-t border-[rgba(255,255,255,0.04)] pt-4">
+              <div className="flex justify-between border-r border-[rgba(255,255,255,0.04)] pr-3">
                 <span className="text-zinc-500">Open Trades:</span>
                 <span className="font-bold text-zinc-300">{activeEa?.last_report?.open_trades?.length || 0}</span>
               </div>
-              <div className="flex justify-between md:border-r border-zinc-900 md:pr-3">
+              <div className="flex justify-between md:border-r border-[rgba(255,255,255,0.04)] md:pr-3">
                 <span className="text-zinc-500">Today's Trades:</span>
                 <span className="font-bold text-zinc-300">{activeEa?.last_report?.today_stats?.trades || 0}</span>
               </div>
-              <div className="flex justify-between border-r border-zinc-900 pr-3">
+              <div className="flex justify-between border-r border-[rgba(255,255,255,0.04)] pr-3">
                 <span className="text-zinc-500">Regime:</span>
-                <span className="font-bold text-purple-400 uppercase">{activeEa?.last_report?.regime || "TRENDING"}</span>
+                <span className="font-bold text-[#a1a1aa] uppercase">{activeEa?.last_report?.regime || "TRENDING"}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-zinc-500">Heartbeat:</span>
@@ -793,24 +791,24 @@ export default function BotsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
             {/* Left: Market Context */}
-            <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl">
+            <div className="p-5 bg-[--bg-card] border border-[--border] rounded-lg">
               <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-zinc-400 mb-4 flex items-center gap-2">
-                <Activity className="w-4 h-4 text-purple-400" /> Market Context
+                <Activity className="w-4 h-4 text-[#a1a1aa]" /> Market Context
               </h3>
               <div className="space-y-3 font-mono text-xs">
-                <div className="flex justify-between border-b border-zinc-900 pb-2">
+                <div className="flex justify-between border-b border-[rgba(255,255,255,0.04)] pb-2">
                   <span className="text-zinc-500">Active Symbol</span>
                   <span className="font-bold text-white">{activeEa?.last_report?.symbol || "XAUUSD"}</span>
                 </div>
-                <div className="flex justify-between border-b border-zinc-900 pb-2">
+                <div className="flex justify-between border-b border-[rgba(255,255,255,0.04)] pb-2">
                   <span className="text-zinc-500">Regime State</span>
-                  <span className="font-bold text-purple-400 uppercase">{activeEa?.last_report?.regime || "TRENDING"}</span>
+                  <span className="font-bold text-[#a1a1aa] uppercase">{activeEa?.last_report?.regime || "TRENDING"}</span>
                 </div>
-                <div className="flex justify-between border-b border-zinc-900 pb-2">
+                <div className="flex justify-between border-b border-[rgba(255,255,255,0.04)] pb-2">
                   <span className="text-zinc-500">HTF Bias (H4)</span>
-                  <span className="font-bold text-emerald-400">{activeEa?.last_report?.htf_bias || "BULLISH"}</span>
+                  <span className="font-bold text-[#20e0b2]">{activeEa?.last_report?.htf_bias || "BULLISH"}</span>
                 </div>
-                <div className="flex justify-between border-b border-zinc-900 pb-2">
+                <div className="flex justify-between border-b border-[rgba(255,255,255,0.04)] pb-2">
                   <span className="text-zinc-500">Active Session</span>
                   <span className="font-bold text-white">{activeEa?.last_report?.session || "LONDON"}</span>
                 </div>
@@ -820,23 +818,23 @@ export default function BotsPage() {
                 </div>
 
                 {/* MTF Alignment Checklist */}
-                <div className="mt-4 pt-4 border-t border-zinc-900">
+                <div className="mt-4 pt-4 border-t border-[rgba(255,255,255,0.04)]">
                   <div className="grid grid-cols-4 gap-2 text-center text-[10px] font-bold">
-                    <div className="bg-black/30 p-2 rounded-lg border border-zinc-900">
+                    <div className="bg-black/30 p-2 rounded-lg border border-[rgba(255,255,255,0.04)]">
                       <div className="text-zinc-500 mb-1">H4</div>
-                      <div className="text-emerald-400">🟢 Bullish</div>
+                      <div className="text-[#20e0b2]">🟢 Bullish</div>
                     </div>
-                    <div className="bg-black/30 p-2 rounded-lg border border-zinc-900">
+                    <div className="bg-black/30 p-2 rounded-lg border border-[rgba(255,255,255,0.04)]">
                       <div className="text-zinc-500 mb-1">H1</div>
-                      <div className="text-emerald-400">🟢 Bullish</div>
+                      <div className="text-[#20e0b2]">🟢 Bullish</div>
                     </div>
-                    <div className="bg-black/30 p-2 rounded-lg border border-zinc-900">
+                    <div className="bg-black/30 p-2 rounded-lg border border-[rgba(255,255,255,0.04)]">
                       <div className="text-zinc-500 mb-1">M15</div>
-                      <div className="text-emerald-400">🟢 Setup</div>
+                      <div className="text-[#20e0b2]">🟢 Setup</div>
                     </div>
-                    <div className="bg-black/30 p-2 rounded-lg border border-zinc-900">
+                    <div className="bg-black/30 p-2 rounded-lg border border-[rgba(255,255,255,0.04)]">
                       <div className="text-zinc-500 mb-1">M5</div>
-                      <div className="text-emerald-400">🟢 Trigger</div>
+                      <div className="text-[#20e0b2]">🟢 Trigger</div>
                     </div>
                   </div>
                 </div>
@@ -844,10 +842,10 @@ export default function BotsPage() {
             </div>
 
             {/* Right: Active Signal Scanner */}
-            <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl flex flex-col justify-between">
+            <div className="p-5 bg-[--bg-card] border border-[--border] rounded-lg flex flex-col justify-between">
               <div>
                 <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-zinc-400 mb-3.5 flex items-center gap-2">
-                  <Target className="w-4 h-4 text-purple-400" /> Active Scanner Signal
+                  <Target className="w-4 h-4 text-[#a1a1aa]" /> Active Scanner Signal
                 </h3>
                 <div className="flex items-center justify-between bg-purple-950/20 border border-purple-900/30 rounded-xl p-3.5 mb-3 font-mono">
                   <div>
@@ -856,22 +854,22 @@ export default function BotsPage() {
                   </div>
                   <div className="text-right">
                     <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Score / Grade</span>
-                    <span className="text-xs font-bold text-purple-400">84/100 (A)</span>
+                    <span className="text-xs font-bold text-[#a1a1aa]">84/100 (A)</span>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-2 font-mono text-[10px] mb-3">
-                  <div className="bg-black/35 p-2 rounded-lg border border-zinc-900">
+                  <div className="bg-black/35 p-2 rounded-lg border border-[rgba(255,255,255,0.04)]">
                     <span className="text-zinc-500 block mb-0.5">Entry</span>
                     <span className="font-bold text-white">3,421.50</span>
                   </div>
-                  <div className="bg-black/35 p-2 rounded-lg border border-zinc-900">
+                  <div className="bg-black/35 p-2 rounded-lg border border-[rgba(255,255,255,0.04)]">
                     <span className="text-zinc-500 block mb-0.5">Stop Loss</span>
-                    <span className="font-bold text-red-400">3,414.20</span>
+                    <span className="font-bold text-[#ff5c73]">3,414.20</span>
                   </div>
-                  <div className="bg-black/35 p-2 rounded-lg border border-zinc-900">
+                  <div className="bg-black/35 p-2 rounded-lg border border-[rgba(255,255,255,0.04)]">
                     <span className="text-zinc-500 block mb-0.5">Target TP1</span>
-                    <span className="font-bold text-emerald-400">3,430.00</span>
+                    <span className="font-bold text-[#20e0b2]">3,430.00</span>
                   </div>
                 </div>
 
@@ -882,7 +880,7 @@ export default function BotsPage() {
                 </div>
               </div>
 
-              <div className="text-[10px] font-mono text-zinc-500 border-t border-zinc-900 pt-3 mt-3 flex justify-between">
+              <div className="text-[10px] font-mono text-zinc-500 border-t border-[rgba(255,255,255,0.04)] pt-3 mt-3 flex justify-between">
                 <span>protected invalidation low: 3,414.20</span>
               </div>
             </div>
@@ -892,7 +890,7 @@ export default function BotsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
             {/* Left: Confluence Matrix */}
-            <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl">
+            <div className="p-5 bg-[--bg-card] border border-[--border] rounded-lg">
               <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-zinc-400 mb-4">
                 Confluence Matrix
               </h3>
@@ -900,36 +898,36 @@ export default function BotsPage() {
                 <div>
                   <div className="flex justify-between text-[11px] mb-1">
                     <span className="text-zinc-400">Market Structure</span>
-                    <span className="text-purple-400">20 / 20</span>
+                    <span className="text-[#a1a1aa]">20 / 20</span>
                   </div>
-                  <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden border border-zinc-800/40">
+                  <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden border border-[rgba(255,255,255,0.07)]">
                     <div className="bg-purple-500 h-full rounded-full" style={{ width: "100%" }} />
                   </div>
                 </div>
                 <div>
                   <div className="flex justify-between text-[11px] mb-1">
                     <span className="text-zinc-400">Liquidity Sweep</span>
-                    <span className="text-purple-400">20 / 20</span>
+                    <span className="text-[#a1a1aa]">20 / 20</span>
                   </div>
-                  <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden border border-zinc-800/40">
+                  <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden border border-[rgba(255,255,255,0.07)]">
                     <div className="bg-purple-500 h-full rounded-full" style={{ width: "100%" }} />
                   </div>
                 </div>
                 <div>
                   <div className="flex justify-between text-[11px] mb-1">
                     <span className="text-zinc-400">FVG Displacement</span>
-                    <span className="text-purple-400">15 / 15</span>
+                    <span className="text-[#a1a1aa]">15 / 15</span>
                   </div>
-                  <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden border border-zinc-800/40">
+                  <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden border border-[rgba(255,255,255,0.07)]">
                     <div className="bg-purple-500 h-full rounded-full" style={{ width: "100%" }} />
                   </div>
                 </div>
                 <div>
                   <div className="flex justify-between text-[11px] mb-1">
                     <span className="text-zinc-400">Order Block Alignment</span>
-                    <span className="text-purple-400">10 / 10</span>
+                    <span className="text-[#a1a1aa]">10 / 10</span>
                   </div>
-                  <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden border border-zinc-800/40">
+                  <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden border border-[rgba(255,255,255,0.07)]">
                     <div className="bg-purple-500 h-full rounded-full" style={{ width: "100%" }} />
                   </div>
                 </div>
@@ -938,7 +936,7 @@ export default function BotsPage() {
                     <span className="text-zinc-400">SMT Divergence</span>
                     <span className="text-purple-450">10 / 10</span>
                   </div>
-                  <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden border border-zinc-800/40">
+                  <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden border border-[rgba(255,255,255,0.07)]">
                     <div className="bg-purple-500 h-full rounded-full" style={{ width: "100%" }} />
                   </div>
                 </div>
@@ -946,34 +944,34 @@ export default function BotsPage() {
             </div>
 
             {/* Right: Signal Reasoning */}
-            <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl flex flex-col justify-between">
+            <div className="p-5 bg-[--bg-card] border border-[--border] rounded-lg flex flex-col justify-between">
               <div>
                 <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-zinc-400 mb-4">
                   Signal Reasoning & Checklist
                 </h3>
                 <div className="space-y-2.5 font-mono text-[11px] text-zinc-350">
                   <div className="flex items-start gap-2">
-                    <span className="text-emerald-400 font-bold">✓</span>
+                    <span className="text-[#20e0b2] font-bold">✓</span>
                     <span>H4 bullish market structure confirmed</span>
                   </div>
                   <div className="flex items-start gap-2">
-                    <span className="text-emerald-400 font-bold">✓</span>
+                    <span className="text-[#20e0b2] font-bold">✓</span>
                     <span>H1 bullish continuation bias active</span>
                   </div>
                   <div className="flex items-start gap-2">
-                    <span className="text-emerald-400 font-bold">✓</span>
+                    <span className="text-[#20e0b2] font-bold">✓</span>
                     <span>Sell-side liquidity swept on London open</span>
                   </div>
                   <div className="flex items-start gap-2">
-                    <span className="text-emerald-400 font-bold">✓</span>
+                    <span className="text-[#20e0b2] font-bold">✓</span>
                     <span>M15 bullish Market Structure Shift (MSS)</span>
                   </div>
                   <div className="flex items-start gap-2">
-                    <span className="text-emerald-400 font-bold">✓</span>
+                    <span className="text-[#20e0b2] font-bold">✓</span>
                     <span>Price tapped into bullish 15m FVG</span>
                   </div>
                   <div className="flex items-start gap-2">
-                    <span className="text-emerald-400 font-bold">✓</span>
+                    <span className="text-[#20e0b2] font-bold">✓</span>
                     <span>SMT divergence confirmed against EURUSD</span>
                   </div>
                 </div>
@@ -985,14 +983,14 @@ export default function BotsPage() {
           </div>
 
           {/* Section 4: Open Trades Panel */}
-          <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-4">
+          <div className="p-5 bg-[--bg-card] border border-[--border] rounded-lg space-y-4">
             <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-zinc-400">
               Open Positions ({activeEa?.last_report?.open_trades?.length || 0})
             </h3>
             <div className="overflow-x-auto">
               <table className="w-full text-xs font-mono border-collapse">
                 <thead>
-                  <tr className="border-b border-zinc-800 text-[10px] text-zinc-500 uppercase text-left">
+                  <tr className="border-b border-[rgba(255,255,255,0.07)] text-[10px] text-zinc-500 uppercase text-left">
                     <th className="pb-3">Ticket</th>
                     <th className="pb-3">Symbol</th>
                     <th className="pb-3">Side</th>
@@ -1020,7 +1018,7 @@ export default function BotsPage() {
                           <td className="py-3.5 font-bold text-white">{t.symbol}</td>
                           <td className="py-3.5">
                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                              t.type === "BUY" ? "bg-emerald-950/20 text-emerald-450 border border-emerald-900/30" : "bg-red-950/20 text-red-400 border border-red-900/30"
+                              t.type === "BUY" ? "bg-emerald-950/20 text-emerald-450 border border-emerald-900/30" : "bg-red-950/20 text-[#ff5c73] border border-red-900/30"
                             }`}>
                               {t.type}
                             </span>
@@ -1032,7 +1030,7 @@ export default function BotsPage() {
                           </td>
                           <td className="py-3.5">
                             <div className="flex justify-center items-center gap-1.5 text-[9px] font-bold font-mono">
-                              <span className="text-emerald-400">TP1 🟢</span>
+                              <span className="text-[#20e0b2]">TP1 🟢</span>
                               <span className="text-zinc-650">·</span>
                               <span className="text-zinc-600">TP2 ⏳</span>
                               <span className="text-zinc-650">·</span>
@@ -1041,11 +1039,11 @@ export default function BotsPage() {
                           </td>
                           <td className="py-3.5">
                             <div className="flex justify-center gap-2 text-[9px]">
-                              <span className={t.breakeven_active ? "text-emerald-400 font-bold" : "text-zinc-600"}>BE</span>
-                              <span className={t.trailing_active ? "text-purple-400 font-bold" : "text-zinc-600"}>TRAIL</span>
+                              <span className={t.breakeven_active ? "text-[#20e0b2] font-bold" : "text-zinc-600"}>BE</span>
+                              <span className={t.trailing_active ? "text-[#a1a1aa] font-bold" : "text-zinc-600"}>TRAIL</span>
                             </div>
                           </td>
-                          <td className={`py-3.5 text-right font-bold ${isWin ? "text-emerald-400" : "text-red-400"}`}>
+                          <td className={`py-3.5 text-right font-bold ${isWin ? "text-[#20e0b2]" : "text-[#ff5c73]"}`}>
                             {isWin ? "+" : ""}${t.pnl.toFixed(2)}
                           </td>
                         </tr>
@@ -1063,39 +1061,39 @@ export default function BotsPage() {
         <div className="space-y-6">
 
                     {/* Section 1: Settings Sync Panel */}
-          <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-white flex items-center justify-between border-b border-zinc-900 pb-3">
+          <div className="p-5 bg-[--bg-card] border border-[--border] rounded-lg space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-white flex items-center justify-between border-b border-[rgba(255,255,255,0.04)] pb-3">
               <span className="flex items-center gap-1.5">
-                <Settings className="w-4 h-4 text-purple-400" /> Advanced Configurator
+                <Settings className="w-4 h-4 text-[#a1a1aa]" /> Advanced Configurator
               </span>
               <span className="text-[10px] text-zinc-500 font-mono">Magic: #{selectedMagic}</span>
             </h3>
 
             {/* Presets Quick Actions (Static presets from previous task + local presets) */}
-            <div className="bg-black/35 border border-zinc-900 rounded-xl p-3.5 space-y-3 font-mono text-xs">
+            <div className="bg-black/35 border border-[rgba(255,255,255,0.04)] rounded-xl p-3.5 space-y-3 font-mono text-xs">
               <div className="flex justify-between items-center text-[10px] text-zinc-500 uppercase tracking-wider font-bold">
                 <span>Quick Preset Profiles</span>
-                <span className="text-[9px] text-purple-400 lowercase italic">Instant Push</span>
+                <span className="text-[9px] text-[#a1a1aa] lowercase italic">Instant Push</span>
               </div>
               <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => handleLoadPreset('safe')}
                   disabled={pushing}
-                  className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 py-2 px-1 rounded-lg text-[10px] font-bold transition-all flex flex-col items-center gap-1"
+                  className="bg-[#20e0b2]/10 text-[#20e0b2] border border-[rgba(32,224,178,0.3)]/20 hover:bg-[#20e0b2]/20 py-2 px-1 rounded-lg text-[10px] font-bold transition-all flex flex-col items-center gap-1"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" /> Safe Scalp
                 </button>
                 <button
                   onClick={() => handleLoadPreset('controlled')}
                   disabled={pushing}
-                  className="bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 py-2 px-1 rounded-lg text-[10px] font-bold transition-all flex flex-col items-center gap-1"
+                  className="bg-amber-500/10 text-[#f5c451] border border-amber-500/20 hover:bg-amber-500/20 py-2 px-1 rounded-lg text-[10px] font-bold transition-all flex flex-col items-center gap-1"
                 >
                   <Activity className="w-3.5 h-3.5" /> Controlled Grid
                 </button>
                 <button
                   onClick={() => handleLoadPreset('wild')}
                   disabled={pushing}
-                  className="bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 py-2 px-1 rounded-lg text-[10px] font-bold transition-all flex flex-col items-center gap-1"
+                  className="bg-[rgba(255,92,115,0.08)] text-[#ff5c73] border border-[rgba(255,92,115,0.2)] hover:bg-[rgba(255,92,115,0.12)] py-2 px-1 rounded-lg text-[10px] font-bold transition-all flex flex-col items-center gap-1"
                 >
                   <Zap className="w-3.5 h-3.5" /> Wild Pyramid
                 </button>
@@ -1109,20 +1107,20 @@ export default function BotsPage() {
               onDragLeave={handleDrag}
               onDrop={handleDrop}
               className={`border-2 border-dashed rounded-xl p-3 text-center transition-all ${
-                dragActive ? "border-purple-500 bg-purple-950/20" : "border-zinc-800 bg-black/10 hover:border-zinc-700"
+                dragActive ? "border-purple-500 bg-purple-950/20" : "border-[rgba(255,255,255,0.07)] bg-black/10 hover:border-[rgba(255,255,255,0.1)]"
               }`}
             >
               <label className="cursor-pointer flex flex-col items-center gap-1">
                 <Download className="w-5 h-5 text-zinc-500" />
                 <span className="text-[10px] font-mono text-zinc-400">
-                  Drag & Drop MT5 <code className="text-purple-400">.set</code> file or <span className="underline">browse</span>
+                  Drag & Drop MT5 <code className="text-[#a1a1aa]">.set</code> file or <span className="underline">browse</span>
                 </span>
                 <input type="file" accept=".set" onChange={handleFileInput} className="hidden" />
               </label>
             </div>
 
             {/* Accordion Tabs Selection */}
-            <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-none border-b border-zinc-900">
+            <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-none border-b border-[rgba(255,255,255,0.04)]">
               {[
                 { id: "identity", label: "Identity", icon: Bot },
                 { id: "strategy", label: "Strategy", icon: Cpu },
@@ -1138,7 +1136,7 @@ export default function BotsPage() {
                     key={t.id}
                     onClick={() => setActiveTab(t.id)}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-mono font-bold transition-all whitespace-nowrap ${
-                      active ? "bg-purple-950/45 text-purple-400 border border-purple-900/40" : "text-zinc-500 hover:text-zinc-350"
+                      active ? "bg-purple-950/45 text-[#a1a1aa] border border-purple-900/40" : "text-zinc-500 hover:text-zinc-350"
                     }`}
                   >
                     <Icon className="w-3.5 h-3.5" />
@@ -1161,7 +1159,7 @@ export default function BotsPage() {
                       type="number"
                       value={editSettings.magic}
                       onChange={(e) => setEditSettings({ ...editSettings, magic: parseInt(e.target.value) || 88001 })}
-                      className="w-full bg-black/45 border border-zinc-900 rounded-xl px-3.5 py-2 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
+                      className="w-full bg-black/45 border border-[rgba(255,255,255,0.04)] rounded-xl px-3.5 py-2 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
                     />
                   </div>
                   <div className="space-y-1">
@@ -1173,7 +1171,7 @@ export default function BotsPage() {
                       type="text"
                       value={editSettings.bridge_url}
                       onChange={(e) => setEditSettings({ ...editSettings, bridge_url: e.target.value })}
-                      className="w-full bg-black/45 border border-zinc-900 rounded-xl px-3.5 py-2 text-zinc-350 text-xs focus:outline-none focus:border-purple-500 font-mono"
+                      className="w-full bg-black/45 border border-[rgba(255,255,255,0.04)] rounded-xl px-3.5 py-2 text-zinc-350 text-xs focus:outline-none focus:border-purple-500 font-mono"
                     />
                   </div>
                 </div>
@@ -1189,7 +1187,7 @@ export default function BotsPage() {
                     <select
                       value={editSettings.strategy_type}
                       onChange={(e) => setEditSettings({ ...editSettings, strategy_type: parseInt(e.target.value) })}
-                      className="w-full bg-black/45 border border-zinc-900 rounded-xl px-3.5 py-2 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
+                      className="w-full bg-black/45 border border-[rgba(255,255,255,0.04)] rounded-xl px-3.5 py-2 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
                     >
                       <option value="0">ICT Sniper Strategy</option>
                       <option value="1">ICT Scalper Strategy</option>
@@ -1207,7 +1205,7 @@ export default function BotsPage() {
                       type="text"
                       value={editSettings.signal_timeframe}
                       onChange={(e) => setEditSettings({ ...editSettings, signal_timeframe: e.target.value })}
-                      className="w-full bg-black/45 border border-zinc-900 rounded-xl px-3.5 py-2 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
+                      className="w-full bg-black/45 border border-[rgba(255,255,255,0.04)] rounded-xl px-3.5 py-2 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
                     />
                   </div>
                   <div className="space-y-1">
@@ -1218,7 +1216,7 @@ export default function BotsPage() {
                     <select
                       value={editSettings.session}
                       onChange={(e) => setEditSettings({ ...editSettings, session: e.target.value })}
-                      className="w-full bg-black/45 border border-zinc-900 rounded-xl px-3.5 py-2 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
+                      className="w-full bg-black/45 border border-[rgba(255,255,255,0.04)] rounded-xl px-3.5 py-2 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
                     >
                       <option value="both">London & New York</option>
                       <option value="london">London Only</option>
@@ -1234,9 +1232,9 @@ export default function BotsPage() {
                   <div>
                     <div className="flex justify-between font-bold text-[10px] mb-1.5">
                       <span className="text-zinc-500 uppercase tracking-wider flex items-center gap-1">
-                        Risk Per Trade <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
+                        Risk Per Trade <CheckCircle2 className="w-2.5 h-2.5 text-[#20e0b2]" />
                       </span>
-                      <span className="text-purple-400">{editSettings.risk.toFixed(1)}%</span>
+                      <span className="text-[#a1a1aa]">{editSettings.risk.toFixed(1)}%</span>
                     </div>
                     <input
                       type="range"
@@ -1251,9 +1249,9 @@ export default function BotsPage() {
                   <div>
                     <div className="flex justify-between font-bold text-[10px] mb-1.5">
                       <span className="text-zinc-500 uppercase tracking-wider flex items-center gap-1">
-                        Max Daily Loss <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
+                        Max Daily Loss <CheckCircle2 className="w-2.5 h-2.5 text-[#20e0b2]" />
                       </span>
-                      <span className="text-purple-400">{editSettings.max_daily_loss}%</span>
+                      <span className="text-[#a1a1aa]">{editSettings.max_daily_loss}%</span>
                     </div>
                     <input
                       type="range"
@@ -1273,7 +1271,7 @@ export default function BotsPage() {
                     <select
                       value={editSettings.min_rr}
                       onChange={(e) => setEditSettings({ ...editSettings, min_rr: parseFloat(e.target.value) })}
-                      className="w-full bg-black/45 border border-zinc-900 rounded-xl px-3.5 py-2 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
+                      className="w-full bg-black/45 border border-[rgba(255,255,255,0.04)] rounded-xl px-3.5 py-2 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
                     >
                       <option value="1.0">1:1.0 Minimum</option>
                       <option value="1.5">1:1.5 Minimum</option>
@@ -1291,7 +1289,7 @@ export default function BotsPage() {
                       type="number"
                       value={editSettings.max_open_trades}
                       onChange={(e) => setEditSettings({ ...editSettings, max_open_trades: parseInt(e.target.value) })}
-                      className="w-full bg-black/45 border border-zinc-900 rounded-xl px-3.5 py-2 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
+                      className="w-full bg-black/45 border border-[rgba(255,255,255,0.04)] rounded-xl px-3.5 py-2 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
                     />
                   </div>
                 </div>
@@ -1307,7 +1305,7 @@ export default function BotsPage() {
                     <select
                       value={editSettings.position_mode}
                       onChange={(e) => setEditSettings({ ...editSettings, position_mode: parseInt(e.target.value) })}
-                      className="w-full bg-black/45 border border-zinc-900 rounded-xl px-3.5 py-2 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
+                      className="w-full bg-black/45 border border-[rgba(255,255,255,0.04)] rounded-xl px-3.5 py-2 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
                     >
                       <option value="0">Single Position Mode</option>
                       <option value="1">Partial Exit Mode</option>
@@ -1315,7 +1313,7 @@ export default function BotsPage() {
                     </select>
                   </div>
                   
-                  <div className="flex items-center justify-between bg-black/20 border border-zinc-900 rounded-xl p-3">
+                  <div className="flex items-center justify-between bg-black/20 border border-[rgba(255,255,255,0.04)] rounded-xl p-3">
                     <div>
                       <span className="text-[10px] font-bold text-zinc-400 block uppercase">Equity Trailing Stop</span>
                       <span className="text-[8px] text-emerald-450 flex items-center gap-1 mt-0.5"><CheckCircle2 className="w-2 h-2" /> Live-Synced</span>
@@ -1339,7 +1337,7 @@ export default function BotsPage() {
                           step="0.5"
                           value={editSettings.equity_trail_activate}
                           onChange={(e) => setEditSettings({ ...editSettings, equity_trail_activate: parseFloat(e.target.value) })}
-                          className="w-full bg-black/45 border border-zinc-900 rounded-xl px-3 py-1.5 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
+                          className="w-full bg-black/45 border border-[rgba(255,255,255,0.04)] rounded-xl px-3 py-1.5 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
                         />
                       </div>
                       <div className="space-y-1">
@@ -1349,7 +1347,7 @@ export default function BotsPage() {
                           step="0.5"
                           value={editSettings.equity_trail_drop}
                           onChange={(e) => setEditSettings({ ...editSettings, equity_trail_drop: parseFloat(e.target.value) })}
-                          className="w-full bg-black/45 border border-zinc-900 rounded-xl px-3 py-1.5 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
+                          className="w-full bg-black/45 border border-[rgba(255,255,255,0.04)] rounded-xl px-3 py-1.5 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
                         />
                       </div>
                     </div>
@@ -1365,7 +1363,7 @@ export default function BotsPage() {
                         type="number"
                         value={editSettings.pyramid_cooldown}
                         onChange={(e) => setEditSettings({ ...editSettings, pyramid_cooldown: parseInt(e.target.value) })}
-                        className="w-full bg-black/45 border border-zinc-900 rounded-xl px-3 py-1.5 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
+                        className="w-full bg-black/45 border border-[rgba(255,255,255,0.04)] rounded-xl px-3 py-1.5 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
                       />
                     </div>
                     <div className="space-y-1">
@@ -1377,7 +1375,7 @@ export default function BotsPage() {
                         type="number"
                         value={editSettings.hard_stop_pct}
                         onChange={(e) => setEditSettings({ ...editSettings, hard_stop_pct: parseFloat(e.target.value) })}
-                        className="w-full bg-black/45 border border-zinc-900 rounded-xl px-3 py-1.5 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
+                        className="w-full bg-black/45 border border-[rgba(255,255,255,0.04)] rounded-xl px-3 py-1.5 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
                       />
                     </div>
                   </div>
@@ -1386,7 +1384,7 @@ export default function BotsPage() {
 
               {activeTab === "confluence" && (
                 <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
-                  <div className="flex items-center justify-between bg-black/20 border border-zinc-900 rounded-xl p-3">
+                  <div className="flex items-center justify-between bg-black/20 border border-[rgba(255,255,255,0.04)] rounded-xl p-3">
                     <div>
                       <span className="text-[10px] font-bold text-zinc-400 block uppercase font-mono">Use SMT Divergence</span>
                       <span className="text-[8px] text-zinc-650 flex items-center gap-1 mt-0.5"><AlertCircle className="w-2.5 h-2.5" /> Static</span>
@@ -1408,7 +1406,7 @@ export default function BotsPage() {
                           type="text"
                           value={editSettings.smt_symbol}
                           onChange={(e) => setEditSettings({ ...editSettings, smt_symbol: e.target.value })}
-                          className="w-full bg-black/45 border border-zinc-900 rounded-xl px-3 py-1.5 text-zinc-300 text-xs focus:outline-none"
+                          className="w-full bg-black/45 border border-[rgba(255,255,255,0.04)] rounded-xl px-3 py-1.5 text-zinc-300 text-xs focus:outline-none"
                         />
                       </div>
                       <div className="space-y-1">
@@ -1418,13 +1416,13 @@ export default function BotsPage() {
                           step="0.1"
                           value={editSettings.smt_min_pips}
                           onChange={(e) => setEditSettings({ ...editSettings, smt_min_pips: parseFloat(e.target.value) })}
-                          className="w-full bg-black/45 border border-zinc-900 rounded-xl px-3 py-1.5 text-zinc-300 text-xs focus:outline-none"
+                          className="w-full bg-black/45 border border-[rgba(255,255,255,0.04)] rounded-xl px-3 py-1.5 text-zinc-300 text-xs focus:outline-none"
                         />
                       </div>
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between bg-black/20 border border-zinc-900 rounded-xl p-3">
+                  <div className="flex items-center justify-between bg-black/20 border border-[rgba(255,255,255,0.04)] rounded-xl p-3">
                     <div>
                       <span className="text-[10px] font-bold text-zinc-400 block uppercase font-mono">Use RSI Filter</span>
                       <span className="text-[8px] text-zinc-650 flex items-center gap-1 mt-0.5"><AlertCircle className="w-2.5 h-2.5" /> Static</span>
@@ -1439,7 +1437,7 @@ export default function BotsPage() {
                     </button>
                   </div>
 
-                  <div className="flex items-center justify-between bg-black/20 border border-zinc-900 rounded-xl p-3">
+                  <div className="flex items-center justify-between bg-black/20 border border-[rgba(255,255,255,0.04)] rounded-xl p-3">
                     <div>
                       <span className="text-[10px] font-bold text-zinc-400 block uppercase font-mono">Use ADX Strength Filter</span>
                       <span className="text-[8px] text-zinc-650 flex items-center gap-1 mt-0.5"><AlertCircle className="w-2.5 h-2.5" /> Static</span>
@@ -1458,7 +1456,7 @@ export default function BotsPage() {
 
               {activeTab === "custom" && (
                 <div className="space-y-4">
-                  <div className="space-y-2 bg-black/20 border border-zinc-900 rounded-xl p-3">
+                  <div className="space-y-2 bg-black/20 border border-[rgba(255,255,255,0.04)] rounded-xl p-3">
                     <span className="text-[10px] font-bold text-zinc-400 block uppercase">Save Current to Presets</span>
                     <div className="flex gap-2">
                       <input
@@ -1466,7 +1464,7 @@ export default function BotsPage() {
                         placeholder="Preset Name (e.g. MyGoldScalper)"
                         value={newPresetName}
                         onChange={(e) => setNewPresetName(e.target.value)}
-                        className="bg-black/50 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-white placeholder-zinc-600 font-mono focus:outline-none focus:border-purple-600 flex-1"
+                        className="bg-black/50 border border-[rgba(255,255,255,0.07)] rounded-xl px-3 py-1.5 text-xs text-white placeholder-zinc-600 font-mono focus:outline-none focus:border-purple-600 flex-1"
                       />
                       <button
                         onClick={saveCustomPreset}
@@ -1483,7 +1481,7 @@ export default function BotsPage() {
                       <div className="text-zinc-600 text-center py-4 text-[10px]">No custom presets saved yet</div>
                     ) : (
                       customPresets.map((p, idx) => (
-                        <div key={idx} className="flex justify-between items-center bg-black/35 border border-zinc-900 rounded-xl p-3.5">
+                        <div key={idx} className="flex justify-between items-center bg-black/35 border border-[rgba(255,255,255,0.04)] rounded-xl p-3.5">
                           <div>
                             <span className="text-white font-bold block text-[11px]">{p.name}</span>
                             <span className="text-[8px] text-zinc-600 font-mono">
@@ -1493,13 +1491,13 @@ export default function BotsPage() {
                           <div className="flex gap-1.5">
                             <button
                               onClick={() => loadCustomPreset(p.settings)}
-                              className="bg-purple-500/10 text-purple-400 border border-purple-500/25 hover:bg-purple-500/25 px-2.5 py-1 rounded-lg text-[9px] font-bold transition-all"
+                              className="bg-[rgba(255,255,255,0.04)] text-[#a1a1aa] border border-purple-500/25 hover:bg-purple-500/25 px-2.5 py-1 rounded-lg text-[9px] font-bold transition-all"
                             >
                               Load
                             </button>
                             <button
                               onClick={() => deleteCustomPreset(p.name)}
-                              className="text-zinc-500 hover:text-red-400 p-1 transition-all"
+                              className="text-zinc-500 hover:text-[#ff5c73] p-1 transition-all"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -1512,10 +1510,10 @@ export default function BotsPage() {
               )}
 
               {/* Action Buttons */}
-              <div className="pt-2 border-t border-zinc-900 flex gap-2">
+              <div className="pt-2 border-t border-[rgba(255,255,255,0.04)] flex gap-2">
                 <button
                   onClick={() => setEditSettings(DEFAULT_SETTINGS)}
-                  className="bg-zinc-900/50 hover:bg-zinc-800 text-zinc-400 border border-zinc-900 rounded-xl px-3 py-2.5 transition-all text-[11px] flex items-center justify-center gap-1 font-bold"
+                  className="bg-zinc-900/50 hover:bg-zinc-800 text-zinc-400 border border-[rgba(255,255,255,0.04)] rounded-xl px-3 py-2.5 transition-all text-[11px] flex items-center justify-center gap-1 font-bold"
                   title="Reset to Factory Defaults"
                 >
                   <RefreshCcw className="w-3.5 h-3.5" />
@@ -1523,7 +1521,7 @@ export default function BotsPage() {
                 <button
                   onClick={handlePushSettings}
                   disabled={pushing}
-                  className="flex-1 py-2.5 bg-purple-500 hover:bg-purple-400 text-purple-950 font-bold uppercase tracking-wider rounded-xl transition-all shadow-[0_0_10px_rgba(168,85,247,0.15)] flex items-center justify-center gap-1.5"
+                  className="flex-1 py-2.5 bg-purple-500 hover:bg-purple-400 text-purple-950 font-bold uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-1.5"
                 >
                   {pushing ? (
                     "Pushing..."
@@ -1536,7 +1534,7 @@ export default function BotsPage() {
               </div>
             </div>
           </div>\n\n          {/* Section 2: Settings Change History */}
-          <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-3">
+          <div className="p-5 bg-[--bg-card] border border-[--border] rounded-lg space-y-3">
             <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-zinc-400 flex items-center gap-1.5">
               Settings Change History
             </h3>
@@ -1545,10 +1543,10 @@ export default function BotsPage() {
                 <div className="text-zinc-600 text-center py-4">No recent settings changes recorded</div>
               ) : (
                 analytics.settings_history.map((hist, idx) => (
-                  <div key={idx} className="p-2.5 bg-black/30 border border-zinc-900 rounded-xl flex flex-col gap-1">
+                  <div key={idx} className="p-2.5 bg-black/30 border border-[rgba(255,255,255,0.04)] rounded-xl flex flex-col gap-1">
                     <div className="flex justify-between font-bold">
                       <span className="text-zinc-400">{hist.key}</span>
-                      <span className={hist.status === "Applied" ? "text-emerald-400" : "text-amber-400"}>
+                      <span className={hist.status === "Applied" ? "text-[#20e0b2]" : "text-[#f5c451]"}>
                         {hist.status === "Applied" ? "🟢 Applied" : "⏳ Pending"}
                       </span>
                     </div>
@@ -1563,33 +1561,33 @@ export default function BotsPage() {
           </div>
 
           {/* Section 3: Emergency Control panel */}
-          <div className="p-5 bg-[--bg-card] border border-red-950/40 rounded-2xl space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-red-400 flex items-center gap-1.5">
-              <Shield className="w-4 h-4 text-red-500" /> Emergency controls
+          <div className="p-5 bg-[--bg-card] border border-red-950/40 rounded-lg space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-[#ff5c73] flex items-center gap-1.5">
+              <Shield className="w-4 h-4 text-[#ff5c73]" /> Emergency controls
             </h3>
             
             <div className="grid grid-cols-2 gap-3 text-center">
               <button
                 onClick={() => setConfirmCommand("PAUSE")}
-                className="py-2.5 bg-zinc-900/60 hover:bg-zinc-800 text-amber-500 hover:text-amber-400 font-bold font-mono text-[10px] rounded-xl border border-zinc-800 tracking-wider transition-all uppercase"
+                className="py-2.5 bg-zinc-900/60 hover:bg-zinc-800 text-amber-500 hover:text-[#f5c451] font-bold font-mono text-[10px] rounded-xl border border-[rgba(255,255,255,0.07)] tracking-wider transition-all uppercase"
               >
                 ⏸ Pause EA
               </button>
               <button
                 onClick={() => setConfirmCommand("RESUME")}
-                className="py-2.5 bg-zinc-900/60 hover:bg-zinc-800 text-emerald-500 hover:text-emerald-400 font-bold font-mono text-[10px] rounded-xl border border-zinc-800 tracking-wider transition-all uppercase"
+                className="py-2.5 bg-zinc-900/60 hover:bg-zinc-800 text-[#20e0b2] hover:text-[#20e0b2] font-bold font-mono text-[10px] rounded-xl border border-[rgba(255,255,255,0.07)] tracking-wider transition-all uppercase"
               >
                 ▶ Resume EA
               </button>
               <button
                 onClick={() => setConfirmCommand("CLOSE_ALL")}
-                className="py-2.5 bg-red-950/20 hover:bg-red-950/40 text-red-400 hover:text-red-300 font-bold font-mono text-[10px] rounded-xl border border-red-900/30 tracking-wider transition-all uppercase col-span-2"
+                className="py-2.5 bg-red-950/20 hover:bg-red-950/40 text-[#ff5c73] hover:text-red-300 font-bold font-mono text-[10px] rounded-xl border border-red-900/30 tracking-wider transition-all uppercase col-span-2"
               >
                 🛑 Close EA Positions
               </button>
               <button
                 onClick={() => setConfirmCommand("DISABLE")}
-                className="py-2.5 bg-red-500/10 hover:bg-red-500/25 text-red-400 font-bold font-mono text-[10px] rounded-xl border border-red-500/20 tracking-wider transition-all uppercase col-span-2"
+                className="py-2.5 bg-[rgba(255,92,115,0.08)] hover:bg-red-500/25 text-[#ff5c73] font-bold font-mono text-[10px] rounded-xl border border-[rgba(255,92,115,0.2)] tracking-wider transition-all uppercase col-span-2"
               >
                 🚨 Disable EA
               </button>
@@ -1597,17 +1595,17 @@ export default function BotsPage() {
           </div>
 
           {/* Section 4: MQL5 EA Setup Instructions */}
-          <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-3.5 text-xs font-mono">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-1.5 border-b border-zinc-900 pb-2.5">
-              <Download className="w-4.5 h-4.5 text-purple-400" /> MQL5 Setup Guide
+          <div className="p-5 bg-[--bg-card] border border-[--border] rounded-lg space-y-3.5 text-xs font-mono">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-1.5 border-b border-[rgba(255,255,255,0.04)] pb-2.5">
+              <Download className="w-4.5 h-4.5 text-[#a1a1aa]" /> MQL5 Setup Guide
             </h4>
             
             <div className="space-y-3 text-[11px] leading-relaxed text-zinc-400">
               <p>1. Open MT5 and launch **MetaEditor** (F4).</p>
-              <p>2. Create a new Expert Advisor named <code className="text-purple-400 font-bold">AdaptiveICT_EA</code>.</p>
+              <p>2. Create a new Expert Advisor named <code className="text-[#a1a1aa] font-bold">AdaptiveICT_EA</code>.</p>
               <p>3. Replace its contents with the code inside the root workspace folder.</p>
               <p>4. Add the bridge URL to your MT5 Terminal options:</p>
-              <code className="text-[9px] text-zinc-500 block bg-black/40 p-2 rounded border border-zinc-800 break-all select-all font-mono">
+              <code className="text-[9px] text-zinc-500 block bg-black/40 p-2 rounded border border-[rgba(255,255,255,0.07)] break-all select-all font-mono">
                 Tools → Options → Expert Advisors → Allow WebRequest:
                 <br />
                 {BRIDGE.replace("/api/bridge", "")}
@@ -1623,7 +1621,7 @@ export default function BotsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         {/* Grade Win Rates */}
-        <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-4">
+        <div className="p-5 bg-[--bg-card] border border-[--border] rounded-lg space-y-4">
           <h4 className="text-xs font-bold uppercase font-mono tracking-wider text-zinc-400">
             Win Rate by Signal Grade
           </h4>
@@ -1640,7 +1638,7 @@ export default function BotsPage() {
         </div>
 
         {/* Setup win rates */}
-        <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-4">
+        <div className="p-5 bg-[--bg-card] border border-[--border] rounded-lg space-y-4">
           <h4 className="text-xs font-bold uppercase font-mono tracking-wider text-zinc-400">
             Win Rate by Setup Concept
           </h4>
@@ -1657,7 +1655,7 @@ export default function BotsPage() {
         </div>
 
         {/* Regime win rates */}
-        <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-4">
+        <div className="p-5 bg-[--bg-card] border border-[--border] rounded-lg space-y-4">
           <h4 className="text-xs font-bold uppercase font-mono tracking-wider text-zinc-400">
             Win Rate by Market Regime
           </h4>
@@ -1679,7 +1677,7 @@ export default function BotsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
         {/* Symbol Performance Bar Chart */}
-        <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-4">
+        <div className="p-5 bg-[--bg-card] border border-[--border] rounded-lg space-y-4">
           <h4 className="text-xs font-bold uppercase font-mono tracking-wider text-zinc-400">
             Win Rate by Symbol
           </h4>
@@ -1690,7 +1688,7 @@ export default function BotsPage() {
                   <XAxis dataKey="symbol" stroke="#52525b" fontSize={11} tickLine={false} />
                   <YAxis stroke="#52525b" fontSize={11} tickLine={false} />
                   <Tooltip 
-                    contentStyle={{ background: "#0a0a0f", borderColor: "#27272a", borderRadius: "12px", fontFamily: "monospace", fontSize: "11px" }}
+                    contentStyle={{ background: "#09090b", borderColor: "#27272a", borderRadius: "12px", fontFamily: "monospace", fontSize: "11px" }}
                   />
                   <Bar dataKey="win_rate" radius={[4, 4, 0, 0]} name="Win Rate %">
                     {analytics.symbol_perf.map((entry, index) => (
@@ -1706,7 +1704,7 @@ export default function BotsPage() {
         </div>
 
         {/* Session win rates */}
-        <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-4">
+        <div className="p-5 bg-[--bg-card] border border-[--border] rounded-lg space-y-4">
           <h4 className="text-xs font-bold uppercase font-mono tracking-wider text-zinc-400">
             Win Rate by Session
           </h4>
@@ -1717,7 +1715,7 @@ export default function BotsPage() {
                   <XAxis dataKey="session" stroke="#52525b" fontSize={11} tickLine={false} />
                   <YAxis stroke="#52525b" fontSize={11} tickLine={false} />
                   <Tooltip 
-                    contentStyle={{ background: "#0a0a0f", borderColor: "#27272a", borderRadius: "12px", fontFamily: "monospace", fontSize: "11px" }}
+                    contentStyle={{ background: "#09090b", borderColor: "#27272a", borderRadius: "12px", fontFamily: "monospace", fontSize: "11px" }}
                   />
                   <Bar dataKey="win_rate" radius={[4, 4, 0, 0]} name="Win Rate %">
                     {analytics.session_perf.map((entry, index) => (
@@ -1738,14 +1736,14 @@ export default function BotsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
         {/* Trade Log */}
-        <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-4">
+        <div className="p-5 bg-[--bg-card] border border-[--border] rounded-lg space-y-4">
           <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-zinc-400 flex items-center gap-1.5">
-            <Activity className="w-4 h-4 text-purple-400" /> Historical Trade Log
+            <Activity className="w-4 h-4 text-[#a1a1aa]" /> Historical Trade Log
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-[11px] font-mono border-collapse">
               <thead>
-                <tr className="border-b border-zinc-800 text-[9px] text-zinc-500 uppercase text-left">
+                <tr className="border-b border-[rgba(255,255,255,0.07)] text-[9px] text-zinc-500 uppercase text-left">
                   <th className="pb-2">Time</th>
                   <th className="pb-2">Symbol</th>
                   <th className="pb-2">Type</th>
@@ -1768,14 +1766,14 @@ export default function BotsPage() {
                       <td className="py-2.5 text-zinc-500">{new Date(t.timestamp).toLocaleDateString()} {new Date(t.timestamp).toLocaleTimeString()}</td>
                       <td className="py-2.5 font-bold text-white">{t.symbol}</td>
                       <td className="py-2.5">
-                        <span className={`text-[8px] px-1 py-0.5 rounded ${t.type === "BUY" ? "bg-emerald-950/20 text-emerald-450" : "bg-red-950/20 text-red-400"}`}>
+                        <span className={`text-[8px] px-1 py-0.5 rounded ${t.type === "BUY" ? "bg-emerald-950/20 text-emerald-450" : "bg-red-950/20 text-[#ff5c73]"}`}>
                           {t.type}
                         </span>
                       </td>
                       <td className="py-2.5 text-zinc-350">{t.volume}</td>
                       <td className="py-2.5 text-zinc-400">{t.setup}</td>
                       <td className="py-2.5 text-right text-zinc-450">{t.score}</td>
-                      <td className={`py-2.5 text-right font-bold ${t.pnl >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                      <td className={`py-2.5 text-right font-bold ${t.pnl >= 0 ? "text-[#20e0b2]" : "text-[#ff5c73]"}`}>
                         {t.pnl >= 0 ? "+" : ""}${t.pnl.toFixed(2)} ({t.r_multiple >= 0 ? "+" : ""}{t.r_multiple}R)
                       </td>
                     </tr>
@@ -1787,36 +1785,36 @@ export default function BotsPage() {
         </div>
 
         {/* EA activity events log */}
-        <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-4">
+        <div className="p-5 bg-[--bg-card] border border-[--border] rounded-lg space-y-4">
           <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-zinc-400 flex items-center gap-1.5">
-            <Target className="w-4 h-4 text-purple-400" /> EA Event Log
+            <Target className="w-4 h-4 text-[#a1a1aa]" /> EA Event Log
           </h3>
           <div className="space-y-2 max-h-80 overflow-y-auto custom-scrollbar font-mono text-[11px] text-zinc-400">
-            <div className="flex gap-4 p-2 bg-black/25 border border-zinc-900 rounded-xl">
+            <div className="flex gap-4 p-2 bg-black/25 border border-[rgba(255,255,255,0.04)] rounded-xl">
               <span className="text-zinc-600">12:43:28</span>
-              <span className="text-emerald-400">Settings applied by EA</span>
+              <span className="text-[#20e0b2]">Settings applied by EA</span>
             </div>
-            <div className="flex gap-4 p-2 bg-black/25 border border-zinc-900 rounded-xl">
+            <div className="flex gap-4 p-2 bg-black/25 border border-[rgba(255,255,255,0.04)] rounded-xl">
               <span className="text-zinc-600">12:42:10</span>
               <span>XAUUSD setup detected on M15</span>
             </div>
-            <div className="flex gap-4 p-2 bg-black/25 border border-zinc-900 rounded-xl">
+            <div className="flex gap-4 p-2 bg-black/25 border border-[rgba(255,255,255,0.04)] rounded-xl">
               <span className="text-zinc-600">12:42:11</span>
-              <span className="text-purple-400">Confluence score: 84 / 100</span>
+              <span className="text-[#a1a1aa]">Confluence score: 84 / 100</span>
             </div>
-            <div className="flex gap-4 p-2 bg-black/25 border border-zinc-900 rounded-xl">
+            <div className="flex gap-4 p-2 bg-black/25 border border-[rgba(255,255,255,0.04)] rounded-xl">
               <span className="text-zinc-600">12:42:12</span>
               <span>Scanner signal dispatched to Telegram</span>
             </div>
-            <div className="flex gap-4 p-2 bg-black/25 border border-zinc-900 rounded-xl">
+            <div className="flex gap-4 p-2 bg-black/25 border border-[rgba(255,255,255,0.04)] rounded-xl">
               <span className="text-zinc-600">12:42:13</span>
               <span className="text-emerald-450">Risk verification passed (1.0% limit)</span>
             </div>
-            <div className="flex gap-4 p-2 bg-black/25 border border-zinc-900 rounded-xl">
+            <div className="flex gap-4 p-2 bg-black/25 border border-[rgba(255,255,255,0.04)] rounded-xl">
               <span className="text-zinc-600">12:42:14</span>
-              <span className="text-purple-400">BUY order executed on MT5 terminal</span>
+              <span className="text-[#a1a1aa]">BUY order executed on MT5 terminal</span>
             </div>
-            <div className="flex gap-4 p-2 bg-black/25 border border-zinc-900 rounded-xl">
+            <div className="flex gap-4 p-2 bg-black/25 border border-[rgba(255,255,255,0.04)] rounded-xl">
               <span className="text-zinc-650 font-mono">12:42:15</span>
               <span>Trade reported back to Dashboard</span>
             </div>
@@ -1832,7 +1830,7 @@ export default function BotsPage() {
           <div className="space-y-4">
             
             {/* Recent Trades Snapshot filter stream */}
-            <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-3">
+            <div className="p-5 bg-[--bg-card] border border-[--border] rounded-lg space-y-3">
               <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500 block font-mono">Recent Trades Decision Replay</span>
               <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto custom-scrollbar">
                 {trades.filter(t => t.action === "close").slice(0, 10).map((t, idx) => {
@@ -1847,13 +1845,13 @@ export default function BotsPage() {
                       }}
                       className={`px-3 py-1.5 rounded-xl border font-mono text-[9px] flex items-center gap-1.5 transition-all active:scale-95 ${
                         isSelected
-                          ? "bg-purple-950/20 border-purple-800/80 text-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.05)]"
-                          : "bg-black/25 border-zinc-900 hover:border-zinc-800 text-zinc-400"
+                          ? "bg-purple-950/20 border-purple-800/80 text-[#a1a1aa]"
+                          : "bg-black/25 border-[rgba(255,255,255,0.04)] hover:border-[rgba(255,255,255,0.07)] text-zinc-400"
                       }`}
                     >
-                      <span className={isBuy ? "text-emerald-450 font-bold" : "text-red-400 font-bold"}>{t.type}</span>
+                      <span className={isBuy ? "text-emerald-450 font-bold" : "text-[#ff5c73] font-bold"}>{t.type}</span>
                       <span>{t.symbol}</span>
-                      <span className={t.pnl >= 0 ? "text-emerald-450 font-bold" : "text-red-400 font-bold"}>
+                      <span className={t.pnl >= 0 ? "text-emerald-450 font-bold" : "text-[#ff5c73] font-bold"}>
                         {t.pnl >= 0 ? "+" : ""}{t.r_multiple?.toFixed(1) ?? "0"}R
                       </span>
                     </button>
@@ -1866,17 +1864,17 @@ export default function BotsPage() {
             </div>
 
             {/* Live Signals Sidebar Queue */}
-            <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-zinc-400 flex items-center justify-between border-b border-zinc-900 pb-3">
+            <div className="p-5 bg-[--bg-card] border border-[--border] rounded-lg space-y-4">
+              <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-zinc-400 flex items-center justify-between border-b border-[rgba(255,255,255,0.04)] pb-3">
                 <span className="flex items-center gap-1.5">
-                  <Send className="w-4 h-4 text-purple-400" /> Scanner Signals Queue
+                  <Send className="w-4 h-4 text-[#a1a1aa]" /> Scanner Signals Queue
                 </span>
                 <span className="text-[10px] text-zinc-555 font-mono">Count: {signals.length}</span>
               </h3>
 
               <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1 custom-scrollbar">
                 {signals.length === 0 ? (
-                  <div className="text-zinc-600 text-center py-12 text-[11px] font-mono border border-dashed border-zinc-900 rounded-xl bg-black/10">
+                  <div className="text-zinc-600 text-center py-12 text-[11px] font-mono border border-dashed border-[rgba(255,255,255,0.04)] rounded-xl bg-black/10">
                     No signals detected recently.<br/>
                     Ensure EA is active and scanning.
                   </div>
@@ -1893,8 +1891,8 @@ export default function BotsPage() {
                         }}
                         className={`w-full text-left p-3.5 rounded-xl border transition-all flex flex-col gap-2 font-mono ${
                           isSelected
-                            ? "bg-purple-950/20 border-purple-800/60 shadow-[0_0_12px_rgba(168,85,247,0.08)]"
-                            : "bg-black/25 border-zinc-900 hover:border-zinc-800"
+                            ? "bg-purple-950/20 border-purple-800/60"
+                            : "bg-black/25 border-[rgba(255,255,255,0.04)] hover:border-[rgba(255,255,255,0.07)]"
                         }`}
                       >
                         <div className="flex justify-between items-center w-full">
@@ -1906,14 +1904,14 @@ export default function BotsPage() {
                           </span>
                           <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border ${
                             isBuy
-                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                              : "bg-red-500/10 text-red-400 border-red-500/20"
+                              ? "bg-[#20e0b2]/10 text-[#20e0b2] border-[rgba(32,224,178,0.3)]/20"
+                              : "bg-[rgba(255,92,115,0.08)] text-[#ff5c73] border-[rgba(255,92,115,0.2)]"
                           }`}>
                             {sig.type}
                           </span>
                         </div>
                         <div className="flex justify-between items-center text-[10px] text-zinc-500">
-                          <span>Score: <b className="text-purple-400">{sig.confidence || 75}%</b></span>
+                          <span>Score: <b className="text-[#a1a1aa]">{sig.confidence || 75}%</b></span>
                           <span className="text-[8px] text-zinc-650">{new Date(sig.timestamp).toLocaleTimeString()}</span>
                         </div>
                       </button>
@@ -1929,9 +1927,9 @@ export default function BotsPage() {
             
             {/* Live Active Positions Card */}
             {activeEa?.last_report?.open_trades && activeEa.last_report.open_trades.length > 0 && (
-              <div className="p-5 bg-gradient-to-r from-purple-950/10 to-zinc-950/40 border border-purple-900/30 rounded-3xl space-y-4 shadow-[0_0_20px_rgba(168,85,247,0.03)] font-mono text-xs">
-                <div className="flex justify-between items-center border-b border-zinc-900/80 pb-2">
-                  <span className="text-[10px] font-bold text-purple-400 flex items-center gap-1.5">
+              <div className="p-5 bg-gradient-to-r from-purple-950/10 to-zinc-950/40 border border-purple-900/30 rounded-lg space-y-4 font-mono text-xs">
+                <div className="flex justify-between items-center border-b border-[rgba(255,255,255,0.04)]/80 pb-2">
+                  <span className="text-[10px] font-bold text-[#a1a1aa] flex items-center gap-1.5">
                     <Shield className="w-4 h-4 text-emerald-450 animate-pulse" /> Live Active MT5 Positions
                   </span>
                   <span className="px-2 py-0.5 rounded text-[8px] font-black tracking-widest bg-emerald-950/20 text-emerald-450 border border-emerald-900/20">
@@ -1944,7 +1942,7 @@ export default function BotsPage() {
                     const isBuy = t.type === "BUY" || t.type === 0;
                     const pnlVal = t.pnl ?? 0;
                     return (
-                      <div key={idx} className="bg-black/35 border border-zinc-900 p-4 rounded-2xl flex flex-col gap-2 relative overflow-hidden">
+                      <div key={idx} className="bg-black/35 border border-[rgba(255,255,255,0.04)] p-4 rounded-lg flex flex-col gap-2 relative overflow-hidden">
                         <div className="flex justify-between items-center w-full">
                           <span className="font-bold text-white text-xs">{t.symbol}</span>
                           <span className={`text-[8.5px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded ${
@@ -1955,15 +1953,15 @@ export default function BotsPage() {
                         </div>
                         <div className="grid grid-cols-2 gap-1.5 text-[9.5px] text-zinc-400">
                           <div>Entry: <b className="text-white">{t.price?.toFixed(5)}</b></div>
-                          <div className={`text-right font-bold ${pnlVal >= 0 ? "text-emerald-450" : "text-red-400"}`}>
+                          <div className={`text-right font-bold ${pnlVal >= 0 ? "text-emerald-450" : "text-[#ff5c73]"}`}>
                             PnL: {pnlVal >= 0 ? "+" : ""}${pnlVal.toFixed(2)}
                           </div>
-                          <div>SL: <b className="text-red-500/80">{t.sl?.toFixed(5)}</b></div>
-                          <div className="text-right">TP: <b className="text-emerald-500/80">{t.tp?.toFixed(5)}</b></div>
+                          <div>SL: <b className="text-[#ff5c73]/80">{t.sl?.toFixed(5)}</b></div>
+                          <div className="text-right">TP: <b className="text-[#20e0b2]/80">{t.tp?.toFixed(5)}</b></div>
                         </div>
                         <div className="flex gap-2 text-[8px] font-bold mt-1">
                           {t.breakeven_active && (
-                            <span className="bg-purple-950/30 text-purple-400 px-1.5 py-0.5 rounded border border-purple-900/30">BE ACTIVE</span>
+                            <span className="bg-purple-950/30 text-[#a1a1aa] px-1.5 py-0.5 rounded border border-purple-900/30">BE ACTIVE</span>
                           )}
                           {t.trailing_active && (
                             <span className="bg-pink-950/30 text-pink-400 px-1.5 py-0.5 rounded border border-pink-900/30">TRAIL ACTIVE</span>
@@ -1977,7 +1975,7 @@ export default function BotsPage() {
               </div>
             )}
             {!(selectedSnapshot || signals[selectedSignalIndex]) ? (
-              <div className="p-12 text-center bg-[#111118] border border-zinc-850/60 rounded-3xl min-h-[500px] flex flex-col items-center justify-center gap-2">
+              <div className="p-12 text-center bg-[#101014] border border-zinc-850/60 rounded-lg min-h-[500px] flex flex-col items-center justify-center gap-2">
                 <Target className="w-12 h-12 text-zinc-700 animate-pulse" />
                 <h3 className="text-sm font-bold uppercase tracking-wider font-mono text-zinc-500">No Target Decision Selected</h3>
                 <p className="text-xs text-zinc-650 font-mono">Select a live scanner signal on the sidebar or a recent closed trade to reconstruct the EA decision parameters.</p>
@@ -2040,7 +2038,7 @@ export default function BotsPage() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       
                       {/* Radial Decision Score */}
-                      <div className="p-6 bg-[#111118] border border-zinc-850/60 rounded-3xl flex flex-col items-center justify-center text-center relative overflow-hidden shadow-xl min-h-[220px]">
+                      <div className="p-6 bg-[#101014] border border-zinc-850/60 rounded-lg flex flex-col items-center justify-center text-center relative overflow-hidden min-h-[220px]">
                         <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 blur-2xl rounded-full" />
                         <span className="text-[9px] font-black uppercase tracking-widest text-zinc-550 mb-3 block font-mono">Decision Rating</span>
                         
@@ -2051,27 +2049,27 @@ export default function BotsPage() {
                           </svg>
                           <div className="absolute flex flex-col items-center justify-center font-mono">
                             <span className="text-2xl font-bold text-white">{score}%</span>
-                            <span className="text-[9px] font-black text-purple-400 uppercase tracking-widest mt-0.5">{grade} Grade</span>
+                            <span className="text-[9px] font-black text-[#a1a1aa] uppercase tracking-widest mt-0.5">{grade} Grade</span>
                           </div>
                         </div>
-                        <span className={`text-[10px] font-mono font-bold mt-2 ${isBuy ? "text-emerald-450" : "text-red-400"}`}>
+                        <span className={`text-[10px] font-mono font-bold mt-2 ${isBuy ? "text-emerald-450" : "text-[#ff5c73]"}`}>
                           {activeData.isSnapshot ? "REPLAY SNAPSHOT" : "LIVE SIGNAL"} : {activeData.type}
                         </span>
                       </div>
 
                       {/* Market State Regime */}
-                      <div className="p-6 bg-[#111118] border border-zinc-850/60 rounded-3xl space-y-4 shadow-xl min-h-[220px] md:col-span-2 font-mono">
+                      <div className="p-6 bg-[#101014] border border-zinc-850/60 rounded-lg space-y-4 min-h-[220px] md:col-span-2 font-mono">
                         <span className="text-[9px] font-black uppercase tracking-widest text-zinc-550 block">Market State Regime</span>
                         
                         <div className="grid grid-cols-2 gap-4 text-xs">
-                          <div className="bg-black/35 p-3 rounded-xl border border-zinc-900">
+                          <div className="bg-black/35 p-3 rounded-xl border border-[rgba(255,255,255,0.04)]">
                             <span className="text-zinc-650 block text-[8px] uppercase font-bold tracking-wider mb-1">Regime Direction</span>
-                            <span className={`text-sm font-bold flex items-center gap-1 ${isBuy ? "text-emerald-450" : "text-red-400"}`}>
+                            <span className={`text-sm font-bold flex items-center gap-1 ${isBuy ? "text-emerald-450" : "text-[#ff5c73]"}`}>
                               {isBuy ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
                               {isBuy ? "BULLISH ↑" : "BEARISH ↓"}
                             </span>
                           </div>
-                          <div className="bg-black/35 p-3 rounded-xl border border-zinc-900">
+                          <div className="bg-black/35 p-3 rounded-xl border border-[rgba(255,255,255,0.04)]">
                             <span className="text-zinc-650 block text-[8px] uppercase font-bold tracking-wider mb-1">State Type</span>
                             <span className="text-sm font-bold text-white">
                               {activeData.regime.toUpperCase()}
@@ -2083,10 +2081,10 @@ export default function BotsPage() {
                         <div className="space-y-1.5">
                           <span className="text-[7.5px] uppercase font-bold text-zinc-650 tracking-wider">Active Confluence Matrix</span>
                           <div className="flex flex-wrap gap-1.5 text-[8.5px] font-bold">
-                            <span className={`px-2 py-0.5 rounded border transition-colors ${activeData.regime.toUpperCase() === "TRENDING" ? "bg-purple-950/20 text-purple-400 border-purple-900/60" : "bg-black/10 text-zinc-555 border-transparent"}`}>TRENDING</span>
-                            <span className={`px-2 py-0.5 rounded border transition-colors ${activeData.regime.toUpperCase() === "RANGING" ? "bg-purple-950/20 text-purple-400 border-purple-900/60" : "bg-black/10 text-zinc-555 border-transparent"}`}>RANGING</span>
-                            <span className={`px-2 py-0.5 rounded border transition-colors ${activeData.regime.toUpperCase() === "BREAKOUT" ? "bg-purple-950/20 text-purple-400 border-purple-900/60" : "bg-black/10 text-zinc-555 border-transparent"}`}>BREAKOUT</span>
-                            <span className={`px-2 py-0.5 rounded border transition-colors ${activeData.regime.toUpperCase() === "MOMENTUM" ? "bg-purple-950/20 text-purple-400 border-purple-900/60" : "bg-black/10 text-zinc-555 border-transparent"}`}>MOMENTUM</span>
+                            <span className={`px-2 py-0.5 rounded border transition-colors ${activeData.regime.toUpperCase() === "TRENDING" ? "bg-purple-950/20 text-[#a1a1aa] border-purple-900/60" : "bg-black/10 text-zinc-555 border-transparent"}`}>TRENDING</span>
+                            <span className={`px-2 py-0.5 rounded border transition-colors ${activeData.regime.toUpperCase() === "RANGING" ? "bg-purple-950/20 text-[#a1a1aa] border-purple-900/60" : "bg-black/10 text-zinc-555 border-transparent"}`}>RANGING</span>
+                            <span className={`px-2 py-0.5 rounded border transition-colors ${activeData.regime.toUpperCase() === "BREAKOUT" ? "bg-purple-950/20 text-[#a1a1aa] border-purple-900/60" : "bg-black/10 text-zinc-555 border-transparent"}`}>BREAKOUT</span>
+                            <span className={`px-2 py-0.5 rounded border transition-colors ${activeData.regime.toUpperCase() === "MOMENTUM" ? "bg-purple-950/20 text-[#a1a1aa] border-purple-900/60" : "bg-black/10 text-zinc-555 border-transparent"}`}>MOMENTUM</span>
                           </div>
                         </div>
                       </div>
@@ -2097,31 +2095,31 @@ export default function BotsPage() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       
                       {/* "Why Now?" Momentum Engine */}
-                      <div className="p-6 bg-[#111118] border border-zinc-850/60 rounded-3xl space-y-4 shadow-xl md:col-span-2 font-mono text-xs">
+                      <div className="p-6 bg-[#101014] border border-zinc-850/60 rounded-lg space-y-4 md:col-span-2 font-mono text-xs">
                         <span className="text-[9px] font-black uppercase tracking-widest text-purple-455 block">⚡ Momentum Engine Indicators</span>
                         
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                          <div className="bg-black/20 p-3 rounded-xl border border-zinc-900">
+                          <div className="bg-black/20 p-3 rounded-xl border border-[rgba(255,255,255,0.04)]">
                             <span className="text-[7.5px] block text-zinc-650 uppercase font-bold tracking-wider mb-1">Momentum Score</span>
                             <span className="text-xs font-bold text-white">{score} / 100</span>
                           </div>
-                          <div className="bg-black/20 p-3 rounded-xl border border-zinc-900">
+                          <div className="bg-black/20 p-3 rounded-xl border border-[rgba(255,255,255,0.04)]">
                             <span className="text-[7.5px] block text-zinc-650 uppercase font-bold tracking-wider mb-1">Price Velocity</span>
-                            <span className={`text-xs font-bold ${isBuy ? "text-emerald-450" : "text-red-400"}`}>{getVelocity(score, activeData.type)}</span>
+                            <span className={`text-xs font-bold ${isBuy ? "text-emerald-450" : "text-[#ff5c73]"}`}>{getVelocity(score, activeData.type)}</span>
                           </div>
-                          <div className="bg-black/20 p-3 rounded-xl border border-zinc-900">
+                          <div className="bg-black/20 p-3 rounded-xl border border-[rgba(255,255,255,0.04)]">
                             <span className="text-[7.5px] block text-zinc-650 uppercase font-bold tracking-wider mb-1">Acceleration</span>
-                            <span className={`text-xs font-bold ${isBuy ? "text-emerald-450" : "text-red-400"}`}>{getAcceleration(score, activeData.type)}</span>
+                            <span className={`text-xs font-bold ${isBuy ? "text-emerald-450" : "text-[#ff5c73]"}`}>{getAcceleration(score, activeData.type)}</span>
                           </div>
-                          <div className="bg-black/20 p-3 rounded-xl border border-zinc-900">
+                          <div className="bg-black/20 p-3 rounded-xl border border-[rgba(255,255,255,0.04)]">
                             <span className="text-[7.5px] block text-zinc-650 uppercase font-bold tracking-wider mb-1">Candle Expansion</span>
                             <span className="text-xs font-bold text-white">{getCandleExpansion(score)}</span>
                           </div>
-                          <div className="bg-black/20 p-3 rounded-xl border border-zinc-900">
+                          <div className="bg-black/20 p-3 rounded-xl border border-[rgba(255,255,255,0.04)]">
                             <span className="text-[7.5px] block text-zinc-650 uppercase font-bold tracking-wider mb-1">Tick Activity</span>
                             <span className="text-xs font-bold text-white">{getTickActivity(score)}</span>
                           </div>
-                          <div className="bg-black/20 p-3 rounded-xl border border-zinc-900">
+                          <div className="bg-black/20 p-3 rounded-xl border border-[rgba(255,255,255,0.04)]">
                             <span className="text-[7.5px] block text-zinc-650 uppercase font-bold tracking-wider mb-1">Spread / Volatility</span>
                             <span className="text-xs font-bold text-white">{getSymbolSpread(activeData.symbol)} pts / {activeData.volatility.toUpperCase()}</span>
                           </div>
@@ -2129,10 +2127,10 @@ export default function BotsPage() {
                       </div>
 
                       {/* Active Strategy Mode card */}
-                      <div className="p-6 bg-[#111118] border border-zinc-850/60 rounded-3xl space-y-4 shadow-xl font-mono text-xs">
+                      <div className="p-6 bg-[#101014] border border-zinc-850/60 rounded-lg space-y-4 font-mono text-xs">
                         <span className="text-[9px] font-black uppercase tracking-widest text-zinc-550 block">Active Strategy Mode</span>
-                        <div className="bg-purple-950/10 border border-purple-900/30 p-3.5 rounded-2xl space-y-2">
-                          <span className="text-[10px] font-bold text-purple-400 block uppercase tracking-wider">
+                        <div className="bg-purple-950/10 border border-purple-900/30 p-3.5 rounded-lg space-y-2">
+                          <span className="text-[10px] font-bold text-[#a1a1aa] block uppercase tracking-wider">
                             {isScalping ? "⚡ MOMENTUM SCALPER" : "🌊 SWING STRATEGY"}
                           </span>
                           <div className="text-[9.5px] text-zinc-400 space-y-1">
@@ -2150,7 +2148,7 @@ export default function BotsPage() {
                             </div>
                             <div className="flex justify-between">
                               <span>Exit Mechanism</span>
-                              <span className="font-bold text-purple-400">{isScalping ? "Dynamic Momentum" : "Structure SL/TP"}</span>
+                              <span className="font-bold text-[#a1a1aa]">{isScalping ? "Dynamic Momentum" : "Structure SL/TP"}</span>
                             </div>
                           </div>
                         </div>
@@ -2162,8 +2160,8 @@ export default function BotsPage() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-mono text-xs">
                       
                       {/* Entry checklist */}
-                      <div className="p-6 bg-[#111118] border border-zinc-850/60 rounded-3xl space-y-3.5 shadow-xl md:col-span-2">
-                        <div className="flex justify-between items-center border-b border-zinc-900 pb-2">
+                      <div className="p-6 bg-[#101014] border border-zinc-850/60 rounded-lg space-y-3.5 md:col-span-2">
+                        <div className="flex justify-between items-center border-b border-[rgba(255,255,255,0.04)] pb-2">
                           <span className="text-[9px] font-black uppercase tracking-widest text-zinc-550 block">Entry Conditions Validation</span>
                           <span className="text-[10px] font-black uppercase text-emerald-450 bg-emerald-950/20 border border-emerald-900/30 px-2 py-0.5 rounded">
                             {score >= 70 && getSymbolSpread(activeData.symbol) < 20 ? "8 / 8 PASSED" : "7 / 8 PASSED"}
@@ -2172,7 +2170,7 @@ export default function BotsPage() {
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px] text-zinc-400">
                           <div className="flex items-center gap-2">
-                            <span className="text-emerald-500 font-bold">✓</span>
+                            <span className="text-[#20e0b2] font-bold">✓</span>
                             <span>Momentum threshold: {score} &gt; 70</span>
                           </div>
                           <div className="flex items-center gap-2">
@@ -2191,7 +2189,7 @@ export default function BotsPage() {
                             {getSymbolSpread(activeData.symbol) < 20 ? (
                               <span className="text-emerald-450 font-bold">✓</span>
                             ) : (
-                              <span className="text-red-500 font-bold">✕</span>
+                              <span className="text-[#ff5c73] font-bold">✕</span>
                             )}
                             <span>Spread: {getSymbolSpread(activeData.symbol)} &lt; 20 (Safe limit)</span>
                           </div>
@@ -2211,26 +2209,26 @@ export default function BotsPage() {
                       </div>
 
                       {/* Risk Desk panel */}
-                      <div className="p-6 bg-[#111118] border border-zinc-850/60 rounded-3xl space-y-4 shadow-xl font-mono text-xs">
+                      <div className="p-6 bg-[#101014] border border-zinc-850/60 rounded-lg space-y-4 font-mono text-xs">
                         <span className="text-[9px] font-black uppercase tracking-widest text-zinc-555 block">Risk Control Desk</span>
                         <div className="space-y-2">
-                          <div className="flex justify-between border-b border-zinc-900 pb-1.5">
+                          <div className="flex justify-between border-b border-[rgba(255,255,255,0.04)] pb-1.5">
                             <span className="text-zinc-500">Balance / Equity</span>
                             <span className="font-bold text-white">${balance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} / ${equity.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                           </div>
-                          <div className="flex justify-between border-b border-zinc-900 pb-1.5">
+                          <div className="flex justify-between border-b border-[rgba(255,255,255,0.04)] pb-1.5">
                             <span className="text-zinc-500">Risk per Trade / Exposure</span>
                             <span className="font-bold text-zinc-400">{riskPercent.toFixed(2)}% / {currentExposure.toFixed(2)}%</span>
                           </div>
-                          <div className="flex justify-between border-b border-zinc-900 pb-1.5">
+                          <div className="flex justify-between border-b border-[rgba(255,255,255,0.04)] pb-1.5">
                             <span className="text-zinc-500">Daily PnL / Drawdown</span>
-                            <span className={`font-bold ${pnlToday >= 0 ? "text-emerald-450" : "text-red-400"}`}>
+                            <span className={`font-bold ${pnlToday >= 0 ? "text-emerald-450" : "text-[#ff5c73]"}`}>
                               {pnlToday >= 0 ? "+" : ""}${pnlToday.toFixed(2)} ({balance > 0 ? (Math.max(0, ((balance - equity) / balance) * 100)).toFixed(2) : "0.00"}%)
                             </span>
                           </div>
                           <div className="flex justify-between items-center">
                             <span className="text-zinc-500">Daily Drawdown Limit</span>
-                            <span className="font-bold text-red-400">-${(balance * 0.05).toFixed(2)} (-5.0%)</span>
+                            <span className="font-bold text-[#ff5c73]">-${(balance * 0.05).toFixed(2)} (-5.0%)</span>
                           </div>
                         </div>
                       </div>
@@ -2238,10 +2236,10 @@ export default function BotsPage() {
                     </div>
 
                     {/* Row 4: Entry-Exit Trade Lifecycle timeline */}
-                    <div className="p-6 bg-[#111118] border border-zinc-850/60 rounded-3xl space-y-4 shadow-xl font-mono text-xs">
+                    <div className="p-6 bg-[#101014] border border-zinc-850/60 rounded-lg space-y-4 font-mono text-xs">
                       <span className="text-[9px] font-black uppercase tracking-widest text-purple-450 block">🔄 Trade Lifecycle Timeline</span>
                       
-                      <div className="relative pl-6 border-l border-zinc-800 space-y-5">
+                      <div className="relative pl-6 border-l border-[rgba(255,255,255,0.07)] space-y-5">
                         {/* Step 1 */}
                         <div className="relative">
                           <div className="absolute -left-[30px] top-0 w-4 h-4 rounded-full bg-purple-500/20 border border-purple-500 flex items-center justify-center">
@@ -2249,7 +2247,7 @@ export default function BotsPage() {
                           </div>
                           <span className="text-[9px] text-zinc-500 block">STEP 1: SIGNAL DETECTED</span>
                           <div className="text-xs text-white mt-0.5">
-                            Setup scanner detected at {new Date(activeData.timestamp).toLocaleTimeString()} with Decision Score <b className="text-purple-400">{score}%</b>.
+                            Setup scanner detected at {new Date(activeData.timestamp).toLocaleTimeString()} with Decision Score <b className="text-[#a1a1aa]">{score}%</b>.
                           </div>
                         </div>
 
@@ -2271,7 +2269,7 @@ export default function BotsPage() {
                           </div>
                           <span className="text-[9px] text-zinc-500 block">STEP 3: TRAILING STOP ACTIVE</span>
                           <div className="text-xs text-zinc-400 mt-0.5">
-                            Stop Loss tracking active at price <b className="text-red-400">{activeData.sl.toFixed(5)}</b>. Target Take Profit set at <b className="text-emerald-450">{activeData.tp.toFixed(5)}</b>.
+                            Stop Loss tracking active at price <b className="text-[#ff5c73]">{activeData.sl.toFixed(5)}</b>. Target Take Profit set at <b className="text-emerald-450">{activeData.tp.toFixed(5)}</b>.
                           </div>
                         </div>
 
@@ -2283,7 +2281,7 @@ export default function BotsPage() {
                           <span className="text-[9px] text-zinc-500 block">STEP 4: SHUTDOWN / EXIT SNAPSHOT</span>
                           <div className="text-xs text-white mt-0.5">
                             {activeData.isSnapshot ? (
-                              <span>Position closed. Net return: <b className={activeData.pnl >= 0 ? "text-emerald-450" : "text-red-400"}>${activeData.pnl.toFixed(2)} (+{activeData.r_multiple?.toFixed(1) ?? "0"}R)</b>.</span>
+                              <span>Position closed. Net return: <b className={activeData.pnl >= 0 ? "text-emerald-450" : "text-[#ff5c73]"}>${activeData.pnl.toFixed(2)} (+{activeData.r_multiple?.toFixed(1) ?? "0"}R)</b>.</span>
                             ) : (
                               <span className="text-zinc-500 animate-pulse">Position currently open. Awaiting TP/SL target touch or dynamic momentum exit signal...</span>
                             )}
@@ -2294,21 +2292,21 @@ export default function BotsPage() {
 
                     {/* Entry approval order card */}
                     {!activeData.isSnapshot && (
-                      <div className="p-6 bg-purple-950/5 border border-purple-900/40 rounded-3xl space-y-4 shadow-[0_0_15px_rgba(168,85,247,0.05)] relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/10 blur-2xl rounded-full" />
+                      <div className="p-6 bg-purple-950/5 border border-purple-900/40 rounded-lg space-y-4 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-[rgba(255,255,255,0.04)] blur-2xl rounded-full" />
                         <span className="text-[9px] font-black uppercase tracking-widest text-purple-455 block font-mono">Approve Order Entry</span>
                         
-                        <div className="grid grid-cols-3 gap-2 text-[10px] text-zinc-350 bg-black/35 p-3 rounded-xl border border-zinc-900/80 font-mono">
+                        <div className="grid grid-cols-3 gap-2 text-[10px] text-zinc-350 bg-black/35 p-3 rounded-xl border border-[rgba(255,255,255,0.04)]/80 font-mono">
                           <div>
                             <span className="text-zinc-650 block text-[7px] uppercase font-bold tracking-wider">Entry</span>
                             {activeData.entry_price.toFixed(activeData.symbol.includes("JPY") ? 3 : 5)}
                           </div>
                           <div>
-                            <span className="text-red-500/80 block text-[7px] uppercase font-bold tracking-wider">Stop Loss</span>
+                            <span className="text-[#ff5c73]/80 block text-[7px] uppercase font-bold tracking-wider">Stop Loss</span>
                             {activeData.sl.toFixed(activeData.symbol.includes("JPY") ? 3 : 5)}
                           </div>
                           <div>
-                            <span className="text-emerald-500/80 block text-[7px] uppercase font-bold tracking-wider">Target TP</span>
+                            <span className="text-[#20e0b2]/80 block text-[7px] uppercase font-bold tracking-wider">Target TP</span>
                             {activeData.tp.toFixed(activeData.symbol.includes("JPY") ? 3 : 5)}
                           </div>
                         </div>
@@ -2317,8 +2315,8 @@ export default function BotsPage() {
                           onClick={() => handleExecuteSignal(activeData)}
                           className={`w-full py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all font-mono border flex items-center justify-center gap-1.5 shadow-lg active:scale-98 ${
                             isBuy
-                              ? "bg-emerald-500 text-emerald-950 border-emerald-400 hover:bg-emerald-400"
-                              : "bg-red-500 text-red-950 border-red-400 hover:bg-red-400"
+                              ? "bg-[#20e0b2] text-emerald-950 border-[rgba(32,224,178,0.3)] hover:bg-[#20e0b2]"
+                              : "bg-red-500 text-red-950 border-[rgba(255,92,115,0.2)] hover:bg-red-400"
                           }`}
                         >
                           <Send className="w-3.5 h-3.5" /> Approve & Execute {activeData.type} Order
@@ -2339,7 +2337,7 @@ export default function BotsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
             {/* Grade Win Rates */}
-            <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-4">
+            <div className="p-5 bg-[--bg-card] border border-[--border] rounded-lg space-y-4">
               <h4 className="text-xs font-bold uppercase font-mono tracking-wider text-zinc-400">
                 Win Rate by Signal Grade
               </h4>
@@ -2356,7 +2354,7 @@ export default function BotsPage() {
             </div>
 
             {/* Setup win rates */}
-            <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-4">
+            <div className="p-5 bg-[--bg-card] border border-[--border] rounded-lg space-y-4">
               <h4 className="text-xs font-bold uppercase font-mono tracking-wider text-zinc-400">
                 Win Rate by Setup Concept
               </h4>
@@ -2375,14 +2373,14 @@ export default function BotsPage() {
           </div>
 
           {/* Historical Trade list table */}
-          <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-4">
+          <div className="p-5 bg-[--bg-card] border border-[--border] rounded-lg space-y-4">
             <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-zinc-400 flex items-center gap-1.5">
-              <Clock className="w-4 h-4 text-purple-400" /> Historical Closed Trades Stream
+              <Clock className="w-4 h-4 text-[#a1a1aa]" /> Historical Closed Trades Stream
             </h3>
             <div className="overflow-x-auto">
               <table className="w-full text-[11px] font-mono border-collapse">
                 <thead>
-                  <tr className="border-b border-zinc-800 text-[9px] text-zinc-500 uppercase text-left">
+                  <tr className="border-b border-[rgba(255,255,255,0.07)] text-[9px] text-zinc-500 uppercase text-left">
                     <th className="pb-2">Time</th>
                     <th className="pb-2">Symbol</th>
                     <th className="pb-2">Type</th>
@@ -2405,14 +2403,14 @@ export default function BotsPage() {
                         <td className="py-2.5 text-zinc-500">{new Date(t.timestamp).toLocaleDateString()} {new Date(t.timestamp).toLocaleTimeString()}</td>
                         <td className="py-2.5 font-bold text-white">{t.symbol}</td>
                         <td className="py-2.5">
-                          <span className={`text-[8px] px-1 py-0.5 rounded ${t.type === "BUY" ? "bg-emerald-950/20 text-emerald-455" : "bg-red-950/20 text-red-400"}`}>
+                          <span className={`text-[8px] px-1 py-0.5 rounded ${t.type === "BUY" ? "bg-emerald-950/20 text-emerald-455" : "bg-red-950/20 text-[#ff5c73]"}`}>
                             {t.type}
                           </span>
                         </td>
                         <td className="py-2.5 text-zinc-350">{t.volume}</td>
                         <td className="py-2.5 text-zinc-400">{t.setup}</td>
                         <td className="py-2.5 text-right text-zinc-450">{t.score}</td>
-                        <td className={`py-2.5 text-right font-bold ${t.pnl >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                        <td className={`py-2.5 text-right font-bold ${t.pnl >= 0 ? "text-[#20e0b2]" : "text-[#ff5c73]"}`}>
                           {t.pnl >= 0 ? "+" : ""}${t.pnl.toFixed(2)} ({t.r_multiple >= 0 ? "+" : ""}{t.r_multiple}R)
                         </td>
                       </tr>
@@ -2424,9 +2422,9 @@ export default function BotsPage() {
           </div>
 
           {/* EA activity events log */}
-          <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-4">
+          <div className="p-5 bg-[--bg-card] border border-[--border] rounded-lg space-y-4">
             <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-zinc-400 flex items-center gap-1.5">
-              <Target className="w-4 h-4 text-purple-400" /> EA Event Log
+              <Target className="w-4 h-4 text-[#a1a1aa]" /> EA Event Log
             </h3>
             <div className="space-y-2 max-h-80 overflow-y-auto custom-scrollbar font-mono text-[11px] text-zinc-400">
               {trades.length === 0 ? (
@@ -2438,15 +2436,15 @@ export default function BotsPage() {
                   let color = "text-zinc-450";
                   if (t.action === "entry") {
                     msg = `Magic #${t.magic}: Executed ${t.type} order on ${t.symbol} (Price: ${t.price})`;
-                    color = "text-purple-400";
+                    color = "text-[#a1a1aa]";
                   } else if (t.action === "close") {
                     msg = `Magic #${t.magic}: Closed ${t.type} on ${t.symbol} (PnL: $${t.pnl.toFixed(2)}, R-multiple: ${t.r_multiple}R)`;
-                    color = t.pnl >= 0 ? "text-emerald-450" : "text-red-400";
+                    color = t.pnl >= 0 ? "text-emerald-450" : "text-[#ff5c73]";
                   } else {
                     msg = `Magic #${t.magic}: Trade event for ${t.symbol} (${t.action})`;
                   }
                   return (
-                    <div key={idx} className="flex gap-4 p-2 bg-black/25 border border-zinc-900 rounded-xl">
+                    <div key={idx} className="flex gap-4 p-2 bg-black/25 border border-[rgba(255,255,255,0.04)] rounded-xl">
                       <span className="text-zinc-600">{dateStr}</span>
                       <span className={color}>{msg}</span>
                     </div>
@@ -2458,15 +2456,15 @@ export default function BotsPage() {
         </div>
       )}
       {confirmCommand && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0b0b0f] border border-zinc-800 rounded-3xl p-6 max-w-sm w-full space-y-5 font-mono text-center animate-in zoom-in-95">
-            <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 text-red-500 flex items-center justify-center mx-auto">
+        <div className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4">
+          <div className="bg-[#0b0b0f] border border-[rgba(255,255,255,0.07)] rounded-lg p-6 max-w-sm w-full space-y-5 font-mono text-center animate-in zoom-in-95">
+            <div className="w-12 h-12 rounded-full bg-[rgba(255,92,115,0.08)] border border-[rgba(255,92,115,0.2)] text-[#ff5c73] flex items-center justify-center mx-auto">
               <AlertCircle className="w-6 h-6 animate-pulse" />
             </div>
             <div>
               <h3 className="text-base font-bold text-white uppercase tracking-wide">Confirm Emergency Command</h3>
               <p className="text-xs text-zinc-500 mt-2 leading-relaxed">
-                You are about to transmit the command <code className="text-red-400 font-bold bg-zinc-900/80 px-1.5 py-0.5 rounded border border-zinc-800">{confirmCommand}</code> to MQL5 EA Magic #{selectedMagic}.
+                You are about to transmit the command <code className="text-[#ff5c73] font-bold bg-zinc-900/80 px-1.5 py-0.5 rounded border border-[rgba(255,255,255,0.07)]">{confirmCommand}</code> to MQL5 EA Magic #{selectedMagic}.
                 <br />
                 This action affects live trading logic directly.
               </p>
@@ -2474,7 +2472,7 @@ export default function BotsPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => setConfirmCommand(null)}
-                className="flex-1 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 text-xs font-bold rounded-xl border border-zinc-800 transition-colors uppercase"
+                className="flex-1 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 text-xs font-bold rounded-xl border border-[rgba(255,255,255,0.07)] transition-colors uppercase"
               >
                 Cancel
               </button>
@@ -2491,5 +2489,7 @@ export default function BotsPage() {
       )}
 
     </div>
+  </div>
   );
 }
+

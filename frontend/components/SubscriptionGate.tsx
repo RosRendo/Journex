@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useState } from "react";
 import { useSession } from "@/lib/useSession";
@@ -50,7 +50,7 @@ export default function SubscriptionGate({
   }
 
   return (
-    <div className="relative w-full h-full min-h-screen overflow-hidden" style={{ background: "var(--bg-base, #050508)" }}>
+    <div className="relative w-full h-full min-h-screen overflow-hidden" style={{ background: "var(--bg-base, #09090b)" }}>
       {/* Blurred background preview */}
       <div className="absolute inset-0 filter blur-xl opacity-30 pointer-events-none select-none z-0">
         {children}
@@ -58,7 +58,7 @@ export default function SubscriptionGate({
 
       {/* Hard stop modal */}
       <div className="absolute inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(5,5,8,0.85)", backdropFilter: "blur(8px)" }}>
-        <div className="max-w-md w-full rounded-2xl p-8 flex flex-col items-center text-center shadow-2xl" style={{ background: "var(--bg-card, #0d0d12)", border: "1px solid var(--border, rgba(255,255,255,0.08))" }}>
+        <div className="max-w-md w-full rounded-lg p-8 flex flex-col items-center text-center" style={{ background: "var(--bg-card, #0d0d12)", border: "1px solid var(--border, rgba(255,255,255,0.08))" }}>
           <div className="w-16 h-16 rounded-full flex items-center justify-center mb-6" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)" }}>
             <Lock className="w-8 h-8 text-red-500" />
           </div>
@@ -75,7 +75,7 @@ export default function SubscriptionGate({
           <button
             onClick={() => (window.location.href = "/subscription")}
             className="w-full font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all hover:opacity-90 shadow-lg"
-            style={{ background: "var(--accent, #00d4a1)", color: "#000" }}
+            style={{ background: "var(--accent, #20e0b2)", color: "#000" }}
           >
             Upgrade to Pro <ArrowRight className="w-5 h-5" />
           </button>
@@ -95,3 +95,4 @@ export default function SubscriptionGate({
     </div>
   );
 }
+

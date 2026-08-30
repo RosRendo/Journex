@@ -456,12 +456,11 @@ export default function BrokerSettings({ open, onOpenChange, onConnected }: Brok
                         <span className="text-[10px] text-zinc-400 uppercase tracking-wider">{acc.provider}</span>
                         <span className="text-[9px] text-zinc-600">{acc.base_url || "Built-in"}</span>
                       </div>
-
                       <div className="flex items-center gap-1.5">
                         {acc.connected ? (
-                          <CheckCircle2 className="w-4 h-4 text-emerald-500" title="Connected" />
+                          <span title="Connected"><CheckCircle2 className="w-4 h-4 text-emerald-500" /></span>
                         ) : (
-                          <XCircle className="w-4 h-4 text-red-500/60" title="Disconnected" />
+                          <span title="Disconnected"><XCircle className="w-4 h-4 text-red-500/60" /></span>
                         )}
                         <button
                           onClick={() => handleSelectActive(acc.id)}

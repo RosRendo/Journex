@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React from "react";
 import { CheckCircle2, ChevronRight } from "lucide-react";
@@ -17,7 +17,7 @@ export function BiasSupportCard({ bias, bullets }: BiasSupportCardProps) {
 
   return (
     <div 
-      className="relative rounded-2xl p-5 overflow-hidden transition-all duration-300 group"
+      className="relative rounded-lg p-5 overflow-hidden transition-all duration-300 group"
       style={{ 
         background: "var(--bg-card)",
         border: "1px solid var(--border)",
@@ -70,3 +70,4 @@ export function BiasSupportCard({ bias, bullets }: BiasSupportCardProps) {
     </div>
   );
 }
+

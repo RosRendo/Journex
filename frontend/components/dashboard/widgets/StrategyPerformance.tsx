@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+﻿import { useMemo } from "react";
 import { PieChart as PieChartIcon } from "lucide-react";
 import { useCsvTrades } from "@/hooks/useCsvTrades";
 
@@ -57,7 +57,7 @@ export function StrategyPerformance({ data: externalData, loading: externalLoadi
   }
 
   return (
-    <div className="rounded-xl border border-[--border] bg-[--bg-card] p-6 h-full min-h-[300px] flex flex-col shadow-lg animate-fade-in relative group overflow-hidden">
+    <div className="rounded-xl border border-[--border] bg-[--bg-card] p-6 h-full min-h-[300px] flex flex-col animate-fade-in relative group overflow-hidden">
       <div className="absolute top-0 right-0 w-[200px] h-[200px] bg-white/5 blur-[80px] rounded-full pointer-events-none group-hover:bg-white/10 transition-colors" />
 
       <div className="flex items-center gap-2 mb-6 relative z-10">
@@ -72,10 +72,10 @@ export function StrategyPerformance({ data: externalData, loading: externalLoadi
             <div className="w-full max-w-[240px] mb-6 relative">
               <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c0d] to-transparent z-10" />
               <div className="space-y-2 opacity-20">
-                <div className="w-full h-2 bg-emerald-500 rounded-full w-[80%]" />
-                <div className="w-full h-2 bg-emerald-500 rounded-full w-[60%]" />
-                <div className="w-full h-2 bg-red-500 rounded-full w-[45%]" />
-                <div className="w-full h-2 bg-emerald-500 rounded-full w-[90%]" />
+                <div className="w-full h-2 bg-[#20e0b2] rounded-full w-[80%]" />
+                <div className="w-full h-2 bg-[#20e0b2] rounded-full w-[60%]" />
+                <div className="w-full h-2 bg-[#ff5c73] rounded-full w-[45%]" />
+                <div className="w-full h-2 bg-[#20e0b2] rounded-full w-[90%]" />
               </div>
             </div>
             <PieChartIcon className="w-6 h-6 mb-3 text-gray-500" />
@@ -134,10 +134,10 @@ export function StrategyPerformance({ data: externalData, loading: externalLoadi
       {data.length > 0 && (
         <div className="mt-4 pt-4 border-t border-[--border] flex items-center justify-center gap-6 relative z-10 text-[9px] font-black uppercase tracking-widest text-gray-500">
           <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-[--bull] shadow-[0_0_8px_rgba(0,220,130,0.5)]" /> POSITIVE EXPECTANCY
+            <div className="w-2.5 h-2.5 rounded-full bg-[--bull]" /> POSITIVE EXPECTANCY
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-[--bear] shadow-[0_0_8px_rgba(239,68,68,0.5)]" /> NEGATIVE EXPECTANCY
+            <div className="w-2.5 h-2.5 rounded-full bg-[--bear]" /> NEGATIVE EXPECTANCY
           </div>
         </div>
       )}
@@ -152,3 +152,4 @@ export function StrategyPerformance({ data: externalData, loading: externalLoadi
     </div>
   );
 }
+

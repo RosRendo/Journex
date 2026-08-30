@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState } from "react";
 import { Calendar, Target, TrendingUp, TrendingDown, Brain, AlertTriangle, CheckCircle2, Save, X, ArrowLeft, ArrowRight, Clock, Activity, DollarSign } from "lucide-react";
 
@@ -80,9 +80,9 @@ export default function DailyReviewPage() {
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs text-muted-foreground">{key}</span>
               {data.value >= data.target ? (
-                <TrendingUp className="w-4 h-4 text-green-400" />
+                <TrendingUp className="w-4 h-4 text-[#20e0b2]" />
               ) : (
-                <TrendingDown className="w-4 h-4 text-red-400" />
+                <TrendingDown className="w-4 h-4 text-[#ff5c73]" />
               )}
             </div>
             <div className="text-2xl font-bold">
@@ -106,15 +106,15 @@ export default function DailyReviewPage() {
                   key={q.id}
                   onClick={() => toggleAnswer(q.id)}
                   className={`w-full p-3 rounded-lg text-left flex items-center justify-between transition-all ${
-                    answers[q.id] === true ? "bg-green-500/10 border-green-500/30" :
-                    answers[q.id] === false ? "bg-red-500/10 border-red-500/30" :
+                    answers[q.id] === true ? "bg-[rgba(32,224,178,0.08)] border-green-500/30" :
+                    answers[q.id] === false ? "bg-[rgba(255,92,115,0.08)] border-[rgba(255,92,115,0.2)]" :
                     "bg-card border border-border/50 hover:border-primary/30"
                   }`}
                 >
                   <span className="text-sm">{q.question}</span>
                   <div className="flex items-center gap-2">
-                    {answers[q.id] === true && <CheckCircle2 className="w-5 h-5 text-green-400" />}
-                    {answers[q.id] === false && <X className="w-5 h-5 text-red-400" />}
+                    {answers[q.id] === true && <CheckCircle2 className="w-5 h-5 text-[#20e0b2]" />}
+                    {answers[q.id] === false && <X className="w-5 h-5 text-[#ff5c73]" />}
                     {answers[q.id] === null && <span className="text-xs text-muted-foreground">Tap to answer</span>}
                   </div>
                 </button>
@@ -180,3 +180,4 @@ export default function DailyReviewPage() {
     </div>
   );
 }
+

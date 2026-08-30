@@ -80,9 +80,9 @@ export function CalendarHeatmap({ trades }: { trades: TradeData[] }) {
     // Base 20% + 80% of intensity
     const opacity = 0.2 + (0.8 * intensity);
     if (pnl > 0) {
-      return `rgba(0, 200, 150, ${opacity})`; // #00c896
+      return `rgba(32, 224, 178, ${opacity})`; // #20e0b2
     } else {
-      return `rgba(255, 77, 106, ${opacity})`; // #ff4d6a
+      return `rgba(255, 92, 115, ${opacity})`; // #ff5c73
     }
   };
 
@@ -127,11 +127,11 @@ export function CalendarHeatmap({ trades }: { trades: TradeData[] }) {
         <div className="flex items-center justify-end gap-2 mt-4 text-[10px] text-gray-500">
           <span>Loss</span>
           <div className="flex gap-1">
-             <div className="w-3 h-3 rounded-[2px]" style={{ backgroundColor: 'rgba(255, 77, 106, 1)' }} />
-             <div className="w-3 h-3 rounded-[2px]" style={{ backgroundColor: 'rgba(255, 77, 106, 0.4)' }} />
+             <div className="w-3 h-3 rounded-[2px]" style={{ backgroundColor: 'rgba(255, 92, 115, 1)' }} />
+             <div className="w-3 h-3 rounded-[2px]" style={{ backgroundColor: 'rgba(255, 92, 115, 0.4)' }} />
              <div className="w-3 h-3 rounded-[2px]" style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)' }} />
-             <div className="w-3 h-3 rounded-[2px]" style={{ backgroundColor: 'rgba(0, 200, 150, 0.4)' }} />
-             <div className="w-3 h-3 rounded-[2px]" style={{ backgroundColor: 'rgba(0, 200, 150, 1)' }} />
+             <div className="w-3 h-3 rounded-[2px]" style={{ backgroundColor: 'rgba(32, 224, 178, 0.4)' }} />
+             <div className="w-3 h-3 rounded-[2px]" style={{ backgroundColor: 'rgba(32, 224, 178, 1)' }} />
           </div>
           <span>Profit</span>
         </div>

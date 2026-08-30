@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState } from "react";
 import { CheckCircle2, Circle, AlertTriangle, ChevronDown, ChevronUp, Target, TrendingUp, TrendingDown, Clock, Newspaper, BarChart3, Zap } from "lucide-react";
 
@@ -48,7 +48,7 @@ export default function PreTradeChecklist() {
   const canTrade = totalChecked === items.length;
 
   return (
-    <div className="bg-[#111118] border border-zinc-800/40 rounded-xl p-5 shadow-xl font-mono text-[10px]">
+    <div className="bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-xl p-5 font-mono text-[10px]">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 text-zinc-550" />
@@ -58,21 +58,21 @@ export default function PreTradeChecklist() {
           <span className={canTrade ? "text-emerald-450" : "text-zinc-550"}>
             {totalChecked}/{items.length}
           </span>
-          {canTrade && <Zap className="w-3.5 h-3.5 text-emerald-400" />}
+          {canTrade && <Zap className="w-3.5 h-3.5 text-[#20e0b2]" />}
         </div>
       </div>
 
       <div className="mb-4">
         <div className="h-1.5 rounded-full overflow-hidden bg-black/35 border border-zinc-850">
           <div 
-            className="h-full transition-all duration-350 rounded-full bg-emerald-500"
+            className="h-full transition-all duration-350 rounded-full bg-[#20e0b2]"
             style={{ width: `${overallProgress}%` }} 
           />
         </div>
       </div>
 
       {canTrade && (
-        <div className="mb-4 p-3 rounded-lg flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+        <div className="mb-4 p-3 rounded-lg flex items-center gap-2 bg-[#20e0b2]/10 border border-[#20e0b2]/20 text-[#20e0b2]">
           <CheckCircle2 className="w-3.5 h-3.5" />
           <span className="font-bold uppercase tracking-wider text-[9px]">Ready to deploy execution orders</span>
         </div>
@@ -97,7 +97,7 @@ export default function PreTradeChecklist() {
                   <span className="text-zinc-300">{category}</span>
                 </div>
                 <div className="flex items-center gap-2 font-bold text-[9px] text-zinc-500">
-                  <span className={checked === total ? "text-emerald-400" : "text-zinc-500"}>
+                  <span className={checked === total ? "text-[#20e0b2]" : "text-zinc-500"}>
                     {checked}/{total}
                   </span>
                   {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
@@ -110,15 +110,15 @@ export default function PreTradeChecklist() {
                     <button
                       key={item.id}
                       onClick={() => toggleItem(item.id)}
-                      className="w-full flex items-start gap-2 p-2.5 rounded-lg bg-black/10 border border-zinc-900/40 hover:bg-black/20 transition-all text-left font-sans"
+                      className="w-full flex items-start gap-2 p-2.5 rounded-lg bg-black/10 border border-[rgba(255,255,255,0.04)] hover:bg-black/20 transition-all text-left font-sans"
                     >
                       {item.checked ? (
-                        <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0 text-emerald-400" />
+                        <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0 text-[#20e0b2]" />
                       ) : (
                         <Circle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-zinc-700" />
                       )}
                       <div>
-                        <span className={`text-[11px] block ${item.checked ? "text-emerald-400 font-bold" : "text-zinc-300"}`}>
+                        <span className={`text-[11px] block ${item.checked ? "text-[#20e0b2] font-bold" : "text-zinc-300"}`}>
                           {item.label}
                         </span>
                         <span className="text-[9px] text-zinc-550 block mt-0.5 font-mono">
@@ -136,3 +136,5 @@ export default function PreTradeChecklist() {
     </div>
   );
 }
+
+

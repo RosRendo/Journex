@@ -116,25 +116,23 @@ export default function EnvironmentSettings() {
   ];
 
   return (
-    <div className="min-h-screen w-full bg-[#05050a] text-text-primary px-4 md:px-6 py-4 flex flex-col gap-4 animate-fade-in pb-16">
+    <div className="min-h-screen w-full bg-[#09090b] text-[#f4f4f5] flex flex-col pb-12 font-sans">
       
-      {/* ── HEADER ── */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-[#111118]/80 p-4 border border-zinc-800/40 rounded-2xl backdrop-blur-xl mt-4">
+      {/* ── TOPBAR ── */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(255,255,255,0.07)] sticky top-0 z-20 bg-[#09090b]">
         <div>
-          <h1 className="text-lg font-black tracking-tight text-white font-display flex items-center gap-2">
-            <Settings2 className="w-5 h-5 text-emerald-450" />
-            Environment Configuration
-          </h1>
-          <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest font-mono flex items-center gap-1 mt-0.5">
-            <MonitorSmartphone className="w-3.5 h-3.5 text-zinc-450" /> Manage terminal preferences, limits, and backend bridge topology
-          </p>
+          <h1 className="text-sm font-bold tracking-tight text-[#f4f4f5]">Environment Configuration</h1>
+          <p className="text-[9px] font-bold uppercase tracking-widest font-mono text-[#71717a] mt-0.5">Manage terminal preferences, limits, and backend bridge topology</p>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={handleSave} className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-450 text-emerald-950 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all shadow-[0_0_10px_rgba(16,185,129,0.15)] flex items-center gap-1.5 font-mono font-black">
-            <Save className="w-4 h-4" /> Commit Changes
+          <button onClick={handleSave} className="px-3.5 py-1.5 bg-[#20e0b2] hover:bg-[#1bc9a0] text-[#09090b] text-[9px] font-bold uppercase tracking-wider rounded transition-all flex items-center gap-1.5 font-mono">
+            <Save className="w-3 h-3" /> Commit Changes
           </button>
         </div>
       </div>
+
+      {/* Main container */}
+      <div className="flex-1 w-full p-6">
 
       <div className="flex flex-col lg:flex-row gap-6 mt-2">
         
@@ -153,14 +151,14 @@ export default function EnvironmentSettings() {
                   color: isActive ? "#fff" : "#71717a"
                 }}
               >
-                <tab.icon className={`w-3.5 h-3.5 ${isActive ? "text-emerald-400" : "text-zinc-600"}`} />
+                <tab.icon className={`w-3.5 h-3.5 ${isActive ? "text-[#20e0b2]" : "text-zinc-600"}`} />
                 {tab.label}
               </button>
             );
           })}
           
-          <div className="pt-4 mt-4 border-t border-zinc-800/40">
-            <button onClick={handleLogout} className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors text-left">
+          <div className="pt-4 mt-4 border-t border-[rgba(255,255,255,0.07)]">
+            <button onClick={handleLogout} className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[#ff5c73] hover:bg-[rgba(255,92,115,0.08)] transition-colors text-left">
               <LogOut className="w-3.5 h-3.5" /> Disconnect Session
             </button>
           </div>
@@ -172,21 +170,21 @@ export default function EnvironmentSettings() {
           {/* PROFILE */}
           {activeTab === "profile" && (
             <div className="animate-fade-in">
-              <div className="border border-zinc-800/40 rounded-xl p-6 bg-[#111118] shadow-xl">
+              <div className="border border-[rgba(255,255,255,0.07)] rounded-xl p-6 bg-[#101014]">
                 <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-300 mb-6 flex items-center gap-1.5 font-mono"><User className="w-4 h-4 text-zinc-500"/> Identity Credentials</h3>
                 
                 <div className="space-y-5 max-w-lg font-mono text-[11px]">
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[9px] font-bold uppercase tracking-widest text-zinc-500">Operator Alias</label>
-                    <input type="text" value={user?.name || "Ghost Protocol"} readOnly className="w-full bg-black/25 border border-zinc-800/50 rounded-lg px-3.5 py-2.5 text-zinc-400 outline-none cursor-not-allowed" />
+                    <input type="text" value={user?.name || "Ghost Protocol"} readOnly className="w-full bg-black/25 border border-[rgba(255,255,255,0.07)] rounded-lg px-3.5 py-2.5 text-zinc-400 outline-none cursor-not-allowed" />
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[9px] font-bold uppercase tracking-widest text-zinc-500">Registered Relay (Email)</label>
-                    <input type="email" value={user?.email || "classified@op.com"} readOnly className="w-full bg-black/25 border border-zinc-800/50 rounded-lg px-3.5 py-2.5 text-zinc-400 outline-none cursor-not-allowed" />
+                    <input type="email" value={user?.email || "classified@op.com"} readOnly className="w-full bg-black/25 border border-[rgba(255,255,255,0.07)] rounded-lg px-3.5 py-2.5 text-zinc-400 outline-none cursor-not-allowed" />
                   </div>
                   <div className="flex flex-col gap-1.5 font-mono">
                     <label className="text-[9px] font-bold uppercase tracking-widest text-zinc-500">Base Computation Standard</label>
-                    <select value={currency} onChange={(e) => setCurrency(e.target.value)} className="w-full bg-[#111118] border border-zinc-800/60 rounded-lg px-3 py-2 text-zinc-300 outline-none focus:border-emerald-400 cursor-pointer">
+                    <select value={currency} onChange={(e) => setCurrency(e.target.value)} className="w-full bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-lg px-3 py-2 text-zinc-300 outline-none focus:border-[rgba(32,224,178,0.3)] cursor-pointer">
                       <option value="USD" className="bg-zinc-950">United States Dollar (USD)</option>
                       <option value="EUR" className="bg-zinc-950">Euro (EUR)</option>
                       <option value="GBP" className="bg-zinc-950">British Pound (GBP)</option>
@@ -200,7 +198,7 @@ export default function EnvironmentSettings() {
           {/* WORKSPACE & THEME */}
           {activeTab === "environment" && (
             <div className="animate-fade-in">
-              <div className="border border-zinc-800/40 rounded-xl p-6 bg-[#111118] shadow-xl">
+              <div className="border border-[rgba(255,255,255,0.07)] rounded-xl p-6 bg-[#101014]">
                 <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-300 mb-6 flex items-center gap-1.5 font-mono"><Palette className="w-4 h-4 text-zinc-500"/> Workspace Aesthetics</h3>
                 
                 <div className="space-y-6 max-w-lg font-mono">
@@ -208,20 +206,20 @@ export default function EnvironmentSettings() {
                     <label className="block text-[9px] uppercase font-bold tracking-widest text-zinc-500 mb-3">Master UI Theme</label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px]">
                       {["Deep Space (Default)", "Cyberpunk Neon", "Midnight Ash", "Polar White (Locked)"].map(t => (
-                        <div key={t} onClick={() => !t.includes("Locked") && setTheme(t)} className={`border rounded-lg p-3 cursor-pointer transition-all ${theme === t ? "border-emerald-500/30 bg-emerald-500/[0.02]" : "hover:bg-black/20 border-zinc-800/40"}`} style={{ opacity: t.includes("Locked") ? 0.4 : 1 }}>
-                          <div className="w-3.5 h-3.5 rounded-full mb-3 shadow-inner" style={{ background: t.includes("Space") ? "#050505" : t.includes("Ash") ? "#1a1a1a" : t.includes("White") ? "#ffffff" : "#0f0814", border: "1px solid rgba(255,255,255,0.05)" }} />
+                        <div key={t} onClick={() => !t.includes("Locked") && setTheme(t)} className={`border rounded-lg p-3 cursor-pointer transition-all ${theme === t ? "border-[rgba(32,224,178,0.3)]/30 bg-[#20e0b2]/[0.02]" : "hover:bg-black/20 border-[rgba(255,255,255,0.07)]"}`} style={{ opacity: t.includes("Locked") ? 0.4 : 1 }}>
+                          <div className="w-3.5 h-3.5 rounded-full mb-3 shadow-inner" style={{ background: t.includes("Space") ? "#09090b" : t.includes("Ash") ? "#1a1a1a" : t.includes("White") ? "#ffffff" : "#0f0814", border: "1px solid rgba(255,255,255,0.05)" }} />
                           <p className="font-bold text-zinc-200">{t}</p>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between p-3.5 rounded-lg border border-zinc-800/50 bg-black/15 text-[11px]">
+                  <div className="flex items-center justify-between p-3.5 rounded-lg border border-[rgba(255,255,255,0.07)] bg-black/15 text-[11px]">
                     <div>
                       <p className="font-bold text-white">Automatic State Persistence</p>
                       <p className="text-[10px] text-zinc-500 mt-0.5">Saves chart drawings and configurations dynamically.</p>
                     </div>
-                    <div onClick={() => setAutoSaveEnabled(!autoSaveEnabled)} className={`w-9 h-5 rounded-full p-0.5 cursor-pointer transition-colors relative ${autoSaveEnabled ? "bg-emerald-505 bg-emerald-500" : "bg-zinc-800"}`}>
+                    <div onClick={() => setAutoSaveEnabled(!autoSaveEnabled)} className={`w-9 h-5 rounded-full p-0.5 cursor-pointer transition-colors relative ${autoSaveEnabled ? "bg-emerald-505 bg-[#20e0b2]" : "bg-zinc-800"}`}>
                       <div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${autoSaveEnabled ? "translate-x-4" : "translate-x-0"}`} />
                     </div>
                   </div>
@@ -233,22 +231,22 @@ export default function EnvironmentSettings() {
           {/* ENGINE LIMITS */}
           {activeTab === "risk" && (
             <div className="animate-fade-in">
-              <div className="border border-zinc-800/40 rounded-xl p-6 bg-[#111118] shadow-xl">
-                <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-300 mb-6 flex items-center gap-1.5 font-mono"><ShieldAlert className="w-4 h-4 text-red-400"/> Hardware Rule Enforcements</h3>
+              <div className="border border-[rgba(255,255,255,0.07)] rounded-xl p-6 bg-[#101014]">
+                <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-300 mb-6 flex items-center gap-1.5 font-mono"><ShieldAlert className="w-4 h-4 text-[#ff5c73]"/> Hardware Rule Enforcements</h3>
                 
                 <div className="space-y-5 max-w-lg font-mono text-[11px]">
-                  <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 flex items-start gap-2.5">
+                  <div className="p-3 rounded-lg bg-[rgba(255,92,115,0.08)] border border-[rgba(255,92,115,0.2)] text-[#ff5c73] flex items-start gap-2.5">
                     <ShieldAlert className="w-4 h-4 mt-0.5 shrink-0" />
                     <p className="leading-relaxed">These limits establish hard borders for automated execution and module validation. Overruling requires operator pin.</p>
                   </div>
 
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[9px] font-bold uppercase tracking-widest text-zinc-550">Systematic Risk Per Trade (%)</label>
-                    <input type="number" step="0.1" value={riskPerTrade} onChange={(e) => setRiskPerTrade(e.target.value)} className="w-full bg-black/25 border border-zinc-800/50 rounded-lg px-3.5 py-2 text-zinc-200 outline-none focus:border-emerald-400" />
+                    <input type="number" step="0.1" value={riskPerTrade} onChange={(e) => setRiskPerTrade(e.target.value)} className="w-full bg-black/25 border border-[rgba(255,255,255,0.07)] rounded-lg px-3.5 py-2 text-zinc-200 outline-none focus:border-[rgba(32,224,178,0.3)]" />
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[9px] font-bold uppercase tracking-widest text-zinc-550">Hard Stop: Maximum Daily Drawdown (%)</label>
-                    <input type="number" step="0.1" value={maxDailyLoss} onChange={(e) => setMaxDailyLoss(e.target.value)} className="w-full bg-black/25 border border-zinc-800/50 rounded-lg px-3.5 py-2 text-red-400 outline-none focus:border-red-500" />
+                    <input type="number" step="0.1" value={maxDailyLoss} onChange={(e) => setMaxDailyLoss(e.target.value)} className="w-full bg-black/25 border border-[rgba(255,255,255,0.07)] rounded-lg px-3.5 py-2 text-[#ff5c73] outline-none focus:border-red-500" />
                   </div>
                 </div>
               </div>
@@ -258,15 +256,15 @@ export default function EnvironmentSettings() {
           {/* API & BRIDGE */}
           {activeTab === "api" && (
             <div className="animate-fade-in">
-              <div className="border border-zinc-800/40 rounded-xl p-6 bg-[#111118] shadow-xl">
+              <div className="border border-[rgba(255,255,255,0.07)] rounded-xl p-6 bg-[#101014]">
                 <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-300 mb-6 flex items-center gap-1.5 font-mono"><Server className="w-4 h-4 text-zinc-500"/> Topology & Bridge Routing</h3>
                 
                 <div className="space-y-5 max-w-xl font-mono">
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[9px] font-bold uppercase tracking-widest text-zinc-550">MT5 Bridge Target Address</label>
                     <div className="flex gap-2">
-                       <input type="text" value={bridgeUrl} onChange={(e) => setBridgeUrl(e.target.value)} className="flex-1 bg-black/25 border border-zinc-800/50 rounded-lg px-3.5 py-2 text-xs text-white outline-none focus:border-emerald-450" />
-                       <button onClick={runDiagnostics} disabled={diagRunning} className="px-3.5 py-2 rounded-lg border border-emerald-500/30 text-emerald-400 bg-emerald-500/5 font-bold text-[10px] uppercase tracking-wider transition-all flex items-center gap-1.5 disabled:opacity-50 hover:bg-emerald-500/10">
+                       <input type="text" value={bridgeUrl} onChange={(e) => setBridgeUrl(e.target.value)} className="flex-1 bg-black/25 border border-[rgba(255,255,255,0.07)] rounded-lg px-3.5 py-2 text-xs text-white outline-none focus:border-emerald-450" />
+                       <button onClick={runDiagnostics} disabled={diagRunning} className="px-3.5 py-2 rounded-lg border border-[rgba(32,224,178,0.3)]/30 text-[#20e0b2] bg-[#20e0b2]/5 font-bold text-[10px] uppercase tracking-wider transition-all flex items-center gap-1.5 disabled:opacity-50 hover:bg-[#20e0b2]/10">
                          {diagRunning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
                          {diagRunning ? "Testing..." : "Test Node"}
                        </button>
@@ -285,8 +283,8 @@ export default function EnvironmentSettings() {
                         <span className="text-zinc-500 font-bold uppercase text-[9px] tracking-wider">MT5 Bridge</span>
                         <span className="flex items-center gap-1.5 font-bold">
                           {!diagResults.bridge ? <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-600" /> :
-                           diagResults.bridge === "ok" ? <><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /><span className="text-emerald-400">Online</span></> :
-                           <><XCircle className="w-3.5 h-3.5 text-red-400" /><span className="text-red-400">Offline</span></>}
+                           diagResults.bridge === "ok" ? <><CheckCircle2 className="w-3.5 h-3.5 text-[#20e0b2]" /><span className="text-[#20e0b2]">Online</span></> :
+                           <><XCircle className="w-3.5 h-3.5 text-[#ff5c73]" /><span className="text-[#ff5c73]">Offline</span></>}
                         </span>
                       </div>
 
@@ -296,11 +294,11 @@ export default function EnvironmentSettings() {
                         <span className="flex items-center gap-1.5 font-bold">
                           {!diagResults.mt5 ? <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-600" /> :
                            diagResults.mt5 === "ok" ? (
-                             <span className="text-emerald-400 flex items-center gap-1">
+                             <span className="text-[#20e0b2] flex items-center gap-1">
                                <CheckCircle2 className="w-3.5 h-3.5" />
                                {diagResults.account ?? "Connected"} · ${diagResults.balance?.toFixed(2) ?? "0.00"}
                              </span>
-                           ) : <><XCircle className="w-3.5 h-3.5 text-red-400" /><span className="text-red-400">Disconnected</span></>}
+                           ) : <><XCircle className="w-3.5 h-3.5 text-[#ff5c73]" /><span className="text-[#ff5c73]">Disconnected</span></>}
                         </span>
                       </div>
 
@@ -310,18 +308,18 @@ export default function EnvironmentSettings() {
                         <span className="flex items-center gap-1.5 font-bold text-right max-w-[60%]">
                           {diagResults.aiTest === undefined ? <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-600" /> :
                            diagResults.aiTest === "skipped" ? <span className="text-zinc-550 font-normal">No key</span> :
-                           diagResults.aiTest === "ok" ? <><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /><span className="text-emerald-400">Valid</span></> :
-                           <span className="text-red-400 flex items-start gap-1"><XCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" /><span>{diagResults.aiError ?? "Invalid"}</span></span>}
+                           diagResults.aiTest === "ok" ? <><CheckCircle2 className="w-3.5 h-3.5 text-[#20e0b2]" /><span className="text-[#20e0b2]">Valid</span></> :
+                           <span className="text-[#ff5c73] flex items-start gap-1"><XCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" /><span>{diagResults.aiError ?? "Invalid"}</span></span>}
                         </span>
                       </div>
                     </div>
                   )}
 
-                  <div className="pt-4 border-t border-zinc-800/40 flex flex-col gap-1.5">
+                  <div className="pt-4 border-t border-[rgba(255,255,255,0.07)] flex flex-col gap-1.5">
                      <h4 className="text-[11px] font-bold text-white mb-2">Internal Webhooks</h4>
                      <p className="text-[10px] text-zinc-500 leading-relaxed mb-2">Go to <span className="text-emerald-450">Alerts & Monitors</span> module to inject external destination URLs via the active console matrix.</p>
                      
-                     <div className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-zinc-800 bg-black/15">
+                     <div className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-[rgba(255,255,255,0.07)] bg-black/15">
                        <Key className="w-4 h-4 text-zinc-600" />
                        <div>
                          <p className="text-[11px] font-bold text-white">External Data Sources</p>
@@ -331,7 +329,7 @@ export default function EnvironmentSettings() {
                      </div>
                   </div>
 
-                  <div className="pt-4 border-t border-zinc-800/40 space-y-4">
+                  <div className="pt-4 border-t border-[rgba(255,255,255,0.07)] space-y-4">
                      <h4 className="text-[11px] font-bold text-white">AI Engine Provider</h4>
                      <p className="text-[10px] text-zinc-500 leading-relaxed">Connect your OpenAI API key to power real-time NLP market reasoning across the entire dashboard.</p>
                      
@@ -341,7 +339,7 @@ export default function EnvironmentSettings() {
                          <select 
                            value={aiProvider} 
                            onChange={(e) => setAiProvider(e.target.value)}
-                           className="w-full bg-[#111118] border border-zinc-800/60 rounded-lg px-3 py-2 text-zinc-300 outline-none focus:border-emerald-400 cursor-pointer"
+                           className="w-full bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-lg px-3 py-2 text-zinc-300 outline-none focus:border-[rgba(32,224,178,0.3)] cursor-pointer"
                          >
                            <option value="openai" className="bg-zinc-950">OpenAI (GPT-3.5 / GPT-4)</option>
                            <option value="gemini" className="bg-zinc-950">Google Gemini (1.5 Pro)</option>
@@ -357,7 +355,7 @@ export default function EnvironmentSettings() {
                            placeholder={aiProvider === "gemini" ? "AIza..." : "sk-..."} 
                            value={aiKey} 
                            onChange={(e) => setAiKey(e.target.value)} 
-                           className="w-full bg-black/25 border border-zinc-800/50 rounded-lg px-3.5 py-2 text-xs text-white placeholder-zinc-800 outline-none focus:border-emerald-450" 
+                           className="w-full bg-black/25 border border-[rgba(255,255,255,0.07)] rounded-lg px-3.5 py-2 text-xs text-white placeholder-zinc-800 outline-none focus:border-emerald-450" 
                          />
                        </div>
                      </div>
@@ -371,5 +369,7 @@ export default function EnvironmentSettings() {
       </div>
       <ApiKeysSettings open={apiKeysOpen} onOpenChange={setApiKeysOpen} />
     </div>
+  </div>
   );
 }
+

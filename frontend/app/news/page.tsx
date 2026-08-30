@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useRef } from "react";
 import {
@@ -96,7 +96,7 @@ export default function MacroDeskPage() {
     return () => { clearInterval(ivNews); clearInterval(ivSig); clearInterval(ivCal); };
   }, []);
 
-  const fgColor = fearGreed < 25 ? "#ff4d6a" : fearGreed < 45 ? "#f59e0b" : fearGreed < 75 ? "#f4f4f5" : "#00d4a1";
+  const fgColor = fearGreed < 25 ? "#ff5c73" : fearGreed < 45 ? "#f59e0b" : fearGreed < 75 ? "#f4f4f5" : "#20e0b2";
   const fgLabel = fearGreed < 25 ? "Extreme Fear" : fearGreed < 45 ? "Fear" : fearGreed < 75 ? "Neutral" : fearGreed < 90 ? "Greed" : "Extreme Greed";
 
   const currentNavDayStart = new Date(navDate.getFullYear(), navDate.getMonth(), navDate.getDate()).getTime();
@@ -111,11 +111,11 @@ export default function MacroDeskPage() {
     <div className="min-h-screen w-full bg-[#05050a] text-text-primary px-4 md:px-6 py-4 flex flex-col gap-4 animate-fade-in pb-16">
       
       {/* ── HEADER ── */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-[#111118]/80 p-4 border border-zinc-800/40 rounded-2xl backdrop-blur-xl mt-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-[#101014]/80 p-4 border border-[rgba(255,255,255,0.07)] rounded-lg mt-4">
         <div className="flex items-center gap-3">
           <div>
             <h1 className="text-lg font-black tracking-tight text-white font-display flex items-center gap-2">
-              <Globe className="w-5 h-5 text-blue-450 text-blue-400" />
+              <Globe className="w-5 h-5 text-blue-450 text-[#20e0b2]" />
               AI Macro Desk
             </h1>
             <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest font-mono flex items-center gap-1 mt-0.5">
@@ -125,7 +125,7 @@ export default function MacroDeskPage() {
         </div>
         
         <div className="flex items-center gap-3 flex-wrap font-mono text-[10px] font-bold">
-          <div className="px-3 py-1.5 rounded-lg border flex items-center gap-1.5" style={{ background: bridgeOn ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)", borderColor: bridgeOn ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.2)", color: bridgeOn ? "#34d399" : "#ff4d6a" }}>
+          <div className="px-3 py-1.5 rounded-lg border flex items-center gap-1.5" style={{ background: bridgeOn ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)", borderColor: bridgeOn ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.2)", color: bridgeOn ? "#34d399" : "#ff5c73" }}>
             {bridgeOn ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
             {bridgeOn ? `BRIDGE ACTIVE • ${lastPoll}` : "BRIDGE OFFLINE"}
           </div>
@@ -136,7 +136,7 @@ export default function MacroDeskPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         
         {/* Fear & Greed Gauge */}
-        <div className="col-span-1 md:col-span-2 rounded-xl border border-zinc-800/40 p-4 bg-[#111118] shadow-md">
+        <div className="col-span-1 md:col-span-2 rounded-xl border border-[rgba(255,255,255,0.07)] p-4 bg-[#101014] shadow-md">
           <div className="flex items-center justify-between mb-4 font-mono text-[9px] font-bold">
             <h3 className="text-zinc-500 uppercase tracking-widest">Risk Appetite Gauge</h3>
             <span className="uppercase px-2 py-0.5 rounded bg-black/25 text-zinc-350 border border-zinc-850">{fgLabel}</span>
@@ -144,23 +144,23 @@ export default function MacroDeskPage() {
           <div className="flex items-center gap-6">
             <div className="text-[32px] font-black leading-none font-mono" style={{ color: fgColor }}>{fearGreed}</div>
             <div className="flex-1 relative h-2.5 rounded-full overflow-hidden bg-black/35 border border-zinc-850">
-              <div className="absolute inset-0 opacity-40" style={{ background: "linear-gradient(90deg, #ff4d6a 0%, #f59e0b 50%, #00d4a1 100%)" }}/>
-              <div className="absolute top-0 bottom-0 w-1.5 bg-white shadow-[0_0_6px_rgba(255,255,255,0.8)] transition-all ease-out duration-1000" style={{ left: `calc(${fearGreed}% - 3px)` }} />
+              <div className="absolute inset-0 opacity-40" style={{ background: "linear-gradient(90deg, #ff5c73 0%, #f59e0b 50%, #20e0b2 100%)" }}/>
+              <div className="absolute top-0 bottom-0 w-1.5 bg-white transition-all ease-out duration-1000" style={{ left: `calc(${fearGreed}% - 3px)` }} />
             </div>
           </div>
         </div>
 
         {/* Stats */}
-        <div className="rounded-xl border border-zinc-800/40 p-4 bg-[#111118] flex flex-col justify-center shadow-md font-mono">
+        <div className="rounded-xl border border-[rgba(255,255,255,0.07)] p-4 bg-[#101014] flex flex-col justify-center shadow-md font-mono">
            <div className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-2 flex items-center gap-1.5"><Newspaper className="w-3.5 h-3.5" /> Global Headlines</div>
            <div className="text-2xl font-black text-white leading-none mb-1">{news.length}</div>
-           <div className="text-[9px] text-orange-400 font-bold"><Flame className="w-3 h-3 inline pb-0.5"/> {news.filter(n => n.isHot).length} Breaking alerts</div>
+           <div className="text-[9px] text-[#f5c451] font-bold"><Flame className="w-3 h-3 inline pb-0.5"/> {news.filter(n => n.isHot).length} Breaking alerts</div>
         </div>
 
-        <div className="rounded-xl border border-zinc-800/40 p-4 bg-[#111118] flex flex-col justify-center shadow-md font-mono">
+        <div className="rounded-xl border border-[rgba(255,255,255,0.07)] p-4 bg-[#101014] flex flex-col justify-center shadow-md font-mono">
            <div className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-2 flex items-center gap-1.5"><ActivityIcon className="w-3.5 h-3.5" /> MT5 Signals</div>
            <div className="text-2xl font-black text-white leading-none mb-1">{signals.length}</div>
-           <div className="text-[9px] text-emerald-400 font-bold"><Target className="w-3 h-3 inline pb-0.5"/> Active H4 Alignments</div>
+           <div className="text-[9px] text-[#20e0b2] font-bold"><Target className="w-3 h-3 inline pb-0.5"/> Active H4 Alignments</div>
         </div>
 
       </div>
@@ -180,7 +180,7 @@ export default function MacroDeskPage() {
               </button>
               <button 
                 onClick={() => setNewsFilter("hot")} 
-                className={`px-3 py-1 rounded-md transition-colors flex items-center gap-1 ${newsFilter === "hot" ? "bg-orange-500/10 text-orange-400 border border-orange-500/20" : "text-zinc-550 hover:text-zinc-350"}`}>
+                className={`px-3 py-1 rounded-md transition-colors flex items-center gap-1 ${newsFilter === "hot" ? "bg-[rgba(245,196,81,0.06)] text-[#f5c451] border border-orange-500/20" : "text-zinc-550 hover:text-zinc-350"}`}>
                 <Flame className="w-3 h-3" /> Hot
               </button>
             </div>
@@ -204,7 +204,7 @@ export default function MacroDeskPage() {
               />
             ))}
             {news.length === 0 && !loading && (
-              <div className="py-20 text-center text-zinc-650 border border-zinc-800/40 border-dashed rounded-xl font-mono text-xs">
+              <div className="py-20 text-center text-zinc-650 border border-[rgba(255,255,255,0.07)] border-dashed rounded-xl font-mono text-xs">
                 Feed empty. Establishing bridge connection...
               </div>
             )}
@@ -218,7 +218,7 @@ export default function MacroDeskPage() {
             <div className="space-y-4 animate-fade-in">
                <div className="flex items-center justify-between border-b border-zinc-850 pb-2">
                  <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest font-mono">Deep Dive Analytics</h3>
-                 <button onClick={() => setSelectedDeepDive(null)} className="text-[9px] font-bold text-zinc-400 hover:text-white bg-[#111118] border border-zinc-800/40 px-3 py-1 rounded-lg transition-colors font-mono uppercase tracking-wider">Close ✕</button>
+                 <button onClick={() => setSelectedDeepDive(null)} className="text-[9px] font-bold text-zinc-400 hover:text-white bg-[#101014] border border-[rgba(255,255,255,0.07)] px-3 py-1 rounded-lg transition-colors font-mono uppercase tracking-wider">Close ✕</button>
                </div>
                
                {"id" in selectedDeepDive ? (
@@ -266,7 +266,7 @@ export default function MacroDeskPage() {
           ) : (
             <>
               {/* Calendar Widget */}
-              <div className="rounded-xl border border-zinc-800/40 p-4 flex flex-col h-[340px] bg-[#111118] shadow-md">
+              <div className="rounded-xl border border-[rgba(255,255,255,0.07)] p-4 flex flex-col h-[340px] bg-[#101014] shadow-md">
                  <div className="flex items-center justify-between mb-4 pb-2 border-b border-zinc-850">
                     <h3 className="text-xs font-bold text-white flex items-center gap-1.5 font-mono uppercase tracking-widest">
                       <Calendar className="w-4 h-4 text-blue-450"/> Calendar
@@ -290,7 +290,7 @@ export default function MacroDeskPage() {
                          onClick={() => setSelectedDeepDive(e)}
                        >
                          <div className="w-10 text-[9px] text-zinc-550 text-right shrink-0">{e.time}</div>
-                         <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${e.impact === 'high' ? 'bg-red-500/90 shadow-[0_0_5px_rgba(255,77,106,0.8)]' : e.impact === 'medium' ? 'bg-orange-400' : 'bg-zinc-700'}`} />
+                         <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${e.impact === 'high' ? 'bg-red-500/90' : e.impact === 'medium' ? 'bg-orange-400' : 'bg-zinc-700'}`} />
                          <div className="flex-1 min-w-0">
                            <div className="font-bold text-white truncate">{e.event}</div>
                            <div className="text-[8px] text-zinc-550 uppercase mt-0.5">{e.currency} • Est: {e.forecast || '-'}</div>
@@ -302,7 +302,7 @@ export default function MacroDeskPage() {
               </div>
 
               {/* MT5 Signals Widget */}
-              <div className="rounded-xl border border-zinc-800/40 p-4 flex flex-col h-[340px] bg-[#111118] shadow-md">
+              <div className="rounded-xl border border-[rgba(255,255,255,0.07)] p-4 flex flex-col h-[340px] bg-[#101014] shadow-md">
                  <div className="flex items-center justify-between mb-4 pb-2 border-b border-zinc-850">
                     <h3 className="text-xs font-bold text-white flex items-center gap-1.5 font-mono uppercase tracking-widest"><Target className="w-4 h-4 text-emerald-450"/> Flow Alignment</h3>
                  </div>
@@ -314,7 +314,7 @@ export default function MacroDeskPage() {
                        <div key={i} className="p-2.5 rounded-lg border border-zinc-850 bg-black/15">
                          <div className="flex justify-between items-center mb-1">
                            <span className="font-bold text-white">{s.pair}</span>
-                           <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded ${s.signal === 'buy' ? 'bg-emerald-500/20 text-emerald-400' : s.signal === 'sell' ? 'bg-red-500/20 text-red-405' : 'bg-zinc-900/60 text-zinc-500'}`}>
+                           <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded ${s.signal === 'buy' ? 'bg-[#20e0b2]/20 text-[#20e0b2]' : s.signal === 'sell' ? 'bg-[rgba(255,92,115,0.12)] text-red-405' : 'bg-zinc-900/60 text-zinc-500'}`}>
                              {s.signal} {s.signal !== 'neutral' && `${s.strength}%`}
                            </span>
                          </div>
@@ -334,3 +334,4 @@ export default function MacroDeskPage() {
     </div>
   );
 }
+

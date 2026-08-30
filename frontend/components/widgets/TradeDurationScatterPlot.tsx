@@ -21,45 +21,45 @@ export function TradeDurationScatterPlot({ trades }: { trades: any[] }) {
   const losingTrades = data.filter(t => t.pnl <= 0);
 
   return (
-    <div className="bg-[#0c0c0d]/90 border border-white/5 rounded-xl shadow-lg p-5 h-full flex flex-col">
-      <div className="flex items-center gap-2 mb-4">
-         <Clock className="w-5 h-5 text-purple-400" />
-         <h3 className="text-sm font-bold text-gray-200 tracking-wide uppercase">Trade Duration vs PnL</h3>
+    <div className="bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-lg p-5 h-full flex flex-col font-mono text-[9px]">
+      <div className="flex items-center justify-between mb-4">
+        <span className="text-[9px] uppercase tracking-widest font-bold text-[#71717a]">Trade Duration vs Profit</span>
+        <span className="text-[8px] text-zinc-550 uppercase">Operational Analytics</span>
       </div>
       <div className="flex-1 w-full h-full min-h-[300px]">
         {data.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
-            <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
+            <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 10 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
               <XAxis 
                 type="number" 
                 dataKey="duration" 
                 name="Duration" 
-                unit=" min" 
-                stroke="#ffffff50" 
-                tick={{fill: '#ffffff50', fontSize: 11}}
+                unit="m" 
+                stroke="transparent" 
+                tick={{fill: '#71717a', fontSize: 9, fontFamily: "monospace"}}
               />
               <YAxis 
                 type="number" 
                 dataKey="pnl" 
                 name="PnL" 
                 unit="$" 
-                stroke="#ffffff50"
-                tick={{fill: '#ffffff50', fontSize: 11}}
+                stroke="transparent"
+                tick={{fill: '#71717a', fontSize: 9, fontFamily: "monospace"}}
               />
               <ZAxis type="number" dataKey="z" range={[50, 50]} />
               <Tooltip 
-                cursor={{ strokeDasharray: '3 3' }} 
-                contentStyle={{ backgroundColor: '#18181b', borderColor: '#ffffff20', color: '#fff', fontSize: '12px' }}
-                itemStyle={{ color: '#fff' }}
+                cursor={{ strokeDasharray: '3 3', stroke: "rgba(255,255,255,0.05)" }} 
+                contentStyle={{ backgroundColor: '#101014', borderColor: 'rgba(255,255,255,0.07)', color: '#f4f4f5', fontSize: '10px', fontFamily: "monospace", borderRadius: 4 }}
+                itemStyle={{ color: '#f4f4f5' }}
               />
-              <ReferenceLine y={0} stroke="#ffffff30" />
-              <Scatter name="Wins" data={winningTrades} fill="#00dc82" />
-              <Scatter name="Losses" data={losingTrades} fill="#ef4444" />
+              <ReferenceLine y={0} stroke="rgba(255,255,255,0.07)" />
+              <Scatter name="Wins" data={winningTrades} fill="#20e0b2" />
+              <Scatter name="Losses" data={losingTrades} fill="#ff5c73" />
             </ScatterChart>
           </ResponsiveContainer>
         ) : (
-          <div className="flex items-center justify-center h-full text-gray-500 text-sm">
+          <div className="flex items-center justify-center h-full text-zinc-500 text-xs">
             Not enough closed trades for scatter plot.
           </div>
         )}

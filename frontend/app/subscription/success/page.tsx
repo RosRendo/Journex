@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -23,10 +23,10 @@ export default function SubscriptionSuccessPage() {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
-      <div className="max-w-md w-full bg-card border border-border rounded-3xl p-10 flex flex-col items-center text-center shadow-2xl animate-in zoom-in-95 duration-500">
+      <div className="max-w-md w-full bg-card border border-border rounded-lg p-10 flex flex-col items-center text-center animate-in zoom-in-95 duration-500">
         {/* Success Icon */}
-        <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mb-8">
-          <CheckCircle2 className="w-10 h-10 text-green-500" />
+        <div className="w-20 h-20 bg-[rgba(32,224,178,0.08)] rounded-full flex items-center justify-center mb-8">
+          <CheckCircle2 className="w-10 h-10 text-[#20e0b2]" />
         </div>
 
         <h1 className="text-3xl font-extrabold text-foreground mb-3 tracking-tight">
@@ -69,3 +69,4 @@ export default function SubscriptionSuccessPage() {
     </div>
   );
 }
+

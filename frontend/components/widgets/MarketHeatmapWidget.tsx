@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from "react";
 import { TrendingUp, TrendingDown, Loader2, Activity } from "lucide-react";
@@ -42,7 +42,7 @@ export function MarketHeatmapWidget() {
   }, []);
 
   return (
-    <div className="bg-[#050505] border border-[--border] rounded-2xl shadow-2xl overflow-hidden relative group">
+    <div className="bg-[#050505] border border-[--border] rounded-lg shadow-2xl overflow-hidden relative group">
       
       {/* Subtle ambient background glow */}
       <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none" />
@@ -112,4 +112,5 @@ export function MarketHeatmapWidget() {
     </div>
   );
 }
+
 

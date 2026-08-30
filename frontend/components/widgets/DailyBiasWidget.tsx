@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from "react";
 import { Target, Save, CheckCircle2, ChevronRight, PenTool } from "lucide-react";
@@ -81,7 +81,7 @@ export function DailyBiasWidget() {
           <ChevronRight size={16} />
         </div>
         <textarea
-          className="flex-1 w-full bg-transparent border border-transparent rounded-2xl resize-none outline-none p-4 pl-9 text-sm leading-relaxed transition-all"
+          className="flex-1 w-full bg-transparent border border-transparent rounded-lg resize-none outline-none p-4 pl-9 text-sm leading-relaxed transition-all"
           style={{ 
             color: "var(--text-secondary)", 
             background: isFocused ? "var(--bg-elevated)" : "rgba(0,0,0,0.1)",
@@ -103,3 +103,4 @@ export function DailyBiasWidget() {
     </div>
   );
 }
+

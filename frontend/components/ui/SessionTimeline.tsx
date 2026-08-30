@@ -63,68 +63,67 @@ export function SessionTimeline() {
   const utcTimeStr = `${String(utcH).padStart(2, "0")}:${String(utcM).padStart(2, "0")}`;
 
   return (
-    <div className="rounded-xl border border-zinc-800/40 bg-[#111118] overflow-hidden shadow-xl font-mono text-[10px]">
+    <div className="rounded border border-[rgba(255,255,255,0.07)] bg-[#101014] overflow-hidden font-mono text-[9px]">
       <div className="overflow-x-auto scrollbar-none w-full">
-        <div className="min-w-[650px] p-4">
+        <div className="min-w-[620px] px-3.5 py-2">
           
           {/* Row 1: Session Pills */}
-          <div className="flex flex-wrap gap-4 mb-4">
-            {SESSIONS.map((s) => {
-              const { isOpen, isPreMarket, countdown } = getSessionStatus(s.open, s.close, utcH, utcM);
-              return (
-                <div key={s.name} className="flex items-center gap-2.5">
-                  <div
-                    className="w-2 h-2 rounded-full flex-shrink-0"
-                    style={{
-                      background: isOpen ? s.color : "#3f3f46",
-                      boxShadow: isOpen ? `0 0 8px ${s.color}` : "none",
-                    }}
-                  />
-                  <div>
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-300">
-                      {s.name}
-                    </div>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span
-                        className="text-[8px] font-black uppercase px-1 rounded-sm"
-                        style={{
-                          color: isOpen ? s.color : isPreMarket ? "#f59e0b" : "#71717a",
-                          background: isOpen ? `${s.color}15` : isPreMarket ? "rgba(245,158,11,0.1)" : "rgba(255,255,255,0.02)",
-                        }}
-                      >
-                        {isOpen ? "OPEN" : isPreMarket ? "PRE" : "CLOSED"}
-                      </span>
-                      <span className="text-[8px] text-zinc-550">
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <div className="flex items-center gap-3">
+              {SESSIONS.map((s) => {
+                const { isOpen, isPreMarket, countdown } = getSessionStatus(s.open, s.close, utcH, utcM);
+                return (
+                  <div key={s.name} className="flex items-center gap-2">
+                    <div
+                      className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                      style={{
+                        background: isOpen ? s.color : "#27272a"
+                      }}
+                    />
+                    <div>
+                      <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-350 flex items-center gap-1.5">
+                        {s.name}
+                        <span
+                          className="text-[7px] font-black uppercase px-1 rounded-sm leading-none"
+                          style={{
+                            color: isOpen ? s.color : isPreMarket ? "#f5c451" : "#71717a",
+                            background: isOpen ? `${s.color}15` : isPreMarket ? "rgba(245,196,81,0.08)" : "rgba(255,255,255,0.02)",
+                          }}
+                        >
+                          {isOpen ? "OPEN" : isPreMarket ? "PRE" : "CLOSED"}
+                        </span>
+                      </div>
+                      <div className="text-[7.5px] text-[#71717a] mt-0.5 font-medium">
                         {isOpen ? `closes ${countdown}` : `opens ${countdown}`}
-                      </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
 
             {/* Right: TZ selector + times */}
-            <div className="ml-auto flex items-center gap-3 text-zinc-500 font-bold">
-              <div className="flex gap-1 bg-black/25 border border-zinc-850 rounded-lg p-0.5 text-[8px] font-black">
+            <div className="flex items-center gap-3 text-zinc-500 font-bold">
+              <div className="flex gap-0.5 bg-black/35 border border-[rgba(255,255,255,0.07)] rounded p-0.5 text-[7px] font-black">
                 {(["UTC", "GMT+7", "GMT+8", "GMT+9"] as const).map((t) => (
                   <button
                     key={t}
                     onClick={() => setTz(t)}
-                    className={`px-1.5 py-0.5 rounded transition-all ${tz === t ? "bg-white/10 text-white" : "text-zinc-550 hover:text-zinc-350"}`}
+                    className={`px-1.5 py-0.5 rounded transition-all ${tz === t ? "bg-white/10 text-white" : "text-[#71717a] hover:text-zinc-350"}`}
                   >
                     {t}
                   </button>
                 ))}
               </div>
-              <div className="text-right leading-tight">
-                <div className="text-white">{localTimeStr} {tz}</div>
-                <div className="text-zinc-600 mt-0.5">{utcTimeStr} UTC</div>
+              <div className="text-right leading-none">
+                <div className="text-white text-[9px] font-bold">{localTimeStr} {tz}</div>
+                <div className="text-zinc-600 text-[8px] mt-0.5">{utcTimeStr} UTC</div>
               </div>
             </div>
           </div>
-
+ 
           {/* Row 2: Timeline Bar */}
-          <div className="relative h-7 rounded-lg overflow-hidden bg-black/25 border border-zinc-850">
+          <div className="relative h-4 rounded overflow-hidden bg-black/35 border border-[rgba(255,255,255,0.07)]">
             {SESSIONS.map((s) => {
               const startH = s.open;
               const endH = s.close;
@@ -135,9 +134,9 @@ export function SessionTimeline() {
                   <div
                     key={s.name + "a"}
                     className="absolute top-0 h-full flex items-center justify-center font-bold"
-                    style={{ left: `${left}%`, width: `${width}%`, background: `${s.color}15`, borderLeft: `1px solid ${s.color}30` }}
+                    style={{ left: `${left}%`, width: `${width}%`, background: `${s.color}0c`, borderLeft: `1px solid ${s.color}1e` }}
                   >
-                    <span className="text-[7.5px] uppercase tracking-wider" style={{ color: s.color }}>{s.name}</span>
+                    <span className="text-[7px] uppercase tracking-wider opacity-90" style={{ color: s.color }}>{s.name}</span>
                   </div>
                 );
               } else {
@@ -145,10 +144,10 @@ export function SessionTimeline() {
                 const w2 = toPercent(endH);
                 return (
                   <React.Fragment key={s.name}>
-                    <div className="absolute top-0 h-full flex items-center justify-center font-bold" style={{ left: `${toPercent(startH)}%`, width: `${w1}%`, background: `${s.color}15`, borderLeft: `1px solid ${s.color}30` }}>
-                      <span className="text-[7.5px] uppercase tracking-wider" style={{ color: s.color }}>{s.name}</span>
+                    <div className="absolute top-0 h-full flex items-center justify-center font-bold" style={{ left: `${toPercent(startH)}%`, width: `${w1}%`, background: `${s.color}0c`, borderLeft: `1px solid ${s.color}1e` }}>
+                      <span className="text-[7px] uppercase tracking-wider opacity-90" style={{ color: s.color }}>{s.name}</span>
                     </div>
-                    <div className="absolute top-0 h-full" style={{ left: "0%", width: `${w2}%`, background: `${s.color}15` }} />
+                    <div className="absolute top-0 h-full" style={{ left: "0%", width: `${w2}%`, background: `${s.color}0c` }} />
                   </React.Fragment>
                 );
               }
@@ -156,13 +155,13 @@ export function SessionTimeline() {
 
             {/* Current time marker */}
             <div
-              className="absolute top-0 h-full w-0.5 z-10 bg-white"
-              style={{ left: `${nowPct}%`, boxShadow: "0 0 5px #fff" }}
+              className="absolute top-0 h-full w-0.5 z-10 bg-[#20e0b2]"
+              style={{ left: `${nowPct}%` }}
             />
           </div>
 
           {/* Hour labels */}
-          <div className="flex justify-between mt-1.5 text-[8px] text-zinc-600 font-bold">
+          <div className="flex justify-between mt-1 text-[7px] text-[#71717a] font-bold">
             {[0, 4, 8, 12, 16, 20, 24].map((h) => (
               <span key={h}>
                 {String(h).padStart(2, "0")}:00

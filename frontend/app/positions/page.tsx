@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import {
@@ -155,8 +155,8 @@ export default function PositionsPage() {
 
       {/* Toast */}
       {toast && (
-        <div className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-xl border shadow-2xl backdrop-blur animate-fade-in ${
-          toast.type === "success" ? "bg-[--bull]/10 border-[--bull]/30 text-[--bull]" : "bg-[--bear]/10 border-[--bear]/30 text-[--bear]"
+        <div className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-xl border backdrop-blur animate-fade-in ${
+          toast.type === "success" ? "bg-[#20e0b2]/10 border-[--bull]/30 text-[#20e0b2]" : "bg-[#ff5c73]/10 border-[--bear]/30 text-[#ff5c73]"
         }`}>
           {toast.type === "success" ? <Check className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
           <span className="text-sm font-medium">{toast.text}</span>
@@ -167,8 +167,8 @@ export default function PositionsPage() {
       <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-6">
         <div>
           <h1 className="text-3xl font-black tracking-tight text-white flex items-center gap-3" style={{ fontFamily: "'Syne', sans-serif" }}>
-            <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center">
-              <Activity className="w-5 h-5 text-blue-400" />
+            <div className="w-10 h-10 rounded-xl bg-[rgba(32,224,178,0.08)] border border-blue-500/30 flex items-center justify-center">
+              <Activity className="w-5 h-5 text-[#20e0b2]" />
             </div>
             Live Positions
           </h1>
@@ -176,9 +176,9 @@ export default function PositionsPage() {
             {loading ? (
               <><Loader2 className="w-3 h-3 animate-spin" /> Syncing with MT5...</>
             ) : error ? (
-              <><WifiOff className="w-3 h-3 text-[--bear]" /><span className="text-[--bear]">MT5 Disconnected</span></>
+              <><WifiOff className="w-3 h-3 text-[#ff5c73]" /><span className="text-[#ff5c73]">MT5 Disconnected</span></>
             ) : (
-              <><Wifi className="w-3 h-3 text-[--bull] animate-pulse" /><span className="text-[--bull]">Live · {positions.length} open trade{positions.length !== 1 ? "s" : ""}</span></>
+              <><Wifi className="w-3 h-3 text-[#20e0b2] animate-pulse" /><span className="text-[#20e0b2]">Live · {positions.length} open trade{positions.length !== 1 ? "s" : ""}</span></>
             )}
           </p>
         </div>
@@ -187,10 +187,10 @@ export default function PositionsPage() {
         <div className="flex flex-wrap items-center gap-3">
           {/* Total Float */}
           <div className={`px-5 py-3 rounded-xl border flex flex-col items-center ${
-            totalProfit >= 0 ? "bg-[--bull]/10 border-[--bull]/20" : "bg-[--bear]/10 border-[--bear]/20"
+            totalProfit >= 0 ? "bg-[#20e0b2]/10 border-[--bull]/20" : "bg-[#ff5c73]/10 border-[--bear]/20"
           }`}>
             <span className="text-[10px] uppercase tracking-widest font-bold text-gray-400">Floating P/L</span>
-            <span className={`text-xl font-black font-mono mt-0.5 ${totalProfit >= 0 ? "text-[--bull]" : "text-[--bear]"}`}>
+            <span className={`text-xl font-black font-mono mt-0.5 ${totalProfit >= 0 ? "text-[#20e0b2]" : "text-[#ff5c73]"}`}>
               {totalProfit >= 0 ? "+" : ""}{totalProfit.toFixed(2)}
             </span>
           </div>
@@ -199,12 +199,12 @@ export default function PositionsPage() {
           <div className="px-5 py-3 rounded-xl border border-white/10 bg-white/[0.02] flex gap-4">
             <div className="text-center">
               <div className="text-[10px] uppercase tracking-widest text-gray-500">Win</div>
-              <div className="text-lg font-bold text-[--bull]">{winners}</div>
+              <div className="text-lg font-bold text-[#20e0b2]">{winners}</div>
             </div>
             <div className="w-px bg-white/10" />
             <div className="text-center">
               <div className="text-[10px] uppercase tracking-widest text-gray-500">Loss</div>
-              <div className="text-lg font-bold text-[--bear]">{losers}</div>
+              <div className="text-lg font-bold text-[#ff5c73]">{losers}</div>
             </div>
           </div>
 
@@ -212,11 +212,11 @@ export default function PositionsPage() {
           {positions.length > 0 && (
             <div className="flex gap-2">
               <button onClick={() => closeAll("winners")} disabled={bulkLoading || winners === 0}
-                className="px-3 py-2 rounded-lg text-xs font-bold border border-[--bull]/30 bg-[--bull]/10 text-[--bull] hover:bg-[--bull]/20 disabled:opacity-40 transition-all uppercase tracking-wider">
+                className="px-3 py-2 rounded-lg text-xs font-bold border border-[--bull]/30 bg-[#20e0b2]/10 text-[#20e0b2] hover:bg-[#20e0b2]/20 disabled:opacity-40 transition-all uppercase tracking-wider">
                 Close Winners
               </button>
               <button onClick={() => closeAll("losers")} disabled={bulkLoading || losers === 0}
-                className="px-3 py-2 rounded-lg text-xs font-bold border border-[--bear]/30 bg-[--bear]/10 text-[--bear] hover:bg-[--bear]/20 disabled:opacity-40 transition-all uppercase tracking-wider">
+                className="px-3 py-2 rounded-lg text-xs font-bold border border-[--bear]/30 bg-[#ff5c73]/10 text-[#ff5c73] hover:bg-[#ff5c73]/20 disabled:opacity-40 transition-all uppercase tracking-wider">
                 Close Losers
               </button>
               <button onClick={() => closeAll()} disabled={bulkLoading}
@@ -231,17 +231,17 @@ export default function PositionsPage() {
 
       {/* Error */}
       {error && (
-        <div className="bg-[--bear]/10 border border-[--bear]/30 text-[--bear] p-4 rounded-xl flex items-center gap-3">
+        <div className="bg-[#ff5c73]/10 border border-[--bear]/30 text-[#ff5c73] p-4 rounded-xl flex items-center gap-3">
           <AlertCircle className="w-5 h-5 flex-shrink-0" />
           <div>
             <p className="font-bold text-sm">MT5 Connection Error</p>
-            <p className="text-xs text-[--bear]/70 mt-0.5">{error}</p>
+            <p className="text-xs text-[#ff5c73]/70 mt-0.5">{error}</p>
           </div>
         </div>
       )}
 
       {/* Table */}
-      <div className="rounded-xl border border-[--border] bg-[--bg-card] overflow-hidden shadow-2xl">
+      <div className="rounded-xl border border-[--border] bg-[--bg-card] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead style={{ backgroundColor: "rgba(255,255,255,0.03)" }}>
@@ -300,7 +300,7 @@ export default function PositionsPage() {
                       {/* Symbol/Type */}
                       <td className="px-6 py-4">
                         <div className="font-bold text-white">{pos.symbol}</div>
-                        <div className={`flex items-center gap-1 text-xs font-bold mt-1 ${isBuy ? "text-[--bull]" : "text-[--bear]"}`}>
+                        <div className={`flex items-center gap-1 text-xs font-bold mt-1 ${isBuy ? "text-[#20e0b2]" : "text-[#ff5c73]"}`}>
                           {isBuy ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
                           {isBuy ? "BUY" : "SELL"}
                         </div>
@@ -320,13 +320,13 @@ export default function PositionsPage() {
                         {isEditing ? (
                           <div className="flex flex-col gap-1.5">
                             <div className="flex items-center gap-1.5">
-                              <span className="text-[9px] text-[--bear] uppercase font-bold w-6">SL</span>
+                              <span className="text-[9px] text-[#ff5c73] uppercase font-bold w-6">SL</span>
                               <input type="number" step="any" value={editSl} onChange={e => setEditSl(e.target.value)}
                                 placeholder={pos.sl > 0 ? pos.sl.toFixed(getPairDigits(pos.symbol)) : "None"}
                                 className="w-28 bg-white/5 border border-white/20 rounded px-2 py-1 text-xs font-mono text-white focus:outline-none focus:border-[--bear]/50" />
                             </div>
                             <div className="flex items-center gap-1.5">
-                              <span className="text-[9px] text-[--bull] uppercase font-bold w-6">TP</span>
+                              <span className="text-[9px] text-[#20e0b2] uppercase font-bold w-6">TP</span>
                               <input type="number" step="any" value={editTp} onChange={e => setEditTp(e.target.value)}
                                 placeholder={pos.tp > 0 ? pos.tp.toFixed(getPairDigits(pos.symbol)) : "None"}
                                 className="w-28 bg-white/5 border border-white/20 rounded px-2 py-1 text-xs font-mono text-white focus:outline-none focus:border-[--bull]/50" />
@@ -334,17 +334,17 @@ export default function PositionsPage() {
                           </div>
                         ) : (
                           <div className="flex flex-col gap-1 text-[11px] font-mono">
-                            <span className={`px-2 py-0.5 rounded flex items-center gap-1 ${pos.sl > 0 ? "bg-[--bear]/10 text-[--bear]" : "text-gray-600"}`}>
+                            <span className={`px-2 py-0.5 rounded flex items-center gap-1 ${pos.sl > 0 ? "bg-[#ff5c73]/10 text-[#ff5c73]" : "text-gray-600"}`}>
                               <AlertCircle className="w-3 h-3" />{pos.sl > 0 ? pos.sl.toFixed(getPairDigits(pos.symbol)) : "No SL"}
                             </span>
-                            <span className={`px-2 py-0.5 rounded flex items-center gap-1 ${pos.tp > 0 ? "bg-[--bull]/10 text-[--bull]" : "text-gray-600"}`}>
+                            <span className={`px-2 py-0.5 rounded flex items-center gap-1 ${pos.tp > 0 ? "bg-[#20e0b2]/10 text-[#20e0b2]" : "text-gray-600"}`}>
                               <Target className="w-3 h-3" />{pos.tp > 0 ? pos.tp.toFixed(getPairDigits(pos.symbol)) : "No TP"}
                             </span>
                           </div>
                         )}
                       </td>
                       {/* P&L */}
-                      <td className={`px-6 py-4 text-right font-mono font-bold ${isProfitable ? "text-[--bull]" : "text-[--bear]"}`}>
+                      <td className={`px-6 py-4 text-right font-mono font-bold ${isProfitable ? "text-[#20e0b2]" : "text-[#ff5c73]"}`}>
                         <div className="text-base">{isProfitable ? "+" : ""}{pos.profit.toFixed(2)}</div>
                         {pos.swap !== 0 && (
                           <div className="text-[10px] text-gray-500 font-normal">Swap: {pos.swap.toFixed(2)}</div>
@@ -356,7 +356,7 @@ export default function PositionsPage() {
                           {isEditing ? (
                             <>
                               <button onClick={() => modifyPosition(pos.ticket)}
-                                className="p-1.5 rounded-lg bg-[--bull]/20 border border-[--bull]/30 text-[--bull] hover:bg-[--bull]/30 transition-colors">
+                                className="p-1.5 rounded-lg bg-[#20e0b2]/20 border border-[--bull]/30 text-[#20e0b2] hover:bg-[#20e0b2]/30 transition-colors">
                                 <Check className="w-3.5 h-3.5" />
                               </button>
                               <button onClick={() => { setEditingTicket(null); setEditSl(""); setEditTp(""); }}
@@ -378,7 +378,7 @@ export default function PositionsPage() {
                                 }} 
                                 disabled={isClosing}
                                 title="Close Position"
-                                className="px-3 py-1.5 rounded-lg bg-[--bear]/10 border border-[--bear]/30 text-[--bear] hover:bg-[--bear]/20 transition-colors disabled:opacity-50 text-[10px] uppercase font-bold flex items-center gap-1">
+                                className="px-3 py-1.5 rounded-lg bg-[#ff5c73]/10 border border-[--bear]/30 text-[#ff5c73] hover:bg-[#ff5c73]/20 transition-colors disabled:opacity-50 text-[10px] uppercase font-bold flex items-center gap-1">
                                 {isClosing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><X className="w-3.5 h-3.5" /> Close</>}
                               </button>
                             </>
@@ -399,7 +399,7 @@ export default function PositionsPage() {
             <span>{sorted.length} position{sorted.length !== 1 ? "s" : ""}</span>
             <div className="flex gap-6">
               <span>Swap: <span className="font-mono text-gray-300">{totalSwap.toFixed(2)}</span></span>
-              <span>Net Float: <span className={`font-mono font-bold ${totalProfit >= 0 ? "text-[--bull]" : "text-[--bear]"}`}>
+              <span>Net Float: <span className={`font-mono font-bold ${totalProfit >= 0 ? "text-[#20e0b2]" : "text-[#ff5c73]"}`}>
                 {totalProfit >= 0 ? "+" : ""}{totalProfit.toFixed(2)}
               </span></span>
             </div>
@@ -409,3 +409,4 @@ export default function PositionsPage() {
     </div>
   );
 }
+

@@ -28,26 +28,31 @@
   --border-strong: #00000020;
 }
 
-/* ── Dark theme (Default) ── */
+/* ── Obsidian Quant Theme (Default Dark) ── */
 .dark {
-  --bg-base: #0a0a0f;
-  --bg-card: #111118;
-  --bg-elevated: #1a1a24;
-  --bg-input: #16161f;
-  --accent: #00d4a1;
-  --accent-dim: #00d4a120;
-  --bull: #00c896;
-  --bear: #ff4d6a;
-  --neutral: #a0a0b8;
-  --warning: #f5a623;
-  --info: #4a9eff;
-  --profit: #00c896;
-  --loss: #ff4d6a;
-  --text-primary: #e8e8f0;
-  --text-secondary: #8888a0;
-  --text-tertiary: #555568;
-  --border: #ffffff10;
-  --border-strong: #ffffff20;
+  --bg-base: #09090b;
+  --bg-card: #101014;
+  --bg-elevated: #141419;
+  --bg-input: #18181d;
+  
+  --accent: #20e0b2;
+  --accent-dim: rgba(32, 224, 178, 0.1);
+  
+  --bull: #20e0b2;
+  --bear: #ff5c73;
+  --neutral: #a1a1aa;
+  --warning: #f5c451;
+  --info: #38bdf8;
+  
+  --profit: #20e0b2;
+  --loss: #ff5c73;
+  
+  --text-primary: #f4f4f5;
+  --text-secondary: #a1a1aa;
+  --text-tertiary: #71717a;
+  
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.12);
 }
 
 /* ── White / Light Professional theme ── */

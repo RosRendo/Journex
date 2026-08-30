@@ -33,33 +33,24 @@ export function MistakeCostAnalyzer() {
 
   const getIcon = (tag: string) => {
     const l = tag.toLowerCase();
-    if (l.includes("fomo") || l.includes("early")) return <TrendingDown size={14} className="text-[#ff4d6a]" />;
-    if (l.includes("size") || l.includes("risk")) return <ShieldAlert size={14} className="text-[#ff4d6a]" />;
-    if (l.includes("revenge")) return <AlertTriangle size={14} className="text-[#ff4d6a]" />;
-    return <Crosshair size={14} className="text-[#ff4d6a]" />;
+    if (l.includes("fomo") || l.includes("early")) return <TrendingDown size={12} className="text-[#ff5c73]" />;
+    if (l.includes("size") || l.includes("risk")) return <ShieldAlert size={12} className="text-[#ff5c73]" />;
+    if (l.includes("revenge")) return <AlertTriangle size={12} className="text-[#ff5c73]" />;
+    return <Crosshair size={12} className="text-[#ff5c73]" />;
   };
 
   return (
-    <div className="rounded-3xl p-6 relative overflow-visible backdrop-blur-xl shadow-2xl border transition-all duration-500 h-full flex flex-col group" 
-         style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
-      
-      {/* Background Hover Glow */}
-      <div className="absolute inset-0 opacity-[0.01] group-hover:opacity-[0.03] pointer-events-none rounded-3xl transition-opacity duration-1000" 
-           style={{ background: "var(--loss)" }} />
-
-      <div className="flex items-center justify-between mb-6 relative z-10">
+    <div className="rounded-lg p-5 border flex flex-col h-full bg-[#101014] border-[rgba(255,255,255,0.07)]" >
+      <div className="flex items-center justify-between mb-4 font-mono">
          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full flex items-center justify-center bg-[#ff4d6a]/10 border border-[#ff4d6a]/20">
-              <AlertOctagon size={16} className="text-[#ff4d6a]" />
-            </div>
             <div>
-              <h3 className="text-[12px] font-bold uppercase tracking-widest" style={{ color: "var(--text-primary)" }}>Mistake Cost Analyzer</h3>
-              <p className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>AI Edge Profiling</p>
+              <h3 className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Mistake Cost Analyzer</h3>
+              <p className="text-[8px] uppercase tracking-wider text-zinc-650">AI Edge Profiling</p>
             </div>
          </div>
          <div className="flex flex-col items-end">
-           <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--text-tertiary)" }}>Total Bleed</span>
-           <span className="text-lg font-mono font-black text-[#ff4d6a]">
+           <span className="text-[8px] font-bold uppercase tracking-widest text-zinc-600">Total Bleed</span>
+           <span className="text-[14px] font-mono font-black text-[#ff5c73]">
              {loading ? "..." : `-$${totalCost.toFixed(2)}`}
            </span>
          </div>
@@ -69,12 +60,12 @@ export function MistakeCostAnalyzer() {
         <AnimatePresence>
           {loading ? (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex justify-center items-center h-full">
-              <div className="w-5 h-5 border-2 border-[#ff4d6a] border-t-transparent rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-[#ff5c73] border-t-transparent rounded-full animate-spin" />
             </motion.div>
           ) : mistakes.length === 0 ? (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center h-full gap-2 opacity-50">
-              <AlertOctagon size={24} className="text-[#00c896]" />
-              <span className="text-xs font-bold text-[#00c896] uppercase tracking-widest">No Bleed Detected</span>
+              <AlertOctagon size={20} className="text-[#20e0b2]" />
+              <span className="text-[10px] font-bold text-[#20e0b2] uppercase tracking-widest">No Bleed Detected</span>
             </motion.div>
           ) : (
             mistakes.map((mistake, i) => {
@@ -87,32 +78,32 @@ export function MistakeCostAnalyzer() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.1 }}
                   key={mistake.tag} 
-                  className="flex flex-col p-3 rounded-2xl border transition-colors hover:bg-white/[0.02]"
-                  style={{ background: "var(--bg-elevated)", borderColor: "var(--border-strong)" }}
+                  className="flex flex-col p-3 rounded border transition-colors hover:bg-white/[0.02]"
+                  style={{ background: "#141419", borderColor: "rgba(255,255,255,0.07)" }}
                 >
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center justify-between mb-2 font-mono">
                     <div className="flex items-center gap-2">
                       {getIcon(mistake.tag)}
-                      <span className="text-xs font-bold tracking-wide text-white">{mistake.tag}</span>
+                      <span className="text-[10px] font-bold tracking-wide text-white">{mistake.tag}</span>
                     </div>
-                    <span className="text-sm font-mono font-bold text-[#ff4d6a]">-${absCost.toFixed(2)}</span>
+                    <span className="text-[11px] font-mono font-bold text-[#ff5c73]">-${absCost.toFixed(2)}</span>
                   </div>
                   
                   {/* Progress Bar */}
-                  <div className="h-1.5 w-full rounded-full overflow-hidden bg-black/40 mb-2">
+                  <div className="h-1 w-full rounded overflow-hidden bg-black/40 mb-2">
                     <motion.div 
                       initial={{ width: 0 }}
                       animate={{ width: `${percentage}%` }}
                       transition={{ duration: 1, type: "spring" }}
-                      className="h-full rounded-full bg-[#ff4d6a]"
+                      className="h-full rounded bg-[#ff5c73]"
                     />
                   </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono" style={{ color: "var(--text-tertiary)" }}>
+ 
+                  <div className="flex items-center justify-between font-mono">
+                    <span className="text-[8px] text-zinc-550" >
                       {mistake.count} {mistake.count === 1 ? 'occurrence' : 'occurrences'}
                     </span>
-                    <span className="text-[10px] font-mono" style={{ color: "var(--text-tertiary)" }}>
+                    <span className="text-[8px] text-zinc-550" >
                       Avg: -${(absCost / mistake.count).toFixed(2)}
                     </span>
                   </div>
@@ -125,3 +116,4 @@ export function MistakeCostAnalyzer() {
     </div>
   );
 }
+

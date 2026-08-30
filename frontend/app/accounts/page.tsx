@@ -37,21 +37,21 @@ function AccountCard({
   onUpdateMultiplier: (id: number, val: number) => void;
 }) {
   const borderColor = account.isMaster
-    ? "border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.15)] bg-emerald-500/[0.01]"
-    : "border-zinc-800/40 bg-[#111118]";
+    ? "border-[rgba(32,224,178,0.3)]/30 bg-[#20e0b2]/[0.01]"
+    : "border-[rgba(255,255,255,0.07)] bg-[#101014]";
 
   return (
     <div
       className={`border rounded-xl p-5 relative overflow-hidden transition-all duration-350 ${borderColor}`}
     >
       {account.isMaster && (
-        <div className="absolute top-0 right-0 bg-emerald-500 text-emerald-950 text-[8px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-lg z-10 font-mono">
+        <div className="absolute top-0 right-0 bg-[#20e0b2] text-emerald-950 text-[8px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-lg z-10 font-mono">
           Master Node
         </div>
       )}
       <div className="flex items-center gap-4 mb-4">
         <div
-          className={`w-10 h-10 rounded-lg flex items-center justify-center ${account.isMaster ? "bg-emerald-500/10 text-emerald-450" : "bg-black/25 text-zinc-550 border border-zinc-805"}`}
+          className={`w-10 h-10 rounded-lg flex items-center justify-center ${account.isMaster ? "bg-[#20e0b2]/10 text-emerald-450" : "bg-black/25 text-zinc-550 border border-zinc-805"}`}
         >
           <Wallet className="w-5 h-5" />
         </div>
@@ -75,15 +75,15 @@ function AccountCard({
         </div>
       </div>
 
-      <div className="flex items-center justify-between mt-4 pt-3.5 border-t border-zinc-800/40">
+      <div className="flex items-center justify-between mt-4 pt-3.5 border-t border-[rgba(255,255,255,0.07)]">
         {!account.isMaster ? (
           <div className="flex items-center justify-between w-full font-mono">
             <button
               onClick={() => onToggleCopier(account.id)}
               className={`py-1.5 px-3 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-colors border ${
                 account.copierEnabled
-                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                  : "bg-black/35 text-zinc-500 border-zinc-800/40 hover:text-white"
+                  ? "bg-[#20e0b2]/10 text-[#20e0b2] border-[rgba(32,224,178,0.3)]/20"
+                  : "bg-black/35 text-zinc-500 border-[rgba(255,255,255,0.07)] hover:text-white"
               }`}
             >
               {account.copierEnabled ? "Copier Active" : "Enable Copier"}
@@ -110,7 +110,7 @@ function AccountCard({
           </div>
         ) : (
           <div className="w-full text-center font-mono">
-            <span className="text-[9px] font-bold text-emerald-400 flex justify-center items-center gap-1.5 uppercase tracking-widest">
+            <span className="text-[9px] font-bold text-[#20e0b2] flex justify-center items-center gap-1.5 uppercase tracking-widest">
               <Shield className="w-3.5 h-3.5" /> Broadcasting Node
             </span>
           </div>
@@ -120,7 +120,7 @@ function AccountCard({
       {!account.isMaster && (
         <button
           onClick={() => onSetMaster(account.id)}
-          className="w-full mt-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider text-zinc-500 hover:bg-black/25 hover:text-white transition-colors border border-zinc-800/20 font-mono hover:border-zinc-800/50"
+          className="w-full mt-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider text-zinc-500 hover:bg-black/25 hover:text-white transition-colors border border-[rgba(255,255,255,0.07)]/20 font-mono hover:border-[rgba(255,255,255,0.07)]"
         >
           Set As Master Node
         </button>
@@ -363,7 +363,7 @@ export default function Accounts() {
   if (accountsLoading || tradesLoading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="animate-spin w-10 h-10 border-2 border-emerald-400 border-t-transparent rounded-full"></div>
+        <div className="animate-spin w-10 h-10 border-2 border-[rgba(32,224,178,0.3)] border-t-transparent rounded-full"></div>
       </div>
     );
   }
@@ -373,39 +373,41 @@ export default function Accounts() {
   );
 
   return (
-    <div className="min-h-screen w-full bg-[#05050a] text-text-primary px-4 md:px-6 py-4 flex flex-col gap-4 animate-fade-in pb-16">
+    <div className="min-h-screen w-full bg-[#09090b] text-[#f4f4f5] flex flex-col pb-12 font-sans">
       
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-[#111118]/80 p-4 border border-zinc-800/40 rounded-2xl backdrop-blur-xl">
+      {/* ── TOPBAR ── */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(255,255,255,0.07)] sticky top-0 z-20 bg-[#09090b]">
         <div>
-          <h1 className="text-lg font-black tracking-tight text-white font-display flex items-center gap-2">
-            <Network className="w-5 h-5 text-emerald-400" />
-            Account Matrix & Copier
-          </h1>
-          <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest font-mono flex items-center gap-1 mt-0.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            Topology Control Active
-          </p>
+          <h1 className="text-sm font-bold tracking-tight text-[#f4f4f5]">Account Matrix &amp; Copier</h1>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#20e0b2] animate-pulse" />
+            <span className="text-[9px] font-bold uppercase tracking-widest font-mono text-[#71717a]">Topology Control Active</span>
+          </div>
         </div>
-        <div className="flex items-center bg-black/20 border border-zinc-800/40 rounded-lg p-1">
+
+        {/* Tab Selection */}
+        <div className="flex gap-0 border-l border-[rgba(255,255,255,0.07)]">
           <button
             onClick={() => setActiveTab("mt5")}
-            className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase font-mono tracking-wider transition-all ${
-              activeTab === "mt5" ? "bg-white/10 text-white shadow" : "text-zinc-550 hover:text-zinc-350"
+            className={`py-3 px-4 text-[9px] uppercase tracking-widest font-bold font-mono transition-all border-b-2 whitespace-nowrap ${
+              activeTab === "mt5" ? "border-[#20e0b2] text-[#20e0b2]" : "border-transparent text-[#71717a] hover:text-[#a1a1aa]"
             }`}
           >
             Live Copier Grid
           </button>
           <button
             onClick={() => setActiveTab("csv")}
-            className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase font-mono tracking-wider transition-all ${
-              activeTab === "csv" ? "bg-white/10 text-white shadow" : "text-zinc-550 hover:text-zinc-350"
+            className={`py-3 px-4 text-[9px] uppercase tracking-widest font-bold font-mono transition-all border-b-2 whitespace-nowrap ${
+              activeTab === "csv" ? "border-[#20e0b2] text-[#20e0b2]" : "border-transparent text-[#71717a] hover:text-[#a1a1aa]"
             }`}
           >
             CSV Analytics
           </button>
         </div>
       </div>
+
+      {/* Main container */}
+      <div className="flex-1 w-full p-6 space-y-4">
 
       {/* --- MT5 LIVE TAB --- */}
       {activeTab === "mt5" && (
@@ -415,7 +417,7 @@ export default function Accounts() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             
             {/* Aggregate Capital Card */}
-            <div className="bg-[#111118] border border-zinc-800/40 rounded-xl p-4 shadow-md flex flex-col justify-between relative overflow-hidden">
+            <div className="bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-xl p-4 shadow-md flex flex-col justify-between relative overflow-hidden">
               <h3 className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-4 flex items-center gap-1.5 font-mono">
                 <Server className="w-3.5 h-3.5 text-zinc-400" /> Aggregate Capital
               </h3>
@@ -445,12 +447,12 @@ export default function Accounts() {
 
             {/* Account Pulse Strip */}
             <div
-              className={`md:col-span-2 flex flex-col justify-center p-4 rounded-xl border relative shadow-md ${mt5Pulse?.connected ? "bg-emerald-500/[0.01] border-emerald-500/20" : "bg-[#111118] border-zinc-800/40"}`}
+              className={`md:col-span-2 flex flex-col justify-center p-4 rounded-xl border relative shadow-md ${mt5Pulse?.connected ? "bg-[#20e0b2]/[0.01] border-[rgba(32,224,178,0.3)]/20" : "bg-[#101014] border-[rgba(255,255,255,0.07)]"}`}
             >
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <div
-                    className={`w-1.5 h-1.5 rounded-full ${mt5Pulse?.connected ? "bg-emerald-400 animate-pulse" : "bg-zinc-700"}`}
+                    className={`w-1.5 h-1.5 rounded-full ${mt5Pulse?.connected ? "bg-[#20e0b2] animate-pulse" : "bg-zinc-700"}`}
                   />
                   <span
                     className={`text-[9px] font-bold uppercase tracking-widest font-mono`}
@@ -485,8 +487,8 @@ export default function Accounts() {
                           color:
                             label === "Float P&L"
                               ? Number(mt5Pulse.profit) >= 0
-                                ? "#00c896"
-                                : "#ff4d6a"
+                                ? "#20e0b2"
+                                : "#ff5c73"
                               : "#f4f4f5",
                         }}
                       >
@@ -506,14 +508,14 @@ export default function Accounts() {
 
           {/* Node Counts Strip */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-[#111118] border border-zinc-800/40 rounded-xl p-4 flex items-center justify-between shadow-sm">
+            <div className="bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-xl p-4 flex items-center justify-between shadow-sm">
               <div>
                 <p className="text-[9px] text-zinc-500 uppercase tracking-widest font-bold font-mono mb-1">
                   Master Node Configuration
                 </p>
                 <p className="text-base font-bold font-mono">
                   {masterAccount ? (
-                    <span className="text-emerald-400">
+                    <span className="text-[#20e0b2]">
                       #
                       {
                         mt5Accounts.find((a) => a.id === masterAccount)
@@ -525,16 +527,16 @@ export default function Accounts() {
                   )}
                 </p>
               </div>
-              <Shield className={`w-6 h-6 ${masterAccount ? "text-emerald-400" : "text-zinc-750"}`} />
+              <Shield className={`w-6 h-6 ${masterAccount ? "text-[#20e0b2]" : "text-zinc-750"}`} />
             </div>
 
-            <div className="bg-[#111118] border border-zinc-800/40 rounded-xl p-4 flex items-center justify-between shadow-sm">
+            <div className="bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-xl p-4 flex items-center justify-between shadow-sm">
               <div>
                 <p className="text-[9px] text-zinc-500 uppercase tracking-widest font-bold font-mono mb-1">
                   Active Slaves Matrix
                 </p>
                 <p className="text-base font-bold font-mono">
-                  <span className="text-emerald-400">
+                  <span className="text-[#20e0b2]">
                     {activeCopiers.length}
                   </span>{" "}
                   <span className="text-zinc-500 text-[10px] font-sans mx-1">
@@ -542,7 +544,7 @@ export default function Accounts() {
                   </span>
                 </p>
               </div>
-              <Network className={`w-6 h-6 ${activeCopiers.length > 0 ? "text-emerald-400" : "text-zinc-750"}`} />
+              <Network className={`w-6 h-6 ${activeCopiers.length > 0 ? "text-[#20e0b2]" : "text-zinc-750"}`} />
             </div>
           </div>
 
@@ -550,10 +552,10 @@ export default function Accounts() {
             <div
               className={`p-3 rounded-lg flex items-center gap-2.5 font-mono text-[11px] ${
                 connectStatus.success 
-                  ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-450" 
+                  ? "bg-[#20e0b2]/10 border border-[rgba(32,224,178,0.3)]/20 text-emerald-450" 
                   : connectStatus.loading 
                     ? "bg-blue-500/10 border border-blue-500/20 text-blue-450" 
-                    : "bg-red-500/10 border border-red-500/20 text-red-450"
+                    : "bg-[rgba(255,92,115,0.08)] border border-[rgba(255,92,115,0.2)] text-red-450"
               }`}
             >
               {connectStatus.loading ? (
@@ -575,7 +577,7 @@ export default function Accounts() {
               Topology Nodes Matrix
             </h2>
             <div className="flex items-center gap-2">
-              <div className="flex bg-black/20 border border-zinc-800/40 rounded-lg p-1 mr-1">
+              <div className="flex bg-black/20 border border-[rgba(255,255,255,0.07)] rounded-lg p-1 mr-1">
                 <button
                   onClick={() => setViewMode("grid")}
                   className={`p-1.5 rounded-lg transition-all ${viewMode === "grid" ? "bg-white/10 text-white" : "text-zinc-550 hover:text-zinc-350"}`}
@@ -601,9 +603,9 @@ export default function Accounts() {
           {isAddingMode && (
             <form
               onSubmit={handleSaveMt5Account}
-              className="bg-[#111118] border border-zinc-800/40 rounded-xl p-5 space-y-4 shadow-2xl"
+              className="bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-xl p-5 space-y-4"
             >
-              <h3 className="text-xs font-bold tracking-widest uppercase text-emerald-400 font-mono">
+              <h3 className="text-xs font-bold tracking-widest uppercase text-[#20e0b2] font-mono">
                 Deploy New Node Topology
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -617,7 +619,7 @@ export default function Accounts() {
                     onChange={(e) => setServer(e.target.value)}
                     required
                     placeholder="MetaQuotes-Demo"
-                    className="w-full bg-black/35 border border-zinc-800/60 rounded-lg px-3.5 py-2 text-xs font-mono focus:outline-none focus:border-emerald-400 text-white placeholder-zinc-700"
+                    className="w-full bg-black/35 border border-[rgba(255,255,255,0.07)] rounded-lg px-3.5 py-2 text-xs font-mono focus:outline-none focus:border-[rgba(32,224,178,0.3)] text-white placeholder-zinc-700"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
@@ -630,7 +632,7 @@ export default function Accounts() {
                     onChange={(e) => setLogin(e.target.value)}
                     required
                     placeholder="12345678"
-                    className="w-full bg-black/35 border border-zinc-800/60 rounded-lg px-3.5 py-2 text-xs font-mono focus:outline-none focus:border-emerald-400 text-white placeholder-zinc-700"
+                    className="w-full bg-black/35 border border-[rgba(255,255,255,0.07)] rounded-lg px-3.5 py-2 text-xs font-mono focus:outline-none focus:border-[rgba(32,224,178,0.3)] text-white placeholder-zinc-700"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
@@ -643,11 +645,11 @@ export default function Accounts() {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     placeholder="••••••••"
-                    className="w-full bg-black/35 border border-zinc-800/60 rounded-lg px-3.5 py-2 text-xs font-mono focus:outline-none focus:border-emerald-400 text-white placeholder-zinc-700"
+                    className="w-full bg-black/35 border border-[rgba(255,255,255,0.07)] rounded-lg px-3.5 py-2 text-xs font-mono focus:outline-none focus:border-[rgba(32,224,178,0.3)] text-white placeholder-zinc-700"
                   />
                 </div>
               </div>
-              <div className="flex justify-end gap-2 pt-3.5 border-t border-zinc-800/40 font-mono text-[9px] font-bold">
+              <div className="flex justify-end gap-2 pt-3.5 border-t border-[rgba(255,255,255,0.07)] font-mono text-[9px] font-bold">
                 <button
                   type="button"
                   onClick={() => setIsAddingMode(false)}
@@ -657,7 +659,7 @@ export default function Accounts() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-emerald-500 text-emerald-950 uppercase tracking-wider rounded-lg hover:bg-emerald-400 transition-all font-black"
+                  className="px-4 py-2 bg-[#20e0b2] text-emerald-950 uppercase tracking-wider rounded-lg hover:bg-[#20e0b2] transition-all font-black"
                 >
                   Deploy Node
                 </button>
@@ -666,7 +668,7 @@ export default function Accounts() {
           )}
 
           {mt5Accounts.length === 0 && !isAddingMode ? (
-            <div className="border border-dashed border-zinc-800/50 rounded-xl p-12 text-center bg-[#111118]">
+            <div className="border border-dashed border-[rgba(255,255,255,0.07)] rounded-xl p-12 text-center bg-[#101014]">
               <Server className="w-10 h-10 text-zinc-700 mx-auto mb-3" />
               <h3 className="text-sm font-bold text-white mb-1.5">
                 Matrix Topology Empty
@@ -679,9 +681,9 @@ export default function Accounts() {
             <>
               {/* --- LIST VIEW --- */}
               {viewMode === "list" && (
-                <div className="bg-[#111118] border border-zinc-800/40 rounded-xl overflow-hidden shadow-xl">
+                <div className="bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-xl overflow-hidden">
                   <table className="w-full text-left text-xs whitespace-nowrap">
-                    <thead className="bg-[#111118]/85 text-[9px] uppercase font-bold text-zinc-500 tracking-wider border-b border-zinc-800/40">
+                    <thead className="bg-[#101014]/85 text-[9px] uppercase font-bold text-zinc-500 tracking-wider border-b border-[rgba(255,255,255,0.07)]">
                       <tr>
                         <th className="px-4 py-3">Node / ID</th>
                         <th className="px-4 py-3">Status</th>
@@ -702,12 +704,12 @@ export default function Accounts() {
                         return (
                           <tr
                             key={acc.id}
-                            className={`hover:bg-white/[0.01] border-b border-zinc-900/60 transition-colors ${isMaster ? "bg-emerald-500/[0.02]" : ""}`}
+                            className={`hover:bg-white/[0.01] border-b border-[rgba(255,255,255,0.04)] transition-colors ${isMaster ? "bg-[#20e0b2]/[0.02]" : ""}`}
                           >
                             <td className="px-4 py-4">
                               <div className="flex items-center gap-3">
                                 <div
-                                  className={`w-8 h-8 rounded-lg flex items-center justify-center ${isMaster ? "bg-emerald-500/10 text-emerald-400" : isEnabled ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-black/25 text-zinc-600 border border-zinc-850"}`}
+                                  className={`w-8 h-8 rounded-lg flex items-center justify-center ${isMaster ? "bg-[#20e0b2]/10 text-[#20e0b2]" : isEnabled ? "bg-[#20e0b2]/10 text-[#20e0b2] border border-[rgba(32,224,178,0.3)]/20" : "bg-black/25 text-zinc-600 border border-zinc-850"}`}
                                 >
                                   {isMaster ? (
                                     <Shield className="w-4 h-4" />
@@ -729,15 +731,15 @@ export default function Accounts() {
                             </td>
                             <td className="px-4 py-4">
                               {isMaster ? (
-                                <span className="flex items-center gap-1 text-[8px] font-bold text-emerald-400 uppercase tracking-widest px-2 py-0.5 bg-emerald-500/10 rounded border border-emerald-500/20 w-fit">
+                                <span className="flex items-center gap-1 text-[8px] font-bold text-[#20e0b2] uppercase tracking-widest px-2 py-0.5 bg-[#20e0b2]/10 rounded border border-[rgba(32,224,178,0.3)]/20 w-fit">
                                   <Shield className="w-2.5 h-2.5" /> Master Node
                                 </span>
                               ) : isEnabled ? (
-                                <span className="flex items-center gap-1 text-[8px] font-bold text-emerald-400 uppercase tracking-widest px-2 py-0.5 bg-emerald-500/10 rounded border border-emerald-500/20 w-fit">
+                                <span className="flex items-center gap-1 text-[8px] font-bold text-[#20e0b2] uppercase tracking-widest px-2 py-0.5 bg-[#20e0b2]/10 rounded border border-[rgba(32,224,178,0.3)]/20 w-fit">
                                   <Network className="w-2.5 h-2.5" /> Copying Live
                                 </span>
                               ) : (
-                                <span className="flex items-center gap-1 text-[8px] font-bold text-zinc-550 uppercase tracking-widest px-2 py-0.5 bg-black/25 rounded border border-zinc-800 w-fit">
+                                <span className="flex items-center gap-1 text-[8px] font-bold text-zinc-550 uppercase tracking-widest px-2 py-0.5 bg-black/25 rounded border border-[rgba(255,255,255,0.07)] w-fit">
                                   Idle / Standby
                                 </span>
                               )}
@@ -748,8 +750,8 @@ export default function Accounts() {
                                   onClick={() => toggleCopier(acc.id)}
                                   className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all border ${
                                     isEnabled 
-                                      ? "bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20" 
-                                      : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
+                                      ? "bg-[rgba(255,92,115,0.08)] text-[#ff5c73] border-[rgba(255,92,115,0.2)] hover:bg-[rgba(255,92,115,0.12)]" 
+                                      : "bg-[#20e0b2]/10 text-[#20e0b2] border-[rgba(32,224,178,0.3)]/20 hover:bg-[#20e0b2]/20"
                                   }`}
                                 >
                                   {isEnabled
@@ -764,7 +766,7 @@ export default function Accounts() {
                             </td>
                             <td className="px-4 py-4">
                               {!isMaster && isEnabled ? (
-                                <div className="flex items-center bg-black/25 border border-zinc-800/40 rounded-lg overflow-hidden w-fit font-mono text-[10px]">
+                                <div className="flex items-center bg-black/25 border border-[rgba(255,255,255,0.07)] rounded-lg overflow-hidden w-fit font-mono text-[10px]">
                                   <button
                                     onClick={() =>
                                       updateMultiplier(
@@ -797,7 +799,7 @@ export default function Accounts() {
                                 {!isMaster ? (
                                   <button
                                     onClick={() => setAsMaster(acc.id)}
-                                    className="px-2.5 py-1.5 border border-zinc-800 hover:border-emerald-500/50 text-[9px] uppercase font-bold tracking-widest rounded-lg transition-colors text-zinc-400 hover:text-emerald-400"
+                                    className="px-2.5 py-1.5 border border-[rgba(255,255,255,0.07)] hover:border-[rgba(32,224,178,0.3)]/50 text-[9px] uppercase font-bold tracking-widest rounded-lg transition-colors text-zinc-400 hover:text-[#20e0b2]"
                                   >
                                     Set Master
                                   </button>
@@ -805,7 +807,7 @@ export default function Accounts() {
                                   <button
                                     onClick={() => handleConnectMaster(acc)}
                                     disabled={connectStatus.loading}
-                                    className="px-2.5 py-1.5 bg-emerald-500 hover:bg-emerald-450 text-emerald-950 text-[9px] uppercase font-bold tracking-widest rounded-lg transition-all flex items-center justify-center gap-1.5 font-mono font-black"
+                                    className="px-2.5 py-1.5 bg-[#20e0b2] hover:bg-emerald-450 text-emerald-950 text-[9px] uppercase font-bold tracking-widest rounded-lg transition-all flex items-center justify-center gap-1.5 font-mono font-black"
                                   >
                                     <RefreshCw
                                       className={`w-3 h-3 ${connectStatus.loading ? "animate-spin" : ""}`}
@@ -815,7 +817,7 @@ export default function Accounts() {
                                 )}
                                 <button
                                   onClick={() => removeMt5Account(acc.id)}
-                                  className="p-1.5 text-zinc-600 hover:text-red-400 transition-colors rounded-lg hover:bg-red-500/10 border border-transparent hover:border-red-500/20"
+                                  className="p-1.5 text-zinc-600 hover:text-[#ff5c73] transition-colors rounded-lg hover:bg-[rgba(255,92,115,0.08)] border border-transparent hover:border-[rgba(255,92,115,0.2)]"
                                 >
                                   <X className="w-3.5 h-3.5" />
                                 </button>
@@ -840,10 +842,10 @@ export default function Accounts() {
                     return (
                       <div
                         key={acc.id}
-                        className={`bg-[#111118] border rounded-xl p-4 flex flex-col justify-between transition-colors relative overflow-hidden ${acc.isMaster ? "border-emerald-500/30 bg-emerald-500/[0.01]" : acc.copierEnabled ? "border-emerald-500/20" : "border-zinc-850"}`}
+                        className={`bg-[#101014] border rounded-xl p-4 flex flex-col justify-between transition-colors relative overflow-hidden ${acc.isMaster ? "border-[rgba(32,224,178,0.3)]/30 bg-[#20e0b2]/[0.01]" : acc.copierEnabled ? "border-[rgba(32,224,178,0.3)]/20" : "border-zinc-850"}`}
                       >
                         {acc.isMaster && (
-                          <div className="absolute top-3 right-[-30px] bg-emerald-500 text-emerald-950 text-[8px] font-black uppercase tracking-widest px-8 py-0.5 rotate-45 shadow-md font-mono">
+                          <div className="absolute top-3 right-[-30px] bg-[#20e0b2] text-emerald-950 text-[8px] font-black uppercase tracking-widest px-8 py-0.5 rotate-45 shadow-md font-mono">
                             MASTER
                           </div>
                         )}
@@ -851,7 +853,7 @@ export default function Accounts() {
                         <div>
                           <div className="flex justify-between items-start mb-4">
                             <div
-                              className={`w-10 h-10 rounded-lg flex items-center justify-center ${acc.isMaster ? "bg-emerald-500/10 text-emerald-400" : acc.copierEnabled ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-black/25 border border-zinc-800 text-zinc-600"}`}
+                              className={`w-10 h-10 rounded-lg flex items-center justify-center ${acc.isMaster ? "bg-[#20e0b2]/10 text-[#20e0b2]" : acc.copierEnabled ? "bg-[#20e0b2]/10 text-[#20e0b2] border border-[rgba(32,224,178,0.3)]/20" : "bg-black/25 border border-[rgba(255,255,255,0.07)] text-zinc-600"}`}
                             >
                               {acc.isMaster ? (
                                 <Shield className="w-5 h-5" />
@@ -882,7 +884,7 @@ export default function Accounts() {
                               </div>
                               <button
                                 onClick={() => toggleCopier(acc.id)}
-                                className={`w-9 h-5 rounded-full relative transition-colors ${acc.copierEnabled ? "bg-emerald-500" : "bg-zinc-800"}`}
+                                className={`w-9 h-5 rounded-full relative transition-colors ${acc.copierEnabled ? "bg-[#20e0b2]" : "bg-zinc-800"}`}
                               >
                                 <span
                                   className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${acc.copierEnabled ? "left-4.5" : "left-0.5"}`}
@@ -896,7 +898,7 @@ export default function Accounts() {
                               <span className="font-bold uppercase tracking-wider text-zinc-550">
                                 Risk Multiplier
                               </span>
-                              <div className="flex items-center bg-black/25 border border-zinc-800 rounded-lg overflow-hidden">
+                              <div className="flex items-center bg-black/25 border border-[rgba(255,255,255,0.07)] rounded-lg overflow-hidden">
                                 <button
                                   onClick={() =>
                                     updateMultiplier(
@@ -927,7 +929,7 @@ export default function Accounts() {
                             {!acc.isMaster ? (
                               <button
                                 onClick={() => setAsMaster(acc.id)}
-                                className="flex-1 border border-zinc-800 hover:border-emerald-500/50 text-[8px] uppercase tracking-widest rounded-lg py-2 transition-colors text-zinc-400 hover:text-emerald-400"
+                                className="flex-1 border border-[rgba(255,255,255,0.07)] hover:border-[rgba(32,224,178,0.3)]/50 text-[8px] uppercase tracking-widest rounded-lg py-2 transition-colors text-zinc-400 hover:text-[#20e0b2]"
                               >
                                 Set Master
                               </button>
@@ -935,7 +937,7 @@ export default function Accounts() {
                               <button
                                 onClick={() => handleConnectMaster(acc)}
                                 disabled={connectStatus.loading}
-                                className="flex-1 bg-emerald-500 hover:bg-emerald-450 text-emerald-950 uppercase tracking-widest rounded-lg py-2 hover:opacity-80 transition-all flex items-center justify-center gap-1.5 font-black"
+                                className="flex-1 bg-[#20e0b2] hover:bg-emerald-450 text-emerald-950 uppercase tracking-widest rounded-lg py-2 hover:opacity-80 transition-all flex items-center justify-center gap-1.5 font-black"
                               >
                                 <RefreshCw
                                   className={`w-3 h-3 ${connectStatus.loading ? "animate-spin" : ""}`}
@@ -946,7 +948,7 @@ export default function Accounts() {
 
                             <button
                               onClick={() => removeMt5Account(acc.id)}
-                              className="w-8 flex flex-col items-center justify-center text-zinc-600 border border-zinc-800 hover:border-red-500/50 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                              className="w-8 flex flex-col items-center justify-center text-zinc-600 border border-[rgba(255,255,255,0.07)] hover:border-red-500/50 hover:text-[#ff5c73] hover:bg-[rgba(255,92,115,0.08)] rounded-lg transition-colors"
                             >
                               <X className="w-3.5 h-3.5" />
                             </button>
@@ -981,14 +983,14 @@ export default function Accounts() {
           </div>
 
           {accountsError && (
-            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs font-bold font-mono">
+            <div className="p-3 bg-[rgba(255,92,115,0.08)] border border-[rgba(255,92,115,0.2)] rounded-lg text-[#ff5c73] text-xs font-bold font-mono">
               {accountsError}
             </div>
           )}
 
           {trades.length > 0 && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="p-4 bg-[#111118] border border-zinc-800/40 rounded-xl text-center shadow-md">
+              <div className="p-4 bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-xl text-center shadow-md">
                 <p className="text-[9px] uppercase font-bold tracking-widest text-zinc-550 mb-2 font-mono">
                   Total Executions
                 </p>
@@ -996,15 +998,15 @@ export default function Accounts() {
                   {analytics?.totalTrades || 0}
                 </p>
               </div>
-              <div className="p-4 bg-[#111118] border border-zinc-800/40 rounded-xl text-center shadow-md">
+              <div className="p-4 bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-xl text-center shadow-md">
                 <p className="text-[9px] uppercase font-bold tracking-widest text-zinc-550 mb-2 font-mono">
                   Win Rate
                 </p>
-                <p className="text-xl font-mono font-black text-emerald-400">
+                <p className="text-xl font-mono font-black text-[#20e0b2]">
                   {analytics?.winRate.toFixed(1) || 0}%
                 </p>
               </div>
-              <div className="p-4 bg-[#111118] border border-zinc-800/40 rounded-xl text-center shadow-md">
+              <div className="p-4 bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-xl text-center shadow-md">
                 <p className="text-[9px] uppercase font-bold tracking-widest text-zinc-550 mb-2 font-mono">
                   Net Gross
                 </p>
@@ -1014,11 +1016,11 @@ export default function Accounts() {
                   ${analytics?.totalProfit.toFixed(2) || "0.00"}
                 </p>
               </div>
-              <div className="p-4 bg-[#111118] border border-zinc-800/40 rounded-xl text-center shadow-md">
+              <div className="p-4 bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-xl text-center shadow-md">
                 <p className="text-[9px] uppercase font-bold tracking-widest text-zinc-550 mb-2 font-mono">
                   Profit Factor
                 </p>
-                <p className="text-xl font-mono font-black text-emerald-400">
+                <p className="text-xl font-mono font-black text-[#20e0b2]">
                   {analytics?.profitFactor.toFixed(2) || 0}
                 </p>
               </div>
@@ -1026,7 +1028,7 @@ export default function Accounts() {
           )}
 
           {accounts.length === 0 && !accountsLoading && !accountsError ? (
-            <div className="border border-dashed border-zinc-800/50 rounded-xl p-12 text-center bg-[#111118]">
+            <div className="border border-dashed border-[rgba(255,255,255,0.07)] rounded-xl p-12 text-center bg-[#101014]">
               <Wallet className="w-10 h-10 text-zinc-700 mx-auto mb-3" />
               <h3 className="text-sm font-bold text-white mb-1.5">
                 No CSV Accounts Logged
@@ -1040,7 +1042,7 @@ export default function Accounts() {
               {accountsLoading ? (
                 <div className="col-span-full flex items-center justify-center h-64">
                   <div className="text-center">
-                    <div className="animate-spin w-10 h-10 border-2 border-emerald-400 border-t-transparent rounded-full mx-auto mb-4"></div>
+                    <div className="animate-spin w-10 h-10 border-2 border-[rgba(32,224,178,0.3)] border-t-transparent rounded-full mx-auto mb-4"></div>
                     <p className="text-zinc-500 text-xs font-mono uppercase tracking-widest">
                       Loading Matrix...
                     </p>
@@ -1062,5 +1064,7 @@ export default function Accounts() {
         </div>
       )}
     </div>
+  </div>
   );
 }
+

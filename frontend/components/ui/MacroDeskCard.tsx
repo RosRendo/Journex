@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import React, { useState } from "react";
 import { Settings, RefreshCw, ChevronDown } from "lucide-react";
 import Link from "next/link";
@@ -330,7 +330,7 @@ export function AIMacroDeskSection() {
           ))
         ) : !loading && pairs.length === 0 ? (
           // Empty state — MT5 not returning symbol data
-          <div className="col-span-3 flex flex-col items-center justify-center gap-4 py-12 rounded-2xl border border-dashed" style={{ borderColor: "var(--border-strong)", background: "var(--bg-card)" }}>
+          <div className="col-span-3 flex flex-col items-center justify-center gap-4 py-12 rounded-lg border border-dashed" style={{ borderColor: "var(--border-strong)", background: "var(--bg-card)" }}>
             <div className="w-12 h-12 rounded-full flex items-center justify-center text-2xl" style={{ background: "var(--bg-elevated)" }}>📡</div>
             <div className="text-center max-w-sm">
               <p className="font-bold text-[14px]" style={{ color: "var(--text-primary)" }}>No Market Data from MT5</p>
@@ -354,3 +354,4 @@ export function AIMacroDeskSection() {
     </div>
   );
 }
+

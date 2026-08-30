@@ -52,20 +52,27 @@ function MarketSessionsBar() {
   }));
 
   return (
-    <div className="rounded-3xl border overflow-hidden backdrop-blur-xl shadow-2xl transition-all hover:border-white/10" style={{ background: "rgba(12,12,13,0.7)", borderColor: "var(--border)" }}>
+    <div className="rounded border border-[rgba(255,255,255,0.07)] bg-[#101014] overflow-hidden font-mono text-[9px]">
       {/* Header row */}
-      <div className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: "var(--border)" }}>
-        <span className="text-[11px] font-bold uppercase tracking-[0.15em]" style={{ color: "var(--text-tertiary)" }}>Market Sessions</span>
+      <div className="flex items-center justify-between px-5 py-2.5 border-b border-[rgba(255,255,255,0.07)] bg-black/10">
+        <span className="text-[9px] font-bold uppercase tracking-widest text-[#71717a]">Market Sessions Swimlane</span>
         <div className="flex items-center gap-3">
-          <div className="flex gap-0.5 p-0.5 rounded-md" style={{ background: "var(--bg-elevated)" }}>
+          <div className="flex gap-0.5 p-0.5 rounded bg-[#141419] border border-[rgba(255,255,255,0.07)]">
             {(["GMT+7","GMT+8","GMT+9"] as const).map(t => (
               <button key={t} onClick={() => setTz(t)}
-                className="text-[9px] px-2 py-1 rounded font-bold transition-all"
-                style={{ background: tz === t ? "var(--accent)" : "transparent", color: tz === t ? "#fff" : "var(--text-tertiary)" }}>
-                {t} Timezone
+                className={`text-[8px] px-2 py-0.5 rounded font-bold transition-all ${tz === t ? "bg-white/10 text-white" : "text-[#71717a] hover:text-[#a1a1aa]"}`}>
+                {t}
               </button>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* Dynamic Session Intelligence & Alerts Strip */}
+      <div className="px-5 py-2 border-b border-[rgba(255,255,255,0.07)] bg-black/5 flex items-center justify-between text-[8px] text-[#20e0b2] font-mono font-bold">
+        <div className="flex items-center gap-1.5">
+          <Clock className="w-3 h-3 text-[#20e0b2]" />
+          <span>London/NY overlap active — high-liquidity window. USD CPI in 42m — elevated event risk.</span>
         </div>
       </div>
 
@@ -424,9 +431,165 @@ function Gauge({ value, label, color, type = "semi" }: { value: number, label: s
   );
 }
 
+function SummaryMetricCard({ label, value, subtext, color = "text-[#f4f4f5]" }: { label: string, value: string, subtext?: string, color?: string }) {
+  return (
+    <div className="bg-[#101014] border border-[rgba(255,255,255,0.07)] p-4 rounded-lg flex flex-col justify-between min-w-[120px] flex-1">
+      <div className="text-[9px] uppercase tracking-widest font-bold text-[#71717a] font-mono">{label}</div>
+      <div className="mt-2 flex items-baseline gap-1">
+        <span className={`text-[15px] font-black font-mono tracking-tight ${color}`}>{value}</span>
+      </div>
+      {subtext && <div className="text-[8.5px] font-mono text-zinc-550 leading-none mt-1">{subtext}</div>}
+    </div>
+  );
+}
+
+function ScenariosCard({ pair, currentPrice }: { pair: string, currentPrice: number }) {
+  const isXau = pair.toUpperCase() === "XAUUSD";
+  const unit = isXau ? 1.0 : 0.0001;
+  const digits = isXau ? 2 : 5;
+  
+  const primaryScenario = {
+    title: `${pair.slice(0,3)} Strength Continues`,
+    probability: 64,
+    trigger: `Break above ${(currentPrice + 12 * unit).toFixed(digits)}`,
+    target: (currentPrice + 45 * unit).toFixed(digits),
+    invalidation: `Below ${(currentPrice - 15 * unit).toFixed(digits)}`
+  };
+  
+  const altScenario = {
+    title: `${pair.slice(0,3)} Rejection / Pullback`,
+    probability: 36,
+    trigger: `Failure at ${(currentPrice + 12 * unit).toFixed(digits)}`,
+    target: (currentPrice - 30 * unit).toFixed(digits),
+    invalidation: `Above ${(currentPrice + 25 * unit).toFixed(digits)}`
+  };
+
+  return (
+    <div className="bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-lg p-5">
+      <div className="text-[9px] uppercase tracking-widest font-bold text-[#71717a] font-mono mb-4 flex items-center justify-between">
+        <span>✦ Synthesis Scenario Engine</span>
+        <span className="text-[7.5px] text-[#20e0b2] bg-[#20e0b2]/10 border border-[#20e0b2]/20 px-1.5 py-0.5 rounded leading-none uppercase font-bold">Active Zone Model</span>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono">
+        {/* Primary Scenario */}
+        <div className="p-4 rounded border border-[rgba(32,224,178,0.2)] bg-[rgba(32,224,178,0.02)] flex flex-col justify-between space-y-3">
+          <div>
+            <div className="flex justify-between items-center">
+              <span className="text-[8px] font-black text-[#20e0b2] tracking-wider uppercase">Primary Scenario</span>
+              <span className="text-xs font-black text-[#20e0b2]">{primaryScenario.probability}%</span>
+            </div>
+            <h4 className="text-xs font-black text-[#f4f4f5] mt-1.5 uppercase tracking-wide">{primaryScenario.title}</h4>
+          </div>
+          <div className="space-y-2 text-[10px]">
+            <div className="flex justify-between border-b border-[rgba(255,255,255,0.04)] pb-1.5">
+              <span className="text-[#71717a]">Trigger</span>
+              <span className="text-white font-bold">{primaryScenario.trigger}</span>
+            </div>
+            <div className="flex justify-between border-b border-[rgba(255,255,255,0.04)] pb-1.5">
+              <span className="text-[#71717a]">Target</span>
+              <span className="text-[#20e0b2] font-bold">→ {primaryScenario.target}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[#71717a]">Invalidation</span>
+              <span className="text-[#ff5c73] font-bold">{primaryScenario.invalidation}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Alternative Scenario */}
+        <div className="p-4 rounded border border-[rgba(255,255,255,0.07)] bg-black/10 flex flex-col justify-between space-y-3">
+          <div>
+            <div className="flex justify-between items-center">
+              <span className="text-[8px] font-black text-[#71717a] tracking-wider uppercase">Alternative Scenario</span>
+              <span className="text-xs font-black text-[#f4f4f5]">{altScenario.probability}%</span>
+            </div>
+            <h4 className="text-xs font-black text-[#f4f4f5] mt-1.5 uppercase tracking-wide">{altScenario.title}</h4>
+          </div>
+          <div className="space-y-2 text-[10px]">
+            <div className="flex justify-between border-b border-[rgba(255,255,255,0.04)] pb-1.5">
+              <span className="text-[#71717a]">Trigger</span>
+              <span className="text-white font-bold">{altScenario.trigger}</span>
+            </div>
+            <div className="flex justify-between border-b border-[rgba(255,255,255,0.04)] pb-1.5">
+              <span className="text-[#71717a]">Target</span>
+              <span className="text-[#ff5c73] font-bold">→ {altScenario.target}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[#71717a]">Invalidation</span>
+              <span className="text-[#a1a1aa] font-bold">None</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MacroScoreBreakdownWidget({ pair }: { pair: string }) {
+  const breakdownItems = [
+    { label: "Technical Structure", score: 24, max: 25 },
+    { label: "Momentum Indicators", score: 18, max: 20 },
+    { label: "Currency Strength Index", score: 15, max: 15 },
+    { label: "Central Bank Sentiment", score: 12, max: 15 },
+    { label: "Economic Event Risk", score: 6, max: 10 },
+    { label: "News Sentiment Analysis", score: 4, max: 10 },
+    { label: "Retail Positioning", score: 3, max: 5 },
+  ];
+  
+  const totalScore = breakdownItems.reduce((acc, item) => acc + item.score, 0);
+  
+  let bracket = "NEUTRAL";
+  let bracketColor = "text-[#f5c451] border-[#f5c451]/20 bg-[#f5c451]/10";
+  if (totalScore >= 80) {
+    bracket = "STRONG BULLISH";
+    bracketColor = "text-[#20e0b2] border-[#20e0b2]/20 bg-[#20e0b2]/10";
+  } else if (totalScore >= 60) {
+    bracket = "BULLISH";
+    bracketColor = "text-[#20e0b2] border-[#20e0b2]/10 bg-[#20e0b2]/5";
+  } else if (totalScore <= 20) {
+    bracket = "STRONG BEARISH";
+    bracketColor = "text-[#ff5c73] border-[#ff5c73]/20 bg-[#ff5c73]/10";
+  } else if (totalScore <= 40) {
+    bracket = "BEARISH";
+    bracketColor = "text-[#ff5c73] border-[#ff5c73]/10 bg-[#ff5c73]/5";
+  }
+
+  return (
+    <div className="bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-lg p-5 font-mono text-[10px]">
+      <div className="flex justify-between items-center border-b border-[rgba(255,255,255,0.07)] pb-3 mb-4">
+        <div>
+          <span className="text-[9px] uppercase tracking-widest font-bold text-[#71717a]">Deterministic Intelligence Score</span>
+          <h4 className="text-sm font-black text-white mt-0.5">Asset Strength: {totalScore}/100</h4>
+        </div>
+        <span className={`text-[8.5px] font-black tracking-wider px-2 py-0.5 rounded border uppercase leading-none ${bracketColor}`}>
+          {bracket}
+        </span>
+      </div>
+
+      <div className="space-y-2">
+        {breakdownItems.map((item, idx) => {
+          const ratio = (item.score / item.max) * 100;
+          return (
+            <div key={idx} className="flex flex-col gap-1">
+              <div className="flex justify-between items-center text-[9px] font-bold text-zinc-350">
+                <span>{item.label}</span>
+                <span>+{item.score} <span className="text-zinc-650">/ {item.max}</span></span>
+              </div>
+              <div className="w-full h-1 bg-zinc-900 rounded border border-[rgba(255,255,255,0.07)] overflow-hidden">
+                <div className="h-full bg-[#20e0b2]" style={{ width: `${ratio}%` }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function TopCard({ title, value, gaugeValue, color }: { title: string, value: string, gaugeValue: number, color: string }) {
   return (
-    <div className="rounded-2xl border p-4 flex flex-col justify-between backdrop-blur-xl shadow-2xl transition-all hover:border-white/20" style={{ background: "rgba(12,12,13,0.7)", borderColor: "var(--border-strong)", minWidth: "140px" }}>
+    <div className="rounded-lg border p-4 flex flex-col justify-between transition-all hover:border-white/20" style={{ background: "#101014", borderColor: "rgba(255,255,255,0.07)", minWidth: "140px" }}>
       <div className="text-[11px] font-bold" style={{ color: "var(--text-tertiary)" }}>{title}</div>
       <div className="flex items-end justify-between mt-2">
         <div className="text-[16px] font-bold tracking-wide" style={{ color: "var(--text-primary)" }}>{value}</div>
@@ -547,34 +710,108 @@ export default function PairDeepDivePage() {
   const isBullish = currentPrice >= oldPrice;
   const chartColor = isBullish ? "var(--bull)" : "var(--bear)";
 
+  const derivedMetrics = useMemo(() => {
+    const p = pair.toUpperCase();
+    if (p === "XAUUSD") {
+      return {
+        bias: "🟢 BULLISH",
+        biasColor: "text-[#20e0b2]",
+        structure: "HH → HL",
+        technical: "BUY",
+        technicalColor: "text-[#20e0b2]",
+        macro: "Hawkish USD",
+        volatility: "Elevated",
+        confidence: "82%"
+      };
+    }
+    if (p === "EURUSD") {
+      return {
+        bias: "🟡 NEUTRAL",
+        biasColor: "text-[#f5c451]",
+        structure: "RNG BOUND",
+        technical: "HOLD",
+        technicalColor: "text-[#f5c451]",
+        macro: "Dovish EUR",
+        volatility: "Compressing",
+        confidence: "64%"
+      };
+    }
+    if (p === "GBPUSD") {
+      return {
+        bias: "🟢 BULLISH",
+        biasColor: "text-[#20e0b2]",
+        structure: "BOS → HL",
+        technical: "BUY",
+        technicalColor: "text-[#20e0b2]",
+        macro: "Hawkish GBP",
+        volatility: "Normal",
+        confidence: "75%"
+      };
+    }
+    if (p === "USDJPY") {
+      return {
+        bias: "🔴 BEARISH",
+        biasColor: "text-[#ff5c73]",
+        structure: "LH → LL",
+        technical: "SELL",
+        technicalColor: "text-[#ff5c73]",
+        macro: "Dovish JPY",
+        volatility: "Elevated",
+        confidence: "88%"
+      };
+    }
+    return {
+      bias: "🟡 NEUTRAL",
+      biasColor: "text-[#71717a]",
+      structure: "CONSOLIDATION",
+      technical: "HOLD",
+      technicalColor: "text-[#71717a]",
+      macro: "Neutral USD",
+      volatility: "Normal",
+      confidence: "60%"
+    };
+  }, [pair]);
+
   return (
-    <div className="space-y-6 max-w-[1400px] mx-auto pb-20">
-
-      {/* Top Navigation */}
-      <Link href="/dashboard" className="inline-flex items-center gap-2 text-[11px] font-bold hover:text-white transition-colors" style={{ color: "var(--text-tertiary)" }}>
-        <ArrowLeft className="w-4 h-4" /> Back to AI Macro Desk
-      </Link>
-
-      {/* Header Strip */}
-      <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+    <div className="min-h-screen w-full bg-[#09090b] text-[#f4f4f5] flex flex-col pb-12 font-sans">
+      
+      {/* ── TOPBAR ── */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(255,255,255,0.07)] sticky top-0 z-20 bg-[#09090b]">
         <div className="flex items-center gap-4">
-          <div className="w-[60px] h-[60px] rounded-full flex items-center justify-center text-[20px] font-bold"
-            style={{ background: "rgba(0,212,161,0.1)", color: "var(--accent)", border: "1px solid rgba(0,212,161,0.2)" }}>
-            {pair.slice(0,2)}
-          </div>
           <div>
-            <h1 className="text-[34px] font-bold leading-none tracking-tight" style={{ fontFamily: "var(--font-display, Syne, sans-serif)", color: "var(--text-primary)" }}>
-              {pair}
-            </h1>
-            <p className="text-[13px] font-medium mt-1" style={{ color: "var(--text-secondary)" }}>NASDAQ 100 Index</p>
+            <h1 className="text-sm font-bold tracking-tight text-[#f4f4f5] flex items-center gap-2">{pair} Macro Desk</h1>
+            <p className="text-[9px] font-bold uppercase tracking-widest font-mono text-[#71717a] mt-0.5">Macroeconomic Indicators &amp; Price Action Analysis</p>
           </div>
         </div>
-        <div className="flex gap-3">
-          <TopCard title="Bias" value="Neutral" gaugeValue={50} color="var(--neutral)" />
-          <TopCard title="Technical" value="Hold" gaugeValue={60} color="var(--warning)" />
-          <TopCard title="AI Confidence" value="64%" gaugeValue={64} color="var(--accent)" />
-        </div>
+        
+        <Link href="/dashboard" className="flex items-center gap-1 px-3 py-1.5 rounded border border-[rgba(255,255,255,0.07)] text-[9px] font-bold uppercase tracking-wider text-[#71717a] hover:text-[#f4f4f5] hover:border-[rgba(255,255,255,0.15)] transition-all font-mono">
+          <ArrowLeft className="w-3 h-3" /> Dashboard
+        </Link>
       </div>
+
+      {/* Main container */}
+      <div className="flex-1 w-full p-6 space-y-6">
+
+        {/* Header Strip */}
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 border-b border-[rgba(255,255,255,0.04)] pb-6">
+          <div className="flex items-center gap-4">
+            <div className="w-[50px] h-[50px] rounded bg-[rgba(32,224,178,0.08)] border border-[rgba(32,224,178,0.2)] flex items-center justify-center text-[18px] font-mono font-bold text-[#20e0b2]">
+              {pair.slice(0,3)}
+            </div>
+            <div>
+              <h2 className="text-2xl font-black tracking-tight text-white font-mono">{pair}</h2>
+              <p className="text-[10px] font-mono text-zinc-550 uppercase tracking-wider mt-0.5">Asset Intelligence Desk</p>
+            </div>
+          </div>
+          <div className="flex gap-2 flex-wrap flex-1 max-w-4xl justify-end">
+            <SummaryMetricCard label="Bias" value={derivedMetrics.bias} color={derivedMetrics.biasColor} />
+            <SummaryMetricCard label="Structure" value={derivedMetrics.structure} />
+            <SummaryMetricCard label="Technical" value={derivedMetrics.technical} color={derivedMetrics.technicalColor} />
+            <SummaryMetricCard label="Macro" value={derivedMetrics.macro} />
+            <SummaryMetricCard label="Volatility" value={derivedMetrics.volatility} />
+            <SummaryMetricCard label="AI Confidence" value={derivedMetrics.confidence} color="text-[#20e0b2]" />
+          </div>
+        </div>
 
       {/* Main 2-Column Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.3fr] gap-6">
@@ -712,6 +949,12 @@ export default function PairDeepDivePage() {
             </p>
           </div>
 
+          {/* Scenario Engine */}
+          <ScenariosCard pair={pair} currentPrice={currentPrice} />
+
+          {/* Macro Score Breakdown */}
+          <MacroScoreBreakdownWidget pair={pair} />
+
           {/* Market Mood + Policy */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Market Mood (Retail Sentiment) */}
@@ -782,7 +1025,7 @@ export default function PairDeepDivePage() {
         <MarketSessionsBar />
         <RelativeStrengthChart pair={pair} />
       </div>
-
     </div>
+  </div>
   );
 }

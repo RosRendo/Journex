@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { Check, Zap, Shield, Crown } from "lucide-react";
@@ -36,7 +36,7 @@ export default function PricingPage() {
 
         <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           {/* Free Tier */}
-          <div className="relative p-8 rounded-2xl border border-border bg-card shadow-sm flex flex-col items-start text-left">
+          <div className="relative p-8 rounded-lg border border-border bg-card shadow-sm flex flex-col items-start text-left">
             <h3 className="text-2xl font-semibold mb-2">Hobbyist</h3>
             <p className="text-muted-foreground mb-6">Perfect for testing the waters with mock data.</p>
             <div className="mb-6">
@@ -65,7 +65,7 @@ export default function PricingPage() {
           </div>
 
           {/* Pro Tier */}
-          <div className="relative p-8 rounded-2xl border-2 border-violet-500 bg-violet-500/5 shadow-xl flex flex-col items-start text-left transform scale-105">
+          <div className="relative p-8 rounded-lg border-2 border-[rgba(32,224,178,0.3)] bg-[#20e0b2]/5 flex flex-col items-start text-left transform scale-105">
             <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-4 py-1 rounded-full text-sm font-bold shadow-lg flex items-center gap-2">
               <Crown className="w-4 h-4" />
               MOST POPULAR
@@ -110,3 +110,4 @@ export default function PricingPage() {
     </div>
   );
 }
+

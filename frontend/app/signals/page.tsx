@@ -166,35 +166,30 @@ export default function SignalsPage() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#05050a] text-text-primary px-4 md:px-6 py-4 flex flex-col gap-4 animate-fade-in pb-16">
+    <div className="min-h-screen w-full bg-[#09090b] text-[#f4f4f5] flex flex-col pb-12 font-sans">
       
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-[#111118]/80 p-4 border border-zinc-800/40 rounded-2xl backdrop-blur-xl">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="text-lg font-black tracking-tight text-white font-display flex items-center gap-2">
-              <Radar className="w-5 h-5 text-purple-400" />
-              Global Market Scanner
-            </h1>
-            <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest font-mono flex items-center gap-1 mt-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Confluence Scanner Active
-            </p>
+      {/* ── TOPBAR ── */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(255,255,255,0.07)] sticky top-0 z-20 bg-[#09090b]">
+        <div>
+          <h1 className="text-sm font-bold tracking-tight text-[#f4f4f5]">Global Market Scanner</h1>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#20e0b2] animate-pulse" />
+            <span className="text-[9px] font-bold uppercase tracking-widest font-mono text-[#71717a]">Confluence Scanner Active</span>
           </div>
         </div>
-        
-        <div className="flex items-center gap-3 flex-wrap">
 
-          <div className="flex items-center gap-1.5 text-[10px] font-bold font-mono text-zinc-500 bg-black/40 px-3 py-1.5 rounded-lg border border-zinc-800/40">
-            <Clock className="w-3 h-3 text-emerald-500" />
-            Scan: {lastUpdated.toLocaleTimeString()}
-          </div>
+        <div className="flex items-center gap-1.5 text-[9px] font-bold font-mono text-zinc-500 bg-black/40 px-3 py-1.5 rounded border border-[rgba(255,255,255,0.07)]">
+          <Clock className="w-3 h-3 text-[#20e0b2]" />
+          Scan: {lastUpdated.toLocaleTimeString()}
         </div>
       </div>
 
+      {/* Main container */}
+      <div className="flex-1 w-full p-6 space-y-4">
+
       {/* Scanner Settings Panel */}
-      <div className="p-5 bg-[#111118] border border-zinc-800/40 rounded-xl flex flex-col gap-4 shadow-xl">
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-zinc-800/40 pb-3">
+      <div className="p-5 bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-xl flex flex-col gap-4">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-[rgba(255,255,255,0.07)] pb-3">
           <div>
             <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest font-mono">
               Scanner Strategy Presets
@@ -215,8 +210,8 @@ export default function SignalsPage() {
                   onClick={() => applyPreset(style)}
                   className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase border transition-all ${
                     tradingStyle === style
-                      ? "bg-purple-500/20 border-purple-500/40 text-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.15)]"
-                      : "bg-black/35 border-zinc-800/50 text-zinc-500 hover:text-zinc-350"
+                      ? "bg-purple-500/20 border-purple-500/40 text-[#a1a1aa]"
+                      : "bg-black/35 border-[rgba(255,255,255,0.07)] text-zinc-500 hover:text-zinc-350"
                   }`}
                 >
                   {labels[style]}
@@ -236,7 +231,7 @@ export default function SignalsPage() {
                 setMarket(e.target.value);
                 setTradingStyle("custom");
               }}
-              className="bg-black/35 border border-zinc-800/60 rounded-lg px-2.5 py-1.5 text-zinc-355 text-xs focus:outline-none focus:border-emerald-450 font-mono cursor-pointer"
+              className="bg-black/35 border border-[rgba(255,255,255,0.07)] rounded-lg px-2.5 py-1.5 text-zinc-355 text-xs focus:outline-none focus:border-emerald-450 font-mono cursor-pointer"
             >
               <option value="all" className="bg-zinc-950">All Markets</option>
               <option value="forex" className="bg-zinc-950">Forex</option>
@@ -255,7 +250,7 @@ export default function SignalsPage() {
                 setTimeframe(e.target.value);
                 setTradingStyle("custom");
               }}
-              className="bg-black/35 border border-zinc-800/60 rounded-lg px-2.5 py-1.5 text-zinc-355 text-xs focus:outline-none focus:border-emerald-450 font-mono cursor-pointer"
+              className="bg-black/35 border border-[rgba(255,255,255,0.07)] rounded-lg px-2.5 py-1.5 text-zinc-355 text-xs focus:outline-none focus:border-emerald-450 font-mono cursor-pointer"
             >
               {["M1", "M5", "M15", "H1", "H4", "D1", "ALL"].map((tf) => (
                 <option key={tf} value={tf} className="bg-zinc-950">{tf}</option>
@@ -272,7 +267,7 @@ export default function SignalsPage() {
                 setDirection(e.target.value);
                 setTradingStyle("custom");
               }}
-              className="bg-black/35 border border-zinc-800/60 rounded-lg px-2.5 py-1.5 text-zinc-355 text-xs focus:outline-none focus:border-emerald-450 font-mono cursor-pointer"
+              className="bg-black/35 border border-[rgba(255,255,255,0.07)] rounded-lg px-2.5 py-1.5 text-zinc-355 text-xs focus:outline-none focus:border-emerald-450 font-mono cursor-pointer"
             >
               <option value="both" className="bg-zinc-950">Buy / Sell (Both)</option>
               <option value="buy" className="bg-zinc-950">Buy Only</option>
@@ -289,7 +284,7 @@ export default function SignalsPage() {
                 setSession(e.target.value);
                 setTradingStyle("custom");
               }}
-              className="bg-black/35 border border-zinc-800/60 rounded-lg px-2.5 py-1.5 text-zinc-355 text-xs focus:outline-none focus:border-emerald-450 font-mono cursor-pointer"
+              className="bg-black/35 border border-[rgba(255,255,255,0.07)] rounded-lg px-2.5 py-1.5 text-zinc-355 text-xs focus:outline-none focus:border-emerald-450 font-mono cursor-pointer"
             >
               <option value="both" className="bg-zinc-950">London & New York</option>
               <option value="london" className="bg-zinc-950">London Only</option>
@@ -327,7 +322,7 @@ export default function SignalsPage() {
                 setMinRr(Number(e.target.value));
                 setTradingStyle("custom");
               }}
-              className="bg-black/35 border border-zinc-800/60 rounded-lg px-2.5 py-1.5 text-zinc-355 text-xs focus:outline-none focus:border-emerald-450 font-mono cursor-pointer"
+              className="bg-black/35 border border-[rgba(255,255,255,0.07)] rounded-lg px-2.5 py-1.5 text-zinc-355 text-xs focus:outline-none focus:border-emerald-450 font-mono cursor-pointer"
             >
               <option value="1.5" className="bg-zinc-950">1:1.5 Minimum</option>
               <option value="2.0" className="bg-zinc-950">1:2.0 Minimum</option>
@@ -345,7 +340,7 @@ export default function SignalsPage() {
                 setSignalType(e.target.value);
                 setTradingStyle("custom");
               }}
-              className="bg-black/35 border border-zinc-800/60 rounded-lg px-2.5 py-1.5 text-zinc-355 text-xs focus:outline-none focus:border-emerald-450 font-mono cursor-pointer"
+              className="bg-black/35 border border-[rgba(255,255,255,0.07)] rounded-lg px-2.5 py-1.5 text-zinc-355 text-xs focus:outline-none focus:border-emerald-450 font-mono cursor-pointer"
             >
               <option value="all" className="bg-zinc-950">All Patterns</option>
               <option value="reversal" className="bg-zinc-950">Reversal Setup</option>
@@ -364,21 +359,21 @@ export default function SignalsPage() {
                 setMaxSignals(Number(e.target.value));
                 setTradingStyle("custom");
               }}
-              className="bg-black/35 border border-zinc-800/60 rounded-lg px-2.5 py-1.5 text-zinc-200 text-xs focus:outline-none focus:border-emerald-400 font-mono"
+              className="bg-black/35 border border-[rgba(255,255,255,0.07)] rounded-lg px-2.5 py-1.5 text-zinc-200 text-xs focus:outline-none focus:border-[rgba(32,224,178,0.3)] font-mono"
               min="1"
               max="15"
             />
           </div>
         </div>
 
-        <div className="flex justify-between items-center mt-1 border-t border-zinc-800/40 pt-3">
+        <div className="flex justify-between items-center mt-1 border-t border-[rgba(255,255,255,0.07)] pt-3">
           <div className="text-[9px] text-zinc-500 font-mono uppercase tracking-widest flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+            <span className="w-1.5 h-1.5 rounded-full bg-[#20e0b2] animate-ping" />
             Scanner Engine Active · Cooldown: {cooldown} min
           </div>
           <button
             onClick={clearHistory}
-            className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-red-400 hover:text-red-300 font-mono bg-red-950/20 hover:bg-red-950/40 border border-red-900/30 hover:border-red-900/50 px-3.5 py-1.5 rounded-lg transition-all"
+            className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-[#ff5c73] hover:text-red-300 font-mono bg-red-950/20 hover:bg-red-950/40 border border-red-900/30 hover:border-red-900/50 px-3.5 py-1.5 rounded-lg transition-all"
           >
             Clear History
           </button>
@@ -394,7 +389,7 @@ export default function SignalsPage() {
           </p>
         </div>
       ) : signals.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center min-h-[400px] border border-dashed border-zinc-800/40 rounded-xl bg-zinc-950/20">
+        <div className="flex-1 flex flex-col items-center justify-center min-h-[400px] border border-dashed border-[rgba(255,255,255,0.07)] rounded-xl bg-zinc-950/20">
           <Activity className="w-10 h-10 text-zinc-700 mb-3" />
           <h3 className="text-zinc-300 font-bold mb-1 text-sm">No Active Signals</h3>
           <p className="text-zinc-550 text-xs max-w-sm text-center">
@@ -414,19 +409,19 @@ export default function SignalsPage() {
             let gradeLabel = backendGrade ? `${backendGrade} Setup` : "B Setup";
             let colorBorder = "border-zinc-850/60";
             let colorText = "text-zinc-500";
-            let cardBg = "bg-[#111118]";
+            let cardBg = "bg-[#101014]";
             let cardFilter = "";
 
             if (isNoTrade || conflict) {
               gradeLabel = conflict ? "⚠ Conflict Suppressed" : "No Trade Setup";
-              colorBorder = conflict ? "border-red-900/40" : "border-zinc-900/60";
-              colorText = conflict ? "text-red-400 font-mono" : "text-zinc-600 font-mono";
+              colorBorder = conflict ? "border-red-900/40" : "border-[rgba(255,255,255,0.04)]";
+              colorText = conflict ? "text-[#ff5c73] font-mono" : "text-zinc-600 font-mono";
               cardBg = conflict ? "bg-[#130a0a]/60" : "bg-[#09090c]/50";
               cardFilter = "opacity-80 hover:opacity-95";
             } else if (backendGrade === "A+" || score >= 90) {
               gradeLabel = "A+ Setup";
-              colorBorder = "border-emerald-500/25 hover:border-emerald-500/50";
-              colorText = "text-emerald-400";
+              colorBorder = "border-[rgba(32,224,178,0.3)]/25 hover:border-[rgba(32,224,178,0.3)]/50";
+              colorText = "text-[#20e0b2]";
             } else if (backendGrade === "A" || score >= 80) {
               gradeLabel = "A Setup";
               colorBorder = "border-teal-500/25 hover:border-teal-500/50";
@@ -434,32 +429,32 @@ export default function SignalsPage() {
             } else if (backendGrade === "B" || score >= 70) {
               gradeLabel = "B Setup";
               colorBorder = "border-blue-500/25 hover:border-blue-500/50";
-              colorText = "text-blue-400";
+              colorText = "text-[#20e0b2]";
             } else if (score >= 60) {
               gradeLabel = "Weak Setup";
-              colorBorder = "border-yellow-500/20 hover:border-yellow-500/40";
-              colorText = "text-yellow-400";
+              colorBorder = "border-[rgba(245,196,81,0.2)] hover:border-yellow-500/40";
+              colorText = "text-[#f5c451]";
             }
 
             const regimeBadge: Record<string, string> = {
-              trending:  "bg-blue-500/10  text-blue-400  border-blue-500/20",
-              ranging:   "bg-amber-500/10 text-amber-400 border-amber-500/20",
-              breakout:  "bg-purple-500/10 text-purple-400 border-purple-500/20",
+              trending:  "bg-blue-500/10  text-[#20e0b2]  border-blue-500/20",
+              ranging:   "bg-amber-500/10 text-[#f5c451] border-amber-500/20",
+              breakout:  "bg-[rgba(255,255,255,0.04)] text-[#a1a1aa] border-purple-500/20",
             };
             const volBadge: Record<string, string> = {
-              high:   "bg-red-500/10   text-red-400   border-red-500/20",
-              normal: "bg-zinc-800/40  text-zinc-400  border-zinc-700/30",
-              low:    "bg-zinc-900/40  text-zinc-500  border-zinc-800/20",
+              high:   "bg-[rgba(255,92,115,0.08)]   text-[#ff5c73]   border-[rgba(255,92,115,0.2)]",
+              normal: "bg-zinc-800/40  text-zinc-400  border-[rgba(255,255,255,0.1)]/30",
+              low:    "bg-zinc-900/40  text-zinc-500  border-[rgba(255,255,255,0.07)]/20",
             };
 
 
             return (
               <div
                 key={sig.id}
-                className={`relative flex flex-col border rounded-xl overflow-hidden transition-all duration-300 shadow-xl ${cardBg} ${colorBorder} ${cardFilter}`}
+                className={`relative flex flex-col border rounded-xl overflow-hidden transition-all duration-300 ${cardBg} ${colorBorder} ${cardFilter}`}
               >
                 {/* Card Header */}
-                <div className="p-4 border-b border-zinc-800/40 flex justify-between items-start bg-black/20">
+                <div className="p-4 border-b border-[rgba(255,255,255,0.07)] flex justify-between items-start bg-black/20">
                   <div>
                     <h2 className="text-lg font-bold font-mono tracking-tight text-white flex items-center gap-1.5">
                       #{sig.symbol}
@@ -468,8 +463,8 @@ export default function SignalsPage() {
                           isNoTrade
                             ? "bg-zinc-900 text-zinc-500 border-zinc-850"
                             : isBuy
-                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                            : "bg-red-500/10 text-red-400 border-red-500/20"
+                            ? "bg-[#20e0b2]/10 text-[#20e0b2] border-[rgba(32,224,178,0.3)]/20"
+                            : "bg-[rgba(255,92,115,0.08)] text-[#ff5c73] border-[rgba(255,92,115,0.2)]"
                         }`}
                       >
                         {sig.type}
@@ -480,12 +475,12 @@ export default function SignalsPage() {
                     </span>
                   </div>
                   <div className="text-right flex flex-col items-end gap-1">
-                    <div className="text-sm font-bold font-mono text-zinc-300 bg-black/30 px-2 py-0.5 rounded border border-zinc-800/40">
+                    <div className="text-sm font-bold font-mono text-zinc-300 bg-black/30 px-2 py-0.5 rounded border border-[rgba(255,255,255,0.07)]">
                       {sig.timeframe || "M15"}
                     </div>
                     {sig.regime && (
                       <span className={`text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border font-mono ${
-                        regimeBadge[sig.regime] ?? "bg-zinc-800/40 text-zinc-400 border-zinc-700/30"
+                        regimeBadge[sig.regime] ?? "bg-zinc-800/40 text-zinc-400 border-[rgba(255,255,255,0.1)]/30"
                       }`}>
                         {sig.regime}
                       </span>
@@ -504,7 +499,7 @@ export default function SignalsPage() {
                 {/* Reasons Summary */}
                 <div className="p-3 bg-black/10 text-[11px] text-zinc-400 border-b border-zinc-850/40">
                   <div className="flex gap-2 items-start">
-                    <Activity className="w-3.5 h-3.5 text-purple-400 shrink-0 mt-0.5" />
+                    <Activity className="w-3.5 h-3.5 text-[#a1a1aa] shrink-0 mt-0.5" />
                     <span className="font-mono text-zinc-350">{sig.reason}</span>
                   </div>
                 </div>
@@ -512,7 +507,7 @@ export default function SignalsPage() {
                 {/* Conflict Warning Banner */}
                 {conflict && (
                   <div className="px-3.5 py-2 bg-red-950/30 border-b border-red-900/40 flex items-start gap-2">
-                    <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0 mt-0.5" />
+                    <AlertTriangle className="w-3.5 h-3.5 text-[#ff5c73] shrink-0 mt-0.5" />
                     <span className="text-[9px] text-red-300 font-mono leading-relaxed">{conflictMsg}</span>
                   </div>
                 )}
@@ -522,18 +517,18 @@ export default function SignalsPage() {
                   <div className="p-3 bg-black/15 border-b border-zinc-850/30">
                     {/* Entry Zone */}
                     {sig.entry_zone ? (
-                      <div className="mb-2 p-2 rounded-lg bg-black/20 border border-zinc-800/30">
+                      <div className="mb-2 p-2 rounded-lg bg-black/20 border border-[rgba(255,255,255,0.07)]/30">
                         <div className="text-[7px] font-bold text-zinc-500 uppercase tracking-widest font-mono mb-1 flex items-center gap-1">
-                          <Crosshair className="w-3 h-3 text-emerald-400" /> Entry Zone
+                          <Crosshair className="w-3 h-3 text-[#20e0b2]" /> Entry Zone
                         </div>
                         <div className="flex items-center justify-between font-mono">
                           <span className="text-[9px] text-zinc-400">{sig.entry_zone.entry_low.toFixed(5)}</span>
                           <div className="flex-1 mx-2 h-px bg-gradient-to-r from-zinc-700 via-emerald-500/60 to-zinc-700 relative">
-                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[#20e0b2]" />
                           </div>
                           <span className="text-[9px] text-zinc-400">{sig.entry_zone.entry_high.toFixed(5)}</span>
                         </div>
-                        <div className="text-center text-[8px] text-emerald-400 font-bold font-mono mt-1">
+                        <div className="text-center text-[8px] text-[#20e0b2] font-bold font-mono mt-1">
                           Preferred: {sig.entry_zone.preferred.toFixed(5)}
                         </div>
                         <div className="text-center text-[7px] text-zinc-600 font-mono mt-0.5">{sig.entry_zone.reason}</div>
@@ -542,7 +537,7 @@ export default function SignalsPage() {
                       <div className="grid grid-cols-3 gap-2 mb-2">
                         <div className="flex flex-col overflow-hidden font-mono text-[10px]">
                           <span className="text-[8px] text-zinc-500 uppercase tracking-widest mb-1 flex items-center gap-1 truncate">
-                            <Crosshair className="w-3 h-3 shrink-0 text-emerald-400" /> Entry
+                            <Crosshair className="w-3 h-3 shrink-0 text-[#20e0b2]" /> Entry
                           </span>
                           <span className="text-zinc-300 truncate">{sig.entry_price.toFixed(5)}</span>
                         </div>
@@ -552,7 +547,7 @@ export default function SignalsPage() {
                     {/* SL & TP row */}
                     <div className="grid grid-cols-2 gap-2">
                       <div className="flex flex-col overflow-hidden font-mono text-[10px]">
-                        <span className="text-[8px] text-red-500 uppercase tracking-widest mb-1 flex items-center gap-1 truncate">
+                        <span className="text-[8px] text-[#ff5c73] uppercase tracking-widest mb-1 flex items-center gap-1 truncate">
                           <AlertTriangle className="w-3 h-3 shrink-0" /> Stop
                         </span>
                         <span className="text-zinc-350 truncate">{sig.sl ? sig.sl.toFixed(5) : "—"}</span>
@@ -561,7 +556,7 @@ export default function SignalsPage() {
                         )}
                       </div>
                       <div className="flex flex-col overflow-hidden font-mono text-[10px]">
-                        <span className="text-[8px] text-emerald-500 uppercase tracking-widest mb-1 flex items-center gap-1 truncate">
+                        <span className="text-[8px] text-[#20e0b2] uppercase tracking-widest mb-1 flex items-center gap-1 truncate">
                           <ShieldCheck className="w-3 h-3 shrink-0" /> Target
                         </span>
                         <span className="text-zinc-350 truncate">{sig.tp ? sig.tp.toFixed(5) : "—"}</span>
@@ -579,7 +574,7 @@ export default function SignalsPage() {
                       {Object.entries(sig.alignment).map(([tfKey, tfDetail]: [string, any]) => {
                         const alignBuy = tfDetail.type === "BUY";
                         const alignSell = tfDetail.type === "SELL";
-                        let tagColor = "bg-zinc-900 border-zinc-800 text-zinc-650";
+                        let tagColor = "bg-zinc-900 border-[rgba(255,255,255,0.07)] text-zinc-650";
                         if (alignBuy) tagColor = "bg-emerald-950/20 border-emerald-900/30 text-emerald-405 font-bold font-mono";
                         if (alignSell) tagColor = "bg-red-950/20 border-red-900/30 text-red-405 font-bold font-mono";
                         return (
@@ -608,7 +603,7 @@ export default function SignalsPage() {
                         const hasPoints = detail.points > 0;
                         const pct = detail.max > 0 ? Math.round((detail.points / detail.max) * 100) : 0;
                         return (
-                          <div key={factor} className="flex justify-between items-center py-0.5 border-b border-zinc-900/20">
+                          <div key={factor} className="flex justify-between items-center py-0.5 border-b border-[rgba(255,255,255,0.04)]/20">
                             <span className="text-zinc-500 flex items-center gap-1">
                               {factor}
                               <span className="text-[6px] text-zinc-700">/{detail.max}pt</span>
@@ -633,13 +628,13 @@ export default function SignalsPage() {
                         const tpData = (sig as any)[tpKey];
                         if (!tpData) return null;
                         return (
-                          <div key={tpKey} className="flex justify-between items-center border-b border-zinc-900/20 pb-1 last:border-0 last:pb-0 font-mono">
+                          <div key={tpKey} className="flex justify-between items-center border-b border-[rgba(255,255,255,0.04)]/20 pb-1 last:border-0 last:pb-0 font-mono">
                             <span className="font-bold text-zinc-400 uppercase text-[8px] tracking-wide truncate max-w-[150px]">
                               {tpKey.toUpperCase()} — {tpData.reason}
                             </span>
                             <div className="flex items-center gap-2">
                               <span className="text-zinc-350">{tpData.price.toFixed(5)}</span>
-                              <span className="text-[8px] text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                              <span className="text-[8px] text-[#20e0b2] font-bold bg-[#20e0b2]/10 px-1.5 py-0.5 rounded">
                                 RR {tpData.rr.toFixed(1)}
                               </span>
                             </div>
@@ -656,7 +651,7 @@ export default function SignalsPage() {
                     <span className="text-[8px] font-bold text-zinc-550 uppercase tracking-widest font-mono block">Aligned Confirmations</span>
                     <div className="flex flex-wrap gap-1 mt-1.5">
                       {sig.reasoning.pros.map((pro: string, i: number) => (
-                        <span key={i} className="text-[8px] font-mono px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                        <span key={i} className="text-[8px] font-mono px-1.5 py-0.5 rounded bg-[rgba(255,255,255,0.04)] text-[#a1a1aa] border border-purple-500/20">
                           {pro.split(":")[0]}
                         </span>
                       ))}
@@ -667,14 +662,14 @@ export default function SignalsPage() {
                 {/* Invalidation Level */}
                 {!isNoTrade && (
                   <div className="px-3.5 py-1.5 bg-black/35 text-center text-[8px] text-zinc-650 font-mono uppercase tracking-wider border-t border-zinc-850/40">
-                    Invalidation: Price closes below <span className="text-red-400 font-bold">{sig.invalidation ? sig.invalidation.toFixed(5) : "—"}</span>
+                    Invalidation: Price closes below <span className="text-[#ff5c73] font-bold">{sig.invalidation ? sig.invalidation.toFixed(5) : "—"}</span>
                   </div>
                 )}
 
                 {/* Card Footer - Action */}
                 <div className="p-3 pt-0 mt-2 bg-black/10 border-t border-zinc-850/20">
                   {isNoTrade ? (
-                    <div className="w-full flex items-center justify-center py-2.5 mt-2.5 rounded-lg font-bold uppercase text-[9px] border border-zinc-800/40 bg-zinc-950/40 text-zinc-600 font-mono">
+                    <div className="w-full flex items-center justify-center py-2.5 mt-2.5 rounded-lg font-bold uppercase text-[9px] border border-[rgba(255,255,255,0.07)] bg-zinc-950/40 text-zinc-600 font-mono">
                       No Setup Detected
                     </div>
                   ) : (
@@ -682,8 +677,8 @@ export default function SignalsPage() {
                       onClick={() => handleExecute(sig)}
                       className={`w-full flex items-center justify-center gap-1 py-2.5 mt-2.5 rounded-lg font-bold uppercase text-[9px] transition-all font-mono ${
                         isBuy
-                          ? "bg-emerald-500 hover:bg-emerald-400 text-emerald-950 shadow-[0_0_10px_rgba(16,185,129,0.15)]"
-                          : "bg-red-500 hover:bg-red-400 text-red-950 shadow-[0_0_10px_rgba(239,68,68,0.15)]"
+                          ? "bg-[#20e0b2] hover:bg-[#20e0b2] text-emerald-950"
+                          : "bg-red-500 hover:bg-red-400 text-red-950"
                       }`}
                     >
                       <Zap className="w-3.5 h-3.5" />
@@ -712,5 +707,7 @@ export default function SignalsPage() {
         }}
       />
     </div>
+  </div>
   );
 }
+

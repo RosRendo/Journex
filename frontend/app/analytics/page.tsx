@@ -33,7 +33,7 @@ const TOOLTIP_STYLE = {
 
 function SectionCard({ title, children, className = "" }: { title: string; children: React.ReactNode; className?: string }) {
   return (
-    <div className={`relative rounded-xl border border-zinc-800/40 bg-[#111118] p-5 overflow-hidden shadow-xl transition-all duration-300 ${className}`}>
+    <div className={`relative rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#101014] p-5 overflow-hidden transition-all duration-300 ${className}`}>
       <div className="text-[9px] font-bold uppercase tracking-widest mb-4 relative z-10 text-zinc-500 font-mono">
         {title}
       </div>
@@ -188,7 +188,7 @@ export default function Analytics() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="w-8 h-8 border border-zinc-800 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border border-[rgba(255,255,255,0.07)] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -206,49 +206,52 @@ export default function Analytics() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-[#05050a] text-text-primary px-4 md:px-6 py-4 flex flex-col gap-4 animate-fade-in pb-16">
+    <div className="min-h-screen w-full bg-[#09090b] text-[#f4f4f5] flex flex-col pb-12 font-sans">
       
-      {/* Header Area */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-[#111118]/80 p-4 border border-zinc-800/40 rounded-2xl backdrop-blur-xl mt-4">
-        <div>
-          <h1 className="text-lg font-black tracking-tight text-white font-display">
-            Analytics Engine
-          </h1>
-          <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest font-mono flex items-center gap-1 mt-0.5">
-            {allTrades.length} lifetime trades imported <span className="mx-1 opacity-30">|</span> Live performance breakdown
-          </p>
-        </div>
+      {/* ── TOPBAR ── */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(255,255,255,0.07)] sticky top-0 z-20 bg-[#09090b]">
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-sm font-bold tracking-tight text-[#f4f4f5]">Analytics Engine</h1>
+            <p className="text-[9px] font-bold uppercase tracking-widest font-mono text-[#71717a] mt-0.5">
+              {allTrades.length} lifetime trades imported <span className="mx-1 opacity-30">|</span> Live performance breakdown
+            </p>
+          </div>
 
-        {/* Filters Group */}
-        <div className="flex flex-wrap items-center gap-3 font-mono text-[9px] font-bold">
-          <div className="flex p-1 rounded-lg bg-black/25 border border-zinc-800/60 w-fit">
+          <div className="flex bg-[#101014] border border-[rgba(255,255,255,0.07)] px-2.5 py-1 rounded">
             <select
               value={selectedAccountNumber}
               onChange={(e) => setSelectedAccountNumber(e.target.value)}
-              className="bg-transparent px-3 py-1.5 text-[9px] font-black uppercase tracking-widest border-none focus:outline-none text-white cursor-pointer"
+              className="bg-transparent border-none text-[10px] font-bold text-[#f4f4f5] focus:outline-none cursor-pointer uppercase tracking-wider font-mono"
             >
-              <option value="all" className="bg-zinc-950 text-white">All Accounts</option>
+              <option value="all" className="bg-[#101014] text-white">Account: All</option>
               {dbAccounts.map((acc) => (
-                <option key={acc.id} value={acc.accountNumber} className="bg-zinc-950 text-white">
+                <option key={acc.id} value={acc.accountNumber} className="bg-[#101014] text-white">
                   {acc.brokerName || acc.mt5Server} #{acc.accountNumber}
                 </option>
               ))}
             </select>
           </div>
+        </div>
 
-          <div className="flex p-1 rounded-lg bg-black/25 border border-zinc-800/60 w-fit">
-            {["1W", "1M", "3M", "YTD", "ALL"].map((opt) => (
-              <button
-                key={opt}
-                onClick={() => setTimeFilter(opt as any)}
-                className={`relative px-3.5 py-1.5 rounded transition-all ${timeFilter === opt ? "bg-white/10 text-white" : "text-zinc-550 hover:text-zinc-350"}`}
-              >
-                {opt}
-              </button>
-            ))}
-          </div>
+        {/* Filters Group */}
+        <div className="flex gap-0 border-l border-[rgba(255,255,255,0.07)]">
+          {["1W", "1M", "3M", "YTD", "ALL"].map((opt) => (
+            <button
+              key={opt}
+              onClick={() => setTimeFilter(opt as any)}
+              className={`py-3 px-4 text-[9px] uppercase tracking-widest font-bold font-mono transition-all border-b-2 whitespace-nowrap ${
+                timeFilter === opt ? "border-[#20e0b2] text-[#20e0b2]" : "border-transparent text-[#71717a] hover:text-[#a1a1aa]"
+              }`}
+            >
+              {opt}
+            </button>
+          ))}
         </div>
       </div>
+
+      {/* Main container */}
+      <div className="flex-1 w-full p-6 space-y-4">
 
       <AnimatePresence mode="wait">
         <motion.div 
@@ -271,19 +274,19 @@ export default function Analytics() {
               { label: "Expectancy", value: `$${expectancy.toFixed(2)}`, isProfit: expectancy >= 0 },
               { label: "Net P&L", value: `$${((analytics?.totalProfit || 0)).toFixed(2)}`, isProfit: (analytics?.totalProfit || 0) >= 0, sparklineData: pnlHistory },
             ].map((kpi, i) => {
-              const bgStyle = "bg-[#111118] border border-zinc-800/40";
+              const bgStyle = "bg-[#101014] border border-[rgba(255,255,255,0.07)]";
               const textColor = kpi.isNeutral 
                 ? "text-zinc-200" 
                 : kpi.isProfit 
-                  ? "text-emerald-400" 
-                  : "text-red-405";
+                  ? "text-[#20e0b2]" 
+                  : "text-[#ff5c73]";
 
-              const colorHex = kpi.isNeutral ? "#ffffff" : kpi.isProfit ? "#10b981" : "#ef4444";
+              const colorHex = kpi.isNeutral ? "#ffffff" : kpi.isProfit ? "#20e0b2" : "#ff5c73";
 
               return (
                 <div 
                   key={kpi.label} 
-                  className={`relative overflow-hidden rounded-xl p-4 flex flex-col justify-center min-h-[90px] shadow-md ${bgStyle}`} 
+                  className={`relative overflow-hidden rounded-lg p-4 flex flex-col justify-center min-h-[90px] ${bgStyle}`} 
                 >
                   <div className="text-[8px] font-black uppercase tracking-widest mb-1.5 text-zinc-500">{kpi.label}</div>
                   <div className={`text-sm font-bold whitespace-nowrap tracking-tight ${textColor}`}>{kpi.value}</div>
@@ -315,12 +318,12 @@ export default function Analytics() {
                   <AreaChart data={cumPnl} syncId="analyticsCharts" margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                     <defs>
                       <linearGradient id="equityGradBull" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#10b981" stopOpacity={0.2} />
-                        <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                        <stop offset="0%" stopColor="#20e0b2" stopOpacity={0.2} />
+                        <stop offset="100%" stopColor="#20e0b2" stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id="equityGradBear" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#ef4444" stopOpacity={0.2} />
-                        <stop offset="100%" stopColor="#ef4444" stopOpacity={0} />
+                        <stop offset="0%" stopColor="#ff5c73" stopOpacity={0.2} />
+                        <stop offset="100%" stopColor="#ff5c73" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
@@ -334,7 +337,7 @@ export default function Analytics() {
                         <Area 
                           type="monotone" 
                           dataKey="cumPnl" 
-                          stroke={isProfit ? "#10b981" : "#ef4444"} 
+                          stroke={isProfit ? "#20e0b2" : "#ff5c73"} 
                           strokeWidth={1.5} 
                           fill={isProfit ? "url(#equityGradBull)" : "url(#equityGradBear)"} 
                           activeDot={{ r: 4, strokeWidth: 0, fill: '#fff' }}
@@ -350,8 +353,8 @@ export default function Analytics() {
                   <AreaChart data={drawdownData} syncId="analyticsCharts" margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                     <defs>
                       <linearGradient id="ddGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#ef4444" stopOpacity={0.2} />
-                        <stop offset="100%" stopColor="#ef4444" stopOpacity={0} />
+                        <stop offset="0%" stopColor="#ff5c73" stopOpacity={0.2} />
+                        <stop offset="100%" stopColor="#ff5c73" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
@@ -361,7 +364,7 @@ export default function Analytics() {
                     <Area 
                       type="monotone" 
                       dataKey="drawdown" 
-                      stroke="#ef4444" 
+                      stroke="#ff5c73" 
                       strokeWidth={1.5} 
                       fill="url(#ddGrad)" 
                       activeDot={{ r: 4, strokeWidth: 0, fill: '#fff' }}
@@ -384,7 +387,7 @@ export default function Analytics() {
                 <YAxis tick={{ fontSize: 9, fill: "#71717a" }} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v}`} width={60} />
                 <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [`$${v.toFixed(2)}`, "P&L"]} />
                 <Bar dataKey="pnl" radius={[2, 2, 0, 0]}>
-                  {dailyPnl.map((d, i) => <Cell key={i} fill={d.pnl >= 0 ? "#10b981" : "#ef4444"} />)}
+                  {dailyPnl.map((d, i) => <Cell key={i} fill={d.pnl >= 0 ? "#20e0b2" : "#ff5c73"} />)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -411,8 +414,9 @@ export default function Analytics() {
 
           <MonthlyPerformanceGrid trades={trades} />
 
-        </motion.div>
-      </AnimatePresence>
-    </div>
-  );
-}
+         </motion.div>
+       </AnimatePresence>
+     </div>
+   </div>
+   );
+ }

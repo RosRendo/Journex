@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import React, { useState } from "react";
 import { Brain, Flame, CheckCircle2, Circle, AlertTriangle, Activity, TrendingUp, TrendingDown, Clock, MoveRight } from "lucide-react";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine } from "recharts";
@@ -35,8 +35,8 @@ function ChecklistModal({ onClose }: { onClose: () => void }) {
   const allChecked = PRE_TRADE_QUESTIONS.every((_, i) => checked[i]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-md rounded-2xl border p-6 shadow-2xl bg-[--bg-base]" style={{ borderColor: "var(--border)" }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-200">
+      <div className="w-full max-w-md rounded-lg border p-6 bg-[--bg-base]" style={{ borderColor: "var(--border)" }}>
         
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[--accent]/10 text-[--accent]">
@@ -117,7 +117,7 @@ export default function MoodTrackerPage() {
         </div>
         <button 
           onClick={() => setShowChecklist(true)}
-          className="px-6 py-2.5 rounded-xl text-[13px] font-bold flex items-center gap-2 shadow-[0_0_15px_rgba(0,212,161,0.2)] hover:shadow-[0_0_25px_rgba(0,212,161,0.4)] transition-all"
+          className="px-6 py-2.5 rounded-xl text-[13px] font-bold flex items-center gap-2 hover:shadow-[0_0_25px_rgba(0,212,161,0.4)] transition-all"
           style={{ background: "var(--accent)", color: "#000" }}
         >
           <Brain className="w-4 h-4" /> Start Pre-Trade Checklist
@@ -130,7 +130,7 @@ export default function MoodTrackerPage() {
         <div className="space-y-6">
           
           {/* Streak Card */}
-          <div className="rounded-2xl border p-6 flex flex-col items-center justify-center relative overflow-hidden text-center" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+          <div className="rounded-lg border p-6 flex flex-col items-center justify-center relative overflow-hidden text-center" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
             <div className="absolute top-0 right-0 w-32 h-32 bg-[--accent] opacity-10 blur-3xl rounded-full translate-x-1/2 -translate-y-1/2" />
             <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 border" style={{ background: "rgba(0,212,161,0.1)", borderColor: "rgba(0,212,161,0.2)", color: "var(--accent)" }}>
               <Flame className="w-8 h-8" />
@@ -147,7 +147,7 @@ export default function MoodTrackerPage() {
           </div>
 
           {/* Compliance Heatmap */}
-          <div className="rounded-2xl border p-5" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+          <div className="rounded-lg border p-5" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
              <h3 className="text-[13px] font-bold mb-4 flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
               <CheckCircle2 className="w-4 h-4 text-[--accent]" /> 30-Day Rule Compliance
             </h3>
@@ -173,7 +173,7 @@ export default function MoodTrackerPage() {
         <div className="lg:col-span-2 space-y-6">
           
           {/* Main Chart */}
-          <div className="rounded-2xl border p-5 h-[415px] flex flex-col" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+          <div className="rounded-lg border p-5 h-[415px] flex flex-col" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="text-[16px] font-bold" style={{ fontFamily: "var(--font-display, Syne, sans-serif)", color: "var(--text-primary)" }}>Emotion vs. Net P&L</h3>
@@ -199,7 +199,7 @@ export default function MoodTrackerPage() {
                        const data = payload[0].payload;
                        const isProfit = data.pnl >= 0;
                        return (
-                         <div className="rounded-xl border p-3 shadow-xl" style={{ background: "var(--bg-elevated)", borderColor: "var(--border)" }}>
+                         <div className="rounded-xl border p-3" style={{ background: "var(--bg-elevated)", borderColor: "var(--border)" }}>
                            <p className="text-[10px] font-bold uppercase tracking-widest text-[--text-tertiary] mb-2">{data.day}</p>
                            <p className="text-[14px] font-mono font-bold flex items-center gap-1" style={{ color: isProfit ? "var(--bull)" : "var(--bear)" }}>
                              {isProfit ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
@@ -237,7 +237,7 @@ export default function MoodTrackerPage() {
           </div>
 
           {/* Warning Banner */}
-          <div className="rounded-2xl border p-5 flex items-start gap-4" style={{ background: "rgba(255,160,0,0.05)", borderColor: "rgba(255,160,0,0.2)" }}>
+          <div className="rounded-lg border p-5 flex items-start gap-4" style={{ background: "rgba(255,160,0,0.05)", borderColor: "rgba(255,160,0,0.2)" }}>
             <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(255,160,0,0.1)", color: "var(--warning)" }}>
               <AlertTriangle className="w-5 h-5" />
             </div>
@@ -255,3 +255,4 @@ export default function MoodTrackerPage() {
     </div>
   );
 }
+

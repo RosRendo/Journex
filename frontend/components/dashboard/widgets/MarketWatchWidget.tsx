@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from "react";
 import { Activity, Target, Zap, ChevronRight } from "lucide-react";
@@ -57,9 +57,9 @@ export function MarketWatchWidget({ borderless = false }: { borderless?: boolean
         </div>
         <div className="space-y-1.5">
           {heatmap.length > 0 ? heatmap.map((item, i) => (
-            <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-black/15 border border-zinc-900/30">
+            <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-black/15 border border-[rgba(255,255,255,0.04)]/30">
               <span className="font-bold text-xs text-zinc-200 font-mono">#{item.pair}</span>
-              <span className={`text-[9px] font-bold px-2 py-0.5 rounded font-mono ${item.change24h >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
+              <span className={`text-[9px] font-bold px-2 py-0.5 rounded font-mono ${item.change24h >= 0 ? "bg-[#20e0b2]/10 text-[#20e0b2]" : "bg-[#ff5c73]/10 text-[#ff5c73]"}`}>
                 {item.change24h >= 0 ? "+" : ""}{item.change24h?.toFixed(2)}%
               </span>
             </div>
@@ -70,7 +70,7 @@ export function MarketWatchWidget({ borderless = false }: { borderless?: boolean
       </div>
 
       {/* Best Signal */}
-      <div className="mt-auto pt-3 border-t border-zinc-800/40">
+      <div className="mt-auto pt-3 border-t border-[rgba(255,255,255,0.07)]">
          <div className="flex items-center gap-1.5 mb-1.5 text-[9px] text-zinc-500 font-bold uppercase tracking-widest font-mono">
            <Zap className="w-3 h-3 text-amber-400" /> Best Signal
          </div>
@@ -78,7 +78,7 @@ export function MarketWatchWidget({ borderless = false }: { borderless?: boolean
             <div className="flex items-center gap-2">
                <span className="font-bold text-white text-xs font-mono">#{bestSignal ? bestSignal.pair : "Scanning..."}</span>
                {bestSignal && (
-                 <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded font-mono ${bestSignal.type === "BUY" ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
+                 <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded font-mono ${bestSignal.type === "BUY" ? "bg-[#20e0b2]/10 text-[#20e0b2]" : "bg-[#ff5c73]/10 text-[#ff5c73]"}`}>
                    {bestSignal.type}
                  </span>
                )}
@@ -96,8 +96,8 @@ export function MarketWatchWidget({ borderless = false }: { borderless?: boolean
   }
 
   return (
-    <div className="bg-[#111118] border border-zinc-800/40 rounded-xl flex flex-col shadow-xl overflow-hidden h-full">
-      <div className="px-5 py-3 border-b border-zinc-800/40 flex items-center justify-between bg-black/20">
+    <div className="bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-xl flex flex-col overflow-hidden h-full">
+      <div className="px-5 py-3 border-b border-[rgba(255,255,255,0.07)] flex items-center justify-between bg-black/20">
         <div className="flex items-center gap-2">
            <Activity className="w-3.5 h-3.5 text-purple-400" />
            <h2 className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 font-mono">Market Watch</h2>
@@ -109,3 +109,4 @@ export function MarketWatchWidget({ borderless = false }: { borderless?: boolean
     </div>
   );
 }
+
