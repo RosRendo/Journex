@@ -15,6 +15,14 @@ api.interceptors.request.use(async (config) => {
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // Inject active broker account ID header for multi-account routing
+    if (typeof window !== "undefined") {
+      const activeId = localStorage.getItem("active_account_id");
+      if (activeId) {
+        config.headers["x-broker-account-id"] = activeId;
+      }
+    }
   } catch (err) {
     console.warn("Failed to get NextAuth session in interceptor:", err);
   }

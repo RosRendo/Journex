@@ -170,7 +170,14 @@ app.use("/api/bridge/api", async (req, res, next) => {
     return res.json(mockBody);
   }
 
-  const broker = getSettings().broker || { provider: "mock" };
+  const currentSettings = getSettings();
+  const activeId = req.headers["x-broker-account-id"] as string || currentSettings.activeAccountId;
+  let broker = currentSettings.broker || { provider: "mock" };
+  
+  if (currentSettings.accounts && currentSettings.accounts.length > 0) {
+    broker = currentSettings.accounts.find((a: any) => a.id === activeId) || currentSettings.accounts[0];
+  }
+
   if (broker.provider !== "metaapi") {
     // Pass to proxy middleware below
     return next();

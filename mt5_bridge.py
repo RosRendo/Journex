@@ -198,9 +198,35 @@ def ensure_symbol(symbol: str) -> str:
                 return alias  # Return the working alias
     return symbol  # Return original even if failed
 
+# MT5 Connection Overrides via Env
+MT5_PATH = os.environ.get("MT5_PATH", None)
+MT5_PASSWORD = os.environ.get("MT5_PASSWORD", None)
+MT5_SERVER = os.environ.get("MT5_SERVER", None)
+MT5_LOGIN = None
+if os.environ.get("MT5_LOGIN"):
+    try:
+        MT5_LOGIN = int(os.environ.get("MT5_LOGIN", ""))
+    except ValueError:
+        pass
+
 def init_mt5():
     global connected
-    if not mt5.initialize():
+    if mt5 is None:
+        connected = False
+        return False
+        
+    init_args = {}
+    if MT5_PATH:
+        init_args["path"] = MT5_PATH
+    if MT5_LOGIN:
+        init_args["login"] = MT5_LOGIN
+    if MT5_PASSWORD:
+        init_args["password"] = MT5_PASSWORD
+    if MT5_SERVER:
+        init_args["server"] = MT5_SERVER
+
+    print(f"[bridge] Initializing MT5 with options: {init_args}")
+    if not mt5.initialize(**init_args):
         print("initialize() failed, error code =", mt5.last_error())
         connected = False
         return False
@@ -6624,4 +6650,5 @@ t.start()
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("mt5_bridge:app", host="0.0.0.0", port=5003)
+    bridge_port = int(os.environ.get("BRIDGE_PORT", 5003))
+    uvicorn.run("mt5_bridge:app", host="0.0.0.0", port=bridge_port)

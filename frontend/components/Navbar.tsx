@@ -12,6 +12,7 @@ import { HEADER_GROUPS } from "@/components/layout/navigation";
 import { useTheme } from "next-themes";
 import { getBackendUrl } from "@/lib/utils";
 import { useWorkspace, WorkspaceType } from "@/src/context/WorkspaceContext";
+import { getBroker } from "@/lib/terminalApi";
 
 function DualClock() {
   const [now, setNow] = useState(new Date());
@@ -69,6 +70,65 @@ function WorkspaceSelector() {
               }`}
             >
               {ws}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AccountSelector() {
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [activeId, setActiveId] = useState<string>("");
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    getBroker()
+      .then((res: any) => {
+        setAccounts(res.accounts || []);
+        const savedActive = localStorage.getItem("active_account_id") || res.activeAccountId || "";
+        setActiveId(savedActive);
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleSelect = async (id: string) => {
+    setActiveId(id);
+    localStorage.setItem("active_account_id", id);
+    setIsOpen(false);
+    window.location.reload();
+  };
+
+  const activeAccount = accounts.find(a => a.id === activeId) || accounts[0];
+
+  if (accounts.length <= 1) return null;
+
+  return (
+    <div className="relative">
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[11px] font-bold uppercase tracking-widest transition-colors animate-in"
+        style={{ borderColor: "var(--border)", background: "var(--bg-elevated)", color: "var(--accent)" }}
+      >
+        <span className="text-[--text-secondary]">ACC:</span> {activeAccount?.name || "Select"}
+        <ChevronDown className="w-3 h-3 text-[--text-tertiary]" />
+      </button>
+
+      {isOpen && (
+        <div 
+          className="absolute top-full left-0 mt-2 w-48 rounded-xl shadow-2xl border py-2 z-50 animate-in fade-in"
+          style={{ background: "var(--bg-card)", borderColor: "var(--border-strong)" }}
+        >
+          {accounts.map(acc => (
+            <button
+              key={acc.id}
+              onClick={() => handleSelect(acc.id)}
+              className={`w-full text-left px-4 py-2 text-[11px] font-bold uppercase tracking-wider transition-colors ${
+                activeId === acc.id ? "text-[--accent] bg-[--bg-elevated]" : "text-[--text-secondary] hover:text-[--text-primary] hover:bg-[--bg-elevated]"
+              }`}
+            >
+              {acc.name}
             </button>
           ))}
         </div>
@@ -281,6 +341,7 @@ export default function Navbar({ onMenuToggle }: { onMenuToggle?: () => void }) 
 
       {/* Center: Dual clock & Workspace */}
       <div className="flex items-center gap-6">
+        <AccountSelector />
         <WorkspaceSelector />
         <DualClock />
       </div>

@@ -129,7 +129,14 @@ function isUserPro(req: any): boolean {
 
 function getActiveAdapter(req?: any) {
   const currentSettings = getSettings();
-  const brokerConfig = currentSettings.broker || { provider: "mt5_bridge" };
+  const activeId = req?.headers?.["x-broker-account-id"] || currentSettings.activeAccountId;
+
+  if (currentSettings.accounts && currentSettings.accounts.length > 0) {
+    const acc = currentSettings.accounts.find((a: any) => a.id === activeId) || currentSettings.accounts[0];
+    return buildAdapter(acc);
+  }
+
+  const brokerConfig = currentSettings.broker || { provider: "mock" };
   return buildAdapter(brokerConfig);
 }
 
@@ -490,8 +497,8 @@ function getVolatility() {
   };
 }
 
-async function getOrderBook(symbol: string) {
-  const adapter = getActiveAdapter();
+async function getOrderBook(symbol: string, req?: any) {
+  const adapter = getActiveAdapter(req);
   if (adapter.provider !== "mock") {
     try {
       const pricing = await adapter.getPricing([symbol]);
@@ -633,7 +640,7 @@ router.get("/terminal/snapshot", async (req, res) => {
       getWatchlist(adapter),
       adapter.getPositions(),
       adapter.getAccount(),
-      getOrderBook(symbol),
+      getOrderBook(symbol, req),
       adapter.ping(),
       getJournalList(),
       (async () => {
@@ -1573,26 +1580,29 @@ router.get("/settings/broker", (req, res) => {
   // Guests receive a safe empty config — never expose real API keys
   if (!isUserPro(req)) {
     return res.json({
-      provider: "mock",
-      environment: "practice",
-      api_key: "",
-      api_secret: "",
-      account_id: "",
-      base_url: "",
-      connected: true,
+      accounts: [
+        {
+          id: "mock",
+          name: "Mock Account",
+          provider: "mock",
+          environment: "practice",
+          api_key: "",
+          api_secret: "",
+          account_id: "",
+          base_url: "",
+          connected: true,
+        }
+      ],
+      activeAccountId: "mock"
     });
   }
   const current = getSettings();
-  const broker = current.broker || {
-    provider: "mock",
-    environment: "practice",
-    api_key: "",
-    api_secret: "",
-    account_id: "",
-    base_url: "",
-    connected: false,
-  };
-  res.json(broker);
+  const accounts = current.accounts || (current.broker ? [{ ...current.broker, id: current.broker.id || "1", name: current.broker.name || "Default Account" }] : []);
+  const activeAccountId = current.activeAccountId || (accounts[0]?.id || "1");
+  res.json({
+    accounts,
+    activeAccountId
+  });
 });
 
 // POST /api/terminal/sync (Sync Historical Trades from Broker)
@@ -1617,21 +1627,22 @@ router.post("/settings/broker", (req, res) => {
   if (!isUserPro(req)) {
     return res.json({
       ...payload,
-      connected: false,
-      api_secret_masked: false,
       _guest: true,
     });
   }
   const current = getSettings();
-  // Always reset connected=false on save — terminal stays in mock mode
-  // until the user explicitly tests and confirms the connection.
-  current.broker = { ...payload, connected: false };
+  
+  if (payload.accounts) {
+    current.accounts = payload.accounts;
+  }
+  if (payload.activeAccountId) {
+    current.activeAccountId = payload.activeAccountId;
+  }
   saveSettings(current);
 
   res.json({
-    ...payload,
-    connected: false,
-    api_secret_masked: !!payload.api_secret,
+    accounts: current.accounts,
+    activeAccountId: current.activeAccountId,
   });
 });
 
@@ -1648,12 +1659,23 @@ router.post("/settings/broker/test", async (req, res) => {
   }
   try {
     const current = getSettings();
-    const broker = current.broker || { provider: "mock" };
+    const activeId = req.headers["x-broker-account-id"] as string || current.activeAccountId;
+    let broker = current.broker || { provider: "mock" };
+    if (current.accounts && current.accounts.length > 0) {
+      broker = current.accounts.find((a: any) => a.id === activeId) || current.accounts[0];
+    }
     const adapter = buildAdapter(broker);
     const testResult = await adapter.ping();
 
-    // Persist connected status so terminal goes live immediately after a successful test
-    current.broker = { ...broker, connected: testResult.ok };
+    // Persist connected status
+    if (current.accounts && current.accounts.length > 0) {
+      const idx = current.accounts.findIndex((a: any) => a.id === activeId);
+      if (idx !== -1) {
+        current.accounts[idx].connected = testResult.ok;
+      }
+    } else {
+      current.broker = { ...broker, connected: testResult.ok };
+    }
     saveSettings(current);
 
     res.json({
@@ -1665,11 +1687,18 @@ router.post("/settings/broker/test", async (req, res) => {
   } catch (error: any) {
     // Make sure connected stays false on error
     const current = getSettings();
-    if (current.broker) {
+    const activeId = req.headers["x-broker-account-id"] as string || current.activeAccountId;
+    if (current.accounts && current.accounts.length > 0) {
+      const idx = current.accounts.findIndex((a: any) => a.id === activeId);
+      if (idx !== -1) {
+        current.accounts[idx].connected = false;
+      }
+    } else if (current.broker) {
       current.broker.connected = false;
-      saveSettings(current);
     }
-    // Return 200 with success: false instead of 500, so that the client handles it as a logical failure gracefully
+    saveSettings(current);
+    
+    // Return 200 with success: false instead of 500
     res.json({
       success: false,
       connected: false,
