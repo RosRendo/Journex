@@ -339,10 +339,6 @@ async def get_positions():
         return {"success": True, "positions": data}
 
     return await _run_in_mt5_thread(_do_get_positions)
-            "openTime": datetime.fromtimestamp(p.time).isoformat() + "Z"
-        })
-        
-    return {"success": True, "positions": data}
 
 
 class QuickTradeModel(BaseModel):
