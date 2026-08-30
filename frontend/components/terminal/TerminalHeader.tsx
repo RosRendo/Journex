@@ -2,7 +2,7 @@
 
 import { useUtcClock } from "../../hooks/useTerminalData";
 import { utcClock } from "../../lib/format";
-import { ChevronDown, Activity, Settings, Plus, Key, Crosshair, Lock } from "lucide-react";
+import { ChevronDown, Activity, Settings, Plus, Key, Crosshair, Lock, ArrowLeft } from "lucide-react";
 import { useSession } from "next-auth/react";
 import {
   DropdownMenu,
@@ -42,6 +42,13 @@ export default function TerminalHeader({ symbol, onSymbolChange, connected, symb
       className="h-10 shrink-0 border-b border-zinc-800 bg-zinc-950 flex items-center px-3 gap-4"
     >
       <div className="flex items-center gap-2 pr-3 border-r border-zinc-800 h-full">
+        <button
+          onClick={() => (window.location.href = "/dashboard")}
+          className="flex items-center gap-1 text-[10px] uppercase tracking-widest border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-100 px-2 py-0.5 rounded-sm transition-colors mr-1"
+        >
+          <ArrowLeft size={10} />
+          Back
+        </button>
         <div className="w-2 h-2 bg-amber-500 rounded-sm" />
         <span className="text-[11px] font-bold tracking-[0.18em] uppercase text-zinc-100">
           JOURNEX TERMINAL

@@ -17,7 +17,7 @@ REM ── [1/3] Start Docker Compose (Database, Backend, Frontend) ────
 echo.
 echo [1/3] Starting Database, Backend, and Frontend in Docker...
 cd /d "%PROJECT_WIN%"
-docker-compose -f docker-compose-full.yml up -d
+docker-compose -f docker-compose-full.yml up -d --build
 
 REM ── [2/3] Start MT5 Python Bridge (PM2) ───────────────────────────────
 echo.
@@ -29,7 +29,7 @@ REM ── [3/3] Open Browser ────────────────�
 echo.
 echo [3/3] Opening dashboard in browser...
 timeout /t 3 /nobreak > nul
-start chrome --start-fullscreen "http://localhost:3000/terminal"
+start chrome --start-fullscreen "http://localhost:3000/dashboard"
 
 echo.
 echo  ✅ All optimized services started in the background!

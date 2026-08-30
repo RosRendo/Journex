@@ -1,0 +1,209 @@
+﻿Created At: 2026-08-21T13:08:55+07:00
+Completed At: 2026-08-21T13:08:55+07:00
+File Path: `file:///d:/FOR%20RENDO%20%28ONLY%20%29/Personal%20Project/Dashboard/frontend/app/bot/page.tsx`
+Total Lines: 1756
+Total Bytes: 89556
+Showing lines 1 to 200
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1: "use client"
+2: import React, { useState, useEffect } from 'react';
+3: import { toast } from 'sonner';
+4: import {
+5:   Bot, Settings, MessageSquare, Copy, BarChart3, Play, Pause,
+6:   Plus, Trash2, Zap, TrendingUp, Activity,
+7:   Shield, AlertTriangle, CheckCircle2, Clock, Wifi, WifiOff,
+8:   Send, RefreshCw, Target, DollarSign, Percent, Cpu, Download, AlertCircle, RefreshCcw
+9: } from 'lucide-react';
+10: import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts';
+11: 
+12: interface EAInstance {
+13:   magic: number;
+14:   status: string;
+15:   timestamp: string;
+16:   elapsed_seconds: number;
+17:   last_report: {
+18:     name?: string;
+19:     symbol?: string;
+20:     balance?: number;
+21:     equity?: number;
+22:     regime?: string;
+23:     htf_bias?: string;
+24:     session?: string;
+25:     volatility?: string;
+26:     today_stats?: {
+27:       trades: number;
+28:       wins: number;
+29:       losses: number;
+30:       pnl: number;
+31:     };
+32:     open_trades?: Array<{
+33:       ticket: number;
+34:       symbol: string;
+35:       type: string;
+36:       volume: number;
+37:       price: number;
+38:       sl: number;
+39:       tp: number;
+40:       pnl: number;
+41:       breakeven_active: boolean;
+42:       trailing_active: boolean;
+43:     }>;
+44:     settings?: {
+45:       risk: number;
+46:       min_score: number;
+47:       min_rr: number;
+48:       session: string;
+49:       signal_type: string;
+50:       position_mode?: string;
+51:       use_equity_trail?: boolean;
+52:       equity_trail_activate?: number;
+53:       hard_stop_pct?: number;
+54:       pyramid_cooldown?: number;
+55:     };
+56:   };
+57: }
+58: 
+59: interface AnalyticsData {
+60:   overall: {
+61:     trades: number;
+62:     wins: number;
+63:     losses: number;
+64:     win_rate: number;
+65:     net_pnl: number;
+66:     avg_r: number;
+67:     best_trade: number;
+68:     worst_trade: number;
+69:   };
+70:   grade_perf: Array<{ grade: string; total: number; win_rate: number }>;
+71:   regime_perf: Array<{ regime: string; total: number; win_rate: number }>;
+72:   symbol_perf: Array<{ symbol: string; total: number; win_rate: number; avg_r: number }>;
+73:   session_perf: Array<{ session: string; total: number; win_rate: number; avg_r: number }>;
+74:   setup_perf: Array<{ setup: string; total: number; win_rate: number }>;
+75:   settings_history: Array<{
+76:     id: number;
+77:     magic: number;
+78:     key: string;
+79:     old_value: string;
+80:     new_value: string;
+81:     status: string;
+82:     timestamp: string;
+83:   }>;
+84: }
+85: 
+86: export default function BotsPage() {
+87:   const [eas, setEas] = useState<EAInstance[]>([]);
+88:   const [selectedMagic, setSelectedMagic] = useState<number>(88001);
+89:   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+90:   const [trades, setTrades] = useState<any[]>([]);
+91:   const [loading, setLoading] = useState(true);
+92: 
+93:   // centralize state in page.tsx
+94:   const DEFAULT_SETTINGS = {
+95:     magic: 88001,
+96:     bridge_url: "http://127.0.0.1:5003",
+97:     strategy_type: 0,
+98:     signal_timeframe: "H1",
+99:     context_timeframe: "H4",
+100:     session: "both",
+101:     liquidity_lookback: 120,
+102:     min_score: 80,
+103:     signal_type: "all",
+104:     use_rsi: false,
+105:     rsi_period: 14,
+106:     rsi_buy_min: 50.0,
+107:     rsi_buy_max: 70.0,
+108:     rsi_sell_min: 30.0,
+109:     rsi_sell_max: 50.0,
+110:     use_adx: true,
+111:     adx_period: 14,
+112:     adx_min: 20.0,
+113:     adx_max: 50.0,
+114:     use_volume: true,
+115:     vol_avg_period: 20,
+116:     vol_min_ratio: 1.5,
+117:     use_ema_filter: true,
+118:     ema1_period: 20,
+119:     ema2_period: 50,
+120:     ema3_period: 200,
+121:     use_smt: true,
+122:     smt_symbol: "GBPUSD",
+123:     smt_min_pips: 1.0,
+124:     use_mtf_confluence: true,
+125:     mr_session_start: "22:00",
+126:     mr_session_end: "06:00",
+127:     mr_bb_period: 20,
+128:     mr_bb_stddev: 2.0,
+129:     mr_rsi_period: 14,
+130:     mr_rsi_ob: 70.0,
+131:     mr_rsi_os: 30.0,
+132:     mom_lookback: 30,
+133:     mom_threshold: 5.0,
+134:     mom_max_holding: 120,
+135:     pyramid_cooldown: 5,
+136:     use_equity_trail: true,
+137:     equity_trail_activate: 10.0,
+138:     equity_trail_drop: 5.0,
+139:     hard_stop_pct: 15.0,
+140:     position_mode: 0,
+141:     use_be: true,
+142:     trailing_stop: true,
+143:     trail_atr_mult: 3.5,
+144:     partial_exit_rr: 1.0,
+145:     partial_exit_pct: 50.0,
+146:     move_sl_to_be: true,
+147:     be_offset_pips: 0.0,
+148:     risk: 3.0,
+149:     max_daily_loss: 3.0,
+150:     max_drawdown: 10.0,
+151:     max_open_trades: 3,
+152:     min_rr: 2.5,
+153:     max_spread_points: 300,
+154:     max_slippage_points: 30,
+155:     min_sl_pips: 15,
+156:     allow_monday: true,
+157:     allow_friday: true,
+158:     friday_close_hour: 16,
+159:     use_news_filter: true,
+160:     grid_step: 500.0,
+161:     max_grid_orders: 5,
+162:     max_basket_loss: 5.0,
+163:     grid_emergency_close: true
+164:   };
+165: 
+166:   const [editSettings, setEditSettings] = useState<any>(DEFAULT_SETTINGS);
+167:   const [customPresets, setCustomPresets] = useState<any[]>([]);
+168:   const [newPresetName, setNewPresetName] = useState("");
+169:   const [activeTab, setActiveTab] = useState("identity"); // identity, strategy, risk, momentum, confluence, custom
+170:   const [dragActive, setDragActive] = useState(false);
+171: 
+172:   // Settings Edit State
+173:   const [editRisk, setEditRisk] = useState(1.0);
+174:   const [editMaxLoss, setEditMaxLoss] = useState(3.0);
+175:   const [editMaxOpenTrades, setEditMaxOpenTrades] = useState(3);
+176:   const [editMinScore, setEditMinScore] = useState(70);
+177:   const [editMinRr, setEditMinRr] = useState(1.5);
+178:   const [editSession, setEditSession] = useState("both");
+179:   const [editSignalType, setEditSignalType] = useState("all");
+180:   const [editSymbols, setEditSymbols] = useState("XAUUSD, EURUSD");
+181:   const [pushing, setPushing] = useState(false);
+182: 
+183:   // Emergency Modal State
+184:   const [confirmCommand, setConfirmCommand] = useState<string | null>(null);
+185:   const [commanding, setCommanding] = useState(false);
+186: 
+187:   const BRIDGE = typeof window !== "undefined" && window.location.hostname === "localhost"
+188:     ? "/api/bridge"
+189:     : (process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge");
+190: 
+191:   const loadData = async () => {
+192:     try {
+193:       // 1. Fetch EA statuses
+194:       const statusRes = await fetch(`${BRIDGE}/api/ea/status`, { headers: { "ngrok-skip-browser-warning": "true" } });
+195:       const statusData = await statusRes.json();
+196:       if (statusData.success) {
+197:         setEas(statusData.eas);
+198:         // Default to first found if active selection not set or offline
+199:         if (statusData.eas.length > 0 && selectedMagic === 88001 && !statusData.eas.find((e: any) => e.magic === 88001)) {
+200:           setSelectedMagic(statusData.eas[0].magic);
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.
+

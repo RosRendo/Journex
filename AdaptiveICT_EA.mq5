@@ -899,7 +899,7 @@ void SendHeartbeatReport()
    body += "}";
    
    char post_data[];
-   StringToCharArray(body, post_data, 0, WHOLE_ARRAY, CP_UTF8);
+   StringToCharArray(body, post_data, 0, StringLen(body), CP_UTF8);
     
     char result[];
     string result_headers;
@@ -1171,7 +1171,7 @@ void ReportSignalDetected(string id, string type, double entry, double sl, doubl
    body += "}";
    
    char post_data[];
-   StringToCharArray(body, post_data, 0, WHOLE_ARRAY, CP_UTF8);
+   StringToCharArray(body, post_data, 0, StringLen(body), CP_UTF8);
    
    char result[];
    string result_headers;
@@ -1565,7 +1565,7 @@ void SendTradeEvent(string action, ulong ticket, string type, double volume, dou
    body += "}";
    
    char post_data[];
-   StringToCharArray(body, post_data, 0, WHOLE_ARRAY, CP_UTF8);
+   StringToCharArray(body, post_data, 0, StringLen(body), CP_UTF8);
    
    char result[];
    string result_headers;

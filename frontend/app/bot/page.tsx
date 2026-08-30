@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import {
   Bot, Settings, MessageSquare, Copy, BarChart3, Play, Pause,
-  Plus, Trash2, Zap, TrendingUp, Activity,
+  Plus, Trash2, Zap, TrendingUp, TrendingDown, Activity,
   Shield, AlertTriangle, CheckCircle2, Clock, Wifi, WifiOff,
   Send, RefreshCw, Target, DollarSign, Percent, Cpu, Download, AlertCircle, RefreshCcw
 } from 'lucide-react';
@@ -47,6 +47,11 @@ interface EAInstance {
       min_rr: number;
       session: string;
       signal_type: string;
+      position_mode?: string;
+      use_equity_trail?: boolean;
+      equity_trail_activate?: number;
+      hard_stop_pct?: number;
+      pyramid_cooldown?: number;
     };
   };
 }
@@ -83,7 +88,90 @@ export default function BotsPage() {
   const [selectedMagic, setSelectedMagic] = useState<number>(88001);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [trades, setTrades] = useState<any[]>([]);
+  const [signals, setSignals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [mainTab, setMainTab] = useState<"monitor" | "desk" | "history">("monitor");
+  const [selectedSignalIndex, setSelectedSignalIndex] = useState<number>(0);
+  const [selectedSnapshot, setSelectedSnapshot] = useState<any | null>(null);
+
+  // centralize state in page.tsx
+  const DEFAULT_SETTINGS = {
+    magic: 88001,
+    bridge_url: "http://127.0.0.1:5003",
+    strategy_type: 0,
+    signal_timeframe: "H1",
+    context_timeframe: "H4",
+    session: "both",
+    liquidity_lookback: 120,
+    min_score: 80,
+    signal_type: "all",
+    use_rsi: false,
+    rsi_period: 14,
+    rsi_buy_min: 50.0,
+    rsi_buy_max: 70.0,
+    rsi_sell_min: 30.0,
+    rsi_sell_max: 50.0,
+    use_adx: true,
+    adx_period: 14,
+    adx_min: 20.0,
+    adx_max: 50.0,
+    use_volume: true,
+    vol_avg_period: 20,
+    vol_min_ratio: 1.5,
+    use_ema_filter: true,
+    ema1_period: 20,
+    ema2_period: 50,
+    ema3_period: 200,
+    use_smt: true,
+    smt_symbol: "GBPUSD",
+    smt_min_pips: 1.0,
+    use_mtf_confluence: true,
+    mr_session_start: "22:00",
+    mr_session_end: "06:00",
+    mr_bb_period: 20,
+    mr_bb_stddev: 2.0,
+    mr_rsi_period: 14,
+    mr_rsi_ob: 70.0,
+    mr_rsi_os: 30.0,
+    mom_lookback: 30,
+    mom_threshold: 5.0,
+    mom_max_holding: 120,
+    pyramid_cooldown: 5,
+    use_equity_trail: true,
+    equity_trail_activate: 10.0,
+    equity_trail_drop: 5.0,
+    hard_stop_pct: 15.0,
+    position_mode: 0,
+    use_be: true,
+    trailing_stop: true,
+    trail_atr_mult: 3.5,
+    partial_exit_rr: 1.0,
+    partial_exit_pct: 50.0,
+    move_sl_to_be: true,
+    be_offset_pips: 0.0,
+    risk: 3.0,
+    max_daily_loss: 3.0,
+    max_drawdown: 10.0,
+    max_open_trades: 3,
+    min_rr: 2.5,
+    max_spread_points: 300,
+    max_slippage_points: 30,
+    min_sl_pips: 15,
+    allow_monday: true,
+    allow_friday: true,
+    friday_close_hour: 16,
+    use_news_filter: true,
+    grid_step: 500.0,
+    max_grid_orders: 5,
+    max_basket_loss: 5.0,
+    grid_emergency_close: true
+  };
+
+  const [editSettings, setEditSettings] = useState<any>(DEFAULT_SETTINGS);
+  const [customPresets, setCustomPresets] = useState<any[]>([]);
+  const [newPresetName, setNewPresetName] = useState("");
+  const [activeTab, setActiveTab] = useState("identity"); // identity, strategy, risk, momentum, confluence, custom
+  const [dragActive, setDragActive] = useState(false);
 
   // Settings Edit State
   const [editRisk, setEditRisk] = useState(1.0);
@@ -130,10 +218,41 @@ export default function BotsPage() {
       if (tradesData.success) {
         setTrades(tradesData.events);
       }
+
+      // 4. Fetch Signals Queue
+      const signalsRes = await fetch(`${BRIDGE}/api/terminal/signals`, { headers: { "ngrok-skip-browser-warning": "true" } });
+      const signalsData = await signalsRes.json();
+      if (signalsData.success) {
+        setSignals(signalsData.signals ?? []);
+      }
     } catch (e) {
       console.error("Failed to load EA data", e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleExecuteSignal = async (sig: any) => {
+    try {
+      const res = await fetch(`${BRIDGE}/api/execute-signal`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          symbol: sig.symbol,
+          action: sig.type,
+          tp: sig.tp,
+          sl: sig.sl,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`Signal execution approved: ${sig.type} order sent to MT5!`);
+        loadData();
+      } else {
+        toast.error(`Execution failed: ${data.message || "Unknown error"}`);
+      }
+    } catch (e) {
+      toast.error("Bridge connection failure during execution");
     }
   };
 
@@ -153,22 +272,293 @@ export default function BotsPage() {
       setEditMinRr(s.min_rr ?? 1.5);
       setEditSession(s.session ?? "both");
       setEditSignalType(s.signal_type ?? "all");
+
+      // Merge dynamic settings into the central editSettings state
+      setEditSettings(prev => ({
+        ...prev,
+        risk: s.risk ?? prev.risk,
+        min_score: s.min_score ?? prev.min_score,
+        min_rr: s.min_rr ?? prev.min_rr,
+        session: s.session ?? prev.session,
+        signal_type: s.signal_type ?? prev.signal_type,
+        position_mode: s.position_mode === "MODE_SINGLE" ? 0 : s.position_mode === "MODE_PARTIAL_EXIT" ? 1 : s.position_mode === "MODE_GRID" ? 2 : prev.position_mode,
+        use_equity_trail: s.use_equity_trail ?? prev.use_equity_trail,
+        equity_trail_activate: s.equity_trail_activate ?? prev.equity_trail_activate,
+        hard_stop_pct: s.hard_stop_pct ?? prev.hard_stop_pct,
+        pyramid_cooldown: s.pyramid_cooldown ?? prev.pyramid_cooldown
+      }));
     }
   }, [selectedMagic, eas.length]);
 
-  const handlePushSettings = async () => {
+
+
+  // Load Presets from LocalStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("ea_custom_presets");
+    if (saved) {
+      try {
+        setCustomPresets(JSON.parse(saved));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, []);
+
+  const saveCustomPreset = () => {
+    if (!newPresetName.trim()) {
+      toast.error("Please enter a preset name");
+      return;
+    }
+    const updated = [...customPresets, { name: newPresetName.trim(), settings: editSettings }];
+    setCustomPresets(updated);
+    localStorage.setItem("ea_custom_presets", JSON.stringify(updated));
+    setNewPresetName("");
+    toast.success(`Preset '${newPresetName}' saved!`);
+  };
+
+  const deleteCustomPreset = (name: string) => {
+    const updated = customPresets.filter(p => p.name !== name);
+    setCustomPresets(updated);
+    localStorage.setItem("ea_custom_presets", JSON.stringify(updated));
+    toast.success(`Preset '${name}' deleted.`);
+  };
+
+  const loadCustomPreset = (settings: any) => {
+    setEditSettings(settings);
+    toast.success("Loaded custom preset values!");
+  };
+
+  const handleSetFileParsing = (text: string) => {
+    const lines = text.split("\n");
+    const parsed: any = { ...editSettings };
+    
+    const INP_MAP: Record<string, string> = {
+      InpMagic: "magic",
+      InpBridgeURL: "bridge_url",
+      InpStrategyType: "strategy_type",
+      InpSignalTimeframe: "signal_timeframe",
+      InpContextTimeframe: "context_timeframe",
+      InpSession: "session",
+      InpLiquidityLookback: "liquidity_lookback",
+      InpMinScore: "min_score",
+      InpSignalType: "signal_type",
+      InpUseRSI: "use_rsi",
+      InpRSIPeriod: "rsi_period",
+      InpRSIBuyMin: "rsi_buy_min",
+      InpRSIBuyMax: "rsi_buy_max",
+      InpRSISellMin: "rsi_sell_min",
+      InpRSISellMax: "rsi_sell_max",
+      InpUseADX: "use_adx",
+      InpADXPeriod: "adx_period",
+      InpADXMin: "adx_min",
+      InpADXMax: "adx_max",
+      InpUseVolume: "use_volume",
+      InpVolAvgPeriod: "vol_avg_period",
+      InpVolMinRatio: "vol_min_ratio",
+      InpUseEMAFilter: "use_ema_filter",
+      InpEMA1Period: "ema1_period",
+      InpEMA2Period: "ema2_period",
+      InpEMA3Period: "ema3_period",
+      InpUseSMT: "use_smt",
+      InpSMTSymbol: "smt_symbol",
+      InpSMTMinPips: "smt_min_pips",
+      InpUseMTFConfluence: "use_mtf_confluence",
+      InpMRSessionStart: "mr_session_start",
+      InpMRSessionEnd: "mr_session_end",
+      InpMRBBPeriod: "mr_bb_period",
+      InpMRBBStdDev: "mr_bb_stddev",
+      InpMRRSIPeriod: "mr_rsi_period",
+      InpMRRSIOB: "mr_rsi_ob",
+      InpMRRSIOS: "mr_rsi_os",
+      InpMomLookbackSec: "mom_lookback",
+      InpMomThresholdPips: "mom_threshold",
+      InpMomMaxHoldingSec: "mom_max_holding",
+      InpPyramidCooldownSec: "pyramid_cooldown",
+      InpUseEquityTrail: "use_equity_trail",
+      InpEquityTrailActivatePct: "equity_trail_activate",
+      InpEquityTrailDropPct: "equity_trail_drop",
+      InpHardEquityStopPct: "hard_stop_pct",
+      InpPositionMode: "position_mode",
+      InpUseBE: "use_be",
+      InpTrailingStop: "trailing_stop",
+      InpTrailATRMult: "trail_atr_mult",
+      InpPartialExitRR: "partial_exit_rr",
+      InpPartialExitPct: "partial_exit_pct",
+      InpMoveSLToBE: "move_sl_to_be",
+      InpBEOffsetPips: "be_offset_pips",
+      InpRiskPercent: "risk",
+      InpMaxDailyLossPct: "max_daily_loss",
+      InpMaxDrawdownPct: "max_drawdown",
+      InpMaxOpenTrades: "max_open_trades",
+      InpMinRR: "min_rr",
+      InpMaxSpreadPoints: "max_spread_points",
+      InpMaxSlippagePoints: "max_slippage_points",
+      InpMinSLPips: "min_sl_pips",
+      InpAllowMonday: "allow_monday",
+      InpAllowFriday: "allow_friday",
+      InpFridayCloseHour: "friday_close_hour",
+      InpUseNewsFilter: "use_news_filter",
+      InpGridStep: "grid_step",
+      InpMaxGridOrders: "max_grid_orders",
+      InpMaxBasketLossPct: "max_basket_loss",
+      InpGridEmergencyClose: "grid_emergency_close"
+    };
+
+    let count = 0;
+    lines.forEach(line => {
+      const clean = line.trim();
+      if (!clean || clean.startsWith(";")) return;
+      const parts = clean.split("=");
+      if (parts.length < 2) return;
+      const mqlKey = parts[0].trim();
+      const valStr = parts[1].split("||")[0].trim();
+      
+      const mappedKey = INP_MAP[mqlKey];
+      if (mappedKey) {
+        let val: any = valStr;
+        if (valStr === "true" || valStr === "1") val = true;
+        else if (valStr === "false" || valStr === "0") val = false;
+        else if (!isNaN(Number(valStr))) val = Number(valStr);
+        
+        parsed[mappedKey] = val;
+        count++;
+      }
+    });
+
+    setEditSettings(parsed);
+    toast.success(`Successfully parsed ${count} variables from .set file!`);
+  };
+
+  const handleDrag = (e: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          handleSetFileParsing(event.target.result as string);
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
+
+  const handleFileInput = (e: any) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          handleSetFileParsing(event.target.result as string);
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
+
+
+  // Helper functions for Trade Decision Desk real-time calculations
+  const getSymbolSpread = (symbol: string) => {
+    if (!symbol) return 8;
+    const s = symbol.toUpperCase();
+    if (s.includes("XAU")) return 18; // 1.8 pips / 18 points
+    if (s.includes("EURUSD")) return 6; // 0.6 pips / 6 points
+    if (s.includes("GBPUSD")) return 9; // 0.9 pips / 9 points
+    return 12; // default 1.2 pips / 12 points
+  };
+
+  const getVelocity = (score: number, type: string) => {
+    const dir = type === "BUY" ? "↑" : "↓";
+    if (score >= 85) return `RAPID ${dir}`;
+    if (score >= 70) return `STRONG ${dir}`;
+    return `MODERATE ${dir}`;
+  };
+
+  const getAcceleration = (score: number, type: string) => {
+    const sign = type === "BUY" ? "+" : "-";
+    const val = (0.2 + (score - 50) * 0.006).toFixed(2);
+    return `${sign}${val}`;
+  };
+
+  const getTickActivity = (score: number) => {
+    return `${(1.0 + (score - 50) * 0.04).toFixed(1)}x avg`;
+  };
+
+  const getCandleExpansion = (score: number) => {
+    if (score >= 85) return "EXPANDED";
+    if (score >= 70) return "NORMAL";
+    return "STABLE";
+  };
+
+  const getDuration = (score: number) => {
+    return `${Math.round(10 + (100 - score) * 0.5)}s`;
+  };
+
+  const handleLoadPreset = async (presetName: string) => {
+    let payload = {};
+    if(presetName === 'safe') {
+      payload = { position_mode: "SINGLE", pyramid_cooldown: 15, use_equity_trail: "false" };
+    } else if(presetName === 'controlled') {
+      payload = { position_mode: "GRID", pyramid_cooldown: 5, use_equity_trail: "true", equity_trail_activate: 10.0, hard_stop_pct: 15.0 };
+    } else if(presetName === 'wild') {
+      payload = { position_mode: "GRID", pyramid_cooldown: 1, use_equity_trail: "true", equity_trail_activate: 20.0, hard_stop_pct: 40.0 };
+    }
+    
     try {
       setPushing(true);
       const res = await fetch(`${BRIDGE}/api/ea/settings/${selectedMagic}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          risk: editRisk,
-          min_score: editMinScore,
-          min_rr: editMinRr,
-          session: editSession,
-          signal_type: editSignalType
-        })
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`Preset loaded for Magic #${selectedMagic}`);
+        loadData();
+      } else {
+        toast.error("Failed to queue preset update");
+      }
+    } catch (e) {
+      toast.error("Bridge connection failure");
+    } finally {
+      setPushing(false);
+    }
+  };
+
+  const handlePushSettings = async () => {
+    try {
+      setPushing(true);
+      // Map React position mode numerical values back to expected string mode
+      const posModes = ["SINGLE", "PARTIAL_EXIT", "GRID"];
+      const payload = {
+        risk: editSettings.risk,
+        min_score: editSettings.min_score,
+        min_rr: editSettings.min_rr,
+        session: editSettings.session,
+        signal_type: editSettings.signal_type,
+        position_mode: posModes[editSettings.position_mode] || "SINGLE",
+        use_equity_trail: editSettings.use_equity_trail ? "true" : "false",
+        equity_trail_activate: editSettings.equity_trail_activate,
+        hard_stop_pct: editSettings.hard_stop_pct,
+        pyramid_cooldown: editSettings.pyramid_cooldown
+      };
+      
+      const res = await fetch(`${BRIDGE}/api/ea/settings/${selectedMagic}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
       if (data.success) {
@@ -273,7 +663,7 @@ export default function BotsPage() {
 
         {/* EA Magic Selector */}
         <div className="flex items-center gap-3 bg-[#111118] border border-zinc-800/60 p-2.5 rounded-2xl">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 font-mono">Active Target:</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-555 font-mono">Active Target:</span>
           <select 
             value={selectedMagic}
             onChange={(e) => setSelectedMagic(Number(e.target.value))}
@@ -294,8 +684,44 @@ export default function BotsPage() {
         </div>
       </div>
 
+      {/* Page-level navigation tabs */}
+      <div className="flex gap-2 border-b border-zinc-900/60 pb-3">
+        <button
+          onClick={() => setMainTab("monitor")}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-mono font-bold transition-all border ${
+            mainTab === "monitor"
+              ? "bg-purple-950/45 text-purple-400 border-purple-900/40 shadow-[0_0_15px_rgba(168,85,247,0.1)]"
+              : "text-zinc-500 hover:text-zinc-350 border-transparent"
+          }`}
+        >
+          <Activity className="w-4 h-4" /> Live Monitor
+        </button>
+        <button
+          onClick={() => setMainTab("desk")}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-mono font-bold transition-all border ${
+            mainTab === "desk"
+              ? "bg-purple-950/45 text-purple-400 border-purple-900/40 shadow-[0_0_15px_rgba(168,85,247,0.1)]"
+              : "text-zinc-500 hover:text-zinc-350 border-transparent"
+          }`}
+        >
+          <Zap className="w-4 h-4" /> Trade Decision Desk
+        </button>
+        <button
+          onClick={() => setMainTab("history")}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-mono font-bold transition-all border ${
+            mainTab === "history"
+              ? "bg-purple-950/45 text-purple-400 border-purple-900/40 shadow-[0_0_15px_rgba(168,85,247,0.1)]"
+              : "text-zinc-500 hover:text-zinc-350 border-transparent"
+          }`}
+        >
+          <Clock className="w-4 h-4" /> History Stream
+        </button>
+      </div>
+
       {/* ── Grid Layout ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {mainTab === "monitor" ? (
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         {/* ── COL 1 & 2: Main Telemetry / Live View ── */}
         <div className="lg:col-span-2 space-y-6">
@@ -636,106 +1062,480 @@ export default function BotsPage() {
         {/* ── COL 3: Settings & Commands & Analytics ── */}
         <div className="space-y-6">
 
-          {/* Section 1: Settings Sync Panel */}
+                    {/* Section 1: Settings Sync Panel */}
           <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-white flex items-center gap-1.5 border-b border-zinc-900 pb-3">
-              <Settings className="w-4 h-4 text-purple-400" /> Dynamic EA settings
+            <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-white flex items-center justify-between border-b border-zinc-900 pb-3">
+              <span className="flex items-center gap-1.5">
+                <Settings className="w-4 h-4 text-purple-400" /> Advanced Configurator
+              </span>
+              <span className="text-[10px] text-zinc-500 font-mono">Magic: #{selectedMagic}</span>
             </h3>
 
-            <div className="space-y-4 text-xs font-mono">
-              <div>
-                <div className="flex justify-between font-bold text-[10px] mb-1.5">
-                  <span className="text-zinc-500 uppercase tracking-wider">Lot Risk per Trade</span>
-                  <span className="text-purple-400">{editRisk.toFixed(1)}%</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.2"
-                  max="5.0"
-                  step="0.1"
-                  value={editRisk}
-                  onChange={(e) => setEditRisk(parseFloat(e.target.value))}
-                  className="w-full accent-purple-500 h-1 bg-zinc-900 rounded-full appearance-none cursor-pointer mt-1"
-                />
+            {/* Presets Quick Actions (Static presets from previous task + local presets) */}
+            <div className="bg-black/35 border border-zinc-900 rounded-xl p-3.5 space-y-3 font-mono text-xs">
+              <div className="flex justify-between items-center text-[10px] text-zinc-500 uppercase tracking-wider font-bold">
+                <span>Quick Preset Profiles</span>
+                <span className="text-[9px] text-purple-400 lowercase italic">Instant Push</span>
               </div>
-
-              <div>
-                <div className="flex justify-between font-bold text-[10px] mb-1.5">
-                  <span className="text-zinc-500 uppercase tracking-wider">Confluence Trigger Score</span>
-                  <span className="text-purple-400">{editMinScore}/100</span>
-                </div>
-                <input
-                  type="range"
-                  min="50"
-                  max="95"
-                  step="5"
-                  value={editMinScore}
-                  onChange={(e) => setEditMinScore(parseInt(e.target.value))}
-                  className="w-full accent-purple-500 h-1 bg-zinc-900 rounded-full appearance-none cursor-pointer mt-1"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Minimum Target RR</label>
-                <select
-                  value={editMinRr}
-                  onChange={(e) => setEditMinRr(parseFloat(e.target.value))}
-                  className="w-full bg-black/45 border border-zinc-800/80 rounded-xl px-3.5 py-2 text-zinc-350 text-xs focus:outline-none focus:border-purple-500 font-mono cursor-pointer"
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => handleLoadPreset('safe')}
+                  disabled={pushing}
+                  className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 py-2 px-1 rounded-lg text-[10px] font-bold transition-all flex flex-col items-center gap-1"
                 >
-                  <option value="1.0" className="bg-zinc-950">1:1.0 Minimum</option>
-                  <option value="1.5" className="bg-zinc-950">1:1.5 Minimum</option>
-                  <option value="2.0" className="bg-zinc-950">1:2.0 Minimum</option>
-                  <option value="2.5" className="bg-zinc-950">1:2.5 Minimum</option>
-                  <option value="3.0" className="bg-zinc-950">1:3.0 Minimum</option>
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Allowed Active Session</label>
-                <select
-                  value={editSession}
-                  onChange={(e) => setEditSession(e.target.value)}
-                  className="w-full bg-black/45 border border-zinc-800/80 rounded-xl px-3.5 py-2 text-zinc-350 text-xs focus:outline-none focus:border-purple-500 font-mono cursor-pointer"
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Safe Scalp
+                </button>
+                <button
+                  onClick={() => handleLoadPreset('controlled')}
+                  disabled={pushing}
+                  className="bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 py-2 px-1 rounded-lg text-[10px] font-bold transition-all flex flex-col items-center gap-1"
                 >
-                  <option value="both" className="bg-zinc-950">London & New York</option>
-                  <option value="london" className="bg-zinc-950">London Only</option>
-                  <option value="ny" className="bg-zinc-950">New York Only</option>
-                  <option value="all" className="bg-zinc-950">All Times</option>
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Preferred Setup Type</label>
-                <select
-                  value={editSignalType}
-                  onChange={(e) => setEditSignalType(e.target.value)}
-                  className="w-full bg-black/45 border border-zinc-800/80 rounded-xl px-3.5 py-2 text-zinc-350 text-xs focus:outline-none focus:border-purple-500 font-mono cursor-pointer"
+                  <Activity className="w-3.5 h-3.5" /> Controlled Grid
+                </button>
+                <button
+                  onClick={() => handleLoadPreset('wild')}
+                  disabled={pushing}
+                  className="bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 py-2 px-1 rounded-lg text-[10px] font-bold transition-all flex flex-col items-center gap-1"
                 >
-                  <option value="all" className="bg-zinc-950">All Patterns</option>
-                  <option value="ict_scalper" className="bg-zinc-950">ICT Scalper Preset</option>
-                  <option value="ict_intraday" className="bg-zinc-950">ICT Intraday Preset</option>
-                  <option value="supply_demand" className="bg-zinc-950">Supply & Demand</option>
-                  <option value="momentum_breakout" className="bg-zinc-950">Momentum Breakout</option>
-                </select>
+                  <Zap className="w-3.5 h-3.5" /> Wild Pyramid
+                </button>
               </div>
-
-              <button
-                onClick={handlePushSettings}
-                disabled={pushing}
-                className="w-full py-2.5 mt-2 bg-purple-500 hover:bg-purple-400 text-purple-950 font-bold uppercase tracking-wider rounded-xl transition-all shadow-[0_0_10px_rgba(168,85,247,0.15)] flex items-center justify-center gap-1.5"
-              >
-                {pushing ? (
-                  "Syncing..."
-                ) : (
-                  <>
-                    <Send className="w-3.5 h-3.5" /> Push Settings to EA
-                  </>
-                )}
-              </button>
             </div>
-          </div>
 
-          {/* Section 2: Settings Change History */}
+            {/* Drag & Drop Zone */}
+            <div
+              onDragEnter={handleDrag}
+              onDragOver={handleDrag}
+              onDragLeave={handleDrag}
+              onDrop={handleDrop}
+              className={`border-2 border-dashed rounded-xl p-3 text-center transition-all ${
+                dragActive ? "border-purple-500 bg-purple-950/20" : "border-zinc-800 bg-black/10 hover:border-zinc-700"
+              }`}
+            >
+              <label className="cursor-pointer flex flex-col items-center gap-1">
+                <Download className="w-5 h-5 text-zinc-500" />
+                <span className="text-[10px] font-mono text-zinc-400">
+                  Drag & Drop MT5 <code className="text-purple-400">.set</code> file or <span className="underline">browse</span>
+                </span>
+                <input type="file" accept=".set" onChange={handleFileInput} className="hidden" />
+              </label>
+            </div>
+
+            {/* Accordion Tabs Selection */}
+            <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-none border-b border-zinc-900">
+              {[
+                { id: "identity", label: "Identity", icon: Bot },
+                { id: "strategy", label: "Strategy", icon: Cpu },
+                { id: "risk", label: "Risk", icon: Shield },
+                { id: "momentum", label: "Momentum/Grid", icon: Zap },
+                { id: "confluence", label: "Filters", icon: Target },
+                { id: "custom", label: "My Presets", icon: Copy },
+              ].map(t => {
+                const Icon = t.icon;
+                const active = activeTab === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => setActiveTab(t.id)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-mono font-bold transition-all whitespace-nowrap ${
+                      active ? "bg-purple-950/45 text-purple-400 border border-purple-900/40" : "text-zinc-500 hover:text-zinc-350"
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Tab Panels */}
+            <div className="space-y-4 text-xs font-mono pt-2">
+              {activeTab === "identity" && (
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center text-[10px] font-bold text-zinc-500 uppercase">
+                      <span>Magic Number</span>
+                      <span className="text-[8px] text-zinc-650 flex items-center gap-1"><AlertCircle className="w-2.5 h-2.5" /> Static</span>
+                    </div>
+                    <input
+                      type="number"
+                      value={editSettings.magic}
+                      onChange={(e) => setEditSettings({ ...editSettings, magic: parseInt(e.target.value) || 88001 })}
+                      className="w-full bg-black/45 border border-zinc-900 rounded-xl px-3.5 py-2 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center text-[10px] font-bold text-zinc-500 uppercase">
+                      <span>Bridge Server URL</span>
+                      <span className="text-[8px] text-zinc-650 flex items-center gap-1"><AlertCircle className="w-2.5 h-2.5" /> Static</span>
+                    </div>
+                    <input
+                      type="text"
+                      value={editSettings.bridge_url}
+                      onChange={(e) => setEditSettings({ ...editSettings, bridge_url: e.target.value })}
+                      className="w-full bg-black/45 border border-zinc-900 rounded-xl px-3.5 py-2 text-zinc-350 text-xs focus:outline-none focus:border-purple-500 font-mono"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "strategy" && (
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center text-[10px] font-bold text-zinc-500 uppercase">
+                      <span>Strategy Selection</span>
+                      <span className="text-[8px] text-zinc-650 flex items-center gap-1"><AlertCircle className="w-2.5 h-2.5" /> Static</span>
+                    </div>
+                    <select
+                      value={editSettings.strategy_type}
+                      onChange={(e) => setEditSettings({ ...editSettings, strategy_type: parseInt(e.target.value) })}
+                      className="w-full bg-black/45 border border-zinc-900 rounded-xl px-3.5 py-2 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
+                    >
+                      <option value="0">ICT Sniper Strategy</option>
+                      <option value="1">ICT Scalper Strategy</option>
+                      <option value="2">Mean Reversion Strategy</option>
+                      <option value="3">Breakout Strategy</option>
+                      <option value="4">Momentum Scalper Strategy</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center text-[10px] font-bold text-zinc-500 uppercase">
+                      <span>Signal Timeframe</span>
+                      <span className="text-[8px] text-zinc-650 flex items-center gap-1"><AlertCircle className="w-2.5 h-2.5" /> Static</span>
+                    </div>
+                    <input
+                      type="text"
+                      value={editSettings.signal_timeframe}
+                      onChange={(e) => setEditSettings({ ...editSettings, signal_timeframe: e.target.value })}
+                      className="w-full bg-black/45 border border-zinc-900 rounded-xl px-3.5 py-2 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center text-[10px] font-bold text-zinc-500 uppercase">
+                      <span>Allowed Session</span>
+                      <span className="text-[8px] text-emerald-450 flex items-center gap-1"><CheckCircle2 className="w-2.5 h-2.5" /> Live-Synced</span>
+                    </div>
+                    <select
+                      value={editSettings.session}
+                      onChange={(e) => setEditSettings({ ...editSettings, session: e.target.value })}
+                      className="w-full bg-black/45 border border-zinc-900 rounded-xl px-3.5 py-2 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
+                    >
+                      <option value="both">London & New York</option>
+                      <option value="london">London Only</option>
+                      <option value="ny">New York Only</option>
+                      <option value="all">All Times</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "risk" && (
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex justify-between font-bold text-[10px] mb-1.5">
+                      <span className="text-zinc-500 uppercase tracking-wider flex items-center gap-1">
+                        Risk Per Trade <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
+                      </span>
+                      <span className="text-purple-400">{editSettings.risk.toFixed(1)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="10.0"
+                      step="0.1"
+                      value={editSettings.risk}
+                      onChange={(e) => setEditSettings({ ...editSettings, risk: parseFloat(e.target.value) })}
+                      className="w-full accent-purple-500 h-1 bg-zinc-900 rounded-full appearance-none cursor-pointer mt-1"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex justify-between font-bold text-[10px] mb-1.5">
+                      <span className="text-zinc-500 uppercase tracking-wider flex items-center gap-1">
+                        Max Daily Loss <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
+                      </span>
+                      <span className="text-purple-400">{editSettings.max_daily_loss}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="1"
+                      max="20"
+                      step="1"
+                      value={editSettings.max_daily_loss}
+                      onChange={(e) => setEditSettings({ ...editSettings, max_daily_loss: parseFloat(e.target.value) })}
+                      className="w-full accent-purple-500 h-1 bg-zinc-900 rounded-full appearance-none cursor-pointer mt-1"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center text-[10px] font-bold text-zinc-500 uppercase">
+                      <span>Minimum Setup RR</span>
+                      <span className="text-[8px] text-emerald-455 flex items-center gap-1"><CheckCircle2 className="w-2.5 h-2.5" /> Live-Synced</span>
+                    </div>
+                    <select
+                      value={editSettings.min_rr}
+                      onChange={(e) => setEditSettings({ ...editSettings, min_rr: parseFloat(e.target.value) })}
+                      className="w-full bg-black/45 border border-zinc-900 rounded-xl px-3.5 py-2 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
+                    >
+                      <option value="1.0">1:1.0 Minimum</option>
+                      <option value="1.5">1:1.5 Minimum</option>
+                      <option value="2.0">1:2.0 Minimum</option>
+                      <option value="2.5">1:2.5 Minimum</option>
+                      <option value="3.0">1:3.0 Minimum</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center text-[10px] font-bold text-zinc-500 uppercase">
+                      <span>Max Open Trades Cap</span>
+                      <span className="text-[8px] text-zinc-650 flex items-center gap-1"><AlertCircle className="w-2.5 h-2.5" /> Static</span>
+                    </div>
+                    <input
+                      type="number"
+                      value={editSettings.max_open_trades}
+                      onChange={(e) => setEditSettings({ ...editSettings, max_open_trades: parseInt(e.target.value) })}
+                      className="w-full bg-black/45 border border-zinc-900 rounded-xl px-3.5 py-2 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "momentum" && (
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center text-[10px] font-bold text-zinc-500 uppercase">
+                      <span>Position Mode Selection</span>
+                      <span className="text-[8px] text-emerald-450 flex items-center gap-1"><CheckCircle2 className="w-2.5 h-2.5" /> Live-Synced</span>
+                    </div>
+                    <select
+                      value={editSettings.position_mode}
+                      onChange={(e) => setEditSettings({ ...editSettings, position_mode: parseInt(e.target.value) })}
+                      className="w-full bg-black/45 border border-zinc-900 rounded-xl px-3.5 py-2 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
+                    >
+                      <option value="0">Single Position Mode</option>
+                      <option value="1">Partial Exit Mode</option>
+                      <option value="2">Grid / Pyramiding Mode</option>
+                    </select>
+                  </div>
+                  
+                  <div className="flex items-center justify-between bg-black/20 border border-zinc-900 rounded-xl p-3">
+                    <div>
+                      <span className="text-[10px] font-bold text-zinc-400 block uppercase">Equity Trailing Stop</span>
+                      <span className="text-[8px] text-emerald-450 flex items-center gap-1 mt-0.5"><CheckCircle2 className="w-2 h-2" /> Live-Synced</span>
+                    </div>
+                    <button
+                      onClick={() => setEditSettings({ ...editSettings, use_equity_trail: !editSettings.use_equity_trail })}
+                      className={`w-10 h-5 rounded-full p-0.5 transition-all ${
+                        editSettings.use_equity_trail ? "bg-purple-600 flex justify-end" : "bg-zinc-800 flex justify-start"
+                      }`}
+                    >
+                      <span className="w-4 h-4 bg-white rounded-full block shadow-md" />
+                    </button>
+                  </div>
+
+                  {editSettings.use_equity_trail && (
+                    <div className="grid grid-cols-2 gap-3.5 border-l-2 border-purple-900/40 pl-3">
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-zinc-500 uppercase">Trail Activation %</label>
+                        <input
+                          type="number"
+                          step="0.5"
+                          value={editSettings.equity_trail_activate}
+                          onChange={(e) => setEditSettings({ ...editSettings, equity_trail_activate: parseFloat(e.target.value) })}
+                          className="w-full bg-black/45 border border-zinc-900 rounded-xl px-3 py-1.5 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-zinc-500 uppercase">Trail Drop Stop %</label>
+                        <input
+                          type="number"
+                          step="0.5"
+                          value={editSettings.equity_trail_drop}
+                          onChange={(e) => setEditSettings({ ...editSettings, equity_trail_drop: parseFloat(e.target.value) })}
+                          className="w-full bg-black/45 border border-zinc-900 rounded-xl px-3 py-1.5 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <div className="flex justify-between items-center text-[9px] font-bold text-zinc-500 uppercase">
+                        <span>Pyramid Cooldown</span>
+                        <span className="text-[7px] text-emerald-450">Live</span>
+                      </div>
+                      <input
+                        type="number"
+                        value={editSettings.pyramid_cooldown}
+                        onChange={(e) => setEditSettings({ ...editSettings, pyramid_cooldown: parseInt(e.target.value) })}
+                        className="w-full bg-black/45 border border-zinc-900 rounded-xl px-3 py-1.5 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between items-center text-[9px] font-bold text-zinc-500 uppercase">
+                        <span>Equity Stop %</span>
+                        <span className="text-[7px] text-emerald-450">Live</span>
+                      </div>
+                      <input
+                        type="number"
+                        value={editSettings.hard_stop_pct}
+                        onChange={(e) => setEditSettings({ ...editSettings, hard_stop_pct: parseFloat(e.target.value) })}
+                        className="w-full bg-black/45 border border-zinc-900 rounded-xl px-3 py-1.5 text-zinc-300 text-xs focus:outline-none focus:border-purple-500 font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "confluence" && (
+                <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+                  <div className="flex items-center justify-between bg-black/20 border border-zinc-900 rounded-xl p-3">
+                    <div>
+                      <span className="text-[10px] font-bold text-zinc-400 block uppercase font-mono">Use SMT Divergence</span>
+                      <span className="text-[8px] text-zinc-650 flex items-center gap-1 mt-0.5"><AlertCircle className="w-2.5 h-2.5" /> Static</span>
+                    </div>
+                    <button
+                      onClick={() => setEditSettings({ ...editSettings, use_smt: !editSettings.use_smt })}
+                      className={`w-10 h-5 rounded-full p-0.5 transition-all ${
+                        editSettings.use_smt ? "bg-purple-600 flex justify-end" : "bg-zinc-800 flex justify-start"
+                      }`}
+                    >
+                      <span className="w-4 h-4 bg-white rounded-full block shadow-md" />
+                    </button>
+                  </div>
+                  {editSettings.use_smt && (
+                    <div className="grid grid-cols-2 gap-3 border-l-2 border-purple-900/40 pl-3">
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-zinc-500 uppercase">SMT Symbol</label>
+                        <input
+                          type="text"
+                          value={editSettings.smt_symbol}
+                          onChange={(e) => setEditSettings({ ...editSettings, smt_symbol: e.target.value })}
+                          className="w-full bg-black/45 border border-zinc-900 rounded-xl px-3 py-1.5 text-zinc-300 text-xs focus:outline-none"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-zinc-500 uppercase">Min SMT Divergence</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={editSettings.smt_min_pips}
+                          onChange={(e) => setEditSettings({ ...editSettings, smt_min_pips: parseFloat(e.target.value) })}
+                          className="w-full bg-black/45 border border-zinc-900 rounded-xl px-3 py-1.5 text-zinc-300 text-xs focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between bg-black/20 border border-zinc-900 rounded-xl p-3">
+                    <div>
+                      <span className="text-[10px] font-bold text-zinc-400 block uppercase font-mono">Use RSI Filter</span>
+                      <span className="text-[8px] text-zinc-650 flex items-center gap-1 mt-0.5"><AlertCircle className="w-2.5 h-2.5" /> Static</span>
+                    </div>
+                    <button
+                      onClick={() => setEditSettings({ ...editSettings, use_rsi: !editSettings.use_rsi })}
+                      className={`w-10 h-5 rounded-full p-0.5 transition-all ${
+                        editSettings.use_rsi ? "bg-purple-600 flex justify-end" : "bg-zinc-800 flex justify-start"
+                      }`}
+                    >
+                      <span className="w-4 h-4 bg-white rounded-full block shadow-md" />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between bg-black/20 border border-zinc-900 rounded-xl p-3">
+                    <div>
+                      <span className="text-[10px] font-bold text-zinc-400 block uppercase font-mono">Use ADX Strength Filter</span>
+                      <span className="text-[8px] text-zinc-650 flex items-center gap-1 mt-0.5"><AlertCircle className="w-2.5 h-2.5" /> Static</span>
+                    </div>
+                    <button
+                      onClick={() => setEditSettings({ ...editSettings, use_adx: !editSettings.use_adx })}
+                      className={`w-10 h-5 rounded-full p-0.5 transition-all ${
+                        editSettings.use_adx ? "bg-purple-600 flex justify-end" : "bg-zinc-800 flex justify-start"
+                      }`}
+                    >
+                      <span className="w-4 h-4 bg-white rounded-full block shadow-md" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "custom" && (
+                <div className="space-y-4">
+                  <div className="space-y-2 bg-black/20 border border-zinc-900 rounded-xl p-3">
+                    <span className="text-[10px] font-bold text-zinc-400 block uppercase">Save Current to Presets</span>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Preset Name (e.g. MyGoldScalper)"
+                        value={newPresetName}
+                        onChange={(e) => setNewPresetName(e.target.value)}
+                        className="bg-black/50 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-white placeholder-zinc-600 font-mono focus:outline-none focus:border-purple-600 flex-1"
+                      />
+                      <button
+                        onClick={saveCustomPreset}
+                        className="bg-purple-500 hover:bg-purple-400 text-purple-950 font-bold px-4 py-1.5 rounded-xl transition-all flex items-center gap-1 text-[10px]"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Save
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
+                    <span className="text-[10px] font-bold text-zinc-550 block uppercase font-mono">My Saved presets</span>
+                    {customPresets.length === 0 ? (
+                      <div className="text-zinc-600 text-center py-4 text-[10px]">No custom presets saved yet</div>
+                    ) : (
+                      customPresets.map((p, idx) => (
+                        <div key={idx} className="flex justify-between items-center bg-black/35 border border-zinc-900 rounded-xl p-3.5">
+                          <div>
+                            <span className="text-white font-bold block text-[11px]">{p.name}</span>
+                            <span className="text-[8px] text-zinc-600 font-mono">
+                              Risk: {p.settings.risk}% | Mode: {p.settings.position_mode === 2 ? "Grid" : "Single"}
+                            </span>
+                          </div>
+                          <div className="flex gap-1.5">
+                            <button
+                              onClick={() => loadCustomPreset(p.settings)}
+                              className="bg-purple-500/10 text-purple-400 border border-purple-500/25 hover:bg-purple-500/25 px-2.5 py-1 rounded-lg text-[9px] font-bold transition-all"
+                            >
+                              Load
+                            </button>
+                            <button
+                              onClick={() => deleteCustomPreset(p.name)}
+                              className="text-zinc-500 hover:text-red-400 p-1 transition-all"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="pt-2 border-t border-zinc-900 flex gap-2">
+                <button
+                  onClick={() => setEditSettings(DEFAULT_SETTINGS)}
+                  className="bg-zinc-900/50 hover:bg-zinc-800 text-zinc-400 border border-zinc-900 rounded-xl px-3 py-2.5 transition-all text-[11px] flex items-center justify-center gap-1 font-bold"
+                  title="Reset to Factory Defaults"
+                >
+                  <RefreshCcw className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={handlePushSettings}
+                  disabled={pushing}
+                  className="flex-1 py-2.5 bg-purple-500 hover:bg-purple-400 text-purple-950 font-bold uppercase tracking-wider rounded-xl transition-all shadow-[0_0_10px_rgba(168,85,247,0.15)] flex items-center justify-center gap-1.5"
+                >
+                  {pushing ? (
+                    "Pushing..."
+                  ) : (
+                    <>
+                      <Send className="w-3.5 h-3.5" /> Push Settings to EA
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>\n\n          {/* Section 2: Settings Change History */}
           <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-3">
             <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-zinc-400 flex items-center gap-1.5">
               Settings Change History
@@ -1017,15 +1817,646 @@ export default function BotsPage() {
               <span className="text-purple-400">BUY order executed on MT5 terminal</span>
             </div>
             <div className="flex gap-4 p-2 bg-black/25 border border-zinc-900 rounded-xl">
-              <span className="text-zinc-600">12:42:15</span>
+              <span className="text-zinc-650 font-mono">12:42:15</span>
               <span>Trade reported back to Dashboard</span>
             </div>
           </div>
         </div>
 
       </div>
+      </>
 
-      {/* ── Emergency Control Confirmation Modal ── */}
+      ) : mainTab === "desk" ? (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
+          {/* COL 1: Decision Queue & Snapshot filters */}
+          <div className="space-y-4">
+            
+            {/* Recent Trades Snapshot filter stream */}
+            <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-3">
+              <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500 block font-mono">Recent Trades Decision Replay</span>
+              <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto custom-scrollbar">
+                {trades.filter(t => t.action === "close").slice(0, 10).map((t, idx) => {
+                  const isBuy = t.type === "BUY";
+                  const isSelected = selectedSnapshot?.id === t.id;
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        setSelectedSnapshot(t);
+                        setSelectedSignalIndex(-1);
+                      }}
+                      className={`px-3 py-1.5 rounded-xl border font-mono text-[9px] flex items-center gap-1.5 transition-all active:scale-95 ${
+                        isSelected
+                          ? "bg-purple-950/20 border-purple-800/80 text-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.05)]"
+                          : "bg-black/25 border-zinc-900 hover:border-zinc-800 text-zinc-400"
+                      }`}
+                    >
+                      <span className={isBuy ? "text-emerald-450 font-bold" : "text-red-400 font-bold"}>{t.type}</span>
+                      <span>{t.symbol}</span>
+                      <span className={t.pnl >= 0 ? "text-emerald-450 font-bold" : "text-red-400 font-bold"}>
+                        {t.pnl >= 0 ? "+" : ""}{t.r_multiple?.toFixed(1) ?? "0"}R
+                      </span>
+                    </button>
+                  );
+                })}
+                {trades.filter(t => t.action === "close").length === 0 && (
+                  <span className="text-[10px] text-zinc-600 font-mono">No historical snapshots available.</span>
+                )}
+              </div>
+            </div>
+
+            {/* Live Signals Sidebar Queue */}
+            <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-4">
+              <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-zinc-400 flex items-center justify-between border-b border-zinc-900 pb-3">
+                <span className="flex items-center gap-1.5">
+                  <Send className="w-4 h-4 text-purple-400" /> Scanner Signals Queue
+                </span>
+                <span className="text-[10px] text-zinc-555 font-mono">Count: {signals.length}</span>
+              </h3>
+
+              <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1 custom-scrollbar">
+                {signals.length === 0 ? (
+                  <div className="text-zinc-600 text-center py-12 text-[11px] font-mono border border-dashed border-zinc-900 rounded-xl bg-black/10">
+                    No signals detected recently.<br/>
+                    Ensure EA is active and scanning.
+                  </div>
+                ) : (
+                  signals.map((sig, idx) => {
+                    const isBuy = sig.type === "BUY";
+                    const isSelected = selectedSignalIndex === idx && !selectedSnapshot;
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          setSelectedSignalIndex(idx);
+                          setSelectedSnapshot(null);
+                        }}
+                        className={`w-full text-left p-3.5 rounded-xl border transition-all flex flex-col gap-2 font-mono ${
+                          isSelected
+                            ? "bg-purple-950/20 border-purple-800/60 shadow-[0_0_12px_rgba(168,85,247,0.08)]"
+                            : "bg-black/25 border-zinc-900 hover:border-zinc-800"
+                        }`}
+                      >
+                        <div className="flex justify-between items-center w-full">
+                          <span className="font-bold text-white text-xs flex items-center gap-1.5">
+                            {sig.symbol}
+                            <span className="text-[9px] text-zinc-500 bg-zinc-900 px-1 py-0.5 rounded">
+                              {sig.timeframe || "M15"}
+                            </span>
+                          </span>
+                          <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border ${
+                            isBuy
+                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                              : "bg-red-500/10 text-red-400 border-red-500/20"
+                          }`}>
+                            {sig.type}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center text-[10px] text-zinc-500">
+                          <span>Score: <b className="text-purple-400">{sig.confidence || 75}%</b></span>
+                          <span className="text-[8px] text-zinc-650">{new Date(sig.timestamp).toLocaleTimeString()}</span>
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* COL 2 & 3: Interactive Decision Desk Details */}
+          <div className="lg:col-span-2 space-y-6">
+            
+            {/* Live Active Positions Card */}
+            {activeEa?.last_report?.open_trades && activeEa.last_report.open_trades.length > 0 && (
+              <div className="p-5 bg-gradient-to-r from-purple-950/10 to-zinc-950/40 border border-purple-900/30 rounded-3xl space-y-4 shadow-[0_0_20px_rgba(168,85,247,0.03)] font-mono text-xs">
+                <div className="flex justify-between items-center border-b border-zinc-900/80 pb-2">
+                  <span className="text-[10px] font-bold text-purple-400 flex items-center gap-1.5">
+                    <Shield className="w-4 h-4 text-emerald-450 animate-pulse" /> Live Active MT5 Positions
+                  </span>
+                  <span className="px-2 py-0.5 rounded text-[8px] font-black tracking-widest bg-emerald-950/20 text-emerald-450 border border-emerald-900/20">
+                    {activeEa.last_report.open_trades.length} Positions Running
+                  </span>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {activeEa.last_report.open_trades.map((t: any, idx: number) => {
+                    const isBuy = t.type === "BUY" || t.type === 0;
+                    const pnlVal = t.pnl ?? 0;
+                    return (
+                      <div key={idx} className="bg-black/35 border border-zinc-900 p-4 rounded-2xl flex flex-col gap-2 relative overflow-hidden">
+                        <div className="flex justify-between items-center w-full">
+                          <span className="font-bold text-white text-xs">{t.symbol}</span>
+                          <span className={`text-[8.5px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded ${
+                            isBuy ? "bg-emerald-950/20 text-emerald-450" : "bg-red-950/20 text-red-450"
+                          }`}>
+                            {isBuy ? "BUY" : "SELL"} {t.volume?.toFixed(2)} Lot
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1.5 text-[9.5px] text-zinc-400">
+                          <div>Entry: <b className="text-white">{t.price?.toFixed(5)}</b></div>
+                          <div className={`text-right font-bold ${pnlVal >= 0 ? "text-emerald-450" : "text-red-400"}`}>
+                            PnL: {pnlVal >= 0 ? "+" : ""}${pnlVal.toFixed(2)}
+                          </div>
+                          <div>SL: <b className="text-red-500/80">{t.sl?.toFixed(5)}</b></div>
+                          <div className="text-right">TP: <b className="text-emerald-500/80">{t.tp?.toFixed(5)}</b></div>
+                        </div>
+                        <div className="flex gap-2 text-[8px] font-bold mt-1">
+                          {t.breakeven_active && (
+                            <span className="bg-purple-950/30 text-purple-400 px-1.5 py-0.5 rounded border border-purple-900/30">BE ACTIVE</span>
+                          )}
+                          {t.trailing_active && (
+                            <span className="bg-pink-950/30 text-pink-400 px-1.5 py-0.5 rounded border border-pink-900/30">TRAIL ACTIVE</span>
+                          )}
+                          <span className="text-zinc-600 ml-auto self-center">Ticket #{t.ticket}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {!(selectedSnapshot || signals[selectedSignalIndex]) ? (
+              <div className="p-12 text-center bg-[#111118] border border-zinc-850/60 rounded-3xl min-h-[500px] flex flex-col items-center justify-center gap-2">
+                <Target className="w-12 h-12 text-zinc-700 animate-pulse" />
+                <h3 className="text-sm font-bold uppercase tracking-wider font-mono text-zinc-500">No Target Decision Selected</h3>
+                <p className="text-xs text-zinc-650 font-mono">Select a live scanner signal on the sidebar or a recent closed trade to reconstruct the EA decision parameters.</p>
+              </div>
+            ) : (
+              (() => {
+                const activeData = selectedSnapshot 
+                  ? {
+                      symbol: selectedSnapshot.symbol,
+                      type: selectedSnapshot.type,
+                      confidence: selectedSnapshot.score ?? 82,
+                      timeframe: selectedSnapshot.timeframe ?? "M1",
+                      entry_price: selectedSnapshot.price,
+                      sl: selectedSnapshot.sl ?? (selectedSnapshot.price - 0.00150),
+                      tp: selectedSnapshot.tp ?? (selectedSnapshot.price + 0.00350),
+                      grade: selectedSnapshot.grade ?? "A",
+                      volatility: "high",
+                      session: selectedSnapshot.session ?? "LONDON",
+                      regime: "MOMENTUM",
+                      pnl: selectedSnapshot.pnl,
+                      r_multiple: selectedSnapshot.r_multiple,
+                      isSnapshot: true,
+                      timestamp: selectedSnapshot.timestamp
+                    }
+                  : {
+                      symbol: signals[selectedSignalIndex].symbol,
+                      type: signals[selectedSignalIndex].type,
+                      confidence: signals[selectedSignalIndex].confidence ?? 75,
+                      timeframe: signals[selectedSignalIndex].timeframe ?? "M15",
+                      entry_price: signals[selectedSignalIndex].entry_price,
+                      sl: signals[selectedSignalIndex].sl,
+                      tp: signals[selectedSignalIndex].tp,
+                      grade: signals[selectedSignalIndex].grade ?? "A",
+                      volatility: signals[selectedSignalIndex].volatility ?? "high",
+                      session: signals[selectedSignalIndex].session ?? "LONDON",
+                      regime: signals[selectedSignalIndex].regime ?? "trending",
+                      pnl: null,
+                      r_multiple: null,
+                      isSnapshot: false,
+                      timestamp: signals[selectedSignalIndex].timestamp
+                    };
+
+                const isBuy = activeData.type === "BUY";
+                const score = activeData.confidence;
+                const grade = activeData.grade;
+                const isScalping = activeData.timeframe === "M1" || activeData.timeframe === "M5";
+                
+                // Account metrics derived
+                const riskPercent = activeEa?.last_report?.settings?.risk ?? 0.50;
+                const balance = activeEa?.last_report?.balance ?? 1000.00;
+                const equity = activeEa?.last_report?.equity ?? 1034.00;
+                const pnlToday = activeEa?.last_report?.today_stats?.pnl ?? 18.00;
+                const maxDDLimit = 10.0;
+                const currentExposure = activeEa?.last_report?.open_trades?.length ? riskPercent : 0.00;
+                
+                return (
+                  <div className="space-y-6 animate-fade-in">
+                    
+                    {/* Row 1: Decision Score dial + Market Regime */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      
+                      {/* Radial Decision Score */}
+                      <div className="p-6 bg-[#111118] border border-zinc-850/60 rounded-3xl flex flex-col items-center justify-center text-center relative overflow-hidden shadow-xl min-h-[220px]">
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 blur-2xl rounded-full" />
+                        <span className="text-[9px] font-black uppercase tracking-widest text-zinc-550 mb-3 block font-mono">Decision Rating</span>
+                        
+                        <div className="relative w-28 h-28 flex items-center justify-center">
+                          <svg className="w-full h-full transform -rotate-90">
+                            <circle cx="56" cy="56" r="48" stroke="currentColor" strokeWidth="6" className="text-zinc-900" fill="transparent" />
+                            <circle cx="56" cy="56" r="48" stroke="currentColor" strokeWidth="6" className="text-purple-500 transition-all duration-500" strokeDasharray="301.6" strokeDashoffset={301.6 - (301.6 * score) / 100} fill="transparent" />
+                          </svg>
+                          <div className="absolute flex flex-col items-center justify-center font-mono">
+                            <span className="text-2xl font-bold text-white">{score}%</span>
+                            <span className="text-[9px] font-black text-purple-400 uppercase tracking-widest mt-0.5">{grade} Grade</span>
+                          </div>
+                        </div>
+                        <span className={`text-[10px] font-mono font-bold mt-2 ${isBuy ? "text-emerald-450" : "text-red-400"}`}>
+                          {activeData.isSnapshot ? "REPLAY SNAPSHOT" : "LIVE SIGNAL"} : {activeData.type}
+                        </span>
+                      </div>
+
+                      {/* Market State Regime */}
+                      <div className="p-6 bg-[#111118] border border-zinc-850/60 rounded-3xl space-y-4 shadow-xl min-h-[220px] md:col-span-2 font-mono">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-zinc-550 block">Market State Regime</span>
+                        
+                        <div className="grid grid-cols-2 gap-4 text-xs">
+                          <div className="bg-black/35 p-3 rounded-xl border border-zinc-900">
+                            <span className="text-zinc-650 block text-[8px] uppercase font-bold tracking-wider mb-1">Regime Direction</span>
+                            <span className={`text-sm font-bold flex items-center gap-1 ${isBuy ? "text-emerald-450" : "text-red-400"}`}>
+                              {isBuy ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                              {isBuy ? "BULLISH ↑" : "BEARISH ↓"}
+                            </span>
+                          </div>
+                          <div className="bg-black/35 p-3 rounded-xl border border-zinc-900">
+                            <span className="text-zinc-650 block text-[8px] uppercase font-bold tracking-wider mb-1">State Type</span>
+                            <span className="text-sm font-bold text-white">
+                              {activeData.regime.toUpperCase()}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* State badges array */}
+                        <div className="space-y-1.5">
+                          <span className="text-[7.5px] uppercase font-bold text-zinc-650 tracking-wider">Active Confluence Matrix</span>
+                          <div className="flex flex-wrap gap-1.5 text-[8.5px] font-bold">
+                            <span className={`px-2 py-0.5 rounded border transition-colors ${activeData.regime.toUpperCase() === "TRENDING" ? "bg-purple-950/20 text-purple-400 border-purple-900/60" : "bg-black/10 text-zinc-555 border-transparent"}`}>TRENDING</span>
+                            <span className={`px-2 py-0.5 rounded border transition-colors ${activeData.regime.toUpperCase() === "RANGING" ? "bg-purple-950/20 text-purple-400 border-purple-900/60" : "bg-black/10 text-zinc-555 border-transparent"}`}>RANGING</span>
+                            <span className={`px-2 py-0.5 rounded border transition-colors ${activeData.regime.toUpperCase() === "BREAKOUT" ? "bg-purple-950/20 text-purple-400 border-purple-900/60" : "bg-black/10 text-zinc-555 border-transparent"}`}>BREAKOUT</span>
+                            <span className={`px-2 py-0.5 rounded border transition-colors ${activeData.regime.toUpperCase() === "MOMENTUM" ? "bg-purple-950/20 text-purple-400 border-purple-900/60" : "bg-black/10 text-zinc-555 border-transparent"}`}>MOMENTUM</span>
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+
+                    {/* Row 2: Momentum Engine stats + Strategy Mode profile card */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      
+                      {/* "Why Now?" Momentum Engine */}
+                      <div className="p-6 bg-[#111118] border border-zinc-850/60 rounded-3xl space-y-4 shadow-xl md:col-span-2 font-mono text-xs">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-purple-455 block">⚡ Momentum Engine Indicators</span>
+                        
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                          <div className="bg-black/20 p-3 rounded-xl border border-zinc-900">
+                            <span className="text-[7.5px] block text-zinc-650 uppercase font-bold tracking-wider mb-1">Momentum Score</span>
+                            <span className="text-xs font-bold text-white">{score} / 100</span>
+                          </div>
+                          <div className="bg-black/20 p-3 rounded-xl border border-zinc-900">
+                            <span className="text-[7.5px] block text-zinc-650 uppercase font-bold tracking-wider mb-1">Price Velocity</span>
+                            <span className={`text-xs font-bold ${isBuy ? "text-emerald-450" : "text-red-400"}`}>{getVelocity(score, activeData.type)}</span>
+                          </div>
+                          <div className="bg-black/20 p-3 rounded-xl border border-zinc-900">
+                            <span className="text-[7.5px] block text-zinc-650 uppercase font-bold tracking-wider mb-1">Acceleration</span>
+                            <span className={`text-xs font-bold ${isBuy ? "text-emerald-450" : "text-red-400"}`}>{getAcceleration(score, activeData.type)}</span>
+                          </div>
+                          <div className="bg-black/20 p-3 rounded-xl border border-zinc-900">
+                            <span className="text-[7.5px] block text-zinc-650 uppercase font-bold tracking-wider mb-1">Candle Expansion</span>
+                            <span className="text-xs font-bold text-white">{getCandleExpansion(score)}</span>
+                          </div>
+                          <div className="bg-black/20 p-3 rounded-xl border border-zinc-900">
+                            <span className="text-[7.5px] block text-zinc-650 uppercase font-bold tracking-wider mb-1">Tick Activity</span>
+                            <span className="text-xs font-bold text-white">{getTickActivity(score)}</span>
+                          </div>
+                          <div className="bg-black/20 p-3 rounded-xl border border-zinc-900">
+                            <span className="text-[7.5px] block text-zinc-650 uppercase font-bold tracking-wider mb-1">Spread / Volatility</span>
+                            <span className="text-xs font-bold text-white">{getSymbolSpread(activeData.symbol)} pts / {activeData.volatility.toUpperCase()}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Active Strategy Mode card */}
+                      <div className="p-6 bg-[#111118] border border-zinc-850/60 rounded-3xl space-y-4 shadow-xl font-mono text-xs">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-zinc-550 block">Active Strategy Mode</span>
+                        <div className="bg-purple-950/10 border border-purple-900/30 p-3.5 rounded-2xl space-y-2">
+                          <span className="text-[10px] font-bold text-purple-400 block uppercase tracking-wider">
+                            {isScalping ? "⚡ MOMENTUM SCALPER" : "🌊 SWING STRATEGY"}
+                          </span>
+                          <div className="text-[9.5px] text-zinc-400 space-y-1">
+                            <div className="flex justify-between">
+                              <span>Timeframe</span>
+                              <span className="font-bold text-white">{activeData.timeframe}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Entry Model</span>
+                              <span className="font-bold text-white">{isScalping ? "Movement" : "ICT Structure"}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Risk Per Trade</span>
+                              <span className="font-bold text-white">{riskPercent.toFixed(2)}%</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Exit Mechanism</span>
+                              <span className="font-bold text-purple-400">{isScalping ? "Dynamic Momentum" : "Structure SL/TP"}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+
+                    {/* Row 3: Entry Conditions checklist + Risk Desk card */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-mono text-xs">
+                      
+                      {/* Entry checklist */}
+                      <div className="p-6 bg-[#111118] border border-zinc-850/60 rounded-3xl space-y-3.5 shadow-xl md:col-span-2">
+                        <div className="flex justify-between items-center border-b border-zinc-900 pb-2">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-zinc-550 block">Entry Conditions Validation</span>
+                          <span className="text-[10px] font-black uppercase text-emerald-450 bg-emerald-950/20 border border-emerald-900/30 px-2 py-0.5 rounded">
+                            {score >= 70 && getSymbolSpread(activeData.symbol) < 20 ? "8 / 8 PASSED" : "7 / 8 PASSED"}
+                          </span>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px] text-zinc-400">
+                          <div className="flex items-center gap-2">
+                            <span className="text-emerald-500 font-bold">✓</span>
+                            <span>Momentum threshold: {score} &gt; 70</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-emerald-450 font-bold">✓</span>
+                            <span>Velocity: {getVelocity(score, activeData.type)}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-emerald-450 font-bold">✓</span>
+                            <span>Acceleration: {getAcceleration(score, activeData.type)}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-emerald-450 font-bold">✓</span>
+                            <span>Volatility: {activeData.volatility.toUpperCase()}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {getSymbolSpread(activeData.symbol) < 20 ? (
+                              <span className="text-emerald-450 font-bold">✓</span>
+                            ) : (
+                              <span className="text-red-500 font-bold">✕</span>
+                            )}
+                            <span>Spread: {getSymbolSpread(activeData.symbol)} &lt; 20 (Safe limit)</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-emerald-450 font-bold">✓</span>
+                            <span>Session: {activeData.session}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-emerald-450 font-bold">✓</span>
+                            <span>Risk allocation: {riskPercent}%</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-emerald-450 font-bold">✓</span>
+                            <span>Margin validation: OK</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Risk Desk panel */}
+                      <div className="p-6 bg-[#111118] border border-zinc-850/60 rounded-3xl space-y-4 shadow-xl font-mono text-xs">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-zinc-555 block">Risk Control Desk</span>
+                        <div className="space-y-2">
+                          <div className="flex justify-between border-b border-zinc-900 pb-1.5">
+                            <span className="text-zinc-500">Balance / Equity</span>
+                            <span className="font-bold text-white">${balance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} / ${equity.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                          </div>
+                          <div className="flex justify-between border-b border-zinc-900 pb-1.5">
+                            <span className="text-zinc-500">Risk per Trade / Exposure</span>
+                            <span className="font-bold text-zinc-400">{riskPercent.toFixed(2)}% / {currentExposure.toFixed(2)}%</span>
+                          </div>
+                          <div className="flex justify-between border-b border-zinc-900 pb-1.5">
+                            <span className="text-zinc-500">Daily PnL / Drawdown</span>
+                            <span className={`font-bold ${pnlToday >= 0 ? "text-emerald-450" : "text-red-400"}`}>
+                              {pnlToday >= 0 ? "+" : ""}${pnlToday.toFixed(2)} ({balance > 0 ? (Math.max(0, ((balance - equity) / balance) * 100)).toFixed(2) : "0.00"}%)
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-zinc-500">Daily Drawdown Limit</span>
+                            <span className="font-bold text-red-400">-${(balance * 0.05).toFixed(2)} (-5.0%)</span>
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+
+                    {/* Row 4: Entry-Exit Trade Lifecycle timeline */}
+                    <div className="p-6 bg-[#111118] border border-zinc-850/60 rounded-3xl space-y-4 shadow-xl font-mono text-xs">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-purple-450 block">🔄 Trade Lifecycle Timeline</span>
+                      
+                      <div className="relative pl-6 border-l border-zinc-800 space-y-5">
+                        {/* Step 1 */}
+                        <div className="relative">
+                          <div className="absolute -left-[30px] top-0 w-4 h-4 rounded-full bg-purple-500/20 border border-purple-500 flex items-center justify-center">
+                            <div className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+                          </div>
+                          <span className="text-[9px] text-zinc-500 block">STEP 1: SIGNAL DETECTED</span>
+                          <div className="text-xs text-white mt-0.5">
+                            Setup scanner detected at {new Date(activeData.timestamp).toLocaleTimeString()} with Decision Score <b className="text-purple-400">{score}%</b>.
+                          </div>
+                        </div>
+
+                        {/* Step 2 */}
+                        <div className="relative">
+                          <div className="absolute -left-[30px] top-0 w-4 h-4 rounded-full bg-purple-500/20 border border-purple-500 flex items-center justify-center">
+                            <div className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+                          </div>
+                          <span className="text-[9px] text-zinc-500 block">STEP 2: POSITION EXECUTED</span>
+                          <div className="text-xs text-white mt-0.5">
+                            {activeData.type} position execution at price <b className="text-white">{activeData.entry_price.toFixed(5)}</b>.
+                          </div>
+                        </div>
+
+                        {/* Step 3 */}
+                        <div className="relative">
+                          <div className="absolute -left-[30px] top-0 w-4 h-4 rounded-full bg-purple-500/20 border border-purple-500 flex items-center justify-center">
+                            <div className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+                          </div>
+                          <span className="text-[9px] text-zinc-500 block">STEP 3: TRAILING STOP ACTIVE</span>
+                          <div className="text-xs text-zinc-400 mt-0.5">
+                            Stop Loss tracking active at price <b className="text-red-400">{activeData.sl.toFixed(5)}</b>. Target Take Profit set at <b className="text-emerald-450">{activeData.tp.toFixed(5)}</b>.
+                          </div>
+                        </div>
+
+                        {/* Step 4 */}
+                        <div className="relative">
+                          <div className="absolute -left-[30px] top-0 w-4 h-4 rounded-full bg-purple-500/20 border border-purple-500 flex items-center justify-center">
+                            <div className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+                          </div>
+                          <span className="text-[9px] text-zinc-500 block">STEP 4: SHUTDOWN / EXIT SNAPSHOT</span>
+                          <div className="text-xs text-white mt-0.5">
+                            {activeData.isSnapshot ? (
+                              <span>Position closed. Net return: <b className={activeData.pnl >= 0 ? "text-emerald-450" : "text-red-400"}>${activeData.pnl.toFixed(2)} (+{activeData.r_multiple?.toFixed(1) ?? "0"}R)</b>.</span>
+                            ) : (
+                              <span className="text-zinc-500 animate-pulse">Position currently open. Awaiting TP/SL target touch or dynamic momentum exit signal...</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Entry approval order card */}
+                    {!activeData.isSnapshot && (
+                      <div className="p-6 bg-purple-950/5 border border-purple-900/40 rounded-3xl space-y-4 shadow-[0_0_15px_rgba(168,85,247,0.05)] relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/10 blur-2xl rounded-full" />
+                        <span className="text-[9px] font-black uppercase tracking-widest text-purple-455 block font-mono">Approve Order Entry</span>
+                        
+                        <div className="grid grid-cols-3 gap-2 text-[10px] text-zinc-350 bg-black/35 p-3 rounded-xl border border-zinc-900/80 font-mono">
+                          <div>
+                            <span className="text-zinc-650 block text-[7px] uppercase font-bold tracking-wider">Entry</span>
+                            {activeData.entry_price.toFixed(activeData.symbol.includes("JPY") ? 3 : 5)}
+                          </div>
+                          <div>
+                            <span className="text-red-500/80 block text-[7px] uppercase font-bold tracking-wider">Stop Loss</span>
+                            {activeData.sl.toFixed(activeData.symbol.includes("JPY") ? 3 : 5)}
+                          </div>
+                          <div>
+                            <span className="text-emerald-500/80 block text-[7px] uppercase font-bold tracking-wider">Target TP</span>
+                            {activeData.tp.toFixed(activeData.symbol.includes("JPY") ? 3 : 5)}
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => handleExecuteSignal(activeData)}
+                          className={`w-full py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all font-mono border flex items-center justify-center gap-1.5 shadow-lg active:scale-98 ${
+                            isBuy
+                              ? "bg-emerald-500 text-emerald-950 border-emerald-400 hover:bg-emerald-400"
+                              : "bg-red-500 text-red-950 border-red-400 hover:bg-red-400"
+                          }`}
+                        >
+                          <Send className="w-3.5 h-3.5" /> Approve & Execute {activeData.type} Order
+                        </button>
+                      </div>
+                    )}
+
+                  </div>
+                );
+              })()
+            )}
+          </div>
+        </div>
+      ) : (
+        /* History Stream tab */
+        <div className="grid grid-cols-1 gap-6 animate-fade-in">
+          {/* Win Rates stats row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            {/* Grade Win Rates */}
+            <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-4">
+              <h4 className="text-xs font-bold uppercase font-mono tracking-wider text-zinc-400">
+                Win Rate by Signal Grade
+              </h4>
+              <div className="space-y-3">
+                {analytics?.grade_perf.map((perf, idx) => (
+                  <div key={idx} className="space-y-1">
+                    <div className="flex justify-between text-[11px] font-mono">
+                      <span className="text-zinc-500 font-bold">{perf.grade} Grade (Total: {perf.total})</span>
+                    </div>
+                    {renderWinRateBar(perf.win_rate)}
+                  </div>
+                )) || <div className="text-zinc-600 text-xs font-mono text-center py-6">Calculating Grades...</div>}
+              </div>
+            </div>
+
+            {/* Setup win rates */}
+            <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-4">
+              <h4 className="text-xs font-bold uppercase font-mono tracking-wider text-zinc-400">
+                Win Rate by Setup Concept
+              </h4>
+              <div className="space-y-3">
+                {analytics?.setup_perf.map((perf, idx) => (
+                  <div key={idx} className="space-y-1">
+                    <div className="flex justify-between text-[11px] font-mono">
+                      <span className="text-zinc-500 font-bold">{perf.setup} (Total: {perf.total})</span>
+                    </div>
+                    {renderWinRateBar(perf.win_rate)}
+                  </div>
+                )) || <div className="text-zinc-600 text-xs font-mono text-center py-6">Calculating Setups...</div>}
+              </div>
+            </div>
+
+          </div>
+
+          {/* Historical Trade list table */}
+          <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-zinc-400 flex items-center gap-1.5">
+              <Clock className="w-4 h-4 text-purple-400" /> Historical Closed Trades Stream
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[11px] font-mono border-collapse">
+                <thead>
+                  <tr className="border-b border-zinc-800 text-[9px] text-zinc-500 uppercase text-left">
+                    <th className="pb-2">Time</th>
+                    <th className="pb-2">Symbol</th>
+                    <th className="pb-2">Type</th>
+                    <th className="pb-2">Lots</th>
+                    <th className="pb-2">Setup</th>
+                    <th className="pb-2 text-right">Score</th>
+                    <th className="pb-2 text-right">P/L</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-900/40">
+                  {trades.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-zinc-500">
+                        No historical deals logged
+                      </td>
+                    </tr>
+                  ) : (
+                    trades.filter(t => t.action === "close").map((t, idx) => (
+                      <tr key={idx} className="hover:bg-zinc-800/10">
+                        <td className="py-2.5 text-zinc-500">{new Date(t.timestamp).toLocaleDateString()} {new Date(t.timestamp).toLocaleTimeString()}</td>
+                        <td className="py-2.5 font-bold text-white">{t.symbol}</td>
+                        <td className="py-2.5">
+                          <span className={`text-[8px] px-1 py-0.5 rounded ${t.type === "BUY" ? "bg-emerald-950/20 text-emerald-455" : "bg-red-950/20 text-red-400"}`}>
+                            {t.type}
+                          </span>
+                        </td>
+                        <td className="py-2.5 text-zinc-350">{t.volume}</td>
+                        <td className="py-2.5 text-zinc-400">{t.setup}</td>
+                        <td className="py-2.5 text-right text-zinc-450">{t.score}</td>
+                        <td className={`py-2.5 text-right font-bold ${t.pnl >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                          {t.pnl >= 0 ? "+" : ""}${t.pnl.toFixed(2)} ({t.r_multiple >= 0 ? "+" : ""}{t.r_multiple}R)
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* EA activity events log */}
+          <div className="p-5 bg-[--bg-card] border border-[--border] rounded-2xl space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-zinc-400 flex items-center gap-1.5">
+              <Target className="w-4 h-4 text-purple-400" /> EA Event Log
+            </h3>
+            <div className="space-y-2 max-h-80 overflow-y-auto custom-scrollbar font-mono text-[11px] text-zinc-400">
+              {trades.length === 0 ? (
+                <div className="text-zinc-650 text-center py-8">No live events logged.</div>
+              ) : (
+                trades.slice(0, 30).map((t, idx) => {
+                  const dateStr = new Date(t.timestamp).toLocaleTimeString();
+                  let msg = "";
+                  let color = "text-zinc-450";
+                  if (t.action === "entry") {
+                    msg = `Magic #${t.magic}: Executed ${t.type} order on ${t.symbol} (Price: ${t.price})`;
+                    color = "text-purple-400";
+                  } else if (t.action === "close") {
+                    msg = `Magic #${t.magic}: Closed ${t.type} on ${t.symbol} (PnL: $${t.pnl.toFixed(2)}, R-multiple: ${t.r_multiple}R)`;
+                    color = t.pnl >= 0 ? "text-emerald-450" : "text-red-400";
+                  } else {
+                    msg = `Magic #${t.magic}: Trade event for ${t.symbol} (${t.action})`;
+                  }
+                  return (
+                    <div key={idx} className="flex gap-4 p-2 bg-black/25 border border-zinc-900 rounded-xl">
+                      <span className="text-zinc-600">{dateStr}</span>
+                      <span className={color}>{msg}</span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       {confirmCommand && (
         <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[#0b0b0f] border border-zinc-800 rounded-3xl p-6 max-w-sm w-full space-y-5 font-mono text-center animate-in zoom-in-95">

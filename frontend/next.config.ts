@@ -69,15 +69,15 @@ const nextConfig: NextConfig = {
       fallback: [
         {
           source: "/api/bridge/:path*",
-          destination: "http://127.0.0.1:5003/:path*", // Proxy to MT5 Bridge
+          destination: `${process.env.BRIDGE_URL || "http://127.0.0.1:5003"}/:path*`, // Proxy to MT5 Bridge
         },
         {
           source: "/api/:path*",
-          destination: "http://127.0.0.1:5000/api/:path*", // Proxy to Express backend
+          destination: `${process.env.INTERNAL_API_URL || "http://127.0.0.1:5000"}/api/:path*`, // Proxy to Express backend
         },
         {
           source: "/uploads/:path*",
-          destination: "http://127.0.0.1:5000/uploads/:path*", // Proxy to Express backend for uploads
+          destination: `${process.env.INTERNAL_API_URL || "http://127.0.0.1:5000"}/uploads/:path*`, // Proxy to Express backend for uploads
         },
       ]
     };

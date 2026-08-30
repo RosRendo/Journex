@@ -121,6 +121,21 @@ import concurrent.futures
 
 app = FastAPI(title="MT5 Free Bridge")
 
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+    import logging
+    logger = logging.getLogger(__name__)
+    body = await request.body()
+    try:
+        body_str = body.decode('utf-8', errors='ignore')
+    except Exception:
+        body_str = str(body)
+    logger.error(f"[VALIDATION ERROR] Path: {request.url.path} | Error: {exc.errors()} | Body: {body_str}")
+    return JSONResponse(status_code=422, content={"detail": exc.errors(), "body": body_str})
+
 # ─── Single-thread executor for MT5 DLL calls ────────────────────────────────
 # The MetaTrader5 C++ DLL is thread-affine: all calls MUST happen on the same
 # thread that called mt5.initialize(). We use a 1-worker ThreadPoolExecutor
@@ -4743,7 +4758,8 @@ def get_ea_status():
     return {"success": True, "eas": results}
 
 @app.post("/api/ea/settings/{magic}")
-def post_ea_settings(magic: str, req: dict):
+@app.post("/api/ea/settings/{magic}/{account}")
+def post_ea_settings(magic: str, req: dict, account: str = None):
     """
     Called by Dashboard to queue settings change for the MQL5 EA.
     """
@@ -4776,7 +4792,8 @@ def post_ea_command(magic: str, req: dict):
     return {"success": True}
 
 @app.get("/api/ea/settings/{magic}")
-def get_ea_settings(magic: str):
+@app.get("/api/ea/settings/{magic}/{account}")
+def get_ea_settings(magic: str, account: str = None):
     """
     Called by MQL5 EA to retrieve and apply pending config changes and emergency commands.
     """
@@ -4813,6 +4830,8 @@ class EASignalDetected(BaseModel):
     confidence: int
     grade: str
     timeframe: str
+    reasons: list = []
+    warnings: list = []
 
 ea_signals_db = []
 
@@ -4884,7 +4903,7 @@ def post_ea_signal_detected(sig: EASignalDetected):
         "tp2": {"price": sig.tp, "rr": 2.0, "reason": "Target 2"},
         "tp3": {"price": sig.tp, "rr": 2.0, "reason": "Target 3"},
         "invalidation": sig.sl,
-        "reasoning":    {"summary": f"{sig.type} setup detected by EA", "pros": [], "cons": []},
+        "reasoning":    {"summary": f"{sig.type} setup detected by EA", "pros": sig.reasons, "cons": sig.warnings},
     }
     
     # Deduplicate: if ID already in list, replace it, otherwise insert at beginning

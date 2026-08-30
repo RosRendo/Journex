@@ -1,61 +1,21 @@
-# Multi-stage build for the main API Gateway
-FROM node:20 AS builder
-
-# Install dependencies
-RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
-
+FROM node:20-alpine
+RUN apk add --no-cache openssl libc6-compat
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
-COPY tsconfig.json ./
 
-# Install dependencies
-RUN npm ci
+# Install all dependencies (including devDependencies needed for build)
+RUN npm install
 
-# Copy source code
-COPY src ./src
-COPY prisma ./prisma
+# Copy the rest of the application
+COPY . .
 
-# Generate Prisma client
-RUN npm run prisma:generate
-
-# Build TypeScript
+# Generate Prisma Client and Build TypeScript
 RUN npm run build
 
-# Production stage
-FROM node:20
+# Expose API port
+EXPOSE 5000
 
-WORKDIR /app
-
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
-
-COPY package*.json ./
-
-# Install production dependencies only
-RUN npm ci --only=production
-
-# Copy built files from builder
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/prisma ./prisma
-
-# Generate Prisma client in production
-RUN npm run prisma:generate
-
-# Create uploads directory
-RUN mkdir -p uploads
-
-# Expose port (will be set by Railway/environment)
-EXPOSE ${PORT:-5000}
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD curl -f http://localhost:${PORT:-5000}/health || exit 1
-
-# Start the application
-CMD ["node", "dist/server.js"]
-
-# Start application
-CMD ["node", "dist/server.js"]
+# Start the server
+CMD ["npm", "run", "start"]

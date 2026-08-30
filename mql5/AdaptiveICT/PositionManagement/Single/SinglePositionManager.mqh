@@ -176,40 +176,34 @@ public:
               {
                double stop_dist = MathAbs(open_price - current_sl);
                if(stop_dist <= 0) stop_dist = current_atr * 2.0;
-               tp1_val = is_buy ? open_price + stop_dist * 1.5 : open_price - stop_dist * 1.5;
-               tp2_val = is_buy ? open_price + stop_dist * 3.0 : open_price - stop_dist * 3.0;
-               tp3_val = is_buy ? open_price + stop_dist * 5.0 : open_price - stop_dist * 5.0;
+               tp1_val = is_buy ? open_price + stop_dist * 1.0 : open_price - stop_dist * 1.0; // 1R Target
+               tp2_val = is_buy ? open_price + stop_dist * 1.5 : open_price - stop_dist * 1.5; // 1.5R Target
+               tp3_val = 0; // Disabled in data-driven mode
                reg_sl  = current_sl;
               }
             
-            // ── Stage 1: TP1 Partial Close (33%) + Move SL to BE+5pips ─────
+            // ── Stage 1: The 1R Profit Lock (Move SL to +0.5R) ─────
             if(!tp1_hit)
               {
                bool trigger_tp1 = (is_buy && current_price >= tp1_val) || (!is_buy && current_price <= tp1_val);
                if(trigger_tp1)
                  {
-                  double close_vol = NormalizeDouble(volume * 0.33, 2);
-                  if(close_vol >= lot_min && trade.PositionClosePartial(ticket, close_vol))
-                    {
-                     Print("TP1 Partial Close (33%): ticket ", ticket, " | closed ", close_vol, " lots at ", current_price);
-                     SendTradeEvent("modify", ticket, dir, volume - close_vol, current_price, current_sl, tp1_val, 100, "TP1");
-                    }
                   tp1_hit = true;
                   UpdatePositionState(ticket, tp1_hit, tp2_hit, reg_sl, tp1_val, tp2_val, tp3_val);
                   
                   if(InpUseBE)
                     {
-                     double pip = (_Digits == 3 || _Digits == 5) ? 10.0 * SymbolInfoDouble(_Symbol, SYMBOL_POINT) : SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-                     double be_price = is_buy ? open_price + (5.0 * pip) : open_price - (5.0 * pip);
+                     double stop_dist = MathAbs(open_price - reg_sl);
+                     double be_price = is_buy ? open_price + (stop_dist * 0.1) : open_price - (stop_dist * 0.1);
                      be_price = NormalizeDouble(be_price, _Digits);
                      trade.PositionModify(ticket, be_price, 0);
-                     Print("SL moved to BE+5pips after TP1: ticket ", ticket, " | BE=", be_price);
-                     SendTradeEvent("modify", ticket, dir, volume - close_vol, open_price, be_price, tp2_val, 100, "BE");
+                     Print("Data-Driven: SL moved to +0.1R (Breakeven) after 1R reached: ticket ", ticket, " | SL=", be_price);
+                     SendTradeEvent("modify", ticket, dir, volume, open_price, be_price, tp2_val, 100, "1R_Lock");
                     }
                  }
               }
               
-            // ── Stage 2: TP2 Partial Close (50% of remainder) ───────────────
+            // ── Stage 2: The 1.5R Scale-Out (Close 50%) ───────────────
             if(tp1_hit && !tp2_hit && tp2_val > 0)
               {
                bool trigger_tp2 = (is_buy && current_price >= tp2_val) || (!is_buy && current_price <= tp2_val);
@@ -218,31 +212,17 @@ public:
                   double close_vol = NormalizeDouble(volume * 0.5, 2);
                   if(close_vol >= lot_min && trade.PositionClosePartial(ticket, close_vol))
                     {
-                     Print("TP2 Partial Close (50%): ticket ", ticket, " | closed ", close_vol, " lots at ", current_price);
-                     SendTradeEvent("modify", ticket, dir, volume - close_vol, current_price, current_sl, tp2_val, 100, "TP2");
+                     Print("Data-Driven: 1.5R Scale-Out (50%): ticket ", ticket, " | closed ", close_vol, " lots at ", current_price);
+                     SendTradeEvent("modify", ticket, dir, volume - close_vol, current_price, current_sl, 0, 100, "1.5R_ScaleOut");
                     }
                   tp2_hit = true;
                   UpdatePositionState(ticket, tp1_hit, tp2_hit, reg_sl, tp1_val, tp2_val, tp3_val);
                  }
               }
               
-            // ── Stage 3: TP3 Full Close (remainder) ─────────────────────────
-            if(tp1_hit && tp2_hit && tp3_val > 0)
-              {
-               bool trigger_tp3 = (is_buy && current_price >= tp3_val) || (!is_buy && current_price <= tp3_val);
-               if(trigger_tp3)
-                 {
-                  if(trade.PositionClose(ticket))
-                    {
-                     Print("TP3 Full Close: ticket ", ticket, " | closed at ", current_price);
-                     SendTradeEvent("close", ticket, dir, volume, current_price, current_sl, tp3_val, 100, "TP3");
-                    }
-                  continue;
-                 }
-              }
-              
-            // ── Stage 4: ATR Trailing Stop ───────────────────────────────────
-            if(InpTrailingStop)
+            // ── Stage 3: The Runner (ATR Trailing Stop) ───────────────────────────────────
+            // We only apply the trailing stop after the 1.5R scale out is completed
+            if(tp2_hit && InpTrailingStop)
               {
                if(is_buy)
                  {
