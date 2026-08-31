@@ -222,10 +222,14 @@ export default function DashboardOS() {
     });
   }, [filteredTrades]);
 
-  const currentHour = new Date().getHours();
-  let greeting = "Good Evening";
-  if (currentHour < 12) greeting = "Good Morning";
-  else if (currentHour < 18) greeting = "Good Afternoon";
+  const [greeting, setGreeting] = useState("Welcome");
+
+  useEffect(() => {
+    const currentHour = new Date().getHours();
+    if (currentHour < 12) setGreeting("Good Morning");
+    else if (currentHour < 18) setGreeting("Good Afternoon");
+    else setGreeting("Good Evening");
+  }, []);
 
   const isProfitable = filteredStats.totalProfit >= 0;
 

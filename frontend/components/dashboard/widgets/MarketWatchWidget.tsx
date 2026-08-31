@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect } from "react";
 import { Activity, Target, Zap, ChevronRight } from "lucide-react";
@@ -29,7 +29,7 @@ export function MarketWatchWidget({ borderless = false }: { borderless?: boolean
       }).catch(() => {});
 
     // Fetch Signals
-    fetchWithAuth(`${getBackendUrl()}/api/bridge/api/signals`)
+    fetchWithAuth(`${getBackendUrl()}/api/signals`)
       .then(res => res.json())
       .then(data => {
         if (data.success && data.signals && data.signals.length > 0) {
