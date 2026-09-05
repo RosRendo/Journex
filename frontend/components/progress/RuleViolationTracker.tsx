@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Ban, AlertTriangle, TrendingDown, TrendingUp, Calendar, Clock, X, CheckCircle2, Info, Filter, Plus, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
@@ -22,13 +22,7 @@ interface CustomRule {
   enabled: boolean;
 }
 
-const mockViolations: RuleViolation[] = [
-  { id: "1", ruleName: "News Trading", category: "Timing", severity: "warning", tradeId: "T012", date: "2026-04-20", description: "Traded 15 min before NFP news", consequence: "Stop trading during high impact news", resolved: false, repeat: false },
-  { id: "2", ruleName: "Max Daily Loss", category: "Risk", severity: "critical", tradeId: "T010", date: "2026-04-19", description: "Exceeded 4% daily loss limit", consequence: "Mandatory 24h break", resolved: true, repeat: false },
-  { id: "3", ruleName: "Revenge Trading", category: "Emotional", severity: "major", tradeId: "T008", date: "2026-04-18", description: "Took trade to recover from loss", consequence: "Review emotional triggers", resolved: false, repeat: true },
-  { id: "4", ruleName: "No Stop Loss", category: "Risk", severity: "critical", tradeId: "T006", date: "2026-04-15", description: "Entered without setting stop loss", consequence: "Review execution process", resolved: true, repeat: false },
-  { id: "5", ruleName: "Asian Session Trading", category: "Timing", severity: "warning", tradeId: "T004", date: "2026-04-14", description: "Traded during Asian session (not allowed)", consequence: "Stick to London/NY sessions", resolved: true, repeat: false },
-];
+import { useCsvTrades } from "@/hooks/useCsvTrades";
 
 const ruleCategories = [
   "Risk Management",
@@ -47,10 +41,30 @@ const defaultCustomRules: CustomRule[] = [
 ];
 
 export default function RuleViolationTracker() {
-  const [violations, setViolations] = useState<RuleViolation[]>(mockViolations);
+  const { trades = [] } = useCsvTrades();
+  const [violations, setViolations] = useState<RuleViolation[]>([]);
   const [customRules, setCustomRules] = useState<CustomRule[]>(defaultCustomRules);
   const [filter, setFilter] = useState<"all" | "unresolved" | "resolved">("all");
   const [severityFilter, setSeverityFilter] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (trades.length > 0) {
+      const deviatingTrades = trades.filter(t => t.followedPlan === false || Boolean(t.planDeviationReason) || (t.profit || 0) < -100);
+      const mapped: RuleViolation[] = deviatingTrades.slice(0, 10).map((t, idx) => ({
+        id: t.id.toString(),
+        ruleName: t.planDeviationReason ? "Plan Deviation" : "Execution Discipline",
+        category: t.planDeviationReason ? "Strategy Rules" : "Trade Execution",
+        severity: (t.profit || 0) < -100 ? "critical" : "warning",
+        tradeId: t.ticket || `T00${idx + 1}`,
+        date: t.date ? t.date.split("T")[0] : new Date().toISOString().split("T")[0],
+        description: t.planDeviationReason || "Executed without adhering strictly to predefined entry checklist",
+        consequence: "Review trade journal and mandatory reflection",
+        resolved: false,
+        repeat: false,
+      }));
+      setViolations(mapped);
+    }
+  }, [trades]);
 
   const toggleRule = (id: string) => {
     setCustomRules(customRules.map(r => r.id === id ? { ...r, enabled: !r.enabled } : r));

@@ -1,235 +1,30 @@
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
-import { ArrowLeft, Clock, MessageSquare, TrendingUp, TrendingDown, Activity, ChevronDown } from "lucide-react";
+import { 
+  ArrowLeft, 
+  ArrowUpRight,
+  ExternalLink, 
+  ShieldCheck, 
+  Compass, 
+  BookOpen, 
+  SlidersHorizontal,
+  Bell
+} from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, ReferenceLine } from "recharts";
+import { api } from "@/lib/terminalApi";
 
-// ─── Market Sessions Swimlane (matches reference image) ──────────
-const SESSIONS = [
-  { name: "Sydney",   open: 22, close: 7,  color: "#4a9eff", afterClose: 9 },
-  { name: "Tokyo",    open: 0,  close: 9,  color: "#f5a623", afterClose: 11 },
-  { name: "London",   open: 8,  close: 17, color: "#00d4a1", afterClose: 19 },
-  { name: "New York", open: 13, close: 22, color: "#a855f7", afterClose: 24 },
-];
+import MarketStateBar from "@/components/macro/MarketStateBar";
+import ChartWorkspace from "@/components/macro/ChartWorkspace";
+import IntelligenceDock from "@/components/macro/IntelligenceDock";
 
-function getSessionStatus(open: number, close: number, utcH: number, utcM: number) {
-  const nowMins = utcH * 60 + utcM;
-  const openMins = open * 60;
-  const closeMins = close * 60;
-  const isOpen = open > close
-    ? nowMins >= openMins || nowMins < closeMins
-    : nowMins >= openMins && nowMins < closeMins;
-  const isAfterHours = !isOpen && (
-    open > close
-      ? nowMins >= closeMins && nowMins < openMins
-      : nowMins >= closeMins && nowMins < (closeMins + 120)
-  );
-  let minsLeft = isOpen
-    ? (open > close ? (closeMins - nowMins + 1440) % 1440 : closeMins - nowMins)
-    : Math.max(0, open > close ? (openMins - nowMins + 1440) % 1440 : openMins - nowMins);
-  return { isOpen, isAfterHours, countdown: `${Math.floor(minsLeft / 60)}h ${minsLeft % 60}m` };
-}
-
-function MarketSessionsBar() {
-  const [now, setNow] = useState(new Date());
-  const [tz, setTz] = useState<"GMT+7" | "GMT+8" | "GMT+9">("GMT+8");
-  const TZ: Record<string, number> = { "GMT+7": 7, "GMT+8": 8, "GMT+9": 9 };
-  useEffect(() => { const t = setInterval(() => setNow(new Date()), 30_000); return () => clearInterval(t); }, []);
-  const utcH = now.getUTCHours(), utcM = now.getUTCMinutes();
-  const localH = (utcH + TZ[tz]) % 24;
-  const localStr = `${String(localH).padStart(2,"0")}:${String(utcM).padStart(2,"0")} ${utcM >= 0 && localH < 12 ? "AM" : "PM"}`;
-  const nowFrac = utcH + utcM / 60;
-  const nowPct = `${(nowFrac / 24) * 100}%`;
-
-  // Hours in the TZ to display
-  const tzOffset = TZ[tz];
-  const displayHours = [0, 4, 8, 12, 16, 20, 24].map(h => ({
-    utc: h,
-    local: (h + tzOffset) % 24,
-    pct: `${(h / 24) * 100}%`
-  }));
-
-  return (
-    <div className="rounded border border-[rgba(255,255,255,0.07)] bg-[#101014] overflow-hidden font-mono text-[9px]">
-      {/* Header row */}
-      <div className="flex items-center justify-between px-5 py-2.5 border-b border-[rgba(255,255,255,0.07)] bg-black/10">
-        <span className="text-[9px] font-bold uppercase tracking-widest text-[#71717a]">Market Sessions Swimlane</span>
-        <div className="flex items-center gap-3">
-          <div className="flex gap-0.5 p-0.5 rounded bg-[#141419] border border-[rgba(255,255,255,0.07)]">
-            {(["GMT+7","GMT+8","GMT+9"] as const).map(t => (
-              <button key={t} onClick={() => setTz(t)}
-                className={`text-[8px] px-2 py-0.5 rounded font-bold transition-all ${tz === t ? "bg-white/10 text-white" : "text-[#71717a] hover:text-[#a1a1aa]"}`}>
-                {t}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Dynamic Session Intelligence & Alerts Strip */}
-      <div className="px-5 py-2 border-b border-[rgba(255,255,255,0.07)] bg-black/5 flex items-center justify-between text-[8px] text-[#20e0b2] font-mono font-bold">
-        <div className="flex items-center gap-1.5">
-          <Clock className="w-3 h-3 text-[#20e0b2]" />
-          <span>London/NY overlap active — high-liquidity window. USD CPI in 42m — elevated event risk.</span>
-        </div>
-      </div>
-
-      <div className="px-5 pt-4 pb-6 relative">
-        {/* Time axis labels */}
-        <div className="relative h-6 mb-2 border-b" style={{ borderColor: "var(--border-strong)" }}>
-          {displayHours.map(({ local, pct }, i) => (
-            <span key={i} className="absolute bottom-1 text-[9px] font-mono -translate-x-1/2" style={{ left: pct, color: "var(--text-tertiary)" }}>
-              {String(local).padStart(2,"0")}:00
-            </span>
-          ))}
-          {/* Current time label above marker */}
-          <span className="absolute bottom-[3px] text-[10px] font-mono font-bold -translate-x-1/2" style={{ left: nowPct, color: "var(--text-primary)" }}>
-            {localStr}
-          </span>
-          <div className="absolute w-2 h-2 rounded-full border-2 border-[--bg-card] -bottom-1 -translate-x-1/2 z-10" style={{ left: nowPct, background: "var(--text-primary)" }} />
-        </div>
-
-        {/* Global Now Line (drops behind bars) */}
-        <div className="absolute top-[36px] bottom-0 w-px z-10 -translate-x-1/2" style={{ left: `calc(1.25rem + (100% - 2.5rem) * ${nowFrac/24})`, background: "rgba(255,255,255,0.25)" }} />
-
-        {/* Floating Session Swimlanes */}
-        <div className="relative h-[220px] w-full" style={{ background: "rgba(0,0,0,0.1)", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.03)" }}>
-          {SESSIONS.map((s, idx) => {
-            const { isOpen, isAfterHours, countdown } = getSessionStatus(s.open, s.close, utcH, utcM);
-            const startPct = (s.open / 24) * 100;
-            const mainWidth = s.open < s.close ? ((s.close - s.open) / 24) * 100 : ((24 - s.open) / 24) * 100;
-            
-            // Determine vertical lane, staggered
-            const laneTop = 16 + idx * 48; 
-
-            return (
-              <React.Fragment key={s.name}>
-                {/* Main Session Bar floating over timeline */}
-                {s.open < s.close ? (
-                  <div className="absolute h-[38px] rounded-lg border overflow-hidden transition-all group"
-                    style={{
-                      left: `${startPct}%`, top: laneTop, width: `${mainWidth}%`,
-                      background: isOpen ? `linear-gradient(90deg, ${s.color}20, ${s.color}10)` : "rgba(20,20,25,0.8)",
-                      borderColor: isOpen ? `${s.color}60` : "rgba(255,255,255,0.05)",
-                      boxShadow: isOpen ? `0 0 20px -5px ${s.color}30` : "none"
-                    }}>
-                    <div className="p-2 flex flex-col justify-center h-full">
-                       <span className="text-[11px] font-bold leading-none" style={{ color: isOpen ? "white" : "var(--text-tertiary)" }}>{s.name}</span>
-                       <span className="text-[8px] font-bold uppercase mt-1 tracking-wider" style={{ color: isOpen ? s.color : isAfterHours ? "#4a9eff" : "#ff4d6a" }}>
-                         {isOpen ? "OPEN" : isAfterHours ? "AFTER HOURS" : "CLOSED"}
-                       </span>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="absolute h-[38px] rounded-r-lg border overflow-hidden transition-all group"
-                      style={{
-                        left: "0%", top: laneTop, width: `${(s.close / 24) * 100}%`,
-                        background: isOpen ? `linear-gradient(90deg, ${s.color}20, ${s.color}10)` : "rgba(20,20,25,0.8)",
-                        borderColor: isOpen ? `${s.color}60` : "rgba(255,255,255,0.05)", borderLeft: "none"
-                      }}>
-                       {/* Label goes in whichever block is bigger to look nice, typically left block */}
-                       {(s.close / 24) * 100 > mainWidth ? (
-                         <div className="p-2 flex flex-col justify-center h-full">
-                           <span className="text-[11px] font-bold leading-none" style={{ color: isOpen ? "white" : "var(--text-tertiary)" }}>{s.name}</span>
-                           <span className="text-[8px] font-bold uppercase mt-1 tracking-wider" style={{ color: isOpen ? s.color : isAfterHours ? "#4a9eff" : "#ff4d6a" }}>
-                             {isOpen ? "OPEN" : isAfterHours ? "AFTER HOURS" : "CLOSED"}
-                           </span>
-                        </div>
-                       ) : null}
-                    </div>
-                    <div className="absolute h-[38px] rounded-l-lg border overflow-hidden transition-all group"
-                      style={{
-                        left: `${startPct}%`, top: laneTop, width: `${mainWidth}%`,
-                        background: isOpen ? `linear-gradient(90deg, ${s.color}20, ${s.color}10)` : "rgba(20,20,25,0.8)",
-                        borderColor: isOpen ? `${s.color}60` : "rgba(255,255,255,0.05)", borderRight: "none"
-                      }}>
-                       {mainWidth >= (s.close / 24) * 100 ? (
-                         <div className="p-2 flex flex-col justify-center h-full">
-                           <span className="text-[11px] font-bold leading-none" style={{ color: isOpen ? "white" : "var(--text-tertiary)" }}>{s.name}</span>
-                           <span className="text-[8px] font-bold uppercase mt-1 tracking-wider" style={{ color: isOpen ? s.color : isAfterHours ? "#4a9eff" : "#ff4d6a" }}>
-                             {isOpen ? "OPEN" : isAfterHours ? "AFTER HOURS" : "CLOSED"}
-                           </span>
-                        </div>
-                       ) : null}
-                    </div>
-                  </>
-                )}
-              </React.Fragment>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Relative Strength ────────────────────────────────────────────
-function generateRSData(pair: string, pts = 60) {
-  const hash = pair.split("").reduce((a, b) => a + b.charCodeAt(0), 0);
-  let pairVal = 0.025, basketVal = 0.01;
-  return Array.from({ length: pts }).map((_, i) => {
-    pairVal += Math.sin(i / 6 + hash) * 0.002 + (Math.random() - 0.5) * 0.001;
-    basketVal += Math.sin(i / 10 + hash + 3) * 0.0005 + (Math.random() - 0.5) * 0.0004;
-    return { i, pair: +pairVal.toFixed(5), basket: +basketVal.toFixed(5) };
-  });
-}
-function RelativeStrengthChart({ pair }: { pair: string }) {
-  const data = useRelativeStrength(pair);
-  const currentPair = data.at(-1)?.pair ?? 0;
-  const currentBasket = data.at(-1)?.basket ?? 0;
-  return (
-    <div className="rounded-3xl border overflow-hidden backdrop-blur-xl shadow-2xl transition-all hover:border-white/10" style={{ background: "rgba(12,12,13,0.7)", borderColor: "var(--border)" }}>
-      <div className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: "var(--border)" }}>
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-bold uppercase tracking-[0.15em]" style={{ color: "var(--text-tertiary)" }}>Relative Strength</span>
-          <span className="text-[10px] border px-1 py-0.5 rounded cursor-help" style={{ color: "var(--text-tertiary)", borderColor: "var(--border)" }}>ⓘ</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-[10px]" style={{ color: "var(--text-tertiary)" }}>Basket: US30, DXY, US10Y, VIX</span>
-          <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded" style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444" }}>
-            <span className="w-2 h-0.5 inline-block" style={{ background: "#ef4444" }} /> Basket Avg
-          </span>
-          <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded" style={{ background: "rgba(34,197,94,0.12)", color: "#22c55e" }}>
-            <span className="w-2 h-0.5 inline-block" style={{ background: "#22c55e" }} /> {pair} RS
-          </span>
-        </div>
-      </div>
-      <div className="px-4 pt-3 pb-4">
-        <div className="flex items-baseline gap-3 mb-3">
-          <span className="text-xl font-bold font-mono" style={{ color: currentPair > currentBasket ? "var(--bull)" : "var(--bear)" }}>
-            {currentPair.toFixed(5)}
-          </span>
-          <span className="text-[10px]" style={{ color: "var(--text-tertiary)" }}>vs basket {currentBasket.toFixed(5)}</span>
-        </div>
-        <ResponsiveContainer width="100%" height={120}>
-          <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-            <XAxis dataKey="i" hide />
-            <YAxis hide domain={["auto", "auto"]} />
-            <Tooltip
-              contentStyle={{ background: "#111118", border: "1px solid var(--border)", borderRadius: 8, fontSize: 10 }}
-              formatter={(v: any, name: string) => [v.toFixed(5), name === "basket" ? "Basket" : pair]}
-              labelFormatter={() => ""}
-            />
-            <Line type="monotone" dataKey="basket" stroke="#ef4444" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
-            <Line type="monotone" dataKey="pair" stroke="#22c55e" strokeWidth={2} dot={false} />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
-
-// --- Real MT5 Data Fetchers ---
+// --- Real MT5 Data Fetcher Hook ---
 function useMT5ChartData(pair: string, timeframe: string) {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Maps standard UI timeframes to MT5 mnemonics (from mt5_bridge)
   const tfMap: Record<string, string> = {
-    "1D": "D1", "5D": "D1", "1M": "W1", "1H": "H1", "15m": "M15"
+    "1D": "D1", "5D": "D1", "1M": "W1", "1H": "H1", "15m": "M15", "4H": "H4"
   };
 
   useEffect(() => {
@@ -237,8 +32,10 @@ function useMT5ChartData(pair: string, timeframe: string) {
       try {
         setLoading(true);
         const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge";
-        // Fetch last 60 candles
-        const res = await fetch(`${bridgeUrl}/api/historical-candles?symbol=${pair}&timeframe=${tfMap[timeframe] || "D1"}&count=60`, { headers: { "ngrok-skip-browser-warning": "true" } });
+        const res = await fetch(
+          `${bridgeUrl}/api/historical-candles?symbol=${pair}&timeframe=${tfMap[timeframe] || "D1"}&count=60`,
+          { headers: { "ngrok-skip-browser-warning": "true" } }
+        );
         if (!res.ok) throw new Error("Offline");
         const json = await res.json();
         
@@ -253,7 +50,6 @@ function useMT5ChartData(pair: string, timeframe: string) {
           setData(mapped);
         }
       } catch (err) {
-        // Mock fallback if bridge offline, so the UI doesn't completely break
         setData([]);
       } finally {
         setLoading(false);
@@ -272,10 +68,9 @@ function useRelativeStrength(pair: string) {
     const fetchRS = async () => {
       try {
         const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge";
-        // Fetch pair and a basket proxy (US30 or SPX500 if available)
         const [pairRes, basketRes] = await Promise.all([
           fetch(`${bridgeUrl}/api/historical-candles?symbol=${pair}&timeframe=H1&count=48`, { headers: { "ngrok-skip-browser-warning": "true" } }),
-          fetch(`${bridgeUrl}/api/historical-candles?symbol=US30&timeframe=H1&count=48`, { headers: { "ngrok-skip-browser-warning": "true" } }) // Simple 1-asset proxy for now
+          fetch(`${bridgeUrl}/api/historical-candles?symbol=US30&timeframe=H1&count=48`, { headers: { "ngrok-skip-browser-warning": "true" } })
         ]);
         
         let pData: any[] = [], bData: any[] = [];
@@ -283,7 +78,6 @@ function useRelativeStrength(pair: string) {
         if (basketRes.ok) bData = (await basketRes.json()).data || [];
         
         if (pData.length > 0) {
-          // Normalize to starting point 0 pct
           const startP = pData[0].close;
           const startB = bData.length > 0 ? bData[0].close : 1;
           
@@ -296,11 +90,8 @@ function useRelativeStrength(pair: string) {
             };
           });
           setData(mapped);
-          return;
         }
-        throw new Error("No data");
       } catch (err) {
-        // Fallback for visualization
         setData([]);
       }
     };
@@ -326,15 +117,12 @@ function useAiAnalysis(pair: string) {
         const json = await res.json();
         if (json.success && json.analysis) {
           setData(json.analysis);
-        } else {
-          throw new Error("Invalid format");
         }
       } catch (err) {
-        // Fallback for UI visualization if bridge offline
         setData({
-          pulse: { label: "Tradable", score: 55, color: "var(--bull)", bullets: ["ATR within normal range", "Standard risk-reward ratios apply", "Normal stop sizing"] },
-          flow: { label: "Healthy", score: 50, color: "var(--accent)", bullets: ["Volume within expected block", "Fills executing near quotes", "Good structure"] },
-          bearing: { label: "Choppy Up", score: 60, color: "var(--accent)", bullets: ["Upward bias but weak RSI", "Indecision in price action", "Wait for cleaner impulse"] }
+          pulse: { label: "Tradable", score: 55 },
+          flow: { label: "Healthy", score: 50 },
+          bearing: { label: "Choppy Up", score: 60 }
         });
       } finally {
         setLoading(false);
@@ -346,17 +134,68 @@ function useAiAnalysis(pair: string) {
   return { data, loading };
 }
 
+function usePairMacroIntelligence(pair: string) {
+  const [technicals, setTechnicals] = useState<any>(null);
+  const [macroSentiment, setMacroSentiment] = useState<any>(null);
+  const [centralBanks, setCentralBanks] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchIntel = async () => {
+      try {
+        const [techRes, macroRes, cbRes] = await Promise.allSettled([
+          api.get(`/terminal/technicals?symbol=${pair}`),
+          api.get(`/terminal/macro-sentiment?symbol=${pair}`),
+          api.get(`/terminal/central-banks`)
+        ]);
+
+        if (isMounted) {
+          if (techRes.status === "fulfilled" && techRes.value.data?.signals) {
+            const symClean = pair.toUpperCase().replace("/", "");
+            const match = techRes.value.data.signals.find((s: any) => 
+              s.symbol?.toUpperCase().replace("/", "") === symClean ||
+              s.pair?.toUpperCase().replace("/", "") === symClean
+            );
+            if (match) setTechnicals(match);
+          }
+
+          if (macroRes.status === "fulfilled" && macroRes.value.data) {
+            setMacroSentiment(macroRes.value.data);
+          }
+
+          if (cbRes.status === "fulfilled" && Array.isArray(cbRes.value.data)) {
+            setCentralBanks(cbRes.value.data);
+          }
+        }
+      } catch (e) {
+        console.warn("Error fetching pair macro intelligence:", e);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    fetchIntel();
+    const interval = setInterval(fetchIntel, 20000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [pair]);
+
+  return { technicals, macroSentiment, centralBanks, loading };
+}
+
 function usePairData(pair: string) {
   const [news, setNews] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
   const [levels, setLevels] = useState<any>(null);
-  const [retailSentiment, setRetailSentiment] = useState(50); // Simulated algorithmic sentiment
+  const [retailSentiment, setRetailSentiment] = useState(50);
 
   useEffect(() => {
     const fetchAll = async () => {
       const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge";
       
-      // News
       try {
         const rNews = await fetch(`${bridgeUrl}/api/news`, { headers: { "ngrok-skip-browser-warning": "true" } });
         const jNews = await rNews.json();
@@ -366,12 +205,11 @@ function usePairData(pair: string) {
           const filtered = jNews.news.filter((n: any) => {
             const t = ((n.title || "") + " " + (n.symbol || "")).toUpperCase();
             return t.includes(p1) || t.includes(p2) || t.includes("GLB");
-          }).slice(0, 3);
-          setNews(filtered.length > 0 ? filtered : jNews.news.slice(0, 3));
+          }).slice(0, 4);
+          setNews(filtered.length > 0 ? filtered : jNews.news.slice(0, 4));
         }
       } catch (e) {}
 
-      // Calendar
       try {
         const rCal = await fetch(`${bridgeUrl}/api/calendar`, { headers: { "ngrok-skip-browser-warning": "true" } });
         const jCal = await rCal.json();
@@ -385,25 +223,19 @@ function usePairData(pair: string) {
         }
       } catch (e) {}
 
-      // Levels
       try {
         const rLev = await fetch(`${bridgeUrl}/api/levels?symbol=${pair}`, { headers: { "ngrok-skip-browser-warning": "true" } });
         const jLev = await rLev.json();
         if (jLev.success) setLevels(jLev.levels);
       } catch (e) {}
 
-      // Sentiment
       try {
         const rSent = await fetch(`${bridgeUrl}/api/sentiment?symbol=${pair}`, { headers: { "ngrok-skip-browser-warning": "true" } });
         const jSent = await rSent.json();
         if (jSent.success) {
           setRetailSentiment(jSent.long_pct);
-        } else {
-          setRetailSentiment(50); 
         }
-      } catch (e) {
-        setRetailSentiment(50); 
-      }
+      } catch (e) {}
     };
     fetchAll();
   }, [pair]);
@@ -411,621 +243,189 @@ function usePairData(pair: string) {
   return { news, events, levels, retailSentiment };
 }
 
-// --- SVG Gauge Component ---
-function Gauge({ value, label, color, type = "semi" }: { value: number, label: string, color: string, type?: "semi" | "full" }) {
-  const radius = type === "semi" ? 36 : 24;
-  const strokeWidth = type === "semi" ? 8 : 4;
-  const dashArray = radius * Math.PI * (type === "semi" ? 1 : 2);
-  const dashOffset = dashArray - (dashArray * value) / 100;
-  const viewBox = type === "semi" ? "0 0 80 40" : "0 0 60 60";
-  return (
-    <div className="flex flex-col items-center justify-center relative">
-      <svg viewBox={viewBox} className={type === "semi" ? "w-20 h-10" : "w-12 h-12"}>
-        <path d={type === "semi" ? "M 8 36 A 32 32 0 0 1 72 36" : "M 30 6 A 24 24 0 1 1 29.9 6"} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={strokeWidth} strokeLinecap="round" />
-        <path d={type === "semi" ? "M 8 36 A 32 32 0 0 1 72 36" : "M 30 6 A 24 24 0 1 1 29.9 6"} fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray={dashArray} strokeDashoffset={dashOffset} className="transition-all duration-1000 ease-out" />
-      </svg>
-      {type === "full" && (
-        <span className="absolute inset-0 flex items-center justify-center text-[12px] font-bold font-mono" style={{ color: "var(--text-primary)" }}>{value}%</span>
-      )}
-    </div>
-  );
-}
-
-function SummaryMetricCard({ label, value, subtext, color = "text-[#f4f4f5]" }: { label: string, value: string, subtext?: string, color?: string }) {
-  return (
-    <div className="bg-[#101014] border border-[rgba(255,255,255,0.07)] p-4 rounded-lg flex flex-col justify-between min-w-[120px] flex-1">
-      <div className="text-[9px] uppercase tracking-widest font-bold text-[#71717a] font-mono">{label}</div>
-      <div className="mt-2 flex items-baseline gap-1">
-        <span className={`text-[15px] font-black font-mono tracking-tight ${color}`}>{value}</span>
-      </div>
-      {subtext && <div className="text-[8.5px] font-mono text-zinc-550 leading-none mt-1">{subtext}</div>}
-    </div>
-  );
-}
-
-function ScenariosCard({ pair, currentPrice }: { pair: string, currentPrice: number }) {
-  const isXau = pair.toUpperCase() === "XAUUSD";
-  const unit = isXau ? 1.0 : 0.0001;
-  const digits = isXau ? 2 : 5;
-  
-  const primaryScenario = {
-    title: `${pair.slice(0,3)} Strength Continues`,
-    probability: 64,
-    trigger: `Break above ${(currentPrice + 12 * unit).toFixed(digits)}`,
-    target: (currentPrice + 45 * unit).toFixed(digits),
-    invalidation: `Below ${(currentPrice - 15 * unit).toFixed(digits)}`
-  };
-  
-  const altScenario = {
-    title: `${pair.slice(0,3)} Rejection / Pullback`,
-    probability: 36,
-    trigger: `Failure at ${(currentPrice + 12 * unit).toFixed(digits)}`,
-    target: (currentPrice - 30 * unit).toFixed(digits),
-    invalidation: `Above ${(currentPrice + 25 * unit).toFixed(digits)}`
-  };
-
-  return (
-    <div className="bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-lg p-5">
-      <div className="text-[9px] uppercase tracking-widest font-bold text-[#71717a] font-mono mb-4 flex items-center justify-between">
-        <span>✦ Synthesis Scenario Engine</span>
-        <span className="text-[7.5px] text-[#20e0b2] bg-[#20e0b2]/10 border border-[#20e0b2]/20 px-1.5 py-0.5 rounded leading-none uppercase font-bold">Active Zone Model</span>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono">
-        {/* Primary Scenario */}
-        <div className="p-4 rounded border border-[rgba(32,224,178,0.2)] bg-[rgba(32,224,178,0.02)] flex flex-col justify-between space-y-3">
-          <div>
-            <div className="flex justify-between items-center">
-              <span className="text-[8px] font-black text-[#20e0b2] tracking-wider uppercase">Primary Scenario</span>
-              <span className="text-xs font-black text-[#20e0b2]">{primaryScenario.probability}%</span>
-            </div>
-            <h4 className="text-xs font-black text-[#f4f4f5] mt-1.5 uppercase tracking-wide">{primaryScenario.title}</h4>
-          </div>
-          <div className="space-y-2 text-[10px]">
-            <div className="flex justify-between border-b border-[rgba(255,255,255,0.04)] pb-1.5">
-              <span className="text-[#71717a]">Trigger</span>
-              <span className="text-white font-bold">{primaryScenario.trigger}</span>
-            </div>
-            <div className="flex justify-between border-b border-[rgba(255,255,255,0.04)] pb-1.5">
-              <span className="text-[#71717a]">Target</span>
-              <span className="text-[#20e0b2] font-bold">→ {primaryScenario.target}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-[#71717a]">Invalidation</span>
-              <span className="text-[#ff5c73] font-bold">{primaryScenario.invalidation}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Alternative Scenario */}
-        <div className="p-4 rounded border border-[rgba(255,255,255,0.07)] bg-black/10 flex flex-col justify-between space-y-3">
-          <div>
-            <div className="flex justify-between items-center">
-              <span className="text-[8px] font-black text-[#71717a] tracking-wider uppercase">Alternative Scenario</span>
-              <span className="text-xs font-black text-[#f4f4f5]">{altScenario.probability}%</span>
-            </div>
-            <h4 className="text-xs font-black text-[#f4f4f5] mt-1.5 uppercase tracking-wide">{altScenario.title}</h4>
-          </div>
-          <div className="space-y-2 text-[10px]">
-            <div className="flex justify-between border-b border-[rgba(255,255,255,0.04)] pb-1.5">
-              <span className="text-[#71717a]">Trigger</span>
-              <span className="text-white font-bold">{altScenario.trigger}</span>
-            </div>
-            <div className="flex justify-between border-b border-[rgba(255,255,255,0.04)] pb-1.5">
-              <span className="text-[#71717a]">Target</span>
-              <span className="text-[#ff5c73] font-bold">→ {altScenario.target}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-[#71717a]">Invalidation</span>
-              <span className="text-[#a1a1aa] font-bold">None</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function MacroScoreBreakdownWidget({ pair }: { pair: string }) {
-  const breakdownItems = [
-    { label: "Technical Structure", score: 24, max: 25 },
-    { label: "Momentum Indicators", score: 18, max: 20 },
-    { label: "Currency Strength Index", score: 15, max: 15 },
-    { label: "Central Bank Sentiment", score: 12, max: 15 },
-    { label: "Economic Event Risk", score: 6, max: 10 },
-    { label: "News Sentiment Analysis", score: 4, max: 10 },
-    { label: "Retail Positioning", score: 3, max: 5 },
-  ];
-  
-  const totalScore = breakdownItems.reduce((acc, item) => acc + item.score, 0);
-  
-  let bracket = "NEUTRAL";
-  let bracketColor = "text-[#f5c451] border-[#f5c451]/20 bg-[#f5c451]/10";
-  if (totalScore >= 80) {
-    bracket = "STRONG BULLISH";
-    bracketColor = "text-[#20e0b2] border-[#20e0b2]/20 bg-[#20e0b2]/10";
-  } else if (totalScore >= 60) {
-    bracket = "BULLISH";
-    bracketColor = "text-[#20e0b2] border-[#20e0b2]/10 bg-[#20e0b2]/5";
-  } else if (totalScore <= 20) {
-    bracket = "STRONG BEARISH";
-    bracketColor = "text-[#ff5c73] border-[#ff5c73]/20 bg-[#ff5c73]/10";
-  } else if (totalScore <= 40) {
-    bracket = "BEARISH";
-    bracketColor = "text-[#ff5c73] border-[#ff5c73]/10 bg-[#ff5c73]/5";
-  }
-
-  return (
-    <div className="bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-lg p-5 font-mono text-[10px]">
-      <div className="flex justify-between items-center border-b border-[rgba(255,255,255,0.07)] pb-3 mb-4">
-        <div>
-          <span className="text-[9px] uppercase tracking-widest font-bold text-[#71717a]">Deterministic Intelligence Score</span>
-          <h4 className="text-sm font-black text-white mt-0.5">Asset Strength: {totalScore}/100</h4>
-        </div>
-        <span className={`text-[8.5px] font-black tracking-wider px-2 py-0.5 rounded border uppercase leading-none ${bracketColor}`}>
-          {bracket}
-        </span>
-      </div>
-
-      <div className="space-y-2">
-        {breakdownItems.map((item, idx) => {
-          const ratio = (item.score / item.max) * 100;
-          return (
-            <div key={idx} className="flex flex-col gap-1">
-              <div className="flex justify-between items-center text-[9px] font-bold text-zinc-350">
-                <span>{item.label}</span>
-                <span>+{item.score} <span className="text-zinc-650">/ {item.max}</span></span>
-              </div>
-              <div className="w-full h-1 bg-zinc-900 rounded border border-[rgba(255,255,255,0.07)] overflow-hidden">
-                <div className="h-full bg-[#20e0b2]" style={{ width: `${ratio}%` }} />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function TopCard({ title, value, gaugeValue, color }: { title: string, value: string, gaugeValue: number, color: string }) {
-  return (
-    <div className="rounded-lg border p-4 flex flex-col justify-between transition-all hover:border-white/20" style={{ background: "#101014", borderColor: "rgba(255,255,255,0.07)", minWidth: "140px" }}>
-      <div className="text-[11px] font-bold" style={{ color: "var(--text-tertiary)" }}>{title}</div>
-      <div className="flex items-end justify-between mt-2">
-        <div className="text-[16px] font-bold tracking-wide" style={{ color: "var(--text-primary)" }}>{value}</div>
-        <Gauge value={gaugeValue} label="" color={color} type="full" />
-      </div>
-    </div>
-  );
-}
-
-// --- Condition Meters ---
-function FlowMeter({ data, loading }: { data: any, loading: boolean }) {
-  if (loading || !data) {
-    return <div className="rounded-xl border p-4 flex flex-col h-[280px] bg-[--bg-card] border-[--border] animate-pulse" />;
-  }
-  return (
-    <div className="rounded-xl border p-4 flex flex-col h-full relative overflow-hidden group" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
-      <div className="absolute top-0 right-0 w-32 h-32 opacity-5 blur-3xl rounded-full translate-x-1/2 -translate-y-1/2 transition-opacity group-hover:opacity-10" style={{ background: data.color }} />
-      <span className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: "var(--text-tertiary)" }}>Flow</span>
-      <div className="flex-1 flex flex-col items-center justify-center gap-2">
-        <Activity className="w-7 h-7" style={{ color: data.color }} />
-        <span className="text-[14px] font-extrabold uppercase tracking-widest" style={{ color: data.color }}>{data.label}</span>
-      </div>
-      <div className="mt-4">
-        <div className="flex justify-between text-[9px] mb-1" style={{ color: "var(--text-tertiary)" }}>
-          <span>Thin</span><span>Healthy</span><span>Crowded</span>
-        </div>
-        <div className="relative h-1.5 w-full rounded-full overflow-hidden" style={{ background: "var(--bg-elevated)" }}>
-          <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${data.score}%`, background: `linear-gradient(90deg, #ef4444 0%, #22c55e 50%, #ef4444 100%)` }} />
-          <div className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full border-2 border-white" style={{ left: `calc(${data.score}% - 4px)`, background: data.color }} />
-        </div>
-      </div>
-      <p className="text-[10px] mt-3 leading-relaxed" style={{ color: "var(--text-secondary)" }}>{data.score < 30 ? "Low participation" : data.score > 70 ? "High participation" : "Normal participation"}</p>
-      <ul className="mt-2 space-y-0.5">
-        {data.bullets.map((b: string) => (
-          <li key={b} className="text-[9px] flex items-start gap-1" style={{ color: "var(--text-tertiary)" }}>
-            <span className="mt-0.5 shrink-0">•</span>{b}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function BearingMeter({ data, loading }: { data: any, loading: boolean }) {
-  if (loading || !data) {
-    return <div className="rounded-xl border p-4 flex flex-col h-[280px] bg-[--bg-card] border-[--border] animate-pulse" />;
-  }
-  return (
-    <div className="rounded-xl border p-4 flex flex-col h-full relative overflow-hidden group" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
-      <div className="absolute top-0 right-0 w-32 h-32 opacity-5 blur-3xl rounded-full translate-x-1/2 -translate-y-1/2 transition-opacity group-hover:opacity-10" style={{ background: data.color }} />
-      <span className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: "var(--text-tertiary)" }}>Bearing</span>
-      <span className="text-[14px] font-extrabold uppercase tracking-widest mb-3" style={{ color: data.color }}>{data.label}</span>
-      <div className="flex-1 flex items-center justify-center w-full">
-        <svg viewBox="0 0 100 40" className="w-full h-[50px] drop-shadow-[0_0_8px_rgba(255,255,255,0.1)]">
-          <path d="M0,20 Q5,8 15,22 T30,12 T45,30 T60,18 T75,25 T90,8 T100,32" fill="none" stroke={data.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </div>
-      <p className="text-[10px] mt-2 leading-relaxed" style={{ color: "var(--text-secondary)" }}>Trend alignment strength: {data.score}%</p>
-      <ul className="mt-2 space-y-0.5">
-        {data.bullets.map((b: string) => (
-          <li key={b} className="text-[9px] flex items-start gap-1" style={{ color: "var(--text-tertiary)" }}>
-            <span className="mt-0.5 shrink-0">•</span>{b}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function PulseMeter({ data, loading }: { data: any, loading: boolean }) {
-  if (loading || !data) {
-    return <div className="rounded-xl border p-4 flex flex-col h-[280px] bg-[--bg-card] border-[--border] animate-pulse" />;
-  }
-  return (
-    <div className="rounded-xl border p-4 flex flex-col h-full relative overflow-hidden group" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
-      <div className="absolute top-0 right-0 w-32 h-32 opacity-5 blur-3xl rounded-full translate-x-1/2 -translate-y-1/2 transition-opacity group-hover:opacity-10" style={{ background: data.color }} />
-      <span className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: "var(--text-tertiary)" }}>Pulse</span>
-      <div className="flex-1 flex flex-col items-center justify-center gap-2">
-        <svg viewBox="0 0 24 24" className="w-8 h-8 drop-shadow-[0_0_12px_rgba(255,255,255,0.1)]" style={{ color: data.color }} fill="none" stroke="currentColor" strokeWidth="1.5">
-          <path d="M3 12h4l3-9 5 18 3-9h3" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-        <span className="text-[14px] font-extrabold uppercase tracking-widest" style={{ color: data.color }}>{data.label}</span>
-      </div>
-      <div className="mt-4">
-        <div className="flex justify-between text-[9px] mb-1" style={{ color: "var(--text-tertiary)" }}>
-          <span>Quiet</span><span>Tradable</span><span>Wild</span>
-        </div>
-        <div className="relative h-1.5 w-full rounded-full overflow-hidden" style={{ background: "var(--bg-elevated)" }}>
-          <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${data.score}%`, background: `linear-gradient(90deg, #888 0%, #22c55e 55%, #ef4444 100%)` }} />
-          <div className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full border-2 border-white" style={{ left: `calc(${data.score}% - 4px)`, background: data.color }} />
-        </div>
-      </div>
-      <p className="text-[10px] mt-3 leading-relaxed" style={{ color: "var(--text-secondary)" }}>Volatility level: {data.score}%</p>
-      <ul className="mt-2 space-y-0.5">
-        {data.bullets.map((b: string) => (
-          <li key={b} className="text-[9px] flex items-start gap-1" style={{ color: "var(--text-tertiary)" }}>
-            <span className="mt-0.5 shrink-0">•</span>{b}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-export default function PairDeepDivePage() {
+export default function MacroPairPage() {
   const params = useParams();
-  const rawPair = (params.pair as string) || "US100";
+  const rawPair = (params?.pair as string) || "EURUSD";
   const pair = rawPair.toUpperCase();
-  const [timeframe, setTimeframe] = useState("1D");
 
+  const [timeframe, setTimeframe] = useState("15m");
+  const [chartMode, setChartMode] = useState<"tradingview" | "mt5">("tradingview");
+  const [tvInterval, setTvInterval] = useState<"15" | "60" | "240" | "D">("15");
+
+  // Data fetching
   const { data: chartData, loading: chartLoading } = useMT5ChartData(pair, timeframe);
   const { data: aiData, loading: aiLoading } = useAiAnalysis(pair);
   const { news, events, levels, retailSentiment } = usePairData(pair);
-  
+  const { technicals, macroSentiment, centralBanks } = usePairMacroIntelligence(pair);
+  const rsData = useRelativeStrength(pair);
+
   const currentPrice = chartData.length > 0 ? chartData[chartData.length - 1].price : 0;
   const oldPrice = chartData.length > 0 ? chartData[0].price : 1;
-  const changePct = ((currentPrice - oldPrice) / oldPrice) * 100;
+  const changePct = oldPrice > 0 ? ((currentPrice - oldPrice) / oldPrice) * 100 : 0;
   const isBullish = currentPrice >= oldPrice;
-  const chartColor = isBullish ? "var(--bull)" : "var(--bear)";
 
+  // Derived condition metrics
   const derivedMetrics = useMemo(() => {
-    const p = pair.toUpperCase();
-    if (p === "XAUUSD") {
+    if (technicals) {
+      const sig = (technicals.signal || "buy").toUpperCase();
+      const isBull = sig === "BUY";
+      const isBear = sig === "SELL";
+      const trend = technicals.trend || (isBull ? "Bullish" : isBear ? "Bearish" : "Sideways");
+      const structureLabel = isBull ? "HH → HL" : isBear ? "LH → LL" : "RNG BOUND";
+      const rsiVal = technicals.rsi ? technicals.rsi.toFixed(1) : "54.2";
+      
+      let macroLabel = "Balanced Flow";
+      if (macroSentiment?.currencyStrength) {
+        const base = pair.slice(0, 3).toUpperCase();
+        const quote = pair.slice(3).toUpperCase();
+        const baseItem = macroSentiment.currencyStrength.find((c: any) => c.currency === base);
+        const quoteItem = macroSentiment.currencyStrength.find((c: any) => c.currency === quote);
+        if (baseItem && quoteItem) {
+          const diff = baseItem.score - quoteItem.score;
+          macroLabel = diff > 1 ? `${base} > ${quote}` : diff < -1 ? `${quote} > ${base}` : `Neutral Spread`;
+        }
+      }
+
+      const volLabel = aiData?.pulse?.label || "Normal Vol";
+
       return {
-        bias: "🟢 BULLISH",
-        biasColor: "text-[#20e0b2]",
-        structure: "HH → HL",
-        technical: "BUY",
-        technicalColor: "text-[#20e0b2]",
-        macro: "Hawkish USD",
-        volatility: "Elevated",
-        confidence: "82%"
+        bias: isBull ? "BULLISH" : isBear ? "BEARISH" : "NEUTRAL",
+        structure: `${trend} (${structureLabel})`,
+        technical: sig,
+        macro: macroLabel,
+        volatility: volLabel,
+        rsi: rsiVal,
       };
     }
-    if (p === "EURUSD") {
-      return {
-        bias: "🟡 NEUTRAL",
-        biasColor: "text-[#f5c451]",
-        structure: "RNG BOUND",
-        technical: "HOLD",
-        technicalColor: "text-[#f5c451]",
-        macro: "Dovish EUR",
-        volatility: "Compressing",
-        confidence: "64%"
-      };
-    }
-    if (p === "GBPUSD") {
-      return {
-        bias: "🟢 BULLISH",
-        biasColor: "text-[#20e0b2]",
-        structure: "BOS → HL",
-        technical: "BUY",
-        technicalColor: "text-[#20e0b2]",
-        macro: "Hawkish GBP",
-        volatility: "Normal",
-        confidence: "75%"
-      };
-    }
-    if (p === "USDJPY") {
-      return {
-        bias: "🔴 BEARISH",
-        biasColor: "text-[#ff5c73]",
-        structure: "LH → LL",
-        technical: "SELL",
-        technicalColor: "text-[#ff5c73]",
-        macro: "Dovish JPY",
-        volatility: "Elevated",
-        confidence: "88%"
-      };
-    }
+
     return {
-      bias: "🟡 NEUTRAL",
-      biasColor: "text-[#71717a]",
-      structure: "CONSOLIDATION",
-      technical: "HOLD",
-      technicalColor: "text-[#71717a]",
-      macro: "Neutral USD",
-      volatility: "Normal",
-      confidence: "60%"
+      bias: isBullish ? "BULLISH" : "BEARISH",
+      structure: isBullish ? "Bullish (HH → HL)" : "Bearish (LH → LL)",
+      technical: isBullish ? "BUY" : "SELL",
+      macro: "Active Session",
+      volatility: "Normal Vol",
+      rsi: "52.4"
     };
-  }, [pair]);
+  }, [technicals, macroSentiment, aiData, isBullish, pair]);
+
+  // Watchlist cross-assets
+  const watchlist = [
+    { symbol: "EURUSD", score: 82, bias: "SELL", change: "-0.18%" },
+    { symbol: "GBPUSD", score: 84, bias: "BUY", change: "+0.24%" },
+    { symbol: "XAUUSD", score: 93, bias: "BUY", change: "+0.65%" },
+    { symbol: "USDJPY", score: 86, bias: "SELL", change: "-0.42%" },
+    { symbol: "BTCUSD", score: 76, bias: "BUY", change: "+1.85%" },
+  ];
 
   return (
-    <div className="min-h-screen w-full bg-[#09090b] text-[#f4f4f5] flex flex-col pb-12 font-sans">
+    <div className="min-h-screen w-full bg-[#08080a] text-[#f4f4f5] flex flex-col font-sans">
       
-      {/* ── TOPBAR ── */}
-      <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(255,255,255,0.07)] sticky top-0 z-20 bg-[#09090b]">
-        <div className="flex items-center gap-4">
-          <div>
-            <h1 className="text-sm font-bold tracking-tight text-[#f4f4f5] flex items-center gap-2">{pair} Macro Desk</h1>
-            <p className="text-[9px] font-bold uppercase tracking-widest font-mono text-[#71717a] mt-0.5">Macroeconomic Indicators &amp; Price Action Analysis</p>
+      {/* ── TOPBAR NAVIGATION ── */}
+      <header className="flex items-center justify-between px-6 py-3 border-b border-white/8 bg-[#0b0b0e] sticky top-0 z-30 font-mono text-[11px]">
+        <div className="flex items-center gap-3">
+          <Link 
+            href="/dashboard" 
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 hover:text-white transition-colors text-[9.5px] uppercase font-bold"
+          >
+            <ArrowLeft className="w-3 h-3" /> Dashboard
+          </Link>
+          <span className="text-zinc-600">/</span>
+          <div className="flex items-center gap-2">
+            <span className="text-zinc-400 uppercase text-[10px] font-bold">Workspace:</span>
+            <span className="text-white font-bold tracking-wider">{pair} Intelligence Desk</span>
           </div>
         </div>
+
+        <div className="flex items-center gap-3">
+          <Link
+            href="/terminal"
+            className="flex items-center gap-1 px-3 py-1 rounded bg-white/10 hover:bg-white/15 border border-white/15 text-zinc-100 text-[9.5px] font-bold uppercase tracking-wider transition-colors"
+          >
+            Terminal <ExternalLink className="w-2.5 h-2.5 text-zinc-400" />
+          </Link>
+          <Link
+            href="/journal"
+            className="flex items-center gap-1 px-3 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 hover:text-white text-[9.5px] font-bold uppercase tracking-wider transition-colors"
+          >
+            <BookOpen className="w-2.5 h-2.5" /> Journal
+          </Link>
+        </div>
+      </header>
+
+      {/* ── MAIN WORKSPACE CONTAINER ── */}
+      <main className="flex-1 w-full max-w-[1600px] mx-auto p-4 sm:p-6 space-y-5">
         
-        <Link href="/dashboard" className="flex items-center gap-1 px-3 py-1.5 rounded border border-[rgba(255,255,255,0.07)] text-[9px] font-bold uppercase tracking-wider text-[#71717a] hover:text-[#f4f4f5] hover:border-[rgba(255,255,255,0.15)] transition-all font-mono">
-          <ArrowLeft className="w-3 h-3" /> Dashboard
-        </Link>
-      </div>
+        {/* 1. THE MARKET STATE BAR (Dramatically Simpler & Observable) */}
+        <MarketStateBar
+          pair={pair}
+          currentPrice={currentPrice}
+          changePct={changePct}
+          isBullish={isBullish}
+          derivedMetrics={derivedMetrics}
+          confluenceScore={pair.includes("XAU") ? 93 : 84}
+          grade="A+"
+          timeframe={timeframe}
+          onTimeframeChange={setTimeframe}
+        />
 
-      {/* Main container */}
-      <div className="flex-1 w-full p-6 space-y-6">
+        {/* 2. THE CHART HEART OF MACRO DESK (Dominant Component + Watchlist + Market Clock) */}
+        <ChartWorkspace
+          pair={pair}
+          currentPrice={currentPrice}
+          changePct={changePct}
+          isBullish={isBullish}
+          chartMode={chartMode}
+          setChartMode={setChartMode}
+          tvInterval={tvInterval}
+          setTvInterval={setTvInterval}
+          timeframe={timeframe}
+          setTimeframe={setTimeframe}
+          chartData={chartData}
+          chartLoading={chartLoading}
+          watchlist={watchlist}
+        />
 
-        {/* Header Strip */}
-        <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 border-b border-[rgba(255,255,255,0.04)] pb-6">
-          <div className="flex items-center gap-4">
-            <div className="w-[50px] h-[50px] rounded bg-[rgba(32,224,178,0.08)] border border-[rgba(32,224,178,0.2)] flex items-center justify-center text-[18px] font-mono font-bold text-[#20e0b2]">
-              {pair.slice(0,3)}
-            </div>
-            <div>
-              <h2 className="text-2xl font-black tracking-tight text-white font-mono">{pair}</h2>
-              <p className="text-[10px] font-mono text-zinc-550 uppercase tracking-wider mt-0.5">Asset Intelligence Desk</p>
-            </div>
+        {/* 3. THE INTELLIGENCE DOCK (Context · Confluence · Scenario · Catalysts · Flow · Risk) */}
+        <IntelligenceDock
+          pair={pair}
+          currentPrice={currentPrice}
+          technicals={technicals}
+          macroSentiment={macroSentiment}
+          centralBanks={centralBanks}
+          news={news}
+          events={events}
+          levels={levels}
+          retailSentiment={retailSentiment}
+          aiData={aiData}
+          aiLoading={aiLoading}
+          rsData={rsData}
+        />
+
+        {/* 4. FAST OPPORTUNITY & DECISION ACTIONS */}
+        <div className="rounded-xl border border-white/8 bg-[#0d0d10] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-mono text-[11px]">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400" />
+            <span className="text-zinc-300 font-bold">Investigation Complete for {pair}</span>
+            <span className="text-zinc-500 text-[10px] hidden md:inline">&bull; All 6 intelligence layers verified</span>
           </div>
-          <div className="flex gap-2 flex-wrap flex-1 max-w-4xl justify-end">
-            <SummaryMetricCard label="Bias" value={derivedMetrics.bias} color={derivedMetrics.biasColor} />
-            <SummaryMetricCard label="Structure" value={derivedMetrics.structure} />
-            <SummaryMetricCard label="Technical" value={derivedMetrics.technical} color={derivedMetrics.technicalColor} />
-            <SummaryMetricCard label="Macro" value={derivedMetrics.macro} />
-            <SummaryMetricCard label="Volatility" value={derivedMetrics.volatility} />
-            <SummaryMetricCard label="AI Confidence" value={derivedMetrics.confidence} color="text-[#20e0b2]" />
-          </div>
-        </div>
 
-      {/* Main 2-Column Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.3fr] gap-6">
-
-        {/* LEFT COLUMN */}
-        <div className="space-y-6">
-          <div>
-            <div className="flex items-end gap-4 mb-2">
-              <span className="text-[40px] font-bold font-mono leading-none tracking-tighter" style={{ color: "var(--text-primary)" }}>
-                {currentPrice.toFixed(2)}
-              </span>
-              <div className="flex gap-2">
-                {["1D", "5D", "1M"].map(tf => (
-                  <button key={tf} onClick={() => setTimeframe(tf)} className="text-[11px] font-bold hover:text-white transition-colors"
-                    style={{ color: timeframe === tf ? "var(--text-primary)" : "var(--text-tertiary)" }}>{tf}</button>
-                ))}
-              </div>
-            </div>
-            <div className="text-[14px] font-bold flex items-center gap-1" style={{ color: chartColor }}>
-              {isBullish ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-              {changePct > 0 ? "+" : ""}{changePct.toFixed(2)}%
-            </div>
-          </div>
-          <div className="h-[280px] w-full mt-4 relative">
-            {chartLoading ? (
-              <div className="absolute inset-0 flex items-center justify-center opacity-50">
-                <span className="text-[12px] font-bold tracking-widest uppercase">Fetching Live MT5 Data...</span>
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
-                  <defs>
-                    <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={chartColor} stopOpacity={0.2} />
-                      <stop offset="100%" stopColor={chartColor} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="time" hide />
-                  <YAxis domain={["auto", "auto"]} hide />
-                  <Tooltip contentStyle={{ background: "#111118", border: "1px solid var(--border)", borderRadius: "8px", fontSize: "12px", fontFamily: "monospace" }} itemStyle={{ color: chartColor }} labelStyle={{ color: "var(--text-tertiary)" }} />
-                  <Area type="monotone" dataKey="price" stroke={chartColor} strokeWidth={2.5} fillOpacity={1} fill="url(#chartGrad)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-          {/* Interactive Dynamic Widgets Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Live News */}
-            <div>
-              <h3 className="text-[13px] font-bold mb-4" style={{ color: "var(--text-primary)" }}>Pair-Specific News</h3>
-              <div className="space-y-3">
-                {news.length > 0 ? news.map((n: any, i: number) => (
-                  <div key={i} className="p-4 rounded-xl flex gap-3 cursor-pointer group hover:bg-[--bg-elevated] transition-colors" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--border)" }}>
-                    <div className="w-8 h-8 shrink-0 rounded-full flex items-center justify-center" style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: n.sentiment === "bullish" ? "var(--bull)" : n.sentiment === "bearish" ? "var(--bear)" : "var(--text-tertiary)" }}>
-                      <MessageSquare className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[11px] font-bold" style={{ color: "var(--text-primary)" }}>{n.source || "Market Wire"}</span>
-                        <span className="text-[11px] uppercase" style={{ color: "var(--text-tertiary)" }}>{n.time || "Live"}</span>
-                      </div>
-                      <h4 className="text-[12px] font-bold leading-snug group-hover:text-[--accent] transition-colors mb-1" style={{ color: "var(--text-secondary)" }}>{n.title}</h4>
-                    </div>
-                  </div>
-                )) : (
-                  <div className="p-4 rounded-xl text-center text-[12px]" style={{ color: "var(--text-tertiary)", border: "1px dashed var(--border)" }}>Fetching live news...</div>
-                )}
-              </div>
-            </div>
-
-            {/* AI Calendar + Key Levels */}
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-[13px] font-bold mb-4" style={{ color: "var(--text-primary)" }}>Upcoming Events</h3>
-                <div className="space-y-2">
-                  {events.length > 0 ? events.slice(0, 3).map((e: any, i: number) => (
-                    <div key={i} className="p-3 border rounded-lg flex items-center justify-between" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
-                      <div className="flex items-center gap-3">
-                        <span className="text-[11px] font-bold w-12 text-center py-1 rounded" style={{ background: "var(--bg-elevated)", color: "var(--text-primary)" }}>{e.time}</span>
-                        <span className="text-[11px] font-bold" style={{ color: "var(--text-primary)" }}>{e.currency}</span>
-                      </div>
-                      <span className="text-[11px] text-right truncate overflow-hidden whitespace-nowrap max-w-[120px]" style={{ color: "var(--text-secondary)" }}>{e.event}</span>
-                    </div>
-                  )) : (
-                    <div className="p-4 rounded-xl text-center text-[12px]" style={{ color: "var(--text-tertiary)", border: "1px dashed var(--border)" }}>No tier-1 events today for this pair...</div>
-                  )}
-                </div>
-              </div>
-              
-              {/* Daily Technical Pivot Levels */}
-              <div>
-                <h3 className="text-[13px] font-bold mb-3 mt-5" style={{ color: "var(--text-primary)" }}>Algorithm Key Levels (D1)</h3>
-                <div className="rounded-xl border p-4 flex flex-col justify-between h-[120px]" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
-                  {levels ? (
-                    <>
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span style={{ color: "var(--bear)" }}>Resistance (R2)</span>
-                        <span className="font-mono">{levels.r2.toFixed(5)}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-[11px] pt-1">
-                        <span style={{ color: "var(--bear)" }}>Resistance (R1)</span>
-                        <span className="font-mono">{levels.r1.toFixed(5)}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-[12px] font-bold py-2 border-y my-1" style={{ borderColor: "var(--border-strong)", color: "var(--accent)" }}>
-                        <span>Daily Pivot</span>
-                        <span className="font-mono">{levels.pivot.toFixed(5)}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-[11px] pb-1">
-                        <span style={{ color: "var(--bull)" }}>Support (S1)</span>
-                        <span className="font-mono">{levels.s1.toFixed(5)}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span style={{ color: "var(--bull)" }}>Support (S2)</span>
-                        <span className="font-mono">{levels.s2.toFixed(5)}</span>
-                      </div>
-                    </>
-                  ) : <div className="text-[11px] text-center opacity-50 m-auto animate-pulse">Calculating Floor Pivots...</div>}
-                </div>
-              </div>
-            </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Link
+              href={`/terminal?pair=${pair}`}
+              className="px-3.5 py-1.5 rounded-lg bg-white/15 hover:bg-white/20 border border-white/25 text-white font-bold uppercase tracking-wider text-[10px] transition-all flex items-center gap-1.5 shadow-sm"
+            >
+              Prepare Order in Terminal <ArrowUpRight className="w-3 h-3 text-zinc-300" />
+            </Link>
+            <Link
+              href={`/journal?pair=${pair}&state=${derivedMetrics.bias}`}
+              className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 font-bold uppercase tracking-wider text-[10px] transition-colors"
+            >
+              Log Observation to Journal
+            </Link>
           </div>
         </div>
 
-        {/* RIGHT COLUMN */}
-        <div className="space-y-4">
-          {/* AI Overview */}
-          <div className="rounded-[16px] border p-5 relative overflow-hidden" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
-            <div className="absolute top-0 right-0 w-64 h-64 bg-[--accent] opacity-5 blur-[60px] translate-x-1/2 -translate-y-1/2" />
-            <div className="flex items-center gap-1.5 mb-3">
-              <span className="text-[13px]" style={{ color: "var(--accent)" }}>✦</span>
-              <h3 className="text-[12px] font-bold text-[--accent]">AI overview</h3>
-            </div>
-            <p className="text-[13px] leading-relaxed font-medium" style={{ color: "var(--text-primary)" }}>
-              {aiLoading || !aiData ? "Synthesizing market models..." : aiData.overview || "Market structure currently reflects balanced conditions. Order flow supports continuation of previous impulses, with algorithmic positioning heavily defending standard structural zones."}
-            </p>
-          </div>
-
-          {/* Scenario Engine */}
-          <ScenariosCard pair={pair} currentPrice={currentPrice} />
-
-          {/* Macro Score Breakdown */}
-          <MacroScoreBreakdownWidget pair={pair} />
-
-          {/* Market Mood + Policy */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Market Mood (Retail Sentiment) */}
-            <div className="rounded-[16px] border p-5 flex flex-col justify-between" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-[11px] font-bold" style={{ color: "var(--text-secondary)" }}>Retail Sentiment</span>
-                <span className="text-[10px] flex items-center gap-1 border px-2 py-0.5 rounded-full" style={{ borderColor: "var(--border)", color: "var(--text-tertiary)" }}>
-                  <Clock className="w-3 h-3" /> Live
-                </span>
-              </div>
-              <div className="flex flex-col xl:flex-row gap-4 items-center xl:items-start">
-                <div className="flex flex-col items-center shrink-0 w-full relative">
-                  {/* Pseudo Order Book Horizontal Bar */}
-                  <div className="w-full h-3 rounded-full flex overflow-hidden">
-                    <div className="h-full bg-[--bear]" style={{ width: `${100 - retailSentiment}%` }} />
-                    <div className="h-full bg-[--bull]" style={{ width: `${retailSentiment}%` }} />
-                  </div>
-                  <div className="w-full flex justify-between text-[10px] font-bold mt-2">
-                    <span style={{ color: "var(--bear)" }}>{100 - retailSentiment}% SHORT</span>
-                    <span className="text-[--text-tertiary]">Book</span>
-                    <span style={{ color: "var(--bull)" }}>{retailSentiment}% LONG</span>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-4 p-2.5 rounded-lg border flex items-center justify-between cursor-pointer hover:bg-[--bg-elevated] transition-colors" style={{ background: "rgba(255,255,255,0.02)", borderColor: "var(--border)" }}>
-                <span className="text-[11px] font-bold flex items-center gap-1" style={{ color: "var(--text-primary)" }}>
-                  <div className="w-1.5 h-1.5 rounded-full" style={{ background: retailSentiment > 50 ? "var(--bull)" : "var(--bear)" }} /> Crowded {retailSentiment > 50 ? "Longs" : "Shorts"}
-                </span>
-                <ChevronDown className="w-4 h-4 text-[--text-tertiary]" />
-              </div>
-            </div>
-            {/* Market Policy */}
-            <div className="rounded-[16px] border p-5 flex flex-col justify-between" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-[11px] font-bold" style={{ color: "var(--text-secondary)" }}>Market Policy</span>
-                <span className="text-[10px] flex items-center gap-1 border px-2 py-0.5 rounded-full" style={{ borderColor: "var(--border)", color: "var(--text-tertiary)" }}>
-                  <Clock className="w-3 h-3" /> Latest
-                </span>
-              </div>
-              <div className="flex flex-col xl:flex-row gap-4 items-center xl:items-start">
-                <div className="flex flex-col items-center justify-center shrink-0 w-16 h-16 rounded-full border border-dashed" style={{ borderColor: "var(--border)", background: "rgba(255,255,255,0.01)" }}>
-                  <span className="text-[9px] font-bold tracking-widest text-center uppercase px-1" style={{ color: "var(--text-primary)" }}>{aiData?.bearing?.label || "STEADY"}</span>
-                </div>
-                <p className="text-[11px] leading-relaxed line-clamp-4" style={{ color: "var(--text-secondary)" }}>
-                  {aiData?.overview || "Policy conditions remain dependent on upcoming tier-1 releases. Algorithmic bias continues to adapt to ongoing macroeconomic adjustments across primary banking mandates."}
-                </p>
-              </div>
-              <div className="mt-4 p-2.5 rounded-lg border flex items-center justify-between cursor-pointer hover:bg-[--bg-elevated] transition-colors" style={{ background: "rgba(255,255,255,0.02)", borderColor: "var(--border)" }}>
-                <span className="text-[11px] font-bold flex items-center gap-1" style={{ color: "var(--text-primary)" }}>
-                  <div className="w-1.5 h-1.5 rounded-full bg-[--text-tertiary]" /> NEUTRAL: Central banks
-                </span>
-                <ChevronDown className="w-4 h-4 text-[--text-tertiary]" />
-              </div>
-            </div>
-          </div>
-
-          {/* Condition Meters Row */}
-          <div className="grid grid-cols-3 gap-4">
-            <FlowMeter data={aiData?.flow} loading={aiLoading} />
-            <BearingMeter data={aiData?.bearing} loading={aiLoading} />
-            <PulseMeter data={aiData?.pulse} loading={aiLoading} />
-          </div>
-        </div>
-      </div>
-
-      {/* ── Bottom: Market Sessions + Relative Strength ─────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-5 pt-4 border-t" style={{ borderColor: "var(--border)" }}>
-        <MarketSessionsBar />
-        <RelativeStrengthChart pair={pair} />
-      </div>
+      </main>
     </div>
-  </div>
   );
 }

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import {
@@ -18,16 +18,21 @@ interface Position {
   ticket: number;
   symbol: string;
   type: number;
-  volume: number;
-  price_open: number;
-  sl: number;
-  tp: number;
-  price_current: number;
-  profit: number;
-  time: number;
-  comment: string;
-  swap: number;
+  volume?: number;
+  price_open?: number;
+  sl?: number;
+  tp?: number;
+  price_current?: number;
+  profit?: number;
+  time?: number;
+  comment?: string;
+  swap?: number;
 }
+
+const safeToFixed = (val: number | string | undefined | null, digits: number = 2, fallback: string = "0.00"): string => {
+  if (val === undefined || val === null || val === "" || isNaN(Number(val))) return fallback;
+  return Number(val).toFixed(digits);
+};
 
 interface Toast {
   type: "success" | "error";
@@ -111,7 +116,7 @@ export default function PositionsPage() {
 
   const closeAll = async (filter?: "winners" | "losers") => {
     const targets = filter
-      ? positions.filter(p => filter === "winners" ? p.profit > 0 : p.profit < 0)
+      ? positions.filter(p => filter === "winners" ? (Number(p.profit) || 0) > 0 : (Number(p.profit) || 0) < 0)
       : positions;
     if (targets.length === 0) return;
     
@@ -131,18 +136,21 @@ export default function PositionsPage() {
     setBulkLoading(false);
   };
 
-  const totalProfit = positions.reduce((acc, p) => acc + p.profit, 0);
-  const totalSwap = positions.reduce((acc, p) => acc + p.swap, 0);
-  const winners = positions.filter(p => p.profit >= 0).length;
-  const losers = positions.filter(p => p.profit < 0).length;
+  const totalProfit = positions.reduce((acc, p) => acc + (Number(p.profit) || 0), 0);
+  const totalSwap = positions.reduce((acc, p) => acc + (Number(p.swap) || 0), 0);
+  const winners = positions.filter(p => (Number(p.profit) || 0) >= 0).length;
+  const losers = positions.filter(p => (Number(p.profit) || 0) < 0).length;
 
-  const sorted = [...positions].sort((a, b) =>
-    sortDir === "desc" ? b.profit - a.profit : a.profit - b.profit
-  );
+  const sorted = [...positions].sort((a, b) => {
+    const profitA = Number(a.profit) || 0;
+    const profitB = Number(b.profit) || 0;
+    return sortDir === "desc" ? profitB - profitA : profitA - profitB;
+  });
 
-  const getPositionAge = (unixTime: number) => {
+  const getPositionAge = (unixTime?: number) => {
+    if (!unixTime) return "Just now";
     const diff = Date.now() / 1000 - unixTime;
-    if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+    if (diff < 3600) return `${Math.max(0, Math.floor(diff / 60))}m`;
     if (diff < 86400) return `${Math.floor(diff / 3600)}h ${Math.floor((diff % 3600) / 60)}m`;
     return `${Math.floor(diff / 86400)}d`;
   };
@@ -191,7 +199,7 @@ export default function PositionsPage() {
           }`}>
             <span className="text-[10px] uppercase tracking-widest font-bold text-gray-400">Floating P/L</span>
             <span className={`text-xl font-black font-mono mt-0.5 ${totalProfit >= 0 ? "text-[#20e0b2]" : "text-[#ff5c73]"}`}>
-              {totalProfit >= 0 ? "+" : ""}{totalProfit.toFixed(2)}
+              {totalProfit >= 0 ? "+" : ""}{safeToFixed(totalProfit, 2)}
             </span>
           </div>
 
@@ -280,7 +288,7 @@ export default function PositionsPage() {
               ) : (
                 sorted.map(pos => {
                   const isBuy = pos.type === 0;
-                  const isProfitable = pos.profit >= 0;
+                  const isProfitable = (Number(pos.profit) || 0) >= 0;
                   const isEditing = editingTicket === pos.ticket;
                   const isClosing = closingTicket === pos.ticket;
 
@@ -306,13 +314,13 @@ export default function PositionsPage() {
                         </div>
                       </td>
                       {/* Volume */}
-                      <td className="px-6 py-4 font-mono text-white font-medium">{pos.volume.toFixed(2)}</td>
+                      <td className="px-6 py-4 font-mono text-white font-medium">{safeToFixed(pos.volume, 2)}</td>
                       {/* Open */}
-                      <td className="px-6 py-4 font-mono text-gray-300">{pos.price_open.toFixed(getPairDigits(pos.symbol))}</td>
+                      <td className="px-6 py-4 font-mono text-gray-300">{safeToFixed(pos.price_open, getPairDigits(pos.symbol))}</td>
                       {/* Current */}
                       <td className="px-6 py-4">
                         <div className="font-mono font-bold text-white bg-white/5 border border-white/10 px-3 py-1 rounded-lg inline-block">
-                          {pos.price_current.toFixed(getPairDigits(pos.symbol))}
+                          {safeToFixed(pos.price_current, getPairDigits(pos.symbol))}
                         </div>
                       </td>
                       {/* SL/TP - Editable */}
@@ -322,32 +330,32 @@ export default function PositionsPage() {
                             <div className="flex items-center gap-1.5">
                               <span className="text-[9px] text-[#ff5c73] uppercase font-bold w-6">SL</span>
                               <input type="number" step="any" value={editSl} onChange={e => setEditSl(e.target.value)}
-                                placeholder={pos.sl > 0 ? pos.sl.toFixed(getPairDigits(pos.symbol)) : "None"}
+                                placeholder={pos.sl && Number(pos.sl) > 0 ? safeToFixed(pos.sl, getPairDigits(pos.symbol)) : "None"}
                                 className="w-28 bg-white/5 border border-white/20 rounded px-2 py-1 text-xs font-mono text-white focus:outline-none focus:border-[--bear]/50" />
                             </div>
                             <div className="flex items-center gap-1.5">
                               <span className="text-[9px] text-[#20e0b2] uppercase font-bold w-6">TP</span>
                               <input type="number" step="any" value={editTp} onChange={e => setEditTp(e.target.value)}
-                                placeholder={pos.tp > 0 ? pos.tp.toFixed(getPairDigits(pos.symbol)) : "None"}
+                                placeholder={pos.tp && Number(pos.tp) > 0 ? safeToFixed(pos.tp, getPairDigits(pos.symbol)) : "None"}
                                 className="w-28 bg-white/5 border border-white/20 rounded px-2 py-1 text-xs font-mono text-white focus:outline-none focus:border-[--bull]/50" />
                             </div>
                           </div>
                         ) : (
                           <div className="flex flex-col gap-1 text-[11px] font-mono">
-                            <span className={`px-2 py-0.5 rounded flex items-center gap-1 ${pos.sl > 0 ? "bg-[#ff5c73]/10 text-[#ff5c73]" : "text-gray-600"}`}>
-                              <AlertCircle className="w-3 h-3" />{pos.sl > 0 ? pos.sl.toFixed(getPairDigits(pos.symbol)) : "No SL"}
+                            <span className={`px-2 py-0.5 rounded flex items-center gap-1 ${pos.sl && Number(pos.sl) > 0 ? "bg-[#ff5c73]/10 text-[#ff5c73]" : "text-gray-600"}`}>
+                              <AlertCircle className="w-3 h-3" />{pos.sl && Number(pos.sl) > 0 ? safeToFixed(pos.sl, getPairDigits(pos.symbol)) : "No SL"}
                             </span>
-                            <span className={`px-2 py-0.5 rounded flex items-center gap-1 ${pos.tp > 0 ? "bg-[#20e0b2]/10 text-[#20e0b2]" : "text-gray-600"}`}>
-                              <Target className="w-3 h-3" />{pos.tp > 0 ? pos.tp.toFixed(getPairDigits(pos.symbol)) : "No TP"}
+                            <span className={`px-2 py-0.5 rounded flex items-center gap-1 ${pos.tp && Number(pos.tp) > 0 ? "bg-[#20e0b2]/10 text-[#20e0b2]" : "text-gray-600"}`}>
+                              <Target className="w-3 h-3" />{pos.tp && Number(pos.tp) > 0 ? safeToFixed(pos.tp, getPairDigits(pos.symbol)) : "No TP"}
                             </span>
                           </div>
                         )}
                       </td>
                       {/* P&L */}
                       <td className={`px-6 py-4 text-right font-mono font-bold ${isProfitable ? "text-[#20e0b2]" : "text-[#ff5c73]"}`}>
-                        <div className="text-base">{isProfitable ? "+" : ""}{pos.profit.toFixed(2)}</div>
-                        {pos.swap !== 0 && (
-                          <div className="text-[10px] text-gray-500 font-normal">Swap: {pos.swap.toFixed(2)}</div>
+                        <div className="text-base">{isProfitable ? "+" : ""}{safeToFixed(pos.profit, 2)}</div>
+                        {pos.swap !== undefined && pos.swap !== null && Number(pos.swap) !== 0 && (
+                          <div className="text-[10px] text-gray-500 font-normal">Swap: {safeToFixed(pos.swap, 2)}</div>
                         )}
                       </td>
                       {/* Actions */}
@@ -398,9 +406,9 @@ export default function PositionsPage() {
           <div className="px-6 py-4 border-t border-[--border] flex items-center justify-between text-xs text-gray-500" style={{ backgroundColor: "rgba(255,255,255,0.01)" }}>
             <span>{sorted.length} position{sorted.length !== 1 ? "s" : ""}</span>
             <div className="flex gap-6">
-              <span>Swap: <span className="font-mono text-gray-300">{totalSwap.toFixed(2)}</span></span>
+              <span>Swap: <span className="font-mono text-gray-300">{safeToFixed(totalSwap, 2)}</span></span>
               <span>Net Float: <span className={`font-mono font-bold ${totalProfit >= 0 ? "text-[#20e0b2]" : "text-[#ff5c73]"}`}>
-                {totalProfit >= 0 ? "+" : ""}{totalProfit.toFixed(2)}
+                {totalProfit >= 0 ? "+" : ""}{safeToFixed(totalProfit, 2)}
               </span></span>
             </div>
           </div>

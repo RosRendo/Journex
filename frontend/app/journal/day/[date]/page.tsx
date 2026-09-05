@@ -15,7 +15,7 @@ export default function DayReviewPage() {
   
   const { trades, loading } = useCsvTrades();
   const [selectedTrade, setSelectedTrade] = useState<any>(null);
-  const [replayTradeId, setReplayTradeId] = useState<number | null>(null);
+  const [replayTradeId, setReplayTradeId] = useState<number | string | null>(null);
 
   const dayTrades = useMemo(() => {
     if (!trades) return [];

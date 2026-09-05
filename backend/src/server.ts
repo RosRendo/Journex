@@ -115,7 +115,13 @@ app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 // Routes
 app.use("/api/backend-auth", authRoutes);
 app.use("/api", (req, res, next) => {
-  if (req.path.startsWith("/bridge") || req.path.startsWith("/internal")) {
+  if (
+    req.path.startsWith("/bridge") || 
+    req.path.startsWith("/internal") || 
+    req.path.startsWith("/terminal") || 
+    req.path.startsWith("/calendar") ||
+    req.path.startsWith("/signals")
+  ) {
     return next();
   }
   requireAuth(req, res, next);
@@ -152,34 +158,18 @@ app.get("/api/subscription/status", (req, res) => {
 const tradeMode = process.env.TRADE_MODE || "local";
 const localMt5Url = process.env.MT5_BRIDGE_URL || process.env.LOCAL_MT5_URL || "http://localhost:5003";
 
-// Mock bridge responses for non-admin callers (guests / friends)
-const MOCK_BRIDGE_RESPONSES: Record<string, any> = {
-  "/api/positions": { success: true, positions: [] },
-  "/api/account": { success: true, balance: 100000, equity: 100000, profit: 0, margin: 0, margin_free: 100000, margin_level: 0, currency: "USD", server: "Paper", login: 0 },
-  "/api/calculations": { success: true, levels: [], riskPercent: 1, lotSize: 0.1 },
-  "/api/close-position": { success: true, message: "Paper trade closed" },
-  "/api/modify-position": { success: true, message: "Paper trade modified" },
-  "/api/trade": { success: true, ticket: 0, price: 0, message: "Paper trade placed" },
-  "/api/journals": { success: true, journals: [] },
-};
-
 // Custom handler for bridge endpoints if using MetaApi
 app.use("/api/bridge/api", async (req, res, next) => {
-  if (!isAdminRequest(req)) {
-    const mockBody = MOCK_BRIDGE_RESPONSES[req.path] || { success: true, data: [] };
-    return res.json(mockBody);
-  }
-
   const currentSettings = getSettings();
   const activeId = req.headers["x-broker-account-id"] as string || currentSettings.activeAccountId;
-  let broker = currentSettings.broker || { provider: "mock" };
+  let broker = currentSettings.broker || { provider: "mt5_bridge" };
   
   if (currentSettings.accounts && currentSettings.accounts.length > 0) {
     broker = currentSettings.accounts.find((a: any) => a.id === activeId) || currentSettings.accounts[0];
   }
 
   if (broker.provider !== "metaapi") {
-    // Pass to proxy middleware below
+    // Pass to proxy middleware below (hits local MT5 Bridge)
     return next();
   }
 

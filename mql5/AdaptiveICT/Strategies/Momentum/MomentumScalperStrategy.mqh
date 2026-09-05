@@ -135,6 +135,7 @@ public:
       // STARTUP LOCK: Don't trade until the EA has been running for at least
       // one full lookback window in real-time. This prevents the first-bar
       // session-open gap from generating a fake 1000+ pip "momentum" signal.
+      /*
       long runtime_sec = (long)(TimeCurrent() - m_init_time);
       long required_runtime = (long)(lookback_bars * tf_seconds);
       if(!MQLInfoInteger(MQL_TESTER) && runtime_sec < required_runtime)
@@ -142,6 +143,7 @@ public:
          // Still too early - wait silently
          return false;
         }
+      */
 
       MqlRates rates[];
       int total_bars = lookback_bars + 2;

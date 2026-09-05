@@ -10,6 +10,7 @@ import { usePathname } from "next/navigation";
 import { FocusModeProvider } from "@/components/providers/FocusModeProvider";
 import { PanicModeProvider } from "@/components/providers/PanicModeProvider";
 import CommandPalette from "@/components/CommandPalette";
+import EcosystemMapModal from "@/components/ui/EcosystemMapModal";
 import PanicModeOverlay from "@/components/PanicModeOverlay";
 import { BottomDock } from "@/components/layout/BottomDock";
 
@@ -50,14 +51,22 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
+  const [ecosystemOpen, setEcosystemOpen] = useState(false);
   useAutoMT5Connect();
 
-  // Global Ctrl+K shortcut
+  // Global keyboard shortcuts: Ctrl+K (Command Palette), Ctrl+M (Ecosystem Map)
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+      // Ignore when user is actively typing in an input or textarea
+      const target = e.target as HTMLElement;
+      const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setCommandOpen(prev => !prev);
+        setCommandOpen((prev) => !prev);
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "m" && !isInput) {
+        e.preventDefault();
+        setEcosystemOpen((prev) => !prev);
       }
     };
     window.addEventListener("keydown", handler);
@@ -80,6 +89,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       <PanicModeProvider>
         <FocusModeProvider>
           <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} />
+          <EcosystemMapModal open={ecosystemOpen} onClose={() => setEcosystemOpen(false)} />
           <PanicModeOverlay />
           <div className="min-h-screen flex flex-col" style={{ background: "var(--bg-base)", color: "var(--text-primary)" }}>
             {pathname.startsWith("/subscription") && <Navbar />}
@@ -94,6 +104,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     <PanicModeProvider>
       <FocusModeProvider>
         <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} />
+        <EcosystemMapModal open={ecosystemOpen} onClose={() => setEcosystemOpen(false)} />
         <PanicModeOverlay />
         <div className="flex flex-col h-screen overflow-hidden" style={{ background: "var(--bg-base)", color: "var(--text-primary)" }}>
           {/* Top Bar */}
@@ -103,7 +114,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
           <div className="flex flex-1 overflow-hidden relative">
             {/* Desktop Sidebar */}
             <div className="hidden lg:flex flex-shrink-0">
-              <Sidebar onOpenCommandPalette={() => setCommandOpen(true)} />
+              <Sidebar
+                onOpenCommandPalette={() => setCommandOpen(true)}
+                onOpenEcosystemMap={() => setEcosystemOpen(true)}
+              />
             </div>
 
             {/* Mobile Sidebar Overlay */}
@@ -114,7 +128,16 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   onClick={() => setIsMobileMenuOpen(false)}
                 />
                 <div className="relative w-[240px] h-full shadow-2xl animate-in slide-in-from-left duration-200">
-                  <Sidebar onOpenCommandPalette={() => { setCommandOpen(true); setIsMobileMenuOpen(false); }} />
+                  <Sidebar
+                    onOpenCommandPalette={() => {
+                      setCommandOpen(true);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    onOpenEcosystemMap={() => {
+                      setEcosystemOpen(true);
+                      setIsMobileMenuOpen(false);
+                    }}
+                  />
                 </div>
               </div>
             )}
@@ -141,7 +164,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
           <div className="overflow-x-auto scrollbar-none relative z-50">
             <StatusBar />
           </div>
-          
+
           <BottomDock onOpenCommandPalette={() => setCommandOpen(true)} />
         </div>
       </FocusModeProvider>

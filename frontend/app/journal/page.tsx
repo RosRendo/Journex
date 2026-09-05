@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useCsvTrades } from "@/hooks/useCsvTrades";
 import type { TradeData } from "@/hooks/useCsvTrades";
 import { useMemo, useState, useEffect, useRef } from "react";
@@ -9,12 +9,13 @@ import { useRouter } from "next/navigation";
 import {
   Search, Upload, RefreshCw, X, Image as ImageIcon, Tag,
   FileText, Clock, TrendingUp, TrendingDown, Trash2,
-  List, Calendar as CalendarIcon, ChevronLeft, Camera, Download, ChevronRight, Play, Plus, BookOpen, Eye
+  List, Calendar as CalendarIcon, ChevronLeft, Camera, Download, ChevronRight, Play, Plus, BookOpen, Eye, Maximize2
 } from "lucide-react";
 import { useJournalData } from "@/hooks/useJournalData";
 import JournalCalendar from "@/components/JournalCalendar";
 import AutoScreenshotModal from "@/components/AutoScreenshotModal";
 import { TradeReplayModal } from "@/components/journal/TradeReplayModal";
+import TradingViewWidget from "@/components/ui/TradingViewWidget";
 import { fetchWithAuth, getBackendUrl } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -32,10 +33,12 @@ export default function JournalPage() {
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [showUpload, setShowUpload] = useState(false);
   const [selectedTrade, setSelectedTrade] = useState<TradeData | null>(null);
-  const [replayTradeId, setReplayTradeId] = useState<number | null>(null);
+  const [replayTradeId, setReplayTradeId] = useState<number | string | null>(null);
   const [selectedDay, setSelectedDay] = useState<{ dateStr: string; trades: TradeData[] } | null>(null);
   const [showScreenshotModal, setShowScreenshotModal] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [tradeChartTab, setTradeChartTab] = useState<"tradingview" | "screenshots">("tradingview");
+  const [fullScreenTvSymbol, setFullScreenTvSymbol] = useState<string | null>(null);
   const itemsPerPage = 15;
 
   const [strategies, setStrategies] = useState<string[]>([
@@ -696,50 +699,87 @@ export default function JournalPage() {
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <label className="text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5 text-zinc-500 font-mono">
-                      <ImageIcon size={12} /> Chart Screenshots
-                    </label>
-                    <div className="flex gap-2 font-mono text-[9px] text-zinc-400">
-                       <button onClick={() => setShowScreenshotModal(true)} className="flex items-center gap-0.5 hover:text-[#20e0b2] transition-colors">
-                         <Camera size={11} /> Auto
-                       </button>
-                       <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-0.5 hover:text-[#20e0b2] transition-colors">
-                         <Upload size={11} /> File
-                       </button>
-                       <button onClick={async () => {
-                         const url = prompt("Paste TradingView or Image URL:");
-                         if (url) {
-                           saveEntry({ images: [...(entry.images || []), url] });
-                           if (entry.linkedLessonId) {
-                             await syncUrlToLesson(url);
-                           }
-                         }
-                       }} className="flex items-center gap-0.5 hover:text-[#20e0b2] transition-colors">
-                         <ImageIcon size={11} /> Link
-                       </button>
+                    <div className="flex items-center gap-1.5 p-0.5 rounded-lg bg-black/40 border border-white/5 font-mono text-[9px]">
+                      <button
+                        onClick={() => setTradeChartTab("tradingview")}
+                        className={`px-2.5 py-1 rounded font-bold transition-all ${
+                          tradeChartTab === "tradingview"
+                            ? "bg-[#20e0b2]/15 text-[#20e0b2] border border-[#20e0b2]/30"
+                            : "text-zinc-500 hover:text-zinc-300"
+                        }`}
+                      >
+                        Live TradingView
+                      </button>
+                      <button
+                        onClick={() => setTradeChartTab("screenshots")}
+                        className={`px-2.5 py-1 rounded font-bold transition-all ${
+                          tradeChartTab === "screenshots"
+                            ? "bg-[#20e0b2]/15 text-[#20e0b2] border border-[#20e0b2]/30"
+                            : "text-zinc-500 hover:text-zinc-300"
+                        }`}
+                      >
+                        Screenshots ({entry.images?.length || 0})
+                      </button>
                     </div>
+
+                    {tradeChartTab === "tradingview" ? (
+                      <button
+                        onClick={() => setFullScreenTvSymbol(selectedTrade?.pair || "XAUUSD")}
+                        className="flex items-center gap-1 text-[9px] font-mono font-bold text-zinc-400 hover:text-[#20e0b2] transition-colors"
+                      >
+                        <Maximize2 size={11} /> Fullscreen
+                      </button>
+                    ) : (
+                      <div className="flex gap-2 font-mono text-[9px] text-zinc-400">
+                        <button onClick={() => setShowScreenshotModal(true)} className="flex items-center gap-0.5 hover:text-[#20e0b2] transition-colors">
+                          <Camera size={11} /> Auto
+                        </button>
+                        <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-0.5 hover:text-[#20e0b2] transition-colors">
+                          <Upload size={11} /> File
+                        </button>
+                        <button onClick={async () => {
+                          const url = prompt("Paste TradingView or Image URL:");
+                          if (url) {
+                            saveEntry({ images: [...(entry.images || []), url] });
+                            if (entry.linkedLessonId) {
+                              await syncUrlToLesson(url);
+                            }
+                          }
+                        }} className="flex items-center gap-0.5 hover:text-[#20e0b2] transition-colors">
+                          <ImageIcon size={11} /> Link
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleImageUpload} />
-                  
-                  {entry.images && entry.images.length > 0 ? (
-                    <div className="grid grid-cols-2 gap-2">
-                      {entry.images.map((img, i) => (
-                        <div key={i} className="relative group rounded-lg overflow-hidden border border-[rgba(255,255,255,0.07)]" style={{ borderColor: "var(--border)" }}>
-                          <img src={img} alt="Chart" className="w-full h-20 object-cover cursor-pointer hover:scale-105 transition-transform" onClick={() => window.open(img, "_blank")} />
-                          <button onClick={() => {
-                            const newImages = [...entry.images!];
-                            newImages.splice(i, 1);
-                            saveEntry({ images: newImages });
-                          }} className="absolute top-1 right-1 p-1 bg-black/75 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Trash2 className="w-3 h-3 text-[#ff5c73]" />
-                          </button>
-                        </div>
-                      ))}
+
+                  {tradeChartTab === "tradingview" ? (
+                    <div className="h-[250px] w-full rounded-lg overflow-hidden border border-[rgba(255,255,255,0.07)] bg-[#0d0d12]">
+                      <TradingViewWidget symbol={selectedTrade?.pair || "XAUUSD"} interval="15" height={250} />
                     </div>
                   ) : (
-                    <div className="p-5 rounded-lg border border-dashed border-[rgba(255,255,255,0.07)] text-center text-[10px] text-zinc-550">
-                      No charts attached. Attach screenshots to review execution.
-                    </div>
+                    <>
+                      <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleImageUpload} />
+                      {entry.images && entry.images.length > 0 ? (
+                        <div className="grid grid-cols-2 gap-2">
+                          {entry.images.map((img, i) => (
+                            <div key={i} className="relative group rounded-lg overflow-hidden border border-[rgba(255,255,255,0.07)]" style={{ borderColor: "var(--border)" }}>
+                              <img src={img} alt="Chart" className="w-full h-20 object-cover cursor-pointer hover:scale-105 transition-transform" onClick={() => window.open(img, "_blank")} />
+                              <button onClick={() => {
+                                const newImages = [...entry.images!];
+                                newImages.splice(i, 1);
+                                saveEntry({ images: newImages });
+                              }} className="absolute top-1 right-1 p-1 bg-black/75 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Trash2 className="w-3 h-3 text-[#ff5c73]" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="p-5 rounded-lg border border-dashed border-[rgba(255,255,255,0.07)] text-center text-[10px] text-zinc-550 font-mono">
+                          No charts attached. Attach screenshots to review execution.
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
 
@@ -768,6 +808,29 @@ export default function JournalPage() {
             setShowScreenshotModal(false);
           }}
         />
+      )}
+
+      {/* Fullscreen TradingView Chart Modal */}
+      {fullScreenTvSymbol && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in">
+          <div className="relative w-full max-w-6xl h-[88vh] bg-[#0d0d12] border border-white/10 rounded-2xl flex flex-col overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-white/10 bg-[#141419]">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono font-bold text-[#20e0b2]">✦ TradingView Advanced Review</span>
+                <span className="text-xs font-bold text-white uppercase font-mono">#{fullScreenTvSymbol}</span>
+              </div>
+              <button
+                onClick={() => setFullScreenTvSymbol(null)}
+                className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 w-full min-h-0">
+              <TradingViewWidget symbol={fullScreenTvSymbol} interval="15" height="100%" />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

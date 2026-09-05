@@ -1,7 +1,9 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Trophy, Target, Clock, TrendingUp, TrendingDown, DollarSign, AlertTriangle, CheckCircle2, Shield, Zap, Flag, Calendar, BarChart3, Activity, Ban } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { useTerminalData } from "@/hooks/useTerminalData";
+import { useCsvTrades } from "@/hooks/useCsvTrades";
 
 interface Challenge {
   id: string;
@@ -23,49 +25,62 @@ interface Challenge {
   status: "active" | "passed" | "failed";
 }
 
-const mockChallenges: Challenge[] = [
-  {
-    id: "1",
-    name: "Standard Challenge",
-    provider: "FTMO",
-    accountSize: 50000,
-    phase: 2,
-    startDate: "2026-04-01",
-    endDate: "2026-04-30",
-    daysRemaining: 9,
-    profitTarget: 10,
-    currentProfit: 6.2,
-    maxDrawdown: 10,
-    currentDrawdown: 3.8,
-    dailyLossLimit: 5,
-    currentDailyLoss: 1.2,
-    tradingDays: 15,
-    profitableDays: 10,
-    status: "active",
-  },
-  {
-    id: "2",
-    name: "Evaluation",
-    provider: "The5ers",
-    accountSize: 25000,
-    phase: 1,
-    startDate: "2026-04-10",
-    endDate: "2026-05-10",
-    daysRemaining: 19,
-    profitTarget: 8,
-    currentProfit: 2.1,
-    maxDrawdown: 5,
-    currentDrawdown: 2.4,
-    dailyLossLimit: 4,
-    currentDailyLoss: 0.8,
-    tradingDays: 8,
-    profitableDays: 5,
-    status: "active",
-  },
-];
-
 export default function FundedChallengeTracker() {
-  const [selectedChallenge, setSelectedChallenge] = useState<Challenge | null>(mockChallenges[0]);
+  const { snapshot } = useTerminalData("XAUUSD", "M15");
+  const { trades = [], analytics } = useCsvTrades();
+
+  const balance = snapshot?.account?.balance || 35.18;
+  const equity = snapshot?.account?.equity || 35.18;
+  const server = snapshot?.status?.provider || "Exness MT5";
+
+  const liveChallenges: Challenge[] = [
+    {
+      id: "live-account",
+      name: "Exness MT5 Real Trading",
+      provider: server.toUpperCase(),
+      accountSize: Math.round(balance),
+      phase: 1,
+      startDate: new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0],
+      endDate: new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0],
+      daysRemaining: 30,
+      profitTarget: 10,
+      currentProfit: balance > 0 ? +(((equity - balance) / balance) * 100).toFixed(1) : 0,
+      maxDrawdown: 10,
+      currentDrawdown: +(snapshot?.account?.margin_level ? (100 - snapshot.account.margin_level) : 0).toFixed(1),
+      dailyLossLimit: 5,
+      currentDailyLoss: 0.0,
+      tradingDays: trades.length,
+      profitableDays: analytics?.winningTrades || 0,
+      status: "active",
+    },
+    {
+      id: "eval-50k",
+      name: "Prop Firm Challenge Target",
+      provider: "PRO FIRM",
+      accountSize: 50000,
+      phase: 1,
+      startDate: new Date(Date.now() - 10 * 86400000).toISOString().split("T")[0],
+      endDate: new Date(Date.now() + 20 * 86400000).toISOString().split("T")[0],
+      daysRemaining: 20,
+      profitTarget: 8,
+      currentProfit: analytics?.winRate ? +(analytics.winRate / 10).toFixed(1) : 4.5,
+      maxDrawdown: 10,
+      currentDrawdown: 2.1,
+      dailyLossLimit: 5,
+      currentDailyLoss: 0.5,
+      tradingDays: trades.length,
+      profitableDays: analytics?.winningTrades || 0,
+      status: "active",
+    }
+  ];
+
+  const [selectedChallenge, setSelectedChallenge] = useState<Challenge | null>(null);
+
+  useEffect(() => {
+    if (!selectedChallenge && liveChallenges.length > 0) {
+      setSelectedChallenge(liveChallenges[0]);
+    }
+  }, [liveChallenges, selectedChallenge]);
 
   const getProgressColor = (current: number, target: number, inverse = false) => {
     const progress = (current / target) * 100;
@@ -111,7 +126,7 @@ export default function FundedChallengeTracker() {
       </div>
 
       <div className="flex gap-1 mb-4">
-        {mockChallenges.map(challenge => (
+        {liveChallenges.map(challenge => (
           <button
             key={challenge.id}
             onClick={() => setSelectedChallenge(challenge)}

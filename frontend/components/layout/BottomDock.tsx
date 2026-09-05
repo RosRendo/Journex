@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { 
   LayoutDashboard, Terminal, BookOpen, TrendingUp, Globe, 
-  GraduationCap, User, Plus
+  GraduationCap, User, Plus, Compass
 } from "lucide-react";
 
 export function BottomDock({ onOpenCommandPalette }: { onOpenCommandPalette: () => void }) {
@@ -18,16 +18,21 @@ export function BottomDock({ onOpenCommandPalette }: { onOpenCommandPalette: () 
     { id: "journal", href: "/journal", icon: BookOpen, tooltip: "Journal" },
   ];
 
-  const secondaryItems: Array<{ id: string; href: string; icon: any; tooltip: string; action?: () => void }> = [
-    { id: "macro", href: "/macro/XAUUSD", icon: TrendingUp, tooltip: "Macro" },
+  const secondaryItems: Array<{ id: string; href?: string; icon: any; tooltip: string; action?: () => void }> = [
+    { id: "macro", href: "/macro/XAUUSD", icon: TrendingUp, tooltip: "Macro Desk" },
     { id: "markets", href: "/news", icon: Globe, tooltip: "Markets" },
     { id: "education", href: "/playbook", icon: GraduationCap, tooltip: "Lessons" },
+    { 
+      id: "ecosystem", 
+      icon: Compass, 
+      tooltip: "Ecosystem Blueprint (⌘M)", 
+      action: () => window.dispatchEvent(new KeyboardEvent("keydown", { key: "m", ctrlKey: true })) 
+    },
     { id: "profile", href: "/profile", icon: User, tooltip: "Profile" },
   ];
 
   return (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] group">
-      {/* Invisible hover zone to expand the dock if we wanted an auto-hide feature. For now it's always visible but fades in opacities. */}
       <div 
         className="flex items-center gap-2 px-4 py-3 rounded-full border border-white/10 backdrop-blur-2xl shadow-2xl transition-all duration-300 opacity-60 hover:opacity-100 hover:scale-105"
         style={{ background: "rgba(12, 12, 15, 0.75)" }}
@@ -70,7 +75,7 @@ export function BottomDock({ onOpenCommandPalette }: { onOpenCommandPalette: () 
         {secondaryItems.map((item) => (
           <div key={item.id} className="relative flex flex-col items-center">
             {hovered === item.id && (
-              <span className="absolute -top-10 px-2 py-1 bg-black text-white text-[10px] rounded border border-white/10 font-bold tracking-widest uppercase">
+              <span className="absolute -top-10 px-2 py-1 bg-black text-white text-[10px] rounded border border-white/10 font-bold tracking-widest uppercase whitespace-nowrap">
                 {item.tooltip}
               </span>
             )}
@@ -85,10 +90,10 @@ export function BottomDock({ onOpenCommandPalette }: { onOpenCommandPalette: () 
               </button>
             ) : (
                <Link 
-                href={item.href}
+                href={item.href || "#"}
                 onMouseEnter={() => setHovered(item.id)}
                 onMouseLeave={() => setHovered(null)}
-                className={`p-2.5 rounded-full transition-all duration-300 ${pathname.startsWith(item.href) ? "bg-white/10 text-white" : "text-gray-400 hover:text-white hover:bg-white/5"}`}
+                className={`p-2.5 rounded-full transition-all duration-300 ${item.href && pathname.startsWith(item.href) ? "bg-white/10 text-white" : "text-gray-400 hover:text-white hover:bg-white/5"}`}
               >
                 <item.icon className="w-5 h-5" />
               </Link>

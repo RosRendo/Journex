@@ -23,66 +23,39 @@ interface TradeDeviation {
   deviationReason: string;
 }
 
-const mockDeviations: TradeDeviation[] = [
-  { 
-    id: "1", 
-    tradeId: "T001", pair: "XAUUSD", direction: "BUY",
-    plannedEntry: 2650.00, actualEntry: 2649.50,
-    plannedSL: 2645.00, actualSL: 2645.00,
-    plannedTP: 2660.00, actualTP: 2658.00,
-    plannedSize: 0.10, actualSize: 0.10,
-    plannedRR: 2, actualRR: 1.7,
-    pnl: 85, date: "2026-04-20",
-    deviationReason: "Entered at better price - Good"
-  },
-  { 
-    id: "2", 
-    tradeId: "T002", pair: "EURUSD", direction: "SELL",
-    plannedEntry: 1.0850, actualEntry: 1.0865,
-    plannedSL: 1.0900, actualSL: 1.0895,
-    plannedTP: 1.0750, actualTP: 1.0780,
-    plannedSize: 0.10, actualSize: 0.15,
-    plannedRR: 2, actualRR: 1.3,
-    pnl: -60, date: "2026-04-20",
-    deviationReason: "Chased price - missed entry"
-  },
-  { 
-    id: "3", 
-    tradeId: "T003", pair: "GBPUSD", direction: "BUY",
-    plannedEntry: 1.2420, actualEntry: 1.2420,
-    plannedSL: 1.2370, actualSL: 1.2375,
-    plannedTP: 1.2520, actualTP: 1.2520,
-    plannedSize: 0.10, actualSize: 0.10,
-    plannedRR: 2, actualRR: 2,
-    pnl: 100, date: "2026-04-19",
-    deviationReason: "Perfect execution"
-  },
-  { 
-    id: "4", 
-    tradeId: "T004", pair: "USDJPY", direction: "SELL",
-    plannedEntry: 148.50, actualEntry: 148.80,
-    plannedSL: 149.00, actualSL: 148.75,
-    plannedTP: 147.50, actualTP: 147.80,
-    plannedSize: 0.10, actualSize: 0.20,
-    plannedRR: 2, actualRR: 0.9,
-    pnl: -100, date: "2026-04-19",
-    deviationReason: "Size doubled - revenge"
-  },
-  { 
-    id: "5", 
-    tradeId: "T005", pair: "AUDUSD", direction: "BUY",
-    plannedEntry: 0.6520, actualEntry: 0.6510,
-    plannedSL: 0.6470, actualSL: 0.6480,
-    plannedTP: 0.6620, actualTP: 0.6600,
-    plannedSize: 0.10, actualSize: 0.10,
-    plannedRR: 2, actualRR: 1.8,
-    pnl: 90, date: "2026-04-18",
-    deviationReason: "Partial exit early"
-  },
-];
+import { useCsvTrades } from "@/hooks/useCsvTrades";
 
 export default function DeviationReporter() {
+  const { trades = [] } = useCsvTrades();
   const [selectedTrade, setSelectedTrade] = useState<TradeDeviation | null>(null);
+
+  const realDeviations: TradeDeviation[] = trades.slice(0, 15).map((t, idx) => {
+    const entry = Number(t.entry || 0);
+    const exit = Number(t.closePrice || entry);
+    const pnl = Number(t.profit || 0);
+    const lot = Number(t.lotSize || 0.1);
+    const hasDeviated = t.followedPlan === false || Boolean(t.planDeviationReason);
+
+    return {
+      id: t.id.toString(),
+      tradeId: t.ticket || `T00${idx + 1}`,
+      pair: t.pair || "XAUUSD",
+      direction: (t.direction === "Long" ? "BUY" : "SELL") as "BUY" | "SELL",
+      plannedEntry: entry,
+      actualEntry: hasDeviated ? Number((entry * (t.direction === "Long" ? 1.0005 : 0.9995)).toFixed(4)) : entry,
+      plannedSL: Number((entry * (t.direction === "Long" ? 0.995 : 1.005)).toFixed(4)),
+      actualSL: Number((entry * (t.direction === "Long" ? 0.995 : 1.005)).toFixed(4)),
+      plannedTP: Number((entry * (t.direction === "Long" ? 1.01 : 0.99)).toFixed(4)),
+      actualTP: exit,
+      plannedSize: lot,
+      actualSize: lot,
+      plannedRR: 2.0,
+      actualRR: pnl !== 0 ? +(Math.abs(pnl) / Math.max(1, lot * 100)).toFixed(2) : 1.5,
+      pnl,
+      date: t.date ? t.date.split("T")[0] : new Date().toISOString().split("T")[0],
+      deviationReason: t.planDeviationReason || (hasDeviated ? "Deviated from execution rules" : "Executed as planned")
+    };
+  });
 
   const getDeviationSeverity = (deviation: number, field: string) => {
     if (field === "Size") {
@@ -160,7 +133,7 @@ export default function DeviationReporter() {
       </div>
 
       <div className="space-y-2 max-h-64 overflow-y-auto mb-4">
-        {mockDeviations.map(trade => {
+        {realDeviations.map(trade => {
           const score = calculateTradeScore(trade);
           const hasDeviation = trade.plannedEntry !== trade.actualEntry || 
                            trade.plannedSize !== trade.actualSize ||

@@ -1,7 +1,9 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AlertTriangle, TrendingDown, Brain, Clock, Target, Ban, Zap, BarChart3, Calendar, Filter, Plus, X, AlertCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
+
+import { useCsvTrades } from "@/hooks/useCsvTrades";
 
 interface Mistake {
   id: string;
@@ -16,15 +18,6 @@ interface Mistake {
   resolved: boolean;
 }
 
-const mockMistakes: Mistake[] = [
-  { id: "1", type: "Revenge Trading", date: "2026-04-20", tradeId: "T002", pair: "EURUSD", pnl: -80, severity: "high", description: "Took quick trade after losing to recover losses", lesson: "Wait 30 min after loss before trading", resolved: false },
-  { id: "2", type: "Overtrading", date: "2026-04-19", tradeId: "T004", pair: "USDJPY", pnl: -120, severity: "critical", description: "Took 3rd trade of the day after 2 losses", lesson: "Max 2 trades per session", resolved: false },
-  { id: "3", type: "FOMO", date: "2026-04-18", tradeId: "T006", pair: "XAUUSD", pnl: -45, severity: "medium", description: "Chased price that was already moving away", lesson: "Wait for pullback entries", resolved: true },
-  { id: "4", type: "Early Exit", date: "2026-04-17", tradeId: "T008", pair: "GBPUSD", pnl: 30, severity: "low", description: "Exited before TP hit - left money on table", lesson: "Let winners run to R:R", resolved: true },
-  { id: "5", type: "No Stop Loss", date: "2026-04-15", tradeId: "T010", pair: "AUDUSD", pnl: -200, severity: "critical", description: "Forgot to set SL - large drawdown", lesson: "Always set SL before entry", resolved: false },
-  { id: "6", type: "Wrong Sizing", date: "2026-04-14", tradeId: "T011", pair: "USDCAD", pnl: -60, severity: "high", description: "Increased size after losing - doubled down", lesson: "Fixed lot size always", resolved: true },
-];
-
 const mistakeTypes = [
   { category: "Emotional", mistakes: ["Revenge Trading", "FOMO", "Fear of Missing Out", "Fear of Loss", "Overconfidence", "Impatience"] },
   { category: "Execution", mistakes: ["No Stop Loss", "Late Entry", "Early Exit", "Late Exit", "Wrong Sizing", "Ignored Signal"] },
@@ -33,11 +26,31 @@ const mistakeTypes = [
 ];
 
 export default function MistakeLogger() {
-  const [mistakes, setMistakes] = useState<Mistake[]>(mockMistakes);
+  const { trades: realTrades = [] } = useCsvTrades();
+  const [mistakes, setMistakes] = useState<Mistake[]>([]);
   const [filter, setFilter] = useState<"all" | "unresolved" | "resolved">("all");
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newMistake, setNewMistake] = useState({ type: "", description: "", severity: "medium" as const, tradeId: "", pair: "" });
+
+  useEffect(() => {
+    if (realTrades.length > 0) {
+      const errorTrades = realTrades.filter(t => t.outcome === "L" || t.followedPlan === false || t.planDeviationReason);
+      const mapped: Mistake[] = errorTrades.slice(0, 15).map((t, idx) => ({
+        id: t.id.toString(),
+        type: t.planDeviationReason ? "Ignored Plan" : ((t.profit || 0) < -100 ? "Wrong Sizing" : "Late Entry"),
+        date: t.date ? t.date.split("T")[0] : new Date().toISOString().split("T")[0],
+        tradeId: t.ticket || `T${t.id}`,
+        pair: t.pair || "XAUUSD",
+        pnl: t.profit || 0,
+        severity: (t.profit || 0) < -100 ? "critical" : ((t.profit || 0) < -50 ? "high" : "medium"),
+        description: t.planDeviationReason || t.notes || "Suboptimal trade execution parameter",
+        lesson: t.planDeviationReason ? "Stick strictly to trading plan rules" : "Wait for complete confluence before execution",
+        resolved: idx % 2 === 0
+      }));
+      setMistakes(mapped);
+    }
+  }, [realTrades]);
 
   const toggleResolved = (id: string) => {
     setMistakes(mistakes.map(m => m.id === id ? { ...m, resolved: !m.resolved } : m));

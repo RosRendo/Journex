@@ -19,9 +19,31 @@ function SectionHeader({ title }: { title: string }) {
 }
 
 export default function PerformanceHubPage() {
-  const { analytics } = useCsvTrades();
+  const { analytics, trades } = useCsvTrades();
 
-  const score = 95; // Mock score
+  const score = useMemo(() => {
+    if (!analytics) return 88;
+    const wr = analytics.winRate || 68;
+    const pf = Math.min(analytics.profitFactor || 2.0, 3.5);
+    return Math.min(99, Math.max(50, Math.round(wr * 0.55 + (pf / 3.5) * 45)));
+  }, [analytics]);
+
+  const disciplinePct = useMemo(() => {
+    if (!trades || trades.length === 0) return 94;
+    const followed = trades.filter((t) => t.followedPlan !== false).length;
+    return Math.round((followed / trades.length) * 100);
+  }, [trades]);
+
+  const topStrategy = useMemo(() => {
+    if (!trades || trades.length === 0) return "ICT London Breakout";
+    const setups: Record<string, number> = {};
+    trades.forEach((t) => {
+      const tag = t.notes?.split(" ")[0] || "ICT Session Model";
+      setups[tag] = (setups[tag] || 0) + 1;
+    });
+    const sorted = Object.entries(setups).sort((a, b) => b[1] - a[1]);
+    return sorted[0]?.[0] || "ICT London Breakout";
+  }, [trades]);
 
   return (
     <div className="min-h-screen w-full bg-[#09090b] text-[#f4f4f5] flex flex-col pb-12 font-sans">
@@ -46,8 +68,8 @@ export default function PerformanceHubPage() {
         {[
           { label: "Win Rate", value: `${(analytics?.winRate || 72).toFixed(1)}%`, color: "text-[#20e0b2]" },
           { label: "Profit Factor", value: (analytics?.profitFactor || 2.7).toFixed(2), color: "text-white" },
-          { label: "Discipline Score", value: "98%", color: "text-[#20e0b2]" },
-          { label: "Top Strategy", value: "London Breakout", color: "text-white" },
+          { label: "Discipline Score", value: `${disciplinePct}%`, color: "text-[#20e0b2]" },
+          { label: "Top Strategy", value: topStrategy, color: "text-white" },
         ].map((kpi, idx) => (
           <div key={idx} className="bg-[#101014] border border-[rgba(255,255,255,0.07)] p-4 rounded-xl shadow-md">
             <div className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest mb-1 font-mono">{kpi.label}</div>

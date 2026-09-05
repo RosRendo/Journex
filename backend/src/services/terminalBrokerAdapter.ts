@@ -8,17 +8,18 @@ import MetaApi from "metaapi.cloud-sdk";
 // SYMBOLS & CONSTANTS (Shared for Mocks & Fallbacks)
 // ----------------------------------------------------
 export const SYMBOLS: Record<string, { price: number; digits: number; name: string }> = {
-  "EURUSD": { price: 1.0950, digits: 5, name: "Euro / US Dollar" },
-  "GBPUSD": { price: 1.2650, digits: 5, name: "Pound / US Dollar" },
-  "USDJPY": { price: 152.40, digits: 3, name: "US Dollar / Japanese Yen" },
-  "AUDUSD": { price: 0.6780, digits: 5, name: "Australian / US Dollar" },
-  "NZDUSD": { price: 0.5950, digits: 5, name: "New Zealand / US Dollar" },
-  "USDCHF": { price: 0.9020, digits: 5, name: "US Dollar / Swiss Franc" },
-  "USDCAD": { price: 1.3680, digits: 5, name: "US Dollar / Canadian Dollar" },
-  "XAUUSD": { price: 2400.0, digits: 2, name: "Gold / US Dollar" },
-  "XAGUSD": { price: 28.50, digits: 3, name: "Silver / US Dollar" },
-  "AUDJPY": { price: 97.80, digits: 3, name: "Australian / Japanese Yen" },
-  "EURJPY": { price: 167.50, digits: 3, name: "Euro / Japanese Yen" },
+  "EURUSD": { price: 1.1610, digits: 5, name: "Euro / US Dollar" },
+  "GBPUSD": { price: 1.3510, digits: 5, name: "Pound / US Dollar" },
+  "USDJPY": { price: 156.10, digits: 3, name: "US Dollar / Japanese Yen" },
+  "AUDUSD": { price: 0.6550, digits: 5, name: "Australian / US Dollar" },
+  "NZDUSD": { price: 0.5890, digits: 5, name: "New Zealand / US Dollar" },
+  "USDCHF": { price: 0.8920, digits: 5, name: "US Dollar / Swiss Franc" },
+  "USDCAD": { price: 1.3850, digits: 5, name: "US Dollar / Canadian Dollar" },
+  "XAUUSD": { price: 4425.0, digits: 2, name: "Gold / US Dollar" },
+  "XAGUSD": { price: 32.50, digits: 3, name: "Silver / US Dollar" },
+  "BTCUSD": { price: 79500.0, digits: 2, name: "Bitcoin / US Dollar" },
+  "AUDJPY": { price: 102.30, digits: 3, name: "Australian / Japanese Yen" },
+  "EURJPY": { price: 181.20, digits: 3, name: "Euro / Japanese Yen" },
 };
 
 // Seeded Random Generator for deterministic mock candle walk
@@ -308,7 +309,10 @@ export class Mt5BridgeAdapter implements BrokerAdapter {
   private baseUrl: string;
 
   constructor(baseUrl: string) {
-    this.baseUrl = baseUrl.replace(/\/$/, "").replace("localhost", "127.0.0.1");
+    this.baseUrl = (baseUrl || "http://127.0.0.1:5003")
+      .replace(/\/$/, "")
+      .replace("localhost", "127.0.0.1")
+      .replace("host.docker.internal", "127.0.0.1");
   }
 
   async ping() {
@@ -980,7 +984,7 @@ export class MetaApiAdapter implements BrokerAdapter {
 // UNIFIED BROKER ADAPTER FACTORY
 // ----------------------------------------------------
 export function buildAdapter(cfg: any): BrokerAdapter {
-  const provider = (cfg || {}).provider || process.env.DEFAULT_BROKER || "mock";
+  const provider = (cfg || {}).provider || process.env.DEFAULT_BROKER || "mt5_bridge";
   const api_key = (cfg || {}).api_key || process.env.METAAPI_TOKEN || "";
   const api_secret = (cfg || {}).api_secret || "";
   const account_id = (cfg || {}).account_id || process.env.METAAPI_ACCOUNT_ID || "";
@@ -996,7 +1000,7 @@ export function buildAdapter(cfg: any): BrokerAdapter {
     return new AlpacaAdapter(api_key, api_secret, base_url || undefined);
   }
   if (provider === "mt5_bridge") {
-    return new Mt5BridgeAdapter(process.env.MT5_BRIDGE_URL || base_url || "http://localhost:5003");
+    return new Mt5BridgeAdapter(process.env.MT5_BRIDGE_URL || base_url || "http://127.0.0.1:5003");
   }
-  return new MockAdapter();
+  return new Mt5BridgeAdapter("http://127.0.0.1:5003");
 }

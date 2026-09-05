@@ -1,7 +1,9 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Star, Target, ThumbsUp, ThumbsDown, TrendingUp, TrendingDown, MessageSquare, Calendar, X, Save, RotateCcw } from "lucide-react";
 import { Card } from "@/components/ui/card";
+
+import { useCsvTrades } from "@/hooks/useCsvTrades";
 
 interface TradeRating {
   id: string;
@@ -18,14 +20,6 @@ interface TradeRating {
   date: string;
 }
 
-const mockTrades: TradeRating[] = [
-  { id: "1", tradeId: "T001", pair: "XAUUSD", direction: "BUY", pnl: 150, setupScore: 7, executionScore: 8, emotionalScore: 9, outcomeScore: 8, notes: "Good pullback to support", mistakes: [], date: "2026-04-20" },
-  { id: "2", tradeId: "T002", pair: "EURUSD", direction: "SELL", pnl: -80, setupScore: 5, executionScore: 6, emotionalScore: 4, outcomeScore: 3, notes: "FOMO entry, no patience", mistakes: ["FOMO", "Early entry"], date: "2026-04-20" },
-  { id: "3", tradeId: "T003", pair: "GBPUSD", direction: "BUY", pnl: 220, setupScore: 9, executionScore: 9, emotionalScore: 8, outcomeScore: 9, notes: "Perfect setup at S/R", mistakes: [], date: "2026-04-19" },
-  { id: "4", tradeId: "T004", pair: "USDJPY", direction: "SELL", pnl: -120, setupScore: 4, executionScore: 5, emotionalScore: 3, outcomeScore: 2, notes: "Revenge trade after loss", mistakes: ["Revenge trading", "Overtrading"], date: "2026-04-19" },
-  { id: "5", tradeId: "T005", pair: "AUDUSD", direction: "BUY", pnl: 95, setupScore: 6, executionScore: 7, emotionalScore: 7, outcomeScore: 6, notes: "Decent setup, exited early", mistakes: ["Premature exit"], date: "2026-04-18" },
-];
-
 const mistakeOptions = [
   "Overtrading", "FOMO", "Revenge trading", "No SL", "Wrong Sizing",
   "Early exit", "Late entry", "Ignored plan", "Emotional trading",
@@ -33,10 +27,34 @@ const mistakeOptions = [
 ];
 
 export default function TradeQualityRater() {
-  const [trades, setTrades] = useState<TradeRating[]>(mockTrades);
+  const { trades: realTrades = [] } = useCsvTrades();
+  const [trades, setTrades] = useState<TradeRating[]>([]);
   const [selectedTrade, setSelectedTrade] = useState<TradeRating | null>(null);
   const [editingMistake, setEditingMistake] = useState<string | null>(null);
   const [newMistake, setNewMistake] = useState("");
+
+  useEffect(() => {
+    if (realTrades.length > 0) {
+      const mapped: TradeRating[] = realTrades.slice(0, 20).map(t => ({
+        id: t.id.toString(),
+        tradeId: t.ticket || `T${t.id}`,
+        pair: t.pair || "XAUUSD",
+        direction: (t.direction === "Long" ? "BUY" : "SELL") as "BUY" | "SELL",
+        pnl: t.profit || 0,
+        setupScore: t.outcome === "W" ? 8 : 5,
+        executionScore: t.followedPlan !== false ? 8 : 4,
+        emotionalScore: 7,
+        outcomeScore: (t.profit || 0) > 0 ? 8 : 4,
+        notes: t.notes || (t.planDeviationReason ? `Deviation: ${t.planDeviationReason}` : "Standard execution"),
+        mistakes: t.planDeviationReason ? [t.planDeviationReason] : ((t.profit || 0) < -50 ? ["Overtrading"] : []),
+        date: t.date ? t.date.split("T")[0] : new Date().toISOString().split("T")[0],
+      }));
+      setTrades(mapped);
+      if (!selectedTrade && mapped.length > 0) {
+        setSelectedTrade(mapped[0]);
+      }
+    }
+  }, [realTrades]);
 
   const updateTradeRating = (tradeId: string, field: keyof TradeRating, value: any) => {
     setTrades(trades.map(t => t.tradeId === tradeId ? { ...t, [field]: value } : t));

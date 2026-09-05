@@ -1,6 +1,9 @@
-﻿"use client";
+"use client";
 import { useState, useEffect } from "react";
 import { AlertTriangle, Shield, TrendingDown, TrendingUp, DollarSign, Percent, Activity, Clock, Ban, Zap } from "lucide-react";
+
+import { useTerminalData } from "@/hooks/useTerminalData";
+import { useCsvTrades } from "@/hooks/useCsvTrades";
 
 interface RiskLimit {
   id: string;
@@ -12,22 +15,55 @@ interface RiskLimit {
   enabled: boolean;
 }
 
-const defaultLimits: RiskLimit[] = [
-  { id: "1", label: "Daily Loss Limit", type: "daily", current: 1.8, limit: 4, unit: "percent", enabled: true },
-  { id: "2", label: "Daily Profit Target", type: "daily", current: 2.1, limit: 3, unit: "percent", enabled: true },
-  { id: "3", label: "Daily Trade Limit", type: "daily", current: 3, limit: 5, unit: "trades", enabled: true },
-  { id: "4", label: "Weekly Loss Limit", type: "weekly", current: 4.2, limit: 10, unit: "percent", enabled: true },
-  { id: "5", label: "Weekly Profit Target", type: "weekly", current: 6.8, limit: 8, unit: "percent", enabled: false },
-  { id: "6", label: "Consecutive Losses", type: "daily", current: 2, limit: 3, unit: "trades", enabled: true },
-  { id: "7", label: "Monthly Loss Limit", type: "monthly", current: 8.5, limit: 15, unit: "percent", enabled: true },
-];
-
-const mockAccountBalance = 10000;
-
 export default function RiskLimitGuard() {
-  const [limits, setLimits] = useState<RiskLimit[]>(defaultLimits);
+  const { snapshot } = useTerminalData("XAUUSD", "M15");
+  const { trades = [] } = useCsvTrades();
+
+  const balance = snapshot?.account?.balance || 35.18;
+
+  // Real calculations
+  const todayStr = new Date().toISOString().split("T")[0];
+  const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const oneMonthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+  const todayTrades = trades.filter(t => (t.date || "").startsWith(todayStr));
+  const weekTrades = trades.filter(t => new Date(t.date || Date.now()) >= oneWeekAgo);
+  const monthTrades = trades.filter(t => new Date(t.date || Date.now()) >= oneMonthAgo);
+
+  const todayPnl = todayTrades.reduce((sum, t) => sum + (t.profit || 0), 0);
+  const weekPnl = weekTrades.reduce((sum, t) => sum + (t.profit || 0), 0);
+  const monthPnl = monthTrades.reduce((sum, t) => sum + (t.profit || 0), 0);
+
+  const dailyLoss = balance > 0 && todayPnl < 0 ? +(Math.abs(todayPnl / balance) * 100).toFixed(1) : 0;
+  const dailyProfit = balance > 0 && todayPnl > 0 ? +((todayPnl / balance) * 100).toFixed(1) : 0;
+  const weeklyLoss = balance > 0 && weekPnl < 0 ? +(Math.abs(weekPnl / balance) * 100).toFixed(1) : 0;
+  const weeklyProfit = balance > 0 && weekPnl > 0 ? +((weekPnl / balance) * 100).toFixed(1) : 0;
+  const monthlyLoss = balance > 0 && monthPnl < 0 ? +(Math.abs(monthPnl / balance) * 100).toFixed(1) : 0;
+
+  // Count consecutive losses from recent trades
+  let consecutiveLosses = 0;
+  for (const t of trades) {
+    if (t.outcome === "L" || (t.profit && t.profit < 0)) consecutiveLosses++;
+    else if (t.outcome === "W" || (t.profit && t.profit > 0)) break;
+  }
+
+  const dynamicLimits: RiskLimit[] = [
+    { id: "1", label: "Daily Loss Limit", type: "daily", current: dailyLoss, limit: 4, unit: "percent", enabled: true },
+    { id: "2", label: "Daily Profit Target", type: "daily", current: dailyProfit, limit: 3, unit: "percent", enabled: true },
+    { id: "3", label: "Daily Trade Limit", type: "daily", current: todayTrades.length, limit: 5, unit: "trades", enabled: true },
+    { id: "4", label: "Weekly Loss Limit", type: "weekly", current: weeklyLoss, limit: 10, unit: "percent", enabled: true },
+    { id: "5", label: "Weekly Profit Target", type: "weekly", current: weeklyProfit, limit: 8, unit: "percent", enabled: false },
+    { id: "6", label: "Consecutive Losses", type: "daily", current: consecutiveLosses, limit: 3, unit: "trades", enabled: true },
+    { id: "7", label: "Monthly Loss Limit", type: "monthly", current: monthlyLoss, limit: 15, unit: "percent", enabled: true },
+  ];
+
+  const [limits, setLimits] = useState<RiskLimit[]>(dynamicLimits);
   const [isBlocked, setIsBlocked] = useState(false);
   const [activeWarnings, setActiveWarnings] = useState<string[]>([]);
+
+  useEffect(() => {
+    setLimits(dynamicLimits);
+  }, [dailyLoss, dailyProfit, todayTrades.length, weeklyLoss, weeklyProfit, consecutiveLosses, monthlyLoss]);
 
   useEffect(() => {
     const warnings: string[] = [];
@@ -155,7 +191,7 @@ export default function RiskLimitGuard() {
         <div className="flex items-center gap-1 font-bold">
           <DollarSign className="w-3.5 h-3.5 text-zinc-550" />
           <span className="text-xs text-zinc-400">
-            ${mockAccountBalance.toLocaleString()}
+            ${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </span>
         </div>
       </div>

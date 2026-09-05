@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useEffect } from "react";
 import { Shield, CheckCircle2, XCircle, AlertTriangle, Edit2, Save, RotateCcw, TrendingUp, TrendingDown, Clock, Zap, Target, BarChart3 } from "lucide-react";
 
@@ -28,12 +28,8 @@ const defaultRules: TradingRule[] = [
   { id: "14", category: "Emotional", label: "Take breaks after 2 losses", currentValue: true, enabled: true, type: "boolean" },
 ];
 
-const mockTodayStats = {
-  tradesToday: 2,
-  dailyLoss: 1.8,
-  tradesThisWeek: 8,
-  weeklyLoss: 4.2,
-};
+import { useCsvTrades } from "@/hooks/useCsvTrades";
+import { useTerminalData } from "@/hooks/useTerminalData";
 
 export default function TradingPlanEnforcer() {
   const [rules, setRules] = useState<TradingRule[]>(defaultRules);
@@ -41,20 +37,46 @@ export default function TradingPlanEnforcer() {
   const [editValue, setEditValue] = useState<string | number | boolean>("");
   const [violations, setViolations] = useState<string[]>([]);
 
+  const { trades = [] } = useCsvTrades();
+  const { snapshot } = useTerminalData("XAUUSD", "M15");
+
+  // Compute live today & weekly stats from actual trade database
+  const todayStr = new Date().toISOString().split("T")[0];
+  const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+  const todayTrades = trades.filter(t => (t.date || "").startsWith(todayStr));
+  const weekTrades = trades.filter(t => new Date(t.date || Date.now()) >= oneWeekAgo);
+
+  const balance = snapshot?.account?.balance || 35.18;
+  const todayPnl = todayTrades.reduce((sum, t) => sum + (t.profit || 0), 0);
+  const weekPnl = weekTrades.reduce((sum, t) => sum + (t.profit || 0), 0);
+
+  const dailyLossPct = balance > 0 && todayPnl < 0 ? +(Math.abs(todayPnl / balance) * 100).toFixed(1) : 0;
+  const weeklyLossPct = balance > 0 && weekPnl < 0 ? +(Math.abs(weekPnl / balance) * 100).toFixed(1) : 0;
+
+  const todayStats = {
+    tradesToday: todayTrades.length,
+    dailyLoss: dailyLossPct,
+    dailyPnl: +todayPnl.toFixed(2),
+    tradesThisWeek: weekTrades.length,
+    weeklyLoss: weeklyLossPct,
+    weeklyPnl: +weekPnl.toFixed(2),
+  };
+
   const categories = ["Risk", "Setup", "Execution", "Timing", "Emotional"];
 
   const checkViolations = () => {
     const newViolations: string[] = [];
     
     rules.filter(r => r.enabled).forEach(rule => {
-      if (rule.id === "1" && mockTodayStats.dailyLoss > (rule.currentValue as number)) {
-        newViolations.push(`Daily loss: ${mockTodayStats.dailyLoss}% exceeds ${rule.currentValue}%`);
+      if (rule.id === "1" && todayStats.dailyLoss > (rule.currentValue as number)) {
+        newViolations.push(`Daily loss: ${todayStats.dailyLoss}% exceeds ${rule.currentValue}%`);
       }
-      if (rule.id === "2" && mockTodayStats.weeklyLoss > (rule.currentValue as number)) {
-        newViolations.push(`Weekly loss: ${mockTodayStats.weeklyLoss}% exceeds ${rule.currentValue}%`);
+      if (rule.id === "2" && todayStats.weeklyLoss > (rule.currentValue as number)) {
+        newViolations.push(`Weekly loss: ${todayStats.weeklyLoss}% exceeds ${rule.currentValue}%`);
       }
-      if (rule.id === "5" && mockTodayStats.tradesToday >= (rule.currentValue as number)) {
-        newViolations.push(`Max trades reached: ${mockTodayStats.tradesToday}/${rule.currentValue}`);
+      if (rule.id === "5" && todayStats.tradesToday >= (rule.currentValue as number)) {
+        newViolations.push(`Max trades reached: ${todayStats.tradesToday}/${rule.currentValue}`);
       }
     });
     
@@ -63,7 +85,7 @@ export default function TradingPlanEnforcer() {
 
   useEffect(() => {
     checkViolations();
-  }, [rules]);
+  }, [rules, todayTrades.length, todayPnl, weekPnl]);
 
   const toggleRule = (id: string) => {
     setRules(rules.map(r => r.id === id ? { ...r, enabled: !r.enabled } : r));
@@ -103,9 +125,9 @@ export default function TradingPlanEnforcer() {
             <span className="text-[8px] font-bold text-zinc-550 uppercase tracking-widest">TODAY</span>
           </div>
           <div className="flex items-center gap-2 mt-1">
-            <span className="text-sm font-bold text-white">{mockTodayStats.tradesToday} <span className="text-[8px] text-zinc-600">trades</span></span>
-            <span className="text-xs font-bold text-emerald-450">
-              -{mockTodayStats.dailyLoss}%
+            <span className="text-sm font-bold text-white">{todayStats.tradesToday} <span className="text-[8px] text-zinc-600">trades</span></span>
+            <span className={`text-xs font-bold ${todayStats.dailyPnl >= 0 ? "text-emerald-450" : "text-[#ff5c73]"}`}>
+              {todayStats.dailyPnl >= 0 ? `+$${todayStats.dailyPnl}` : `-$${Math.abs(todayStats.dailyPnl)}`}
             </span>
           </div>
         </div>
@@ -115,9 +137,9 @@ export default function TradingPlanEnforcer() {
             <span className="text-[8px] font-bold text-zinc-550 uppercase tracking-widest">WEEK</span>
           </div>
           <div className="flex items-center gap-2 mt-1">
-            <span className="text-sm font-bold text-white">{mockTodayStats.tradesThisWeek} <span className="text-[8px] text-zinc-600">trades</span></span>
-            <span className="text-xs font-bold text-[#20e0b2]">
-              -{mockTodayStats.weeklyLoss}%
+            <span className="text-sm font-bold text-white">{todayStats.tradesThisWeek} <span className="text-[8px] text-zinc-600">trades</span></span>
+            <span className={`text-xs font-bold ${todayStats.weeklyPnl >= 0 ? "text-[#20e0b2]" : "text-[#ff5c73]"}`}>
+              {todayStats.weeklyPnl >= 0 ? `+$${todayStats.weeklyPnl}` : `-$${Math.abs(todayStats.weeklyPnl)}`}
             </span>
           </div>
         </div>

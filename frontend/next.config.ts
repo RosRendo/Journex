@@ -18,14 +18,14 @@ const nextConfig: any = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://s3.tradingview.com https://www.tradingview.com",
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://*.tradingview.com https://*.tradingview-widget.com https://s3.tradingview.com https://www.tradingview.com https://s.tradingview.com https://www.tradingview-widget.com",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob: https: http://localhost:5003 http://127.0.0.1:5003 http://localhost:5000 http://127.0.0.1:5000",
               [
                 "connect-src *",
               ].join(" "),
-              "frame-src 'self' https://www.tradingview.com https://s3.tradingview.com",
+              "frame-src 'self' https://*.tradingview.com https://*.tradingview-widget.com https://www.tradingview.com https://s3.tradingview.com https://s.tradingview.com https://www.tradingview-widget.com",
               "worker-src 'self' blob:",
             ].join("; "),
           },
