@@ -48,7 +48,7 @@ export const CockpitChart: React.FC<CockpitChartProps> = ({
               {symbol}
             </span>
             <span className="text-[10px] uppercase font-bold text-[#71717a] font-mono border-l border-[rgba(255,255,255,0.08)] pl-2">
-              AdaptiveICT Pro Chart
+              Live Chart Workspace
             </span>
           </div>
 
@@ -70,18 +70,18 @@ export const CockpitChart: React.FC<CockpitChartProps> = ({
           </div>
         </div>
 
-        {/* Right: ICT Concept Overlays & Controls */}
+        {/* Right: Chart Visual Overlays & Controls */}
         <div className="flex items-center gap-2">
           {/* Overlay Pills */}
           <div className="hidden sm:flex items-center gap-1.5 bg-[#09090b]/80 border border-[rgba(255,255,255,0.06)] rounded-lg px-2 py-1">
             <span className="text-[8px] uppercase tracking-widest font-black text-[#71717a] font-mono mr-1">
-              ICT Overlays:
+              Visual Overlays:
             </span>
             {[
-              { id: "fvg", label: "FVG" },
-              { id: "ob", label: "Order Block" },
-              { id: "liquidity", label: "Liquidity Pools" },
-              { id: "eq", label: "50% Equilibrium" },
+              { id: "fvg", label: "Imbalance" },
+              { id: "ob", label: "Demand Zones" },
+              { id: "liquidity", label: "Key Targets" },
+              { id: "eq", label: "Midpoint 50%" },
             ].map((ov) => (
               <button
                 key={ov.id}

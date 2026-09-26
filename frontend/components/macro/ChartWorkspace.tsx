@@ -42,6 +42,17 @@ interface ChartWorkspaceProps {
   confluenceScore?: number;
   rsiValue?: number;
   volatilityScore?: number;
+  evidenceFactors?: { name: string; verified: boolean }[];
+  sessionInfo?: {
+    activeSession: string;
+    isOverlap: boolean;
+    isLondon: boolean;
+    isNY: boolean;
+    isTokyo: boolean;
+    isSydney: boolean;
+    utcHour: number;
+    utcMin: number;
+  };
 }
 
 // Cockpit Radial/Donut Gauge Component
@@ -139,9 +150,13 @@ export default function ChartWorkspace({
   watchlist,
   confluenceScore = 84,
   rsiValue = 61,
-  volatilityScore = 32
+  volatilityScore = 32,
+  evidenceFactors,
+  sessionInfo,
 }: ChartWorkspaceProps) {
   const chartColor = isBullish ? "#20e0b2" : "#ff5c73";
+  const verifiedCount = evidenceFactors ? evidenceFactors.filter(f => f.verified).length : 6;
+  const dots = evidenceFactors ? evidenceFactors.map(f => f.verified) : [true, true, true, true, true, true, false, false];
 
   return (
     <div className="w-full rounded-xl border border-white/10 bg-[#0c0c0f] overflow-hidden shadow-2xl font-mono text-[11px]">
@@ -287,16 +302,16 @@ export default function ChartWorkspace({
             <CockpitGauge
               value={confluenceScore}
               label="CONFLUENCE"
-              subtext="6/8 CRITERIA MET"
+              subtext={`${verifiedCount}/8 CRITERIA MET`}
               color="#20e0b2"
-              dots={[true, true, true, true, true, true, false, false]}
+              dots={dots}
             />
 
             {/* GAUGE 3: MOMENTUM */}
             <CockpitGauge
               value={rsiValue}
               label="MOMENTUM"
-              subtext="RSI 14 EXPAN"
+              subtext="RSI 14 TREND"
               color="#38bdf8"
             />
 
@@ -321,25 +336,28 @@ export default function ChartWorkspace({
         <div className="flex items-center gap-2">
           <Clock className="w-3 h-3 text-zinc-400" />
           <span className="text-zinc-400 uppercase font-bold text-[8.5px]">Market Clock:</span>
-          <span className="text-white font-bold">London / NY Overlap</span>
+          <span className="text-white font-bold">{sessionInfo?.activeSession || "London / NY Overlap"}</span>
           <span className="text-zinc-600">&bull;</span>
           <span className="text-emerald-400 font-bold uppercase text-[8.5px] bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/20">
-            High Liquidity Window
+            {sessionInfo?.isOverlap ? "High Liquidity Overlap" : "Active Session Flow"}
+          </span>
+          <span className="text-zinc-500 text-[8.5px] font-mono ml-1">
+            ({(sessionInfo?.utcHour ?? 12).toString().padStart(2, '0')}:{(sessionInfo?.utcMin ?? 0).toString().padStart(2, '0')} UTC)
           </span>
         </div>
 
-        <div className="flex items-center gap-4 text-[8.5px] text-zinc-400">
-          <span className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500" /> Sydney
+        <div className="flex items-center gap-4 text-[8.5px]">
+          <span className={`flex items-center gap-1 font-mono ${sessionInfo?.isSydney ? "text-blue-300 font-bold" : "text-zinc-500"}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${sessionInfo?.isSydney ? "bg-blue-400 animate-pulse" : "bg-zinc-700"}`} /> Sydney
           </span>
-          <span className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Tokyo
+          <span className={`flex items-center gap-1 font-mono ${sessionInfo?.isTokyo ? "text-amber-300 font-bold" : "text-zinc-500"}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${sessionInfo?.isTokyo ? "bg-amber-400 animate-pulse" : "bg-zinc-700"}`} /> Tokyo
           </span>
-          <span className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> London
+          <span className={`flex items-center gap-1 font-mono ${sessionInfo?.isLondon ? "text-emerald-300 font-bold" : "text-zinc-500"}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${sessionInfo?.isLondon ? "bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "bg-zinc-700"}`} /> London
           </span>
-          <span className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-purple-500" /> New York
+          <span className={`flex items-center gap-1 font-mono ${sessionInfo?.isNY ? "text-purple-300 font-bold" : "text-zinc-500"}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${sessionInfo?.isNY ? "bg-purple-400 animate-pulse shadow-[0_0_8px_rgba(192,132,252,0.5)]" : "bg-zinc-700"}`} /> New York
           </span>
         </div>
       </div>

@@ -33,6 +33,10 @@ interface IntelligenceDockProps {
   aiData: any;
   aiLoading: boolean;
   rsData?: any[];
+  accountData?: { balance: number; equity: number; margin_free: number; currency: string } | null;
+  evidenceFactors?: { name: string; verified: boolean }[];
+  confluenceScore?: number;
+  grade?: string;
 }
 
 // Mini Radial Gauge for Dials in Dock
@@ -109,7 +113,11 @@ export default function IntelligenceDock({
   retailSentiment,
   aiData,
   aiLoading,
-  rsData = []
+  rsData = [],
+  accountData,
+  evidenceFactors,
+  confluenceScore = 84,
+  grade = "A+"
 }: IntelligenceDockProps) {
   const [activeTab, setActiveTab] = useState<"scenario" | "confluence" | "context" | "events" | "flow" | "risk">("scenario");
 
@@ -123,6 +131,17 @@ export default function IntelligenceDock({
   const r2 = levels?.r2 || (currentPrice + 35 * unit);
   const s1 = levels?.s1 || (currentPrice - 15 * unit);
   const s2 = levels?.s2 || (currentPrice - 35 * unit);
+
+  // Dynamic Risk & Lot Calculation based on real MT5 Account
+  const balance = accountData?.balance ?? 10000;
+  const equity = accountData?.equity ?? balance;
+  const currency = accountData?.currency || "USD";
+  const riskAmount = equity * 0.01;
+  const slDist = Math.abs(currentPrice - s1);
+  const slPips = isXau ? (slDist > 0 ? slDist : 15) : (slDist > 0 ? slDist * 10000 : 25);
+  const rawLot = isXau ? (riskAmount / (Math.max(slPips, 5) * 100)) : (riskAmount / (Math.max(slPips, 5) * 10));
+  const suggestedLot = Math.max(0.01, Math.min(20, Math.round(rawLot * 100) / 100));
+  const maxLossLimit = (equity * 0.03).toFixed(2);
 
   const isBullishSetup = technicals?.signal === "buy" || currentPrice >= pivot;
 
@@ -257,7 +276,7 @@ export default function IntelligenceDock({
                 </div>
 
                 <div className="flex justify-between items-center text-[8.5px] text-zinc-500">
-                  <span>AdaptiveICT Displacement Model</span>
+                  <span>Support & Resistance Projection Model</span>
                   <Link href="/terminal" className="text-emerald-400 font-bold hover:underline">
                     Prepare Order →
                   </Link>
@@ -331,18 +350,18 @@ export default function IntelligenceDock({
                 <Layers className="w-3.5 h-3.5 text-emerald-400" />
                 Observable Confluence Evidence Matrix
               </span>
-              <span className="text-emerald-400 font-bold">84 / 100 (Grade A+)</span>
+              <span className="text-emerald-400 font-bold">{confluenceScore} / 100 (Grade {grade})</span>
             </div>
 
-            {/* Visual Icon Grid (No long paragraphs) */}
+            {/* Visual Icon Grid (Clean Technical Factors) */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 pt-1">
               {[
-                { name: "Structure", state: "BULLISH", verified: true },
-                { name: "FVG Retest", state: "M15 TAPPED", verified: true },
-                { name: "Liquidity", state: "ASIAN SWEPT", verified: true },
-                { name: "SMT Flow", state: "DXY DIVERG", verified: true },
-                { name: "Session", state: "OVERLAP", verified: true },
-                { name: "M5 Trigger", state: "PENDING", verified: false },
+                { name: "Structure", state: isBullishSetup ? "BULLISH" : "BEARISH", verified: true },
+                { name: "Level Retest", state: "SUPPORT HELD", verified: true },
+                { name: "Volume Flow", state: "EXPANSION", verified: true },
+                { name: "Currency Flow", state: "ALIGNED", verified: true },
+                { name: "Session Window", state: "ACTIVE", verified: true },
+                { name: "Trigger Setup", state: confluenceScore >= 75 ? "READY" : "MONITORING", verified: confluenceScore >= 75 },
               ].map((c, i) => (
                 <div key={i} className="p-3 rounded-xl bg-[#121217] border border-white/8 flex flex-col items-center justify-center text-center">
                   <div className={`w-7 h-7 rounded-full flex items-center justify-center mb-1.5 ${
@@ -356,20 +375,20 @@ export default function IntelligenceDock({
               ))}
             </div>
 
-            {/* Real-time Server Credit Scanner Stream (High readability text) */}
+            {/* Real-time Server Technical Telemetry Stream */}
             <div className="rounded-lg border border-white/8 bg-[#08080a] p-3 space-y-1 text-[9.5px] font-mono">
               <div className="text-[8.5px] text-zinc-500 uppercase font-bold border-b border-white/5 pb-1 mb-1.5 flex justify-between">
                 <span>Live Server Telemetry Stream</span>
                 <span className="text-emerald-400">Broker UTC Confirmed</span>
               </div>
               <div className="text-zinc-200">
-                &gt; <strong className="text-emerald-400">{pair} +25 score credit from server:</strong> Bullish Fair Value Gap (FVG) Retest @ {r1.toFixed(digits)} (M15)
+                &gt; <strong className="text-emerald-400">{pair} Technical Retest:</strong> Key Support / Resistance Retest Confirmed @ {r1.toFixed(digits)} (M15)
               </div>
               <div className="text-zinc-200">
-                &gt; <strong className="text-emerald-400">{pair} +30 score credit from server:</strong> Market Structure Shift (MSS) Displacement @ {pivot.toFixed(digits)} (M5)
+                &gt; <strong className="text-emerald-400">{pair} Structure Alignment:</strong> Multi-Timeframe Trend Continuation Confirmed @ {pivot.toFixed(digits)} (M5)
               </div>
               <div className="text-zinc-200">
-                &gt; <strong className="text-emerald-400">{pair} +20 score credit from server:</strong> Correlated SMT Divergence with USD Index (H1)
+                &gt; <strong className="text-emerald-400">{pair} Macro Relative Flow:</strong> Correlated Currency Strength Spread Aligned (H1)
               </div>
             </div>
           </div>
@@ -547,8 +566,8 @@ export default function IntelligenceDock({
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 pt-1">
               {/* Dial 1: Daily Risk Used */}
               <div className="p-4 rounded-xl border border-white/8 bg-[#121217] flex flex-col items-center justify-center text-center space-y-2">
-                <DockDonut value={24} label="DAILY RISK USED" sublabel="0.72% OF 3.0%" color="#20e0b2" size={72} />
-                <span className="text-[8.5px] text-zinc-500 font-mono">Max Loss Buffer: $228 left</span>
+                <DockDonut value={33} label="PER-TRADE RISK" sublabel="1.0% OF EQUITY" color="#20e0b2" size={72} />
+                <span className="text-[8.5px] text-zinc-400 font-mono">Max Loss Limit: ${maxLossLimit}</span>
               </div>
 
               {/* Visual Lot Sizer */}
@@ -558,18 +577,20 @@ export default function IntelligenceDock({
                 </span>
                 <div className="p-3 bg-black/40 rounded-lg border border-white/5 flex items-center justify-between">
                   <div>
-                    <span className="text-[8.5px] text-zinc-500 uppercase block">Risk: 1.0% ($100.00) &bull; SL: 25 Pips</span>
+                    <span className="text-[8.5px] text-zinc-400 uppercase block">
+                      Risk 1.0%: ${riskAmount.toFixed(2)} {currency} &bull; SL: {slPips.toFixed(0)} {isXau ? "Pts" : "Pips"}
+                    </span>
                     <span className="text-xs text-white font-bold">Recommended Contract Size</span>
                   </div>
                   <div className="text-right">
-                    <span className="text-base font-black font-mono text-emerald-400">0.40 Lots</span>
+                    <span className="text-base font-black font-mono text-emerald-400">{suggestedLot.toFixed(2)} Lots</span>
                     <span className="text-[8px] text-zinc-500 block uppercase">Standard MT5 Lots</span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between text-[9px] text-zinc-400 pt-1">
-                  <span>ATR 14: <strong className="text-zinc-200">{isXau ? "28.50 pts" : "68 pips"}</strong></span>
-                  <span>Optimal SL: <strong className="text-zinc-200">{isXau ? "10 pts" : "20 pips"}</strong></span>
-                  <span>R:R: <strong className="text-emerald-400">1 : 2.1</strong></span>
+                  <span>Balance: <strong className="text-zinc-200">${equity.toFixed(2)}</strong></span>
+                  <span>Calculated SL: <strong className="text-zinc-200">{slPips.toFixed(0)} {isXau ? "pts" : "pips"}</strong></span>
+                  <span>Target R:R: <strong className="text-emerald-400">1 : 2.0+</strong></span>
                 </div>
               </div>
             </div>

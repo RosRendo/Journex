@@ -10,7 +10,10 @@
 #include "../Core/StateManager.mqh"
 #include "../Market/Session.mqh"
 #include "../Market/MarketRegime.mqh"
+#include "../Core/DecisionEngine/MarketRegimeDetector.mqh"
 #include "../Risk/RiskManager.mqh"
+#include "../Analytics/StatisticsEngine.mqh"
+#include "../Core/RecoveryStateMachine.mqh"
 
 //+------------------------------------------------------------------+
 //| Create text labels for the on-chart dashboard                    |
@@ -87,6 +90,7 @@ void RenderChartPanel()
    color CLR_GREEN   = clrLime;
    color CLR_RED     = clrRed;
    color CLR_ORANGE  = clrOrange;
+   color CLR_YELLOW  = clrYellow;
 
    // ── Helpers ────────────────────────────────────────────────
    string SEP = "─────────────────────────────────────";
@@ -104,9 +108,10 @@ void RenderChartPanel()
 
    string ea_status;
    color  ea_status_col;
-   if(is_disabled)    { ea_status = "  DISABLED"; ea_status_col = CLR_RED;    }
-   else if(is_paused) { ea_status = "  PAUSED";   ea_status_col = CLR_ORANGE; }
-   else               { ea_status = "  RUNNING";  ea_status_col = CLR_GREEN;  }
+   if(InpResearchModeOnly || research_mode_active) { ea_status = "  RESEARCH MODE"; ea_status_col = CLR_ORANGE; }
+   else if(is_disabled) { ea_status = "  DISABLED"; ea_status_col = CLR_RED;    }
+   else if(is_paused)   { ea_status = "  PAUSED";   ea_status_col = CLR_ORANGE; }
+   else                 { ea_status = "  RUNNING";  ea_status_col = CLR_GREEN;  }
 
    CreateLabel("ea_panel_status_dot", "●", fx,      cur_y, 8, ea_status_col);
    CreateLabel("ea_panel_status_txt", ea_status,   fx + 8, cur_y, 8, ea_status_col);
@@ -125,7 +130,7 @@ void RenderChartPanel()
     string mode_str = "Unknown";
     if(InpPositionMode == MODE_SINGLE) mode_str = "Single Target Exits";
     else if(InpPositionMode == MODE_PARTIAL_EXIT) mode_str = "Partial Exits (Path 3)";
-    else if(InpPositionMode == MODE_GRID) mode_str = "Grid Recovery Mode";
+    // MODE_GRID permanently disabled (constitution violation) � display fallback handled by mode_str = "Unknown"
    
    CreateLabel("ea_panel_strat_lbl", "  Strat", fx, cur_y, 8, CLR_LABEL);
    CreateLabel("ea_panel_strat_val", strat_str, vx, cur_y, 8, CLR_VALUE);
@@ -148,9 +153,10 @@ void RenderChartPanel()
    CreateLabel("ea_panel_m2k", "  Session",      fx,  cur_y, 8, CLR_LABEL);
    CreateLabel("ea_panel_m2v", GetCurrentSession(), vx, cur_y, 8, CLR_VALUE); cur_y += lh;
 
-   string regime = GetMarketRegime();
+   int regime_conf = 0;
+   string regime = MarketRegimeDetector::Detect(PERIOD_CURRENT, regime_conf);
    CreateLabel("ea_panel_m3k", "  Regime",       fx,  cur_y, 8, CLR_LABEL);
-   CreateLabel("ea_panel_m3v", regime,            vx,  cur_y, 8, CLR_VALUE);  cur_y += lh;
+   CreateLabel("ea_panel_m3v", regime + " (" + IntegerToString(regime_conf) + "%)", vx, cur_y, 8, CLR_VALUE);  cur_y += lh;
 
    string bias    = GetHTFBias();
    color  bias_col = (bias == "BULLISH") ? CLR_GREEN : CLR_RED;
@@ -160,6 +166,19 @@ void RenderChartPanel()
 
    CreateLabel("ea_panel_m5k", "  Volatility",   fx,  cur_y, 8, CLR_LABEL);
    CreateLabel("ea_panel_m5v", GetVolatility(),   vx,  cur_y, 8, CLR_VALUE);  cur_y += lh;
+
+   // ── T052 [REC]: Recovery State Display ─────────────────────────
+   string rec_str = RecoveryStateMachine::StateToString(g_recovery_state.state);
+   color  rec_col = CLR_GREEN;
+   if(g_recovery_state.state == RECOVERY_NORMAL)               rec_col = CLR_GREEN;
+   else if(g_recovery_state.state == RECOVERY_WEAKENING)       rec_col = CLR_YELLOW;
+   else if(g_recovery_state.state == RECOVERY_RISK_PROTECTION) rec_col = CLR_RED;
+   else if(g_recovery_state.state == RECOVERY_OBSERVATION)     rec_col = CLR_ORANGE;
+   else if(g_recovery_state.state == RECOVERY_CONFIRMED)       rec_col = CLR_GREEN;
+   else if(g_recovery_state.state == RECOVERY_INVALIDATED)     rec_col = CLR_RED;
+
+   CreateLabel("ea_panel_rec_k", "  Recovery",     fx,  cur_y, 8, CLR_LABEL);
+   CreateLabel("ea_panel_rec_v", rec_str,         vx,  cur_y, 8, rec_col);    cur_y += lh;
 
    // ── LAST SIGNAL ───────────────────────────────────────────────
    CreateLabel("ea_panel_sep2",  SEP,              fx, cur_y, 7, CLR_BORDER); cur_y += lh - 3;
@@ -179,6 +198,12 @@ void RenderChartPanel()
                IntegerToString(last_sig_score) + " / 100   [" + last_sig_grade + "]",
                vx, cur_y, 8, CLR_VALUE); cur_y += lh;
 
+   // T026: Show top score component breakdown
+   string top_factors = "Reg:" + IntegerToString(last_sig_breakdown.regime_pts) + 
+                        " Struct:" + IntegerToString(last_sig_breakdown.htf_structure_pts) + 
+                        " Liq:" + IntegerToString(last_sig_breakdown.liquidity_pts);
+   CreateLabel("ea_panel_s2_fact", "  " + top_factors, fx, cur_y, 7, CLR_SEP); cur_y += lh;
+
    CreateLabel("ea_panel_s3k", "  Timeframe",  fx, cur_y, 8, CLR_LABEL);
    CreateLabel("ea_panel_s3v", InpTimeframe,   vx, cur_y, 8, CLR_VALUE); cur_y += lh;
 
@@ -197,9 +222,22 @@ void RenderChartPanel()
    GetTodayStats(today_trades, today_wins, today_losses, today_pnl);
    double today_pct = (balance > 0) ? (today_pnl / balance * 100.0) : 0.0;
 
+   // ── T048 [US6]: Score Model Statistical Validation Status ────
+   bool model_val = StatisticsEngine::IsModelValidated();
+   string model_txt = model_val ? "VALIDATED" : "UNVALIDATED";
+   color  model_col = model_val ? CLR_GREEN : CLR_ORANGE;
+   CreateLabel("ea_panel_mval_k", "  Model Status",  fx, cur_y, 8, CLR_LABEL);
+   CreateLabel("ea_panel_mval_v", model_txt,         vx, cur_y, 8, model_col); cur_y += lh;
+
+   double display_risk = risk_percent;
+   if(!model_val && display_risk > InpRiskTierNormal)
+     {
+      display_risk = InpRiskTierNormal;
+     }
+
    CreateLabel("ea_panel_p1k", "  Risk / Trade",   fx, cur_y, 8, CLR_LABEL);
    CreateLabel("ea_panel_p1v",
-               DoubleToString(risk_percent, 1) + "%",
+               DoubleToString(display_risk, 1) + "%" + (!model_val ? " (NORM cap)" : ""),
                vx, cur_y, 8, CLR_VALUE); cur_y += lh;
 
    color  pnl_col = (today_pnl >= 0) ? CLR_GREEN : CLR_RED;
@@ -212,6 +250,38 @@ void RenderChartPanel()
    CreateLabel("ea_panel_p3v",
                IntegerToString(open_trades) + " / " + IntegerToString(InpMaxOpenTrades),
                vx, cur_y, 8, CLR_VALUE); cur_y += lh;
+
+   // ── Trade Health Display per open position ──
+   for(int k = 0; k < 5; k++)
+     {
+      ObjectDelete(0, "ea_panel_pos_h" + IntegerToString(k) + "k");
+      ObjectDelete(0, "ea_panel_pos_h" + IntegerToString(k) + "v");
+     }
+
+   int h_slot = 0;
+   for(int p = 0; p < PositionsTotal(); p++)
+     {
+      if(PositionGetSymbol(p) == _Symbol && PositionGetInteger(POSITION_MAGIC) == InpMagic)
+        {
+         ulong pos_ticket = PositionGetInteger(POSITION_TICKET);
+         TradeHealthState h = GetHealthState(pos_ticket);
+         if(h.ticket > 0 || h.score > 0)
+           {
+            color h_col = CLR_GREEN;
+            if(h.label == "HEALTHY")                 h_col = CLR_GREEN;
+            else if(h.label == "WEAKENING")          h_col = CLR_YELLOW;
+            else if(h.label == "DANGER")             h_col = CLR_ORANGE;
+            else if(h.label == "THESIS_INVALIDATED") h_col = CLR_RED;
+
+            string h_txt = StringFormat("%d/100 %s", h.score, h.label);
+            string h_lbl = StringFormat("  #%d Health", pos_ticket);
+            CreateLabel("ea_panel_pos_h" + IntegerToString(h_slot) + "k", h_lbl, fx, cur_y, 8, CLR_LABEL);
+            CreateLabel("ea_panel_pos_h" + IntegerToString(h_slot) + "v", h_txt, vx, cur_y, 8, h_col);
+            cur_y += lh;
+            h_slot++;
+           }
+        }
+     }
 
    CreateLabel("ea_panel_p4k", "  W / L Today",  fx, cur_y, 8, CLR_LABEL);
    CreateLabel("ea_panel_p4v",

@@ -26,8 +26,8 @@ enum ENUM_STRATEGY_TYPE
 enum ENUM_POSITION_MODE
   {
    MODE_SINGLE,       // Single Position (Multi-TP + ATR Trail)
-   MODE_PARTIAL_EXIT, // Partial Exit (Close % at RR, BE, trail remainder)
-   MODE_GRID          // Grid / Basket Recovery (Advanced - high risk)
+   MODE_PARTIAL_EXIT  // Partial Exit (Close % at RR, BE, trail remainder)
+   // MODE_GRID removed: Constitution violation — grid/martingale permanently disabled (v0.1+)
   };
 
 //+------------------------------------------------------------------+
@@ -45,6 +45,7 @@ input ENUM_STRATEGY_TYPE InpStrategyType = STRATEGY_ICT_SNIPER; // Strategy Type
 input string   InpSignalTimeframe   = "H1";           // Signal Timeframe (M1/M5/M15/H1/H4/ALL)
 input string   InpContextTimeframe  = "H4";           // Context Timeframe (H4/D1)
 input string   InpSession           = "both";         // Active Sessions (london/ny/both/all)
+input bool     InpFilterToxicHours  = true;           // Filter Toxic Hours (London Lunch 10-12 & Rollover 23)
 
 //+------------------------------------------------------------------+
 //| === ICT Strategy Parameters ===                                  |
@@ -103,6 +104,7 @@ input double   InpMRRSIOS           = 30.0;           // RSI Oversold Level
 input group "=== Momentum Scalper Parameters ==="
 input int      InpMomLookbackSec    = 30;             // Momentum Lookback (Seconds)
 input double   InpMomThresholdPips  = 5.0;            // Required Tick Movement (Pips)
+input double   InpMomSLATRMult      = 1.5;            // Momentum SL ATR Multiplier (Scalp SL)
 input int      InpMomMaxHoldingSec  = 120;            // Max Holding Time (Seconds)
 input int      InpPyramidCooldownSec = 5;             // Pyramid Entry Cooldown (Seconds)
 
@@ -153,14 +155,50 @@ input int      InpFridayCloseHour   = 16;             // Friday Close Hour (Serv
 input bool     InpUseNewsFilter     = true;           // Enable News Filter (Poll from Bridge)
 
 //+------------------------------------------------------------------+
-//| === Grid Position Manager (Active when Mode = Grid) ===          |
+//| === Research Mode (v0.1 Data Collection) ===                     |
 //+------------------------------------------------------------------+
-input group "=== Grid Settings (Active when Position Mode = Grid) ==="
-input double   InpGridStep          = 500.0;          // Grid Step Distance (points)
-input int      InpMaxGridOrders     = 5;              // Max Grid Orders (Hard Cap - NOT 99!)
-input double   InpMaxBasketLossPct  = 5.0;            // Max Basket Loss % before emergency close
-input double   InpGridTargetPct     = 1.0;            // Grid Basket Profit Target % (Closes whole basket)
-input bool     InpGridEmergencyClose = true;          // Enable Emergency Basket Close
+input group "=== Research Mode ==="
+input bool     InpResearchModeOnly  = false;          // Research Mode Only (Simulate & Log Setups)
+
+//+------------------------------------------------------------------+
+//| === Risk Tiers (Score-Based Sizing) ===                          |
+//+------------------------------------------------------------------+
+input group "=== Risk Tiers ==="
+input double   InpRiskTierLow       = 0.25;           // Low Quality Tier Risk (Score 60-69) %
+input double   InpRiskTierNormal    = 0.5;            // Normal Tier Risk (Score 70-79) %
+input double   InpRiskTierHigh      = 0.75;           // High Quality Tier Risk (Score 80-89) %
+input double   InpRiskTierMax       = 1.0;            // Maximum Tier Risk (Score 90-100) %
+
+//+------------------------------------------------------------------+
+//| === Structural SL/TP Model ===                                   |
+//+------------------------------------------------------------------+
+input group "=== Structural SL/TP Model ==="
+input double   InpSLATRBuffer       = 0.5;            // SL ATR Buffer (ATR units beyond structure)
+input double   InpSLMinATR          = 1.0;            // Minimum SL in ATR units
+
+//+------------------------------------------------------------------+
+//| === Trade Health Monitoring ===                                  |
+//+------------------------------------------------------------------+
+input group "=== Trade Health Monitoring ==="
+input int      InpHealthInvalidatedThreshold = 25;    // Health Score Invalidation Threshold (<25)
+input int      InpHealthDangerThreshold      = 50;    // Health Score Danger Threshold (<50)
+input int      InpHealthWeakeningThreshold   = 75;    // Health Score Weakening Threshold (<75)
+input int      InpHealthDangerBarsToBlock    = 5;     // Danger Bars Count to Trigger Risk Protection
+
+//+------------------------------------------------------------------+
+//| === Entry Quality Scoring Component Weights ===                  |
+//+------------------------------------------------------------------+
+input group "=== Entry Quality Scoring Component Weights ==="
+input int      InpScoreWeightRegime          = 15;    // Regime Weight (pts)
+input int      InpScoreWeightHTFStructure    = 15;    // HTF Structure Weight (pts)
+input int      InpScoreWeightLiquidity       = 15;    // Liquidity Weight (pts)
+input int      InpScoreWeightEntryLocation   = 15;    // Entry Location Weight (pts)
+input int      InpScoreWeightMSS             = 10;    // MSS / Market Structure Weight (pts)
+input int      InpScoreWeightFVGOB           = 10;    // FVG / Order Block Weight (pts)
+input int      InpScoreWeightSMT             = 5;     // SMT Divergence Weight (pts)
+input int      InpScoreWeightVolatility      = 5;     // Volatility Weight (pts)
+input int      InpScoreWeightSession         = 5;     // Session Weight (pts)
+input int      InpScoreWeightExecQuality     = 5;     // Execution Quality Weight (pts)
 
 //+------------------------------------------------------------------+
 //| === Dashboard Display Settings ===                               |

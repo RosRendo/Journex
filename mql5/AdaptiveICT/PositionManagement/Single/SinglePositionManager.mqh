@@ -11,6 +11,9 @@
 #include "../BasePositionManager.mqh"
 #include "../../Trade/TradeExecutor.mqh"
 #include "../../Indicators/ATR.mqh"
+#include "../../Core/TradeHealthEngine.mqh"
+#include "../../Core/RecoveryStateMachine.mqh"
+#include "../../Core/StateManager.mqh"
 
 //+------------------------------------------------------------------+
 //| Single Position Manager Class implementing BasePositionManager  |
@@ -100,12 +103,41 @@ private:
             active_states[active_count] = position_states[i];
             active_count++;
            }
+         else
+           {
+            RemoveHealthState(ticket);
+           }
         }
         
       pos_states_count = active_count;
       for(int i = 0; i < pos_states_count; i++)
         {
          position_states[i] = active_states[i];
+        }
+     }
+
+   //+------------------------------------------------------------------+
+   //| Retrieve and update last health evaluation bar time per position |
+   //+------------------------------------------------------------------+
+   datetime GetPositionHealthBarTime(ulong ticket)
+     {
+      for(int i = 0; i < pos_states_count; i++)
+        {
+         if(position_states[i].ticket == ticket)
+            return position_states[i].last_health_bar;
+        }
+      return 0;
+     }
+
+   void SetPositionHealthBarTime(ulong ticket, datetime bar_time)
+     {
+      for(int i = 0; i < pos_states_count; i++)
+        {
+         if(position_states[i].ticket == ticket)
+           {
+            position_states[i].last_health_bar = bar_time;
+            return;
+           }
         }
      }
 
@@ -162,7 +194,32 @@ public:
                if(trade.PositionClose(ticket))
                  {
                   SendTradeEvent("close", ticket, dir, volume, current_price, current_sl, current_price, 100, "TimeDecay");
+                  RemoveHealthState(ticket);
                   continue; // Position is closed, skip further processing
+                 }
+              }
+
+            // ── Trade Health Monitoring (New Bar Only) ──
+            datetime current_bar_time = iTime(_Symbol, (ENUM_TIMEFRAMES)Period(), 0);
+            datetime last_health_time = GetPositionHealthBarTime(ticket);
+            if(current_bar_time != last_health_time)
+              {
+               SetPositionHealthBarTime(ticket, current_bar_time);
+               TradeHealthState health = TradeHealthEngine::Evaluate(ticket, (ENUM_TIMEFRAMES)Period());
+               SetHealthState(ticket, health);
+
+               // T051 [REC]: Update Recovery State Machine
+               g_recovery_state = RecoveryStateMachine::Transition(ticket, health, g_recovery_state);
+
+               if(health.label == "THESIS_INVALIDATED")
+                 {
+                  Print("[THESIS_INVALIDATED] Position ", ticket, " health dropped to ", health.score, "/100. Factors: ", health.factor_notes, ". Force closing.");
+                  if(trade.PositionClose(ticket))
+                    {
+                     SendTradeEvent("close", ticket, dir, volume, current_price, current_sl, current_price, health.score, "ThesisInvalidated");
+                     RemoveHealthState(ticket);
+                     continue; // Position is closed, skip further processing
+                    }
                  }
               }
             

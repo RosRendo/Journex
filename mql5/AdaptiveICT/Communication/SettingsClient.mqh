@@ -55,7 +55,7 @@ void PollRemoteSettings()
          string pos_mode = ParseJsonString(response, "position_mode");
          if(pos_mode == "SINGLE") dyn_position_mode = MODE_SINGLE;
          else if(pos_mode == "PARTIAL_EXIT") dyn_position_mode = MODE_PARTIAL_EXIT;
-         else if(pos_mode == "GRID") dyn_position_mode = MODE_GRID;
+         // "GRID" is permanently disabled — ignore remote preset requests for MODE_GRID
          
          string use_trail = ParseJsonString(response, "use_equity_trail");
          if(use_trail == "true" || use_trail == "1") dyn_use_equity_trail = true;

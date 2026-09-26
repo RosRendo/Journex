@@ -16,6 +16,7 @@
 #include "ExecutionQualityAnalyzer.mqh"
 #include "RiskEvaluator.mqh"
 #include "ConfluenceScorer.mqh"
+#include "../EntryQualityEngine.mqh"
 
 // Types.mqh now declares DecisionResult struct to prevent circular dependencies
 
@@ -76,28 +77,38 @@ public:
       // 7. Risk Limits check
       res.risk_pass = RiskEvaluator::Evaluate(InpMaxDailyLossPct, InpMaxDrawdownPct, InpMaxOpenTrades);
 
-      // 8. Calculate Universal Decision Score
+      // 8. Calculate Universal Decision Score & Entry Quality Breakdown (T023)
+      TradeSignal sig;
+      sig.symbol = _Symbol;
+      sig.type = type;
+      sig.signal_tf = tf;
+      sig.entry_price = SymbolInfoDouble(_Symbol, (type == "BUY") ? SYMBOL_ASK : SYMBOL_BID);
+      sig.invalidation_price = 0.0;
+      sig.regime = res.regime;
+
+      MarketRegimeState reg_state;
+      reg_state.regime = res.regime;
+      reg_state.confidence = res.regime_confidence;
+      reg_state.evaluated_at = TimeCurrent();
+
+      res.breakdown = EntryQualityEngine::Evaluate(tf, sig, reg_state);
+
       if(strategy_type == 4) // STRATEGY_MOMENTUM_SCALPER
         {
          res.score = ConfluenceScorer::Calculate(strategy_type, mom_score, vol_score, res.execution_score, regime_score, trend_score,
                                                  struct_score, liq_score, fvg_score, ob_score, trend_score);
+         res.breakdown.total = res.score;
         }
       else
         {
-         // Use the strategy's own specific confluence scoring system
-         res.score = custom_score;
+         // Use the explainable entry quality score if custom_score not provided
+         res.score = (custom_score > 0) ? custom_score : res.breakdown.total;
+         res.breakdown.total = res.score;
         }
       res.grade = ConfluenceScorer::GetGrade(res.score);
 
       // 9. Evaluate final permission approval
-      if(strategy_type == 4) // STRATEGY_MOMENTUM_SCALPER
-        {
-         res.is_approved = res.risk_pass && (res.spread_points <= InpMaxSpreadPoints) && res.session_pass;
-        }
-      else
-        {
-         res.is_approved = (res.score >= p_min_score) && res.risk_pass && (res.spread_points <= InpMaxSpreadPoints) && res.session_pass;
-        }
+      res.is_approved = (res.score >= p_min_score) && res.risk_pass && (res.spread_points <= InpMaxSpreadPoints) && res.session_pass;
 
       // 10. Generate Explanations (Reasons & Warnings)
       // Reasons
@@ -136,6 +147,25 @@ public:
       if(res.volatility == "EXTREME") AddWarning(res, "Extreme volatility - caution applied");
       if(res.volatility == "LOW") AddWarning(res, "Low volatility regime - scalp range thin");
 
+      return res;
+     }
+
+   // Overload accepting TradeSignal struct directly (T023)
+   static DecisionResult Evaluate(ENUM_TIMEFRAMES tf, const TradeSignal &signal, int strategy_type, int p_min_score, int custom_score = 0)
+     {
+      DecisionResult res = Evaluate(tf, signal.type, strategy_type, p_min_score, custom_score);
+      MarketRegimeState reg_state;
+      reg_state.regime = (signal.regime != "") ? signal.regime : res.regime;
+      reg_state.confidence = res.regime_confidence;
+      reg_state.evaluated_at = TimeCurrent();
+      res.breakdown = EntryQualityEngine::Evaluate(tf, signal, reg_state);
+      if(strategy_type != 4)
+        {
+         res.score = (custom_score > 0) ? custom_score : res.breakdown.total;
+         res.breakdown.total = res.score;
+         res.grade = ConfluenceScorer::GetGrade(res.score);
+         res.is_approved = (res.score >= p_min_score) && res.risk_pass && (res.spread_points <= InpMaxSpreadPoints) && res.session_pass;
+        }
       return res;
      }
 

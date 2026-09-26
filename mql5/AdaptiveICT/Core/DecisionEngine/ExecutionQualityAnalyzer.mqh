@@ -24,6 +24,18 @@ public:
       spread_points = (int)MathRound((ask - bid) / point);
       string session = GetCurrentSession();
       
+      // Filter Toxic Dead Hours (London Lunch 10-12, Rollover 23, Pre-London 6)
+      MqlDateTime dt;
+      TimeToStruct(TimeCurrent(), dt);
+      if(InpFilterToxicHours)
+        {
+         if(dt.hour == 23 || (dt.hour >= 10 && dt.hour <= 12) || dt.hour == 6)
+           {
+            session_pass = false;
+            return 0; // Toxic dead zone - completely block entry
+           }
+        }
+
       session_pass = false;
       if(allowed_session == "all" || allowed_session == "both") session_pass = true;
       else if(allowed_session == "london" && (session == "LONDON" || session == "LONDON & NY")) session_pass = true;
@@ -36,6 +48,7 @@ public:
       if(spread_points > max_spread)
         {
          score -= 50;
+         PrintFormat("[SpreadGate] Spread %d points exceeds InpMaxSpreadPoints %d points; trade blocked", spread_points, max_spread);
         }
       else if(spread_points > max_spread / 2)
         {

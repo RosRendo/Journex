@@ -204,7 +204,8 @@ public:
          double diff_pips = price_change / (point * 10.0);
          double pip_size = (_Digits == 3 || _Digits == 5) ? 10.0 * point : point;
          double min_sl_dist = InpMinSLPips * pip_size;
-         double sl_dist = atr * 3.5;
+         double sl_mult = (InpMomSLATRMult > 0.1) ? InpMomSLATRMult : 1.5;
+         double sl_dist = atr * sl_mult;
          if(sl_dist < min_sl_dist) sl_dist = min_sl_dist;
 
          // BUY: momentum is bullish AND H4 bias is bullish (or unknown in tester warmup)

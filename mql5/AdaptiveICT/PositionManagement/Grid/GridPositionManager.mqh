@@ -13,6 +13,29 @@
 #include "../../Indicators/ATR.mqh"
 #include "../../Analytics/TradeJournal.mqh"
 
+// ============================================================
+// DISABLED: GridPositionManager is permanently out of scope.
+// Grid/martingale recovery is a constitution violation (v0.1+).
+// This file is kept for reference only. DO NOT INSTANTIATE.
+// Stub defines below allow the file to compile without the
+// input vars that were removed from Config.mqh in T003.
+// ============================================================
+#ifndef InpMaxGridOrders
+#define InpMaxGridOrders    5
+#endif
+#ifndef InpGridStep
+#define InpGridStep         500.0
+#endif
+#ifndef InpMaxBasketLossPct
+#define InpMaxBasketLossPct 5.0
+#endif
+#ifndef InpGridTargetPct
+#define InpGridTargetPct    1.0
+#endif
+#ifndef InpGridEmergencyClose
+#define InpGridEmergencyClose true
+#endif
+
 //+------------------------------------------------------------------+
 //| Grid Position Manager (Stage 6 — Advanced Basket Recovery)       |
 //|                                                                   |

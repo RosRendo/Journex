@@ -55,9 +55,93 @@ double   last_sig_sl       = 0.0;
 double   last_sig_tp       = 0.0;
 datetime last_sig_time     = 0;
 datetime last_report_time  = 0;
+EntryScoreBreakdown last_sig_breakdown; // T026: Cached breakdown for UI display
 
 // Array to track executed signals (prevent double execution)
 string   executed_signals[];
+
+//+------------------------------------------------------------------+
+//| T012: Adaptive Engine State Variables                            |
+//| Added for Phase 2 foundational infrastructure.                   |
+//+------------------------------------------------------------------+
+
+// Research Mode flag — when true, EA logs setups but does NOT open live trades.
+// Mirrors InpResearchModeOnly but can be read by any module without depending on Config.mqh directly.
+bool     research_mode_active = false;
+
+// Per-symbol recovery state machine state.
+// Tracks transitions: NORMAL -> WEAKENING -> RISK_PROTECTION -> OBSERVATION -> CONFIRMED/INVALIDATED.
+// Maps to: FR-029, FR-030, FR-031
+RecoveryState g_recovery_state;
+
+// Array of health states for up to 10 concurrently tracked positions.
+// Index maps to slot, not ticket — use GetHealthState/SetHealthState accessors below.
+// Maps to: FR-025
+#define HEALTH_STATE_MAX 10
+TradeHealthState g_health_states[HEALTH_STATE_MAX];
+int      g_health_state_count = 0;
+
+//+------------------------------------------------------------------+
+//| GetHealthState: returns health state for a given ticket          |
+//| Returns a zeroed struct if ticket not found.                     |
+//+------------------------------------------------------------------+
+TradeHealthState GetHealthState(ulong ticket)
+  {
+   for(int i = 0; i < g_health_state_count; i++)
+     {
+      if(g_health_states[i].ticket == ticket)
+         return g_health_states[i];
+     }
+   TradeHealthState empty;
+   ZeroMemory(empty);
+   return empty;
+  }
+
+//+------------------------------------------------------------------+
+//| SetHealthState: upserts health state for a given ticket          |
+//+------------------------------------------------------------------+
+void SetHealthState(ulong ticket, const TradeHealthState &state)
+  {
+   // Update existing slot
+   for(int i = 0; i < g_health_state_count; i++)
+     {
+      if(g_health_states[i].ticket == ticket)
+        {
+         g_health_states[i] = state;
+         g_health_states[i].ticket = ticket;
+         return;
+        }
+     }
+   // Insert new slot
+   if(g_health_state_count < HEALTH_STATE_MAX)
+     {
+      g_health_states[g_health_state_count] = state;
+      g_health_states[g_health_state_count].ticket = ticket;
+      g_health_state_count++;
+     }
+   else
+     {
+      Print("[WARN] SetHealthState: health state array full (max ", HEALTH_STATE_MAX, " positions)");
+     }
+  }
+
+//+------------------------------------------------------------------+
+//| RemoveHealthState: removes health state when position is closed  |
+//+------------------------------------------------------------------+
+void RemoveHealthState(ulong ticket)
+  {
+   for(int i = 0; i < g_health_state_count; i++)
+     {
+      if(g_health_states[i].ticket == ticket)
+        {
+         // Shift remaining entries down
+         for(int j = i; j < g_health_state_count - 1; j++)
+            g_health_states[j] = g_health_states[j + 1];
+         g_health_state_count--;
+         return;
+        }
+     }
+  }
 
 //+------------------------------------------------------------------+
 //| Initialize State Variables to Input Defaults                     |
@@ -78,6 +162,14 @@ void InitState()
    dyn_hard_stop_pct = InpHardEquityStopPct;
    dyn_pyramid_cooldown = InpPyramidCooldownSec;
    dyn_max_balance_compounding = InpMaxBalanceCompounding;
+   
+   // T012: Initialize adaptive engine state
+   research_mode_active = InpResearchModeOnly;
+   ZeroMemory(g_recovery_state);
+   g_recovery_state.state = RECOVERY_NORMAL;
+   g_recovery_state.reason = "Initialized";
+   g_recovery_state.transitioned_at = TimeCurrent();
+   g_health_state_count = 0;
    
    // Parse timeframe once to optimize scanning ticks
    string tf_upper = SanitizeStringInput(InpSignalTimeframe);

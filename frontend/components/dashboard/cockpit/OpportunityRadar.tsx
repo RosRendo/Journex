@@ -58,7 +58,7 @@ const DEFAULT_OPPORTUNITIES: OpportunityItem[] = [
     direction: "BUY",
     grade: "A+",
     score: 92,
-    setup_type: "Discount FVG + Asian Low Sweep",
+    setup_type: "Key Support Level Pullback & Reversal",
     session: "London Open",
     entry: 4424.50,
     sl: 4414.00,
@@ -73,7 +73,7 @@ const DEFAULT_OPPORTUNITIES: OpportunityItem[] = [
     direction: "SELL",
     grade: "A",
     score: 84,
-    setup_type: "Judas Swing Reversal + Premium OB",
+    setup_type: "Resistance Level Rejection",
     session: "London Open",
     entry: 1.16105,
     sl: 1.16320,
@@ -88,7 +88,7 @@ const DEFAULT_OPPORTUNITIES: OpportunityItem[] = [
     direction: "BUY",
     grade: "B",
     score: 74,
-    setup_type: "H1 Breaker Block Retest",
+    setup_type: "Breakout & Key Level Retest",
     session: "London Pre-NY",
     entry: 1.35120,
     sl: 1.34850,
@@ -103,7 +103,7 @@ const DEFAULT_OPPORTUNITIES: OpportunityItem[] = [
     direction: "BUY",
     grade: "A",
     score: 86,
-    setup_type: "H4 Demand Zone + CVD Absorption",
+    setup_type: "Demand Zone Buyer Absorption",
     session: "Active Crypto Flow",
     entry: 79560.0,
     sl: 78600.0,
@@ -141,7 +141,7 @@ export const OpportunityRadar: React.FC<OpportunityRadarProps> = ({
               direction: (s.direction || "BUY").toUpperCase(),
               grade: s.score >= 88 ? "A+" : s.score >= 78 ? "A" : "B",
               score: s.score || 80,
-              setup_type: s.setup_type || s.timeframe + " ICT Algorithmic Setup",
+              setup_type: s.setup_type || s.timeframe + " Momentum Setup",
               session: s.session || "Active Session",
               entry: s.entry || 4425,
               sl: s.sl || 4415,
@@ -255,7 +255,7 @@ export const OpportunityRadar: React.FC<OpportunityRadarProps> = ({
         <div className="flex items-center gap-2.5">
           <Zap className="w-3.5 h-3.5 text-[#20e0b2]" />
           <span className="text-[10px] font-black uppercase tracking-widest text-[#f4f4f5] font-mono">
-            Opportunity Radar (ICT Edge Scanner)
+            Live Opportunity Radar
           </span>
           <span className="text-[8px] bg-[#18181f] text-[#20e0b2] px-1.5 py-0.5 rounded border border-[#20e0b2]/20 font-mono">
             {opportunities.filter((o) => o.grade === "A+").length} A+ Setups
@@ -400,19 +400,19 @@ export const OpportunityRadar: React.FC<OpportunityRadarProps> = ({
                   </div>
                 </div>
 
-                {/* Middle 5 Cols: ICT Institutional Factors Matrix */}
+                {/* Middle 5 Cols: Setup Confluence Matrix */}
                 <div className="md:col-span-5 flex flex-col gap-2 border-r md:border-[rgba(255,255,255,0.06)] pr-0 md:pr-4">
                   <span className="text-[9px] uppercase tracking-widest text-[#71717a] font-mono font-bold">
-                    Algorithmic ICT Confluences
+                    Setup Confluence Factors
                   </span>
 
                   <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
                     <div className="flex items-center justify-between p-1.5 rounded bg-[#0d0d10] border border-[rgba(255,255,255,0.04)]">
-                      <span className="text-[#a1a1aa]">Liquidity Sweep:</span>
+                      <span className="text-[#a1a1aa]">Level Held:</span>
                       {currentOpp.factors.sweep ? (
                         <span className="flex items-center gap-1 text-[#20e0b2] font-bold">
                           <CheckCircle2 className="w-3 h-3 text-[#20e0b2]" />
-                          Swept
+                          Confirmed
                         </span>
                       ) : (
                         <span className="flex items-center gap-1 text-[#ff5c73]">
@@ -423,46 +423,46 @@ export const OpportunityRadar: React.FC<OpportunityRadarProps> = ({
                     </div>
 
                     <div className="flex items-center justify-between p-1.5 rounded bg-[#0d0d10] border border-[rgba(255,255,255,0.04)]">
-                      <span className="text-[#a1a1aa]">MSS Shift:</span>
+                      <span className="text-[#a1a1aa]">Trend Alignment:</span>
                       {currentOpp.factors.mss ? (
                         <span className="flex items-center gap-1 text-[#20e0b2] font-bold">
                           <CheckCircle2 className="w-3 h-3 text-[#20e0b2]" />
-                          Confirmed
+                          Bullish
                         </span>
                       ) : (
                         <span className="flex items-center gap-1 text-[#ff5c73]">
                           <XCircle className="w-3 h-3 text-[#ff5c73]" />
-                          Unformed
+                          Neutral
                         </span>
                       )}
                     </div>
 
                     <div className="flex items-center justify-between p-1.5 rounded bg-[#0d0d10] border border-[rgba(255,255,255,0.04)]">
-                      <span className="text-[#a1a1aa]">FVG Retest:</span>
+                      <span className="text-[#a1a1aa]">Volume Flow:</span>
                       {currentOpp.factors.fvg ? (
                         <span className="flex items-center gap-1 text-[#20e0b2] font-bold">
                           <CheckCircle2 className="w-3 h-3 text-[#20e0b2]" />
-                          Mitigating
+                          Expanding
                         </span>
                       ) : (
                         <span className="flex items-center gap-1 text-[#71717a]">
                           <XCircle className="w-3 h-3 text-[#71717a]" />
-                          No FVG
+                          Normal
                         </span>
                       )}
                     </div>
 
                     <div className="flex items-center justify-between p-1.5 rounded bg-[#0d0d10] border border-[rgba(255,255,255,0.04)]">
-                      <span className="text-[#a1a1aa]">Order Block:</span>
+                      <span className="text-[#a1a1aa]">Trigger Zone:</span>
                       {currentOpp.factors.ob ? (
                         <span className="flex items-center gap-1 text-[#20e0b2] font-bold">
                           <CheckCircle2 className="w-3 h-3 text-[#20e0b2]" />
-                          Respected
+                          Triggered
                         </span>
                       ) : (
                         <span className="flex items-center gap-1 text-[#71717a]">
                           <XCircle className="w-3 h-3 text-[#71717a]" />
-                          Secondary
+                          Approaching
                         </span>
                       )}
                     </div>
@@ -596,10 +596,10 @@ export const OpportunityRadar: React.FC<OpportunityRadarProps> = ({
                   </div>
                 </div>
 
-                {/* Middle Row: ICT Structure Checkmarks */}
+                {/* Middle Row: Setup Factors */}
                 <div className="grid grid-cols-2 gap-1.5 py-2 px-2.5 rounded-lg bg-[#0d0d10] border border-[rgba(255,255,255,0.04)] text-[10px] font-mono">
                   <div className="flex items-center justify-between">
-                    <span className="text-[#71717a]">Liquidity:</span>
+                    <span className="text-[#71717a]">Level:</span>
                     {opp.factors.sweep ? (
                       <CheckCircle2 className="w-3 h-3 text-[#20e0b2]" />
                     ) : (
@@ -607,7 +607,7 @@ export const OpportunityRadar: React.FC<OpportunityRadarProps> = ({
                     )}
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[#71717a]">MSS:</span>
+                    <span className="text-[#71717a]">Trend:</span>
                     {opp.factors.mss ? (
                       <CheckCircle2 className="w-3 h-3 text-[#20e0b2]" />
                     ) : (
@@ -615,7 +615,7 @@ export const OpportunityRadar: React.FC<OpportunityRadarProps> = ({
                     )}
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[#71717a]">FVG:</span>
+                    <span className="text-[#71717a]">Volume:</span>
                     {opp.factors.fvg ? (
                       <CheckCircle2 className="w-3 h-3 text-[#20e0b2]" />
                     ) : (
@@ -623,7 +623,7 @@ export const OpportunityRadar: React.FC<OpportunityRadarProps> = ({
                     )}
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[#71717a]">OB:</span>
+                    <span className="text-[#71717a]">Trigger:</span>
                     {opp.factors.ob ? (
                       <CheckCircle2 className="w-3 h-3 text-[#20e0b2]" />
                     ) : (

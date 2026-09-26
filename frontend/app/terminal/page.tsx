@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import TerminalHeader from "../../components/terminal/TerminalHeader";

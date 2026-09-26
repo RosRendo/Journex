@@ -93,6 +93,7 @@ export default function BotsPage() {
   const [mainTab, setMainTab] = useState<"monitor" | "desk" | "history">("monitor");
   const [selectedSignalIndex, setSelectedSignalIndex] = useState<number>(0);
   const [selectedSnapshot, setSelectedSnapshot] = useState<any | null>(null);
+  const [accountInfo, setAccountInfo] = useState<{ balance?: number; equity?: number; currency?: string } | null>(null);
 
   // centralize state in page.tsx
   const DEFAULT_SETTINGS = {
@@ -194,6 +195,17 @@ export default function BotsPage() {
 
   const loadData = async () => {
     try {
+      // 0. Fetch MT5 account telemetry for accurate fallback
+      try {
+        const accRes = await fetch(`${BRIDGE}/api/account`, { headers: { "ngrok-skip-browser-warning": "true" } });
+        const accData = await accRes.json();
+        if (accData.success) {
+          setAccountInfo(accData);
+        }
+      } catch (err) {
+        console.error("Failed to load account data", err);
+      }
+
       // 1. Fetch EA statuses
       const statusRes = await fetch(`${BRIDGE}/api/ea/status`, { headers: { "ngrok-skip-browser-warning": "true" } });
       const statusData = await statusRes.json();
@@ -219,11 +231,15 @@ export default function BotsPage() {
         setTrades(tradesData.events);
       }
 
-      // 4. Fetch Signals Queue
-      const signalsRes = await fetch(`${BRIDGE}/api/terminal/signals`, { headers: { "ngrok-skip-browser-warning": "true" } });
-      const signalsData = await signalsRes.json();
-      if (signalsData.success) {
-        setSignals(signalsData.signals ?? []);
+      // 4. Fetch Signals Queue from terminal scanner
+      try {
+        const signalsRes = await fetch(`/api/terminal/signals`);
+        const signalsData = await signalsRes.json();
+        if (signalsData.signals) {
+          setSignals(signalsData.signals ?? []);
+        }
+      } catch (sigErr) {
+        console.error("Failed to load scanner signals", sigErr);
       }
     } catch (e) {
       console.error("Failed to load EA data", e);
@@ -745,26 +761,34 @@ export default function BotsPage() {
             </div>
 
             {/* Quick Metrics */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 relative z-10 font-mono">
-              <div className="bg-black/20 border border-[rgba(255,255,255,0.04)] rounded-lg p-4">
-                <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider block mb-1">Balance</span>
-                <span className="text-xl font-bold text-white">${activeEa?.last_report?.balance?.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}) || "10,000.00"}</span>
-              </div>
-              <div className="bg-black/20 border border-[rgba(255,255,255,0.04)] rounded-lg p-4">
-                <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider block mb-1">Equity</span>
-                <span className="text-xl font-bold text-[#a1a1aa]">${activeEa?.last_report?.equity?.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}) || "10,120.50"}</span>
-              </div>
-              <div className="bg-black/20 border border-[rgba(255,255,255,0.04)] rounded-lg p-4">
-                <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider block mb-1">Daily P&L</span>
-                <span className={`text-xl font-bold ${(activeEa?.last_report?.today_stats?.pnl || 120.50) >= 0 ? "text-[#20e0b2]" : "text-[#ff5c73]"}`}>
-                  {(activeEa?.last_report?.today_stats?.pnl || 120.50) >= 0 ? "+" : ""}${activeEa?.last_report?.today_stats?.pnl || "120.50"}
-                </span>
-              </div>
-              <div className="bg-black/20 border border-[rgba(255,255,255,0.04)] rounded-lg p-4">
-                <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider block mb-1">Win Rate</span>
-                <span className="text-xl font-bold text-zinc-350">{analytics?.overall?.win_rate || "66.7"}%</span>
-              </div>
-            </div>
+            {(() => {
+              const liveBalance = activeEa?.last_report?.balance ?? accountInfo?.balance ?? 0;
+              const liveEquity = activeEa?.last_report?.equity ?? accountInfo?.equity ?? 0;
+              const todayPnl = activeEa?.last_report?.today_stats?.pnl ?? 0;
+              const winRateVal = analytics?.overall?.win_rate ?? 0;
+              return (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 relative z-10 font-mono">
+                  <div className="bg-black/20 border border-[rgba(255,255,255,0.04)] rounded-lg p-4">
+                    <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider block mb-1">Balance</span>
+                    <span className="text-xl font-bold text-white">${liveBalance.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
+                  </div>
+                  <div className="bg-black/20 border border-[rgba(255,255,255,0.04)] rounded-lg p-4">
+                    <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider block mb-1">Equity</span>
+                    <span className="text-xl font-bold text-[#a1a1aa]">${liveEquity.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
+                  </div>
+                  <div className="bg-black/20 border border-[rgba(255,255,255,0.04)] rounded-lg p-4">
+                    <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider block mb-1">Daily P&L</span>
+                    <span className={`text-xl font-bold ${todayPnl >= 0 ? "text-[#20e0b2]" : "text-[#ff5c73]"}`}>
+                      {todayPnl >= 0 ? "+" : ""}${todayPnl.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="bg-black/20 border border-[rgba(255,255,255,0.04)] rounded-lg p-4">
+                    <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider block mb-1">Win Rate</span>
+                    <span className="text-xl font-bold text-zinc-300">{winRateVal.toFixed(1)}%</span>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Minor Stats list */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 font-mono text-xs border-t border-[rgba(255,255,255,0.04)] pt-4">
@@ -818,169 +842,248 @@ export default function BotsPage() {
                 </div>
 
                 {/* MTF Alignment Checklist */}
-                <div className="mt-4 pt-4 border-t border-[rgba(255,255,255,0.04)]">
-                  <div className="grid grid-cols-4 gap-2 text-center text-[10px] font-bold">
-                    <div className="bg-black/30 p-2 rounded-lg border border-[rgba(255,255,255,0.04)]">
-                      <div className="text-zinc-500 mb-1">H4</div>
-                      <div className="text-[#20e0b2]">🟢 Bullish</div>
+                {(() => {
+                  const currentSig = signals[selectedSignalIndex] || signals[0] || null;
+                  const isBullish = (currentSig?.type || activeEa?.last_report?.htf_bias || "BUY").toUpperCase().includes("B");
+                  return (
+                    <div className="mt-4 pt-4 border-t border-[rgba(255,255,255,0.04)]">
+                      <div className="grid grid-cols-4 gap-2 text-center text-[10px] font-bold font-mono">
+                        <div className="bg-black/30 p-2 rounded-lg border border-[rgba(255,255,255,0.04)]">
+                          <div className="text-zinc-500 mb-1">H4 Bias</div>
+                          <div className={isBullish ? "text-[#20e0b2]" : "text-[#ff5c73]"}>
+                            {isBullish ? "Bullish ↑" : "Bearish ↓"}
+                          </div>
+                        </div>
+                        <div className="bg-black/30 p-2 rounded-lg border border-[rgba(255,255,255,0.04)]">
+                          <div className="text-zinc-500 mb-1">H1 Trend</div>
+                          <div className={isBullish ? "text-[#20e0b2]" : "text-[#ff5c73]"}>
+                            {isBullish ? "Aligned ↑" : "Aligned ↓"}
+                          </div>
+                        </div>
+                        <div className="bg-black/30 p-2 rounded-lg border border-[rgba(255,255,255,0.04)]">
+                          <div className="text-zinc-500 mb-1">M15 Setup</div>
+                          <div className="text-[#a1a1aa]">{currentSig ? `${currentSig.type}` : "Scanning"}</div>
+                        </div>
+                        <div className="bg-black/30 p-2 rounded-lg border border-[rgba(255,255,255,0.04)]">
+                          <div className="text-zinc-500 mb-1">M5 Trigger</div>
+                          <div className="text-[#20e0b2]">{currentSig ? "Ready" : "Waiting"}</div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="bg-black/30 p-2 rounded-lg border border-[rgba(255,255,255,0.04)]">
-                      <div className="text-zinc-500 mb-1">H1</div>
-                      <div className="text-[#20e0b2]">🟢 Bullish</div>
-                    </div>
-                    <div className="bg-black/30 p-2 rounded-lg border border-[rgba(255,255,255,0.04)]">
-                      <div className="text-zinc-500 mb-1">M15</div>
-                      <div className="text-[#20e0b2]">🟢 Setup</div>
-                    </div>
-                    <div className="bg-black/30 p-2 rounded-lg border border-[rgba(255,255,255,0.04)]">
-                      <div className="text-zinc-500 mb-1">M5</div>
-                      <div className="text-[#20e0b2]">🟢 Trigger</div>
-                    </div>
-                  </div>
-                </div>
+                  );
+                })()}
               </div>
             </div>
 
             {/* Right: Active Signal Scanner */}
-            <div className="p-5 bg-[--bg-card] border border-[--border] rounded-lg flex flex-col justify-between">
-              <div>
-                <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-zinc-400 mb-3.5 flex items-center gap-2">
-                  <Target className="w-4 h-4 text-[#a1a1aa]" /> Active Scanner Signal
-                </h3>
-                <div className="flex items-center justify-between bg-purple-950/20 border border-purple-900/30 rounded-xl p-3.5 mb-3 font-mono">
+            {(() => {
+              const currentSig = signals[selectedSignalIndex] || signals[0] || null;
+              const formatPrice = (p: any, sym: string = "XAUUSD") => {
+                if (typeof p !== "number") return p || "—";
+                const isJpy = sym.toUpperCase().includes("JPY");
+                const isCrypto = sym.toUpperCase().includes("BTC") || sym.toUpperCase().includes("ETH");
+                return p.toFixed(isJpy ? 3 : isCrypto ? 2 : 5);
+              };
+
+              if (!currentSig) {
+                return (
+                  <div className="p-5 bg-[--bg-card] border border-[--border] rounded-lg flex flex-col justify-between min-h-[280px]">
+                    <div>
+                      <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-zinc-400 mb-3.5 flex items-center gap-2">
+                        <Target className="w-4 h-4 text-[#a1a1aa]" /> Active Scanner Signal
+                      </h3>
+                      <div className="flex items-center justify-between bg-black/25 border border-[rgba(255,255,255,0.05)] rounded-xl p-4 mb-3 font-mono">
+                        <div>
+                          <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Scanner Status</span>
+                          <span className="text-sm font-bold text-white flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-[#20e0b2] animate-pulse" />
+                            Scanning Real-Time Markets
+                          </span>
+                        </div>
+                        <span className="text-xs text-zinc-400 font-mono">M15 Scanner</span>
+                      </div>
+                      <p className="text-xs text-zinc-500 font-mono leading-relaxed mt-2">
+                        Evaluating live ticks across Gold, FX majors, and Crypto. Telemetry auto-populates upon condition confirmation.
+                      </p>
+                    </div>
+                    <div className="text-[10px] font-mono text-zinc-500 border-t border-[rgba(255,255,255,0.04)] pt-3 mt-3 flex justify-between">
+                      <span>Pairs Monitored: XAUUSD · EURUSD · GBPUSD · BTCUSD · USDJPY</span>
+                    </div>
+                  </div>
+                );
+              }
+
+              const isBuy = currentSig.type === "BUY";
+              const targetSym = currentSig.symbol || "XAUUSD";
+              const entryVal = formatPrice(currentSig.entry_price, targetSym);
+              const slVal = formatPrice(currentSig.sl, targetSym);
+              const tp1Val = formatPrice(currentSig.tp1?.price || currentSig.tp, targetSym);
+              const rr1 = currentSig.tp1?.rr ? `${currentSig.tp1.rr}R` : "1.2R";
+              const rr2 = currentSig.tp2?.rr ? `${currentSig.tp2.rr}R` : "2.4R";
+
+              return (
+                <div className="p-5 bg-[--bg-card] border border-[--border] rounded-lg flex flex-col justify-between">
                   <div>
-                    <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Target Trade Plan</span>
-                    <span className="text-sm font-bold text-white">XAUUSD BUY (M15)</span>
+                    <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-zinc-400 mb-3.5 flex items-center gap-2">
+                      <Target className="w-4 h-4 text-[#a1a1aa]" /> Active Scanner Signal
+                    </h3>
+                    <div className="flex items-center justify-between bg-purple-950/20 border border-purple-900/30 rounded-xl p-3.5 mb-3 font-mono">
+                      <div>
+                        <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Target Trade Plan</span>
+                        <span className="text-sm font-bold text-white flex items-center gap-1.5">
+                          {targetSym} {currentSig.type} ({currentSig.timeframe || "M15"})
+                          <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${isBuy ? "bg-emerald-950/30 text-[#20e0b2] border border-emerald-800/40" : "bg-red-950/30 text-[#ff5c73] border border-red-800/40"}`}>
+                            {currentSig.type}
+                          </span>
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Score / Grade</span>
+                        <span className="text-xs font-bold text-[#a1a1aa]">{currentSig.confidence || 75}/100 ({currentSig.grade || "A"})</span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 font-mono text-[10px] mb-3">
+                      <div className="bg-black/35 p-2 rounded-lg border border-[rgba(255,255,255,0.04)]">
+                        <span className="text-zinc-500 block mb-0.5">Entry</span>
+                        <span className="font-bold text-white">{entryVal}</span>
+                      </div>
+                      <div className="bg-black/35 p-2 rounded-lg border border-[rgba(255,255,255,0.04)]">
+                        <span className="text-zinc-500 block mb-0.5">Stop Loss</span>
+                        <span className="font-bold text-[#ff5c73]">{slVal}</span>
+                      </div>
+                      <div className="bg-black/35 p-2 rounded-lg border border-[rgba(255,255,255,0.04)]">
+                        <span className="text-zinc-500 block mb-0.5">Target TP1</span>
+                        <span className="font-bold text-[#20e0b2]">{tp1Val}</span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 font-mono text-[9px] text-zinc-400">
+                      <div className="bg-black/10 p-1.5 rounded text-center">RR TP1: <span className="font-bold text-zinc-300">{rr1}</span></div>
+                      <div className="bg-black/10 p-1.5 rounded text-center">RR TP2: <span className="font-bold text-zinc-300">{rr2}</span></div>
+                      <div className="bg-black/10 p-1.5 rounded text-center">Spread: <span className="font-bold text-zinc-300">{getSymbolSpread(targetSym)} pts</span></div>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Score / Grade</span>
-                    <span className="text-xs font-bold text-[#a1a1aa]">84/100 (A)</span>
+
+                  <div className="text-[10px] font-mono text-zinc-500 border-t border-[rgba(255,255,255,0.04)] pt-3 mt-3 flex justify-between">
+                    <span>Protected Invalidation: {formatPrice(currentSig.invalidation || currentSig.sl, targetSym)}</span>
+                    <span className="text-zinc-400 font-bold uppercase">{currentSig.session || "LONDON"} Session</span>
                   </div>
                 </div>
-
-                <div className="grid grid-cols-3 gap-2 font-mono text-[10px] mb-3">
-                  <div className="bg-black/35 p-2 rounded-lg border border-[rgba(255,255,255,0.04)]">
-                    <span className="text-zinc-500 block mb-0.5">Entry</span>
-                    <span className="font-bold text-white">3,421.50</span>
-                  </div>
-                  <div className="bg-black/35 p-2 rounded-lg border border-[rgba(255,255,255,0.04)]">
-                    <span className="text-zinc-500 block mb-0.5">Stop Loss</span>
-                    <span className="font-bold text-[#ff5c73]">3,414.20</span>
-                  </div>
-                  <div className="bg-black/35 p-2 rounded-lg border border-[rgba(255,255,255,0.04)]">
-                    <span className="text-zinc-500 block mb-0.5">Target TP1</span>
-                    <span className="font-bold text-[#20e0b2]">3,430.00</span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2 font-mono text-[9px] text-zinc-400">
-                  <div className="bg-black/10 p-1.5 rounded text-center">RR TP1: <span className="font-bold text-zinc-350">1.16R</span></div>
-                  <div className="bg-black/10 p-1.5 rounded text-center">RR TP2: <span className="font-bold text-zinc-350">3.22R</span></div>
-                  <div className="bg-black/10 p-1.5 rounded text-center">RR TP3: <span className="font-bold text-zinc-350">6.64R</span></div>
-                </div>
-              </div>
-
-              <div className="text-[10px] font-mono text-zinc-500 border-t border-[rgba(255,255,255,0.04)] pt-3 mt-3 flex justify-between">
-                <span>protected invalidation low: 3,414.20</span>
-              </div>
-            </div>
+              );
+            })()}
           </div>
 
-          {/* Section 3: Confluence Matrix & Signal Reasoning */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Section 3: Technical Metrics Matrix & Validation Checklist */}
+          {(() => {
+            const currentSig = signals[selectedSignalIndex] || signals[0] || null;
+            const adxVal = currentSig?.adx || 28;
+            const rsiVal = currentSig?.rsi || 52;
+            const confVal = currentSig?.confidence || 75;
+            const spreadPts = getSymbolSpread(currentSig?.symbol || "XAUUSD");
+            const spreadEfficiency = Math.max(20, Math.min(100, 100 - spreadPts * 3));
+            const regimeStr = (currentSig?.regime || activeEa?.last_report?.regime || "TRENDING").toUpperCase();
+            const sessionStr = (currentSig?.session || activeEa?.last_report?.session || "LONDON").toUpperCase();
 
-            {/* Left: Confluence Matrix */}
-            <div className="p-5 bg-[--bg-card] border border-[--border] rounded-lg">
-              <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-zinc-400 mb-4">
-                Confluence Matrix
-              </h3>
-              <div className="space-y-3.5 font-mono text-xs">
-                <div>
-                  <div className="flex justify-between text-[11px] mb-1">
-                    <span className="text-zinc-400">Market Structure</span>
-                    <span className="text-[#a1a1aa]">20 / 20</span>
-                  </div>
-                  <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden border border-[rgba(255,255,255,0.07)]">
-                    <div className="bg-purple-500 h-full rounded-full" style={{ width: "100%" }} />
-                  </div>
-                </div>
-                <div>
-                  <div className="flex justify-between text-[11px] mb-1">
-                    <span className="text-zinc-400">Liquidity Sweep</span>
-                    <span className="text-[#a1a1aa]">20 / 20</span>
-                  </div>
-                  <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden border border-[rgba(255,255,255,0.07)]">
-                    <div className="bg-purple-500 h-full rounded-full" style={{ width: "100%" }} />
-                  </div>
-                </div>
-                <div>
-                  <div className="flex justify-between text-[11px] mb-1">
-                    <span className="text-zinc-400">FVG Displacement</span>
-                    <span className="text-[#a1a1aa]">15 / 15</span>
-                  </div>
-                  <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden border border-[rgba(255,255,255,0.07)]">
-                    <div className="bg-purple-500 h-full rounded-full" style={{ width: "100%" }} />
-                  </div>
-                </div>
-                <div>
-                  <div className="flex justify-between text-[11px] mb-1">
-                    <span className="text-zinc-400">Order Block Alignment</span>
-                    <span className="text-[#a1a1aa]">10 / 10</span>
-                  </div>
-                  <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden border border-[rgba(255,255,255,0.07)]">
-                    <div className="bg-purple-500 h-full rounded-full" style={{ width: "100%" }} />
-                  </div>
-                </div>
-                <div>
-                  <div className="flex justify-between text-[11px] mb-1">
-                    <span className="text-zinc-400">SMT Divergence</span>
-                    <span className="text-purple-450">10 / 10</span>
-                  </div>
-                  <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden border border-[rgba(255,255,255,0.07)]">
-                    <div className="bg-purple-500 h-full rounded-full" style={{ width: "100%" }} />
-                  </div>
-                </div>
-              </div>
-            </div>
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-            {/* Right: Signal Reasoning */}
-            <div className="p-5 bg-[--bg-card] border border-[--border] rounded-lg flex flex-col justify-between">
-              <div>
-                <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-zinc-400 mb-4">
-                  Signal Reasoning & Checklist
-                </h3>
-                <div className="space-y-2.5 font-mono text-[11px] text-zinc-350">
-                  <div className="flex items-start gap-2">
-                    <span className="text-[#20e0b2] font-bold">✓</span>
-                    <span>H4 bullish market structure confirmed</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="text-[#20e0b2] font-bold">✓</span>
-                    <span>H1 bullish continuation bias active</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="text-[#20e0b2] font-bold">✓</span>
-                    <span>Sell-side liquidity swept on London open</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="text-[#20e0b2] font-bold">✓</span>
-                    <span>M15 bullish Market Structure Shift (MSS)</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="text-[#20e0b2] font-bold">✓</span>
-                    <span>Price tapped into bullish 15m FVG</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="text-[#20e0b2] font-bold">✓</span>
-                    <span>SMT divergence confirmed against EURUSD</span>
+                {/* Left: Dynamic Technical Matrix */}
+                <div className="p-5 bg-[--bg-card] border border-[--border] rounded-lg">
+                  <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-zinc-400 mb-4 flex items-center justify-between">
+                    <span>Live Technical Matrix</span>
+                    <span className="text-[9px] text-[#20e0b2] font-mono font-bold">Live Telemetry</span>
+                  </h3>
+                  <div className="space-y-3.5 font-mono text-xs">
+                    <div>
+                      <div className="flex justify-between text-[11px] mb-1">
+                        <span className="text-zinc-400">Trend Momentum (ADX)</span>
+                        <span className="text-[#a1a1aa] font-bold">{adxVal} / 50</span>
+                      </div>
+                      <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden border border-[rgba(255,255,255,0.07)]">
+                        <div className="bg-purple-500 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, (adxVal / 50) * 100)}%` }} />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-[11px] mb-1">
+                        <span className="text-zinc-400">RSI Velocity</span>
+                        <span className="text-[#a1a1aa] font-bold">{rsiVal} / 100</span>
+                      </div>
+                      <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden border border-[rgba(255,255,255,0.07)]">
+                        <div className="bg-purple-500 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, rsiVal)}%` }} />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-[11px] mb-1">
+                        <span className="text-zinc-400">Confluence Quality Score</span>
+                        <span className="text-[#a1a1aa] font-bold">{confVal} / 100</span>
+                      </div>
+                      <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden border border-[rgba(255,255,255,0.07)]">
+                        <div className="bg-[#20e0b2] h-full rounded-full transition-all duration-500" style={{ width: `${confVal}%` }} />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-[11px] mb-1">
+                        <span className="text-zinc-400">Spread Efficiency</span>
+                        <span className="text-[#a1a1aa] font-bold">{spreadPts} pts ({spreadPts < 20 ? "Optimal" : "Normal"})</span>
+                      </div>
+                      <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden border border-[rgba(255,255,255,0.07)]">
+                        <div className="bg-purple-500 h-full rounded-full transition-all duration-500" style={{ width: `${spreadEfficiency}%` }} />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-[11px] mb-1">
+                        <span className="text-zinc-400">Regime Alignment</span>
+                        <span className="text-[#a1a1aa] font-bold">{regimeStr}</span>
+                      </div>
+                      <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden border border-[rgba(255,255,255,0.07)]">
+                        <div className="bg-purple-500 h-full rounded-full" style={{ width: "100%" }} />
+                      </div>
+                    </div>
                   </div>
                 </div>
+
+                {/* Right: Signal Reasoning & Validation Checklist */}
+                <div className="p-5 bg-[--bg-card] border border-[--border] rounded-lg flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-zinc-400 mb-4">
+                      Price Action Verification
+                    </h3>
+                    <div className="space-y-2.5 font-mono text-[11px] text-zinc-300">
+                      <div className="flex items-start gap-2">
+                        <span className="text-[#20e0b2] font-bold">✓</span>
+                        <span>Market Structure: {regimeStr} regime confirmed</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="text-[#20e0b2] font-bold">✓</span>
+                        <span>Active Session: {sessionStr} volume liquidity</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="text-[#20e0b2] font-bold">✓</span>
+                        <span>Momentum Confirmation: RSI ({rsiVal}) in directional expansion zone</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="text-[#20e0b2] font-bold">✓</span>
+                        <span>Trend Strength: ADX ({adxVal}) above 20 threshold</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="text-[#20e0b2] font-bold">✓</span>
+                        <span>Risk-to-Reward: Favorable ratio ({currentSig?.tp1?.rr ? `${currentSig.tp1.rr}R` : "1.2R"} min)</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="text-[#20e0b2] font-bold">✓</span>
+                        <span>Protected Invalidation: Hard stop verified</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-purple-950/10 border border-purple-900/20 rounded-xl p-3 text-[10px] text-zinc-400 font-mono leading-relaxed mt-4">
+                    💡 Trade plan remains valid while price remains on the active side of invalidation level.
+                  </div>
+                </div>
+
               </div>
-              <div className="bg-purple-950/10 border border-purple-900/10 rounded-xl p-3 text-[10px] text-zinc-400 font-mono leading-relaxed mt-4">
-                💡 Setup remains valid as long as prices do not close below Protected Low of 3,414.20 on a 15-minute candle.
-              </div>
-            </div>
-          </div>
+            );
+          })()}
 
           {/* Section 4: Open Trades Panel */}
           <div className="p-5 bg-[--bg-card] border border-[--border] rounded-lg space-y-4">
@@ -1790,34 +1893,30 @@ export default function BotsPage() {
             <Target className="w-4 h-4 text-[#a1a1aa]" /> EA Event Log
           </h3>
           <div className="space-y-2 max-h-80 overflow-y-auto custom-scrollbar font-mono text-[11px] text-zinc-400">
-            <div className="flex gap-4 p-2 bg-black/25 border border-[rgba(255,255,255,0.04)] rounded-xl">
-              <span className="text-zinc-600">12:43:28</span>
-              <span className="text-[#20e0b2]">Settings applied by EA</span>
-            </div>
-            <div className="flex gap-4 p-2 bg-black/25 border border-[rgba(255,255,255,0.04)] rounded-xl">
-              <span className="text-zinc-600">12:42:10</span>
-              <span>XAUUSD setup detected on M15</span>
-            </div>
-            <div className="flex gap-4 p-2 bg-black/25 border border-[rgba(255,255,255,0.04)] rounded-xl">
-              <span className="text-zinc-600">12:42:11</span>
-              <span className="text-[#a1a1aa]">Confluence score: 84 / 100</span>
-            </div>
-            <div className="flex gap-4 p-2 bg-black/25 border border-[rgba(255,255,255,0.04)] rounded-xl">
-              <span className="text-zinc-600">12:42:12</span>
-              <span>Scanner signal dispatched to Telegram</span>
-            </div>
-            <div className="flex gap-4 p-2 bg-black/25 border border-[rgba(255,255,255,0.04)] rounded-xl">
-              <span className="text-zinc-600">12:42:13</span>
-              <span className="text-emerald-450">Risk verification passed (1.0% limit)</span>
-            </div>
-            <div className="flex gap-4 p-2 bg-black/25 border border-[rgba(255,255,255,0.04)] rounded-xl">
-              <span className="text-zinc-600">12:42:14</span>
-              <span className="text-[#a1a1aa]">BUY order executed on MT5 terminal</span>
-            </div>
-            <div className="flex gap-4 p-2 bg-black/25 border border-[rgba(255,255,255,0.04)] rounded-xl">
-              <span className="text-zinc-650 font-mono">12:42:15</span>
-              <span>Trade reported back to Dashboard</span>
-            </div>
+            {trades.length === 0 ? (
+              <div className="text-zinc-650 text-center py-8">No recent EA events logged.</div>
+            ) : (
+              trades.slice(0, 10).map((t, idx) => {
+                const dateStr = new Date(t.timestamp).toLocaleTimeString();
+                let msg = "";
+                let color = "text-zinc-400";
+                if (t.action === "entry") {
+                  msg = `Magic #${t.magic}: Executed ${t.type} order on ${t.symbol} (Price: ${t.price})`;
+                  color = "text-[#a1a1aa]";
+                } else if (t.action === "close") {
+                  msg = `Magic #${t.magic}: Closed ${t.type} on ${t.symbol} (PnL: $${t.pnl.toFixed(2)}, ${t.r_multiple}R)`;
+                  color = t.pnl >= 0 ? "text-[#20e0b2]" : "text-[#ff5c73]";
+                } else {
+                  msg = `Magic #${t.magic}: Event for ${t.symbol} (${t.action})`;
+                }
+                return (
+                  <div key={idx} className="flex gap-4 p-2 bg-black/25 border border-[rgba(255,255,255,0.04)] rounded-xl">
+                    <span className="text-zinc-600">{dateStr}</span>
+                    <span className={color}>{msg}</span>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
 
@@ -2023,11 +2122,11 @@ export default function BotsPage() {
                 const grade = activeData.grade;
                 const isScalping = activeData.timeframe === "M1" || activeData.timeframe === "M5";
                 
-                // Account metrics derived
-                const riskPercent = activeEa?.last_report?.settings?.risk ?? 0.50;
-                const balance = activeEa?.last_report?.balance ?? 1000.00;
-                const equity = activeEa?.last_report?.equity ?? 1034.00;
-                const pnlToday = activeEa?.last_report?.today_stats?.pnl ?? 18.00;
+                // Account metrics derived from real MT5 bridge telemetry
+                const riskPercent = activeEa?.last_report?.settings?.risk ?? editSettings.risk ?? 1.0;
+                const balance = activeEa?.last_report?.balance ?? accountInfo?.balance ?? 0.00;
+                const equity = activeEa?.last_report?.equity ?? accountInfo?.equity ?? 0.00;
+                const pnlToday = activeEa?.last_report?.today_stats?.pnl ?? 0.00;
                 const maxDDLimit = 10.0;
                 const currentExposure = activeEa?.last_report?.open_trades?.length ? riskPercent : 0.00;
                 

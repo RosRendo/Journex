@@ -42,7 +42,7 @@ export default function JournalPage() {
   const itemsPerPage = 15;
 
   const [strategies, setStrategies] = useState<string[]>([
-    "Trend Following", "Breakout", "Reversal", "SMC",
+    "Trend Following", "Breakout", "Reversal", "Pullback",
     "Support / Resistance", "Supply / Demand", "News Trading",
   ]);
   const [availableLessons, setAvailableLessons] = useState<any[]>([]);

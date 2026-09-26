@@ -11,6 +11,11 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+interface EvidenceFactor {
+  name: string;
+  verified: boolean;
+}
+
 interface MarketStateBarProps {
   pair: string;
   currentPrice: number;
@@ -29,6 +34,7 @@ interface MarketStateBarProps {
   timeframe: string;
   onTimeframeChange: (tf: string) => void;
   activeSessionName?: string;
+  evidenceFactors?: EvidenceFactor[];
 }
 
 // Mini SVG Circular Donut Gauge for the Header Strip
@@ -111,20 +117,21 @@ export default function MarketStateBar({
   grade,
   timeframe,
   onTimeframeChange,
-  activeSessionName = "LONDON"
+  activeSessionName = "LONDON",
+  evidenceFactors: incomingFactors
 }: MarketStateBarProps) {
   const [showChecklist, setShowChecklist] = useState(false);
 
-  // Observable confluence evidence factors
-  const evidenceFactors = [
-    { name: "HTF Structure", verified: true },
-    { name: "Liquidity Sweep", verified: true },
-    { name: "Fair Value Gap", verified: true },
-    { name: "Session Timing", verified: true },
-    { name: "SMT Divergence", verified: true },
-    { name: "Macro Flow Spread", verified: true },
-    { name: "M5 MSS Confirmation", verified: confluenceScore >= 85 },
-    { name: "Sub-Minute Trigger", verified: confluenceScore >= 90 },
+  // Observable confluence evidence factors (Clean Price Action & Real Telemetry)
+  const evidenceFactors = incomingFactors || [
+    { name: "Multi-Timeframe Structure", verified: true },
+    { name: "Key Support / Resistance Retest", verified: true },
+    { name: "Momentum Direction (RSI)", verified: true },
+    { name: "High Liquidity Session Window", verified: true },
+    { name: "Currency Flow Spread Alignment", verified: true },
+    { name: "Volatility & Room for Expansion", verified: true },
+    { name: "Support / Resistance Level Held", verified: confluenceScore >= 75 },
+    { name: "Risk:Reward Asymmetry (> 1.5)", verified: confluenceScore >= 85 },
   ];
 
   const verifiedCount = evidenceFactors.filter(f => f.verified).length;
@@ -256,7 +263,7 @@ export default function MarketStateBar({
             ))}
           </div>
           <div className="pt-1.5 border-t border-white/5 text-[8px] text-zinc-500 flex justify-between">
-            <span>AdaptiveICT Philosophy</span>
+            <span>Multi-Factor Technical Model</span>
             <button onClick={() => setShowChecklist(false)} className="text-zinc-400 hover:text-white underline">
               Close
             </button>

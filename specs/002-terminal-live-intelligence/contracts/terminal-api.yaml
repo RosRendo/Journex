@@ -1,0 +1,205 @@
+openapi: 3.0.3
+info:
+  title: Terminal Cognitive Hierarchy & Execution Engine API
+  version: 1.0.0
+  description: Real-time telemetry, confluence breakdown, and 1-click execution endpoints for the Terminal Cockpit.
+
+paths:
+  /terminal/hero:
+    get:
+      summary: Get Level 1 Signal Hero state
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema:
+            type: string
+            example: XAUUSD
+        - name: timeframe
+          in: query
+          required: true
+          schema:
+            type: string
+            example: M15
+      responses:
+        '200':
+          description: Signal Hero Snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignalHeroResponse'
+
+  /terminal/confluence-details:
+    get:
+      summary: Get Level 2 Confluence & Warning Breakdown
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: timeframe
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Confluence details with weighted factors and warnings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfluenceBreakdownResponse'
+
+  /terminal/readiness:
+    get:
+      summary: Get Level 4 Execution Readiness Gate audit & risk sizing
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Binary readiness status (READY vs BLOCKED) + lot sizing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionReadinessResponse'
+
+  /terminal/positions/action:
+    post:
+      summary: Execute 1-click position modification (BE, Close 50%, Close)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ticket
+                - action
+              properties:
+                ticket:
+                  type: integer
+                  example: 12849102
+                action:
+                  type: string
+                  enum: [MOVE_BE, CLOSE_50, CLOSE_FULL]
+      responses:
+        '200':
+          description: Action executed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+
+  /terminal/positions/close-all:
+    post:
+      summary: Emergency Master Kill-Switch (Liquidate all open orders)
+      responses:
+        '200':
+          description: All positions liquidated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  closedCount:
+                    type: integer
+
+components:
+  schemas:
+    SignalHeroResponse:
+      type: object
+      properties:
+        symbol:
+          type: string
+        timeframe:
+          type: string
+        state:
+          type: string
+          enum: [ACTIVE_SETUP, NO_VALID_SETUP]
+        signalType:
+          type: string
+          enum: [BUY, SELL, NEUTRAL]
+        confluenceScore:
+          type: integer
+        grade:
+          type: string
+          enum: [A+, A, B, C, F]
+        entryPrice:
+          type: number
+        slPrice:
+          type: number
+        tp1Price:
+          type: number
+        tp2Price:
+          type: number
+        waitingReasons:
+          type: array
+          items:
+            type: string
+
+    ConfluenceBreakdownResponse:
+      type: object
+      properties:
+        totalScore:
+          type: integer
+        grade:
+          type: string
+        factors:
+          type: object
+          properties:
+            liquidity:
+              type: object
+            marketStructure:
+              type: object
+            fvgOrderBlock:
+              type: object
+            mtfAlignment:
+              type: object
+            momentum:
+              type: object
+            volume:
+              type: object
+        whyValid:
+          type: array
+          items:
+            type: string
+        warnings:
+          type: array
+          items:
+            type: string
+
+    ExecutionReadinessResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [READY, BLOCKED]
+        checks:
+          type: object
+        sizing:
+          type: object
+          properties:
+            riskPercent:
+              type: number
+            calculatedLots:
+              type: number
+            dollarRisk:
+              type: number
+            riskRewardRatio:
+              type: string
+        blockedReasons:
+          type: array
+          items:
+            type: string

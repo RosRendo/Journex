@@ -98,6 +98,20 @@ struct ActiveTradeTracking
    // Recovery tracking
    bool              recovered_after_restart;
    string            data_quality;
+   
+   // T024: Entry score component breakdown (FR-011, FR-036)
+   int               regime_pts;
+   int               htf_struct_pts;
+   int               liquidity_pts;
+   int               entry_loc_pts;
+   int               mss_pts;
+   int               fvg_ob_pts;
+   int               smt_pts;
+   int               vol_pts;
+   int               session_pts;
+   int               exec_quality_pts;
+   int               total_score;
+   string            score_tier;
   };
 
 //+------------------------------------------------------------------+
@@ -121,6 +135,25 @@ private:
      }
 
 public:
+   //+------------------------------------------------------------------+
+   //| GetRunningMetrics: retrieve current MFE/MAE for an active ticket |
+   //+------------------------------------------------------------------+
+   static bool GetRunningMetrics(ulong ticket, double &mfe_pts, double &mae_pts, double &mfe_r, double &mae_r)
+     {
+      for(int i = 0; i < active_tracks_count; i++)
+        {
+         if(active_tracks[i].position_ticket == ticket)
+           {
+            mfe_pts = active_tracks[i].mfe_points;
+            mae_pts = active_tracks[i].mae_points;
+            mfe_r = (active_tracks[i].risk_points > 0) ? (active_tracks[i].mfe_points / active_tracks[i].risk_points) : 0.0;
+            mae_r = (active_tracks[i].risk_points > 0) ? (active_tracks[i].mae_points / active_tracks[i].risk_points) : 0.0;
+            return true;
+           }
+        }
+      return false;
+     }
+
    //+------------------------------------------------------------------+
    //| Initialize file paths and recover positions after restart        |
    //+------------------------------------------------------------------+
@@ -270,10 +303,10 @@ public:
       t.valley_price = (t.direction == "BUY") ? bid : ask;
       
       // Indicators snapshot
-      t.spread_at_entry = SymbolInfoInteger(t.symbol, SYMBOL_SPREAD);
+      t.spread_at_entry = (double)SymbolInfoInteger(t.symbol, SYMBOL_SPREAD);
       t.entry_score = dec.score;
       t.volatility = dec.volatility;
-      t.market_regime = dec.regime;
+      t.market_regime = (sig.regime != "") ? sig.regime : dec.regime;
       
       double plus_di = 0.0, minus_di = 0.0;
       t.adx = GetADX(sig.signal_tf, 14, plus_di, minus_di);
@@ -295,6 +328,20 @@ public:
       
       t.recovered_after_restart = false;
       t.data_quality = "COMPLETE";
+      
+      // T024: Populate score breakdown
+      t.regime_pts       = dec.breakdown.regime_pts;
+      t.htf_struct_pts   = dec.breakdown.htf_structure_pts;
+      t.liquidity_pts    = dec.breakdown.liquidity_pts;
+      t.entry_loc_pts    = dec.breakdown.entry_location_pts;
+      t.mss_pts          = dec.breakdown.mss_pts;
+      t.fvg_ob_pts       = dec.breakdown.fvg_ob_pts;
+      t.smt_pts          = dec.breakdown.smt_pts;
+      t.vol_pts          = dec.breakdown.volatility_pts;
+      t.session_pts      = dec.breakdown.session_pts;
+      t.exec_quality_pts = dec.breakdown.exec_quality_pts;
+      t.total_score      = dec.breakdown.total;
+      t.score_tier       = dec.breakdown.tier;
       
       t.analytics_trade_id = t.symbol + "_" + IntegerToString(t.position_ticket) + "_" + TimeToString(t.entry_time, TIME_DATE|TIME_MINUTES|TIME_SECONDS);
       t.peak_mfe_time = t.entry_time;
@@ -520,84 +567,87 @@ public:
       // Write headers if file is empty
       if(FileSize(file_handle) == 0)
         {
-         FileWrite(file_handle,
-            "AnalyticsTradeID", "PositionTicket", "OrderTicket", "DealTicket", "MagicNumber",
-            "Symbol", "Strategy", "SetupID", "Timeframe", "EntryTime", "ExitTime", "Direction",
-            "EntryPrice", "InitialSL", "InitialTP", "RiskPoints", "InitialRiskMoney", "ExitPrice",
-            "ProfitMoney", "FinalProfitR", "PeakProfitR", "PeakGivebackR", "ExitEfficiencyR",
-            "RequestedExitReason", "ActualExitReason", "MAE_Points", "MAE_R", "MFE_Points",
-            "Reached_0_5R", "Reached_1R", "Reached_1_5R", "Reached_2R", "Reached_3R", "Reached_4R", "Reached_5R",
-            "TimeTo_0_5R", "TimeTo_1R", "TimeTo_1_5R", "TimeTo_2R", "TimeTo_3R", "TimeTo_4R", "TimeTo_5R",
-            "TimeToPeakMFE", "BarsHeld", "SecondsHeld", "SpreadAtEntry", "EntryScore", "HTFTrend",
-            "Momentum", "ATR", "ADX", "LiquiditySweep", "MSS", "FVG", "OrderBlock", "Session", "MarketRegime",
-            "RecoveredAfterRestart", "DataQuality"
-         );
+         string hdr1 = "AnalyticsTradeID,PositionTicket,OrderTicket,DealTicket,MagicNumber,Symbol,Strategy,SetupID,Timeframe,EntryTime,ExitTime,Direction,EntryPrice,InitialSL,InitialTP,RiskPoints,InitialRiskMoney,ExitPrice,ProfitMoney,FinalProfitR,PeakProfitR,PeakGivebackR,ExitEfficiencyR,RequestedExitReason,ActualExitReason,MAE_Points,MAE_R,MFE_Points,Reached_0_5R,Reached_1R,Reached_1_5R,Reached_2R,Reached_3R,Reached_4R,Reached_5R";
+         string hdr2 = "TimeTo_0_5R,TimeTo_1R,TimeTo_1_5R,TimeTo_2R,TimeTo_3R,TimeTo_4R,TimeTo_5R,TimeToPeakMFE,BarsHeld,SecondsHeld,SpreadAtEntry,EntryScore,HTFTrend,Momentum,ATR,ADX,LiquiditySweep,MSS,FVG,OrderBlock,Session,MarketRegime,RecoveredAfterRestart,DataQuality,RegimePts,HTFStructPts,LiquidityPts,EntryLocPts,MSSPts,FVGOBPts,SMTPts,VolPts,SessionPts,ExecQualityPts,TotalScore,ScoreTier";
+         FileWriteString(file_handle, hdr1 + "," + hdr2 + "\r\n");
         }
         
       FileSeek(file_handle, 0, SEEK_END);
       
-      FileWrite(file_handle,
-         t.analytics_trade_id,
-         IntegerToString(t.position_ticket),
-         IntegerToString(t.order_ticket),
-         IntegerToString(t.deal_ticket),
-         IntegerToString(t.magic_number),
-         t.symbol,
-         t.strategy,
-         t.setup_id,
-         t.timeframe,
-         TimeToString(t.entry_time, TIME_DATE|TIME_MINUTES|TIME_SECONDS),
-         TimeToString(exit_time, TIME_DATE|TIME_MINUTES|TIME_SECONDS),
-         t.direction,
-         DoubleToString(t.entry_price, _Digits),
-         DoubleToString(t.initial_sl, _Digits),
-         DoubleToString(t.initial_tp, _Digits),
-         DoubleToString(t.risk_points, _Digits),
-         DoubleToString(t.initial_risk_money, 2),
-         DoubleToString(exit_price, _Digits),
-         DoubleToString(profit, 2),
-         DoubleToString(final_r, 4),
-         DoubleToString(t.peak_profit_r, 4),
-         DoubleToString(giveback_r, 4),
-         DoubleToString(efficiency, 4),
-         req_exit,
-         actual_exit,
-         DoubleToString(t.mae_points, _Digits),
-         DoubleToString(t.mae_r, 4),
-         DoubleToString(t.mfe_points, _Digits),
-         t.reached_0_5R ? "1" : "0",
-         t.reached_1R ? "1" : "0",
-         t.reached_1_5R ? "1" : "0",
-         t.reached_2R ? "1" : "0",
-         t.reached_3R ? "1" : "0",
-         t.reached_4R ? "1" : "0",
-         t.reached_5R ? "1" : "0",
-         IntegerToString(t.time_to_0_5R),
-         IntegerToString(t.time_to_1R),
-         IntegerToString(t.time_to_1_5R),
-         IntegerToString(t.time_to_2R),
-         IntegerToString(t.time_to_3R),
-         IntegerToString(t.time_to_4R),
-         IntegerToString(t.time_to_5R),
-         IntegerToString(t.time_to_peak_mfe),
-         IntegerToString(bars),
-         IntegerToString(secs),
-         DoubleToString(t.spread_at_entry, 0),
-         IntegerToString(t.entry_score),
-         t.htf_trend,
-         DoubleToString(t.momentum, 4),
-         DoubleToString(t.atr, _Digits),
-         DoubleToString(t.adx, 4),
-         t.liquidity_sweep ? "1" : "0",
-         t.mss ? "1" : "0",
-         t.fvg ? "1" : "0",
-         t.order_block ? "1" : "0",
-         t.session,
-         t.market_regime,
-         t.recovered_after_restart ? "1" : "0",
-         t.data_quality
-      );
-      
+      string part1 = t.analytics_trade_id + "," +
+                     IntegerToString(t.position_ticket) + "," +
+                     IntegerToString(t.order_ticket) + "," +
+                     IntegerToString(t.deal_ticket) + "," +
+                     IntegerToString(t.magic_number) + "," +
+                     t.symbol + "," +
+                     t.strategy + "," +
+                     t.setup_id + "," +
+                     t.timeframe + "," +
+                     TimeToString(t.entry_time, TIME_DATE|TIME_MINUTES|TIME_SECONDS) + "," +
+                     TimeToString(exit_time, TIME_DATE|TIME_MINUTES|TIME_SECONDS) + "," +
+                     t.direction + "," +
+                     DoubleToString(t.entry_price, _Digits) + "," +
+                     DoubleToString(t.initial_sl, _Digits) + "," +
+                     DoubleToString(t.initial_tp, _Digits) + "," +
+                     DoubleToString(t.risk_points, _Digits) + "," +
+                     DoubleToString(t.initial_risk_money, 2) + "," +
+                     DoubleToString(exit_price, _Digits) + "," +
+                     DoubleToString(profit, 2) + "," +
+                     DoubleToString(final_r, 4) + "," +
+                     DoubleToString(t.peak_profit_r, 4) + "," +
+                     DoubleToString(giveback_r, 4) + "," +
+                     DoubleToString(efficiency, 4) + "," +
+                     req_exit + "," +
+                     actual_exit + "," +
+                     DoubleToString(t.mae_points, _Digits) + "," +
+                     DoubleToString(t.mae_r, 4) + "," +
+                     DoubleToString(t.mfe_points, _Digits) + "," +
+                     (t.reached_0_5R ? "1" : "0") + "," +
+                     (t.reached_1R ? "1" : "0") + "," +
+                     (t.reached_1_5R ? "1" : "0") + "," +
+                     (t.reached_2R ? "1" : "0") + "," +
+                     (t.reached_3R ? "1" : "0") + "," +
+                     (t.reached_4R ? "1" : "0") + "," +
+                     (t.reached_5R ? "1" : "0");
+
+      string part2 = IntegerToString(t.time_to_0_5R) + "," +
+                     IntegerToString(t.time_to_1R) + "," +
+                     IntegerToString(t.time_to_1_5R) + "," +
+                     IntegerToString(t.time_to_2R) + "," +
+                     IntegerToString(t.time_to_3R) + "," +
+                     IntegerToString(t.time_to_4R) + "," +
+                     IntegerToString(t.time_to_5R) + "," +
+                     IntegerToString(t.time_to_peak_mfe) + "," +
+                     IntegerToString(bars) + "," +
+                     IntegerToString(secs) + "," +
+                     DoubleToString(t.spread_at_entry, 0) + "," +
+                     IntegerToString(t.entry_score) + "," +
+                     t.htf_trend + "," +
+                     DoubleToString(t.momentum, 4) + "," +
+                     DoubleToString(t.atr, _Digits) + "," +
+                     DoubleToString(t.adx, 4) + "," +
+                     (t.liquidity_sweep ? "1" : "0") + "," +
+                     (t.mss ? "1" : "0") + "," +
+                     (t.fvg ? "1" : "0") + "," +
+                     (t.order_block ? "1" : "0") + "," +
+                     t.session + "," +
+                     t.market_regime + "," +
+                     (t.recovered_after_restart ? "1" : "0") + "," +
+                     t.data_quality + "," +
+                     IntegerToString(t.regime_pts) + "," +
+                     IntegerToString(t.htf_struct_pts) + "," +
+                     IntegerToString(t.liquidity_pts) + "," +
+                     IntegerToString(t.entry_loc_pts) + "," +
+                     IntegerToString(t.mss_pts) + "," +
+                     IntegerToString(t.fvg_ob_pts) + "," +
+                     IntegerToString(t.smt_pts) + "," +
+                     IntegerToString(t.vol_pts) + "," +
+                     IntegerToString(t.session_pts) + "," +
+                     IntegerToString(t.exec_quality_pts) + "," +
+                     IntegerToString(t.total_score) + "," +
+                     t.score_tier;
+
+      FileWriteString(file_handle, part1 + "," + part2 + "\r\n");
       FileClose(file_handle);
       Print("[Logger] Trade analytics lifecycle written successfully to CSV: ", filename);
      }

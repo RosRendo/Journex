@@ -1,0 +1,94 @@
+; Optimized Pass 58 Champion Preset (Top Winner from Genetic Optimization)
+; Profit: +$4,156.08 | Drawdown: 26.65% | Sharpe Ratio: 25.78 | Expected Payoff: $6.69 | Trades: 621
+;
+; === Bot Identity ===
+InpMagic=88001||0||1||10||N
+InpBridgeURL=http://127.0.0.1:5003||0||0||0||N
+; === Strategy Selection ===
+InpStrategyType=2||0||0||0||N
+InpSignalTimeframe=M15||0||0||0||N
+InpContextTimeframe=H4||0||0||0||N
+InpSession=both||0||0||0||N
+InpFilterToxicHours=false||false||0||true||N
+; === ICT Strategy Parameters ===
+InpLiquidityLookback=100||0||1||10||N
+InpMinScore=55||0||0||0||N
+InpSignalType=all||0||0||0||N
+; === Technical Indicator Filters ===
+InpUseRSI=true||false||0||true||N
+InpRSIPeriod=14||0||1||10||N
+InpRSIBuyMin=50.0||0||0.000000||0.000000||N
+InpRSIBuyMax=70.0||0||0.000000||0.000000||N
+InpRSISellMin=30.0||0||0.000000||0.000000||N
+InpRSISellMax=50.0||0||0.000000||0.000000||N
+InpUseADX=true||false||0||true||N
+InpADXPeriod=14||0||1||10||N
+InpADXMin=30.0||0||0||0||N
+InpADXMax=50.0||0||0.000000||0.000000||N
+InpUseVolume=true||false||0||true||N
+InpVolAvgPeriod=20||0||1||10||N
+InpVolMinRatio=1.6||0||0||0||N
+InpUseEMAFilter=true||false||0||true||N
+InpEMA1Period=20||0||1||10||N
+InpEMA2Period=50||0||1||10||N
+InpEMA3Period=200||0||1||10||N
+; === SMT & MTF Settings ===
+InpUseSMT=true||false||0||true||N
+InpSMTSymbol=GBPUSD||0||0||0||N
+InpSMTMinPips=1.0||0||0.000000||0.000000||N
+InpUseMTFConfluence=true||false||0||true||N
+; === Mean Reversion Parameters ===
+InpMRSessionStart=22:00||0||0||0||N
+InpMRSessionEnd=06:00||0||0||0||N
+InpMRBBPeriod=20||0||1||10||N
+InpMRBBStdDev=2.0||0||0.000000||0.000000||N
+InpMRRSIPeriod=14||0||1||10||N
+InpMRRSIOB=70.0||0||0.000000||0.000000||N
+InpMRRSIOS=30.0||0||0.000000||0.000000||N
+; === Momentum Scalper Parameters ===
+InpMomLookbackSec=3||0||1||10||N
+InpMomThresholdPips=14.0||0||0||0||N
+InpMomSLATRMult=1.00||0||0||0||N
+InpMomMaxHoldingSec=0||0||1||10||N
+InpPyramidCooldownSec=300||0||1||10||N
+; === Global Equity Nuke ===
+InpUseEquityTrail=false||false||0||true||N
+InpEquityTrailActivatePct=10.0||0||0.000000||0.000000||N
+InpEquityTrailDropPct=5.0||0||0.000000||0.000000||N
+InpHardEquityStopPct=15.0||0||0.000000||0.000000||N
+; === Position Management ===
+InpPositionMode=1||0||0||0||N
+InpUseBE=true||false||0||true||N
+InpTrailingStop=true||false||0||true||N
+InpTrailATRMult=1.0||0||0||0||N
+InpPartialExitRR=0.5||0||0.000000||0.000000||N
+InpPartialExitPct=60.0||0||0.000000||0.000000||N
+InpMoveSLToBE=true||false||0||true||N
+InpBEOffsetPips=1.5||0||0.000000||0.000000||N
+; === Risk ===
+InpRiskPercent=1.0||0||0.000000||0.000000||N
+InpMaxDailyLossPct=3.0||0||0.000000||0.000000||N
+InpMaxDrawdownPct=18.0||0||0.000000||0.000000||N
+InpMaxOpenTrades=3||0||1||10||N
+InpMinRR=2.25||0||0||0||N
+InpMaxBalanceCompounding=50000.0||0||0.000000||0.000000||N
+; === Execution & Spread Filters ===
+InpMaxSpreadPoints=250||0||1||10||N
+InpMaxSlippagePoints=30||0||1||10||N
+InpMinSLPips=15||0||1||10||N
+InpAllowMonday=true||false||0||true||N
+InpAllowFriday=true||false||0||true||N
+InpFridayCloseHour=16||0||1||10||N
+InpUseNewsFilter=false||false||0||true||N
+; === Grid Settings ===
+InpGridStep=400||0||0.000000||0.000000||N
+InpMaxGridOrders=2||0||1||10||N
+InpMaxBasketLossPct=11.0||0||0.000000||0.000000||N
+InpGridTargetPct=2.0||0||0.000000||0.000000||N
+InpGridEmergencyClose=false||false||0||true||N
+; === Dashboard Display Settings ===
+InpShowDashboard=true||false||0||true||N
+InpShowVisuals=true||false||0||true||N
+InpDashboardCorner=0||0||0||3||N
+InpDashboardX=15||15||1||150||N
+InpDashboardY=20||20||1||200||N

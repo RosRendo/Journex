@@ -1,4 +1,4 @@
-//+------------------------------------------------------------------+
+﻿//+------------------------------------------------------------------+
 //|                                                 EAController.mqh |
 //|                                  Copyright 2026, AdaptiveICT     |
 //|                                             https://www.mql5.com |
@@ -18,7 +18,7 @@
 #include "../PositionManagement/BasePositionManager.mqh"
 #include "../PositionManagement/Single/SinglePositionManager.mqh"
 #include "../PositionManagement/PartialExit/PartialExitManager.mqh"
-#include "../PositionManagement/Grid/GridPositionManager.mqh"
+#include "../PositionManagement/Grid/GridPositionManager.mqh" // DISABLED: kept for reference only — do not instantiate
 
 #include "../Risk/RiskManager.mqh"
 #include "../Execution/OrderManager.mqh"
@@ -26,6 +26,7 @@
 #include "../Analytics/PerformanceAnalyzer.mqh"
 #include "../Analytics/Statistics.mqh"
 #include "../Analytics/TradeAnalyticsLogger.mqh"
+#include "../Analytics/StatisticsEngine.mqh"
 
 #include "../Communication/SettingsClient.mqh"
 #include "../Communication/Heartbeat.mqh"
@@ -34,6 +35,11 @@
 #include "../Dashboard/MainPanel.mqh"
 #include "../Dashboard/Visualizer.mqh"
 #include "DecisionEngine/DecisionEngine.mqh"
+#include "MarketRegimeGate.mqh"
+#include "RecoveryStateMachine.mqh"
+#include "../Targets/StopModel.mqh"
+#include "../Targets/TakeProfitModel.mqh"
+#include "ResearchMode.mqh"
 
 //+------------------------------------------------------------------+
 //| EA Lifecycle Controller Coordinating Pipeline Flow               |
@@ -75,11 +81,62 @@ private:
             Print("[debug] Scan found candidate: ", signal.type, " (Reason: ", signal.reason, ")");
            }
          
+         // T016 / T017 [US1]: Market Regime Gate evaluation
+         // T029 [US3]: Validate and buffer raw structural SL with ATR
+         // T029 [US3] & T054 [P]: Validate and buffer raw structural SL with ATR
+         double buffered_sl = StopModel::ValidateAndBuffer(signal.entry_price, signal.invalidation_price, tf);
+         if(buffered_sl <= 0.0)
+           {
+            Print("[StopModel] Trade blocked: ATR=0.0 or invalid SL levels for tf=", EnumToString(tf));
+            return;
+           }
+         signal.invalidation_price = buffered_sl;
+
+         MarketRegimeState reg_state = MarketRegimeDetector::DetectState(tf);
+         signal.regime = reg_state.regime; // T017: populate regime on TradeSignal
+         
+         if(!MarketRegimeGate::IsRegimePermitted(signal.strategy_id, reg_state.regime))
+           {
+            static datetime last_regime_block_log = 0;
+            if(TimeCurrent() - last_regime_block_log >= 1800)
+              {
+               Print("[Regime Gate] Blocked candidate for ", signal.strategy_id, " in regime: ", reg_state.regime, " (Confidence: ", reg_state.confidence, "%)");
+               last_regime_block_log = TimeCurrent();
+              }
+            return;
+           }
+         
+         // T050 [REC]: Check if new entries on this symbol are blocked by Recovery State Machine
+         if(RecoveryStateMachine::IsNewEntryBlocked(_Symbol, g_recovery_state.state))
+           {
+            static datetime last_rec_block_log = 0;
+            if(TimeCurrent() - last_rec_block_log >= 1800)
+              {
+               Print("[RecoverySM Gate] Blocked candidate for ", _Symbol, ": Recovery state is ", 
+                     RecoveryStateMachine::StateToString(g_recovery_state.state), " (Reason: ", g_recovery_state.reason, ")");
+               last_rec_block_log = TimeCurrent();
+              }
+            return;
+           }
+
          // Calculate strategy-specific custom confluence score
          ConfluenceResult strat_conf = active_strategy.CalculateConfluence(signal);
          
          // Use our Decision Intelligence Engine to evaluate multi-factor confluence score
-         DecisionResult dec = DecisionEngine::Evaluate(tf, signal.type, InpStrategyType, min_score, strat_conf.score);
+         DecisionResult dec = DecisionEngine::Evaluate(tf, signal, InpStrategyType, min_score, strat_conf.score);
+         
+         // T025 [US2]: Hard score guard (< 60 = NO_TRADE tier per FR-013)
+         if(dec.breakdown.total < 60)
+           {
+            dec.is_approved = false;
+            static datetime last_score_guard_print = 0;
+            if(TimeCurrent() - last_score_guard_print >= 1800)
+              {
+               Print("[Score Gate] SKIPPED: score ", dec.breakdown.total, " < threshold 60 (Tier: ", dec.breakdown.tier, ")");
+               last_score_guard_print = TimeCurrent();
+              }
+            return;
+           }
          
          if(!dec.is_approved)
            {
@@ -110,6 +167,7 @@ private:
          last_sig_sl     = signal.invalidation_price;
          last_sig_time   = TimeCurrent();
          last_sig_grade  = dec.grade;
+         last_sig_breakdown = dec.breakdown; // T026: cache breakdown for dashboard
 
          // Check Day/Time & calendar news constraints (Bypass for Momentum Scalper)
          if(InpStrategyType != STRATEGY_MOMENTUM_SCALPER)
@@ -124,23 +182,35 @@ private:
               }
            }
 
+         // T036 [US5]: Research Mode intercept - log setup without executing live orders
+         if(ResearchMode::IsActive())
+           {
+            ResearchSetup r_setup;
+            datetime bar_time = iTime(_Symbol, tf, 0);
+            if(bar_time <= 0) bar_time = TimeCurrent();
+            r_setup.setup_id = _Symbol + "_" + tf_str + "_" + IntegerToString((int)bar_time) + "_" + signal.type;
+            r_setup.symbol = _Symbol;
+            r_setup.direction = signal.type;
+            r_setup.timeframe = tf_str;
+            r_setup.detected_at = TimeCurrent();
+            r_setup.entry = signal.entry_price;
+            r_setup.sl = signal.invalidation_price;
+            TakeProfitModel::IdentifyTargets(tf, signal, r_setup.tp1, r_setup.tp2, r_setup.tp3);
+            r_setup.score = dec.breakdown;
+            r_setup.regime = signal.regime;
+            r_setup.session = GetCurrentSession();
+            r_setup.sim_outcome = "OPEN";
+            r_setup.outcome_finalized = false;
+
+            ResearchMode::LogSetup(r_setup);
+            return; // Suppress live execution
+           }
+
          // 2. Risk Manager: Validate trade permission & calculate sizing
          bool trade_allowed = (InpStrategyType == STRATEGY_MOMENTUM_SCALPER) ? true : IsTradeAllowed(signal);
          
-         // Fix: Do not allow the base strategy to open new positions if a grid basket is currently active.
-         if(dyn_position_mode == MODE_GRID)
-           {
-            int grid_open_count = 0;
-            for(int i = PositionsTotal() - 1; i >= 0; i--)
-              {
-               if(PositionGetSymbol(i) == _Symbol && PositionGetInteger(POSITION_MAGIC) == InpMagic)
-                  grid_open_count++;
-              }
-            if(grid_open_count > 0)
-              {
-               trade_allowed = false;
-              }
-           }
+         // MODE_GRID is permanently disabled (constitution violation).
+          // Grid basket gate removed; no new positions blocked by grid logic.
          
          if(trade_allowed)
            {
@@ -163,11 +233,8 @@ private:
             plan.entry_price = signal.entry_price;
             plan.sl = signal.invalidation_price;
             
-            // Default target spacing calculated from SL distance
-            double invalidation_dist = MathAbs(signal.entry_price - signal.invalidation_price);
-            plan.tp1 = (signal.type == "BUY") ? signal.entry_price + invalidation_dist * InpMinRR : signal.entry_price - invalidation_dist * InpMinRR;
-            plan.tp2 = 0;
-            plan.tp3 = 0;
+            // T033 [US3]: Identify structural targets TP1, TP2, TP3
+            TakeProfitModel::IdentifyTargets(tf, signal, plan.tp1, plan.tp2, plan.tp3);
             plan.lots = lots;
             
             string sig_id = signal.signal_id;
@@ -207,9 +274,8 @@ private:
                   double balance = AccountInfoDouble(ACCOUNT_BALANCE);
                   if(dyn_max_balance_compounding > 0.0 && balance > dyn_max_balance_compounding)
                      balance = dyn_max_balance_compounding;
-                  double final_risk = risk_percent;
-                  if(dec.score >= 85)       final_risk = risk_percent * 1.5;
-                  else if(dec.score <= 55)  final_risk = risk_percent * 0.5;
+                  double final_risk = GetTierRisk(dec.breakdown.total);
+                  if(final_risk <= 0.0) final_risk = risk_percent;
                   double risk_amount = balance * (final_risk / 100.0);
                   
                   string setup_id = signal.strategy_id + "_" + signal.reason;
@@ -282,13 +348,11 @@ public:
         {
          active_position_manager = new PartialExitManager();
         }
-      else if(InpPositionMode == MODE_GRID)
-        {
-         active_position_manager = new GridPositionManager();
-        }
       else
         {
-         active_position_manager = new SinglePositionManager(); // Fallback
+         // MODE_GRID is permanently disabled. Fall back to single.
+         Print("[WARN] MODE_GRID is disabled (constitution violation). Falling back to MODE_SINGLE.");
+         active_position_manager = new SinglePositionManager();
         }
       
       // Event timer hook for background HTTP queries
@@ -333,8 +397,12 @@ public:
          if(active_position_manager != NULL) delete active_position_manager;
          if(dyn_position_mode == MODE_SINGLE) active_position_manager = new SinglePositionManager();
          else if(dyn_position_mode == MODE_PARTIAL_EXIT) active_position_manager = new PartialExitManager();
-         else if(dyn_position_mode == MODE_GRID) active_position_manager = new GridPositionManager();
-         else active_position_manager = new SinglePositionManager();
+         else
+           {
+            // MODE_GRID is permanently disabled. Ignore and keep current manager.
+            Print("[WARN] Hot-swap to MODE_GRID blocked (constitution violation). Using MODE_SINGLE.");
+            active_position_manager = new SinglePositionManager();
+           }
          Print("[debug] Position Manager dynamically hot-swapped to ", EnumToString(dyn_position_mode));
          last_mode = dyn_position_mode;
         }
@@ -394,8 +462,7 @@ public:
       // -----------------------------------------------------
 
       // === Momentum Scalper: Time-Based Forced Exit ===
-      // Disable time-based exit if we are running a Grid, as Grid needs to hold positions for recovery.
-      if(InpStrategyType == STRATEGY_MOMENTUM_SCALPER && InpMomMaxHoldingSec > 0 && dyn_position_mode != MODE_GRID)
+      if(InpStrategyType == STRATEGY_MOMENTUM_SCALPER && InpMomMaxHoldingSec > 0)
         {
          datetime now_t = TimeCurrent();
          for(int i = PositionsTotal() - 1; i >= 0; i--)
@@ -418,6 +485,28 @@ public:
       if(active_position_manager != NULL)
         {
          active_position_manager.ManagePositions();
+
+       // T055 [P]: Guard for manually closed positions in MT5
+       for(int h_idx = 0; h_idx < HEALTH_STATE_MAX; h_idx++)
+         {
+          ulong tracked_ticket = g_health_states[h_idx].ticket;
+          if(tracked_ticket > 0)
+            {
+             if(!PositionSelectByTicket(tracked_ticket))
+               {
+                Print("[Guard] Position ", tracked_ticket, " closed externally. Cleaning health and recovery states.");
+                RemoveHealthState(tracked_ticket);
+                if(PositionsTotal() == 0)
+                  {
+                   g_recovery_state.state = RECOVERY_NORMAL;
+                   g_recovery_state.reason = "Position closed externally; reset to NORMAL";
+                   g_recovery_state.danger_bar_count = 0;
+                   g_recovery_state.healthy_bar_count = 0;
+                   g_recovery_state.transitioned_at = TimeCurrent();
+                  }
+               }
+            }
+         }
         }
 
       // Run timeframe scanning pipeline (crucial for Strategy Tester where OnTimer does not fire)
@@ -444,6 +533,11 @@ public:
       datetime now = TimeCurrent();
       
       // Refresh Chart Panel Graphics
+      // T037 [US5]: Update simulated outcomes for Research Mode
+      if(ResearchMode::IsActive())
+        {
+         ResearchMode::CheckAllOutcomes(parsed_signal_tf);
+        }
       RenderChartPanel();
       
       // Send Heartbeat Status Reports
@@ -482,6 +576,9 @@ public:
       
       // Print overall performance analysis stats
       PerformanceAnalyzer::PrintStats();
+      
+      // T046 [US6]: Compute score-band statistics and validate scoring model
+      StatisticsEngine::ComputeBandStats();
       
       // Delete dynamic objects to prevent memory leaks
       if(active_strategy != NULL)

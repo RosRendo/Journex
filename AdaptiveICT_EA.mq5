@@ -52,7 +52,7 @@ input int      InpEMA2Period        = 50;             // Medium EMA Period
 input int      InpEMA3Period        = 200;            // Slow EMA Period
 
 input group "=== Execution & Spread Filters ==="
-input int      InpMaxSpreadPoints   = 20;             // Maximum Spread (points)
+input int      InpMaxSpreadPoints   = 250;            // Maximum Spread (points - 250 for Gold)
 input bool     InpAllowMonday       = true;           // Allow Monday Trading
 input bool     InpAllowFriday       = true;           // Allow Friday Trading
 input int      InpFridayCloseHour   = 16;             // Friday Close Hour (Server time)
@@ -178,6 +178,8 @@ void CreateRect(string name, int x, int y, int width, int height, color bg_col, 
 //+------------------------------------------------------------------+
 void RenderChartPanel()
   {
+   if(MQLInfoInteger(MQL_TESTER) && !MQLInfoInteger(MQL_VISUAL_MODE)) return;
+   
    // ── Layout constants ──────────────────────────────────────────
    int px  = 15;      // panel left
    int py  = 20;      // panel top
@@ -643,6 +645,17 @@ void OnTick()
      {
       ManageTrailingStop();
      }
+     
+   // In MT5 Strategy Tester (where OnTimer is disabled by MT5), scan on every tick interval
+   if(MQLInfoInteger(MQL_TESTER))
+     {
+      datetime now = TimeCurrent();
+      if(now - last_signal_poll >= signal_interval)
+        {
+         ScanAndExecuteLocalSignals();
+         last_signal_poll = now;
+        }
+     }
   }
 
 //+------------------------------------------------------------------+
@@ -851,6 +864,8 @@ string BuildOpenTradesJson()
 //+------------------------------------------------------------------+
 void SendHeartbeatReport()
   {
+   if(MQLInfoInteger(MQL_TESTER)) return;
+   
    string url = InpBridgeURL + "/api/ea/report";
    string headers = "Content-Type: application/json\r\n";
    
@@ -913,8 +928,10 @@ void SendHeartbeatReport()
  //| Retrieve settings changes and commands from Python Bridge        |
  //+------------------------------------------------------------------+
  void PollRemoteSettings()
-   {
-    string url = InpBridgeURL + "/api/ea/settings/" + IntegerToString(InpMagic);
+  {
+   if(MQLInfoInteger(MQL_TESTER)) return;
+   
+   string url = InpBridgeURL + "/api/ea/settings/" + IntegerToString(InpMagic);
     string headers = "Content-Type: application/json\r\n";
     
     char post_data[];
@@ -1126,7 +1143,7 @@ bool CheckSMT(ENUM_TIMEFRAMES tf, string smt_symbol)
 //+------------------------------------------------------------------+
 bool IsNewsBlocked()
   {
-   if(!InpUseNewsFilter) return false;
+   if(!InpUseNewsFilter || MQLInfoInteger(MQL_TESTER)) return false;
    
    string url = InpBridgeURL + "/api/ea/news-block?symbol=" + _Symbol;
    string headers = "Content-Type: application/json\r\n";
@@ -1155,6 +1172,8 @@ bool IsNewsBlocked()
 //+------------------------------------------------------------------+
 void ReportSignalDetected(string id, string type, double entry, double sl, double tp, int score, string grade, string tf_str)
   {
+   if(MQLInfoInteger(MQL_TESTER)) return;
+   
    string url = InpBridgeURL + "/api/ea/signal-detected";
    string headers = "Content-Type: application/json\r\n";
    
@@ -1547,6 +1566,8 @@ bool ExecuteTrade(string type, double entry, double sl, double tp, int confidenc
 //+------------------------------------------------------------------+
 void SendTradeEvent(string action, ulong ticket, string type, double volume, double price, double sl, double tp, int confidence, string sig_id)
   {
+   if(MQLInfoInteger(MQL_TESTER)) return;
+   
    string url = InpBridgeURL + "/api/ea/trade-event";
    string headers = "Content-Type: application/json\r\n";
    

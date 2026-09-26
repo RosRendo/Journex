@@ -44,13 +44,12 @@ import { motion, AnimatePresence } from "framer-motion";
 
 // Cockpit Modular Rails
 import EcosystemPulseBar from "@/components/dashboard/cockpit/EcosystemPulseBar";
-import DashboardIntelligenceCarousel from "@/components/dashboard/cockpit/DashboardIntelligenceCarousel";
 import MarketRail from "@/components/dashboard/cockpit/MarketRail";
 import CockpitChart from "@/components/dashboard/cockpit/CockpitChart";
-import ContextDeck from "@/components/dashboard/cockpit/ContextDeck";
 import OpportunityRadar, { OpportunityItem } from "@/components/dashboard/cockpit/OpportunityRadar";
 import AccountExecutionHud from "@/components/dashboard/cockpit/AccountExecutionHud";
 import CockpitPeekDrawer from "@/components/dashboard/cockpit/CockpitPeekDrawer";
+import EcosystemContextLauncher from "@/components/dashboard/cockpit/EcosystemContextLauncher";
 
 // Classic Dashboard Widgets
 import { SessionTimeline } from "@/components/ui/SessionTimeline";
@@ -70,7 +69,6 @@ export default function UnifiedDashboard() {
   // Active Symbol & Workspace States
   const [activeSymbol, setActiveSymbol] = useState<string>("XAUUSD");
   const [showUpload, setShowUpload] = useState(false);
-  const [showContextDeck, setShowContextDeck] = useState(false);
   const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
   const [analyticsView, setAnalyticsView] = useState<"split" | "calendar" | "equity" | "strategy">("split");
 
@@ -264,51 +262,46 @@ export default function UnifiedDashboard() {
   }, [filteredTrades]);
 
   const strategyData = useMemo(() => {
-    const map: Record<string, number> = {
-      Bounce: 0,
-      Breakout: 0,
-      "IN-OB": 0,
-      "Bull Move": 0,
-      FOMO: 0,
-      "Follow KUL": 0,
-    };
-    filteredTrades.forEach((t, i) => {
-      let assigned = false;
-      for (const strat of Object.keys(map)) {
-        if (t.notes?.toLowerCase().includes(strat.toLowerCase())) {
-          map[strat] += t.profit;
-          assigned = true;
-          break;
-        }
+    const map: Record<string, { profit: number; count: number; wins: number }> = {};
+    filteredTrades.forEach((t) => {
+      const sym = (t.pair || "XAUUSD").toUpperCase().replace("/", "").trim();
+      if (!map[sym]) {
+        map[sym] = { profit: 0, count: 0, wins: 0 };
       }
-      if (!assigned) {
-        const strats = Object.keys(map);
-        map[strats[Math.abs(t.id || i) % strats.length]] += t.profit;
-      }
+      map[sym].profit += t.profit;
+      map[sym].count += 1;
+      if (t.profit > 0) map[sym].wins += 1;
     });
-    return Object.entries(map).map(([name, profit]) => ({ name, value: profit }));
+
+    const entries = Object.entries(map).map(([name, data]) => ({
+      name,
+      value: Math.round(data.profit * 100) / 100,
+      count: data.count,
+      winRate: Math.round((data.wins / (data.count || 1)) * 100),
+    }));
+
+    return entries.sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
   }, [filteredTrades]);
 
   const mistakeData = useMemo(() => {
-    const map: Record<string, number> = { fomo: 0, Greed: 0, Revenge: 0, News: 0, "No Setup": 0 };
-    filteredTrades.forEach((t, i) => {
-      let assigned = false;
-      for (const k of Object.keys(map)) {
-        if (
-          t.notes?.toLowerCase().includes(k.toLowerCase()) ||
-          t.planDeviationReason?.toLowerCase().includes(k.toLowerCase())
-        ) {
-          map[k] += Math.abs(t.profit);
-          assigned = true;
-          break;
-        }
-      }
-      if (!assigned) {
-        const keys = Object.keys(map);
-        map[keys[Math.abs(t.id || i) % keys.length]] += Math.abs(t.profit);
+    const map: Record<string, number> = {};
+    filteredTrades.forEach((t) => {
+      if (t.profit < 0) {
+        const reason =
+          t.planDeviationReason ||
+          t.emotion ||
+          t.notes?.match(/fomo|greed|revenge|early|late|chase|impulse/i)?.[0] ||
+          (!t.followedPlan ? "Rule Deviation" : "Market Edge Cost");
+        const key = reason.charAt(0).toUpperCase() + reason.slice(1);
+        map[key] = (map[key] || 0) + Math.abs(t.profit);
       }
     });
-    return Object.entries(map).map(([name, cost]) => ({ name, value: cost }));
+    if (Object.keys(map).length === 0) {
+      map["Discipline Retained"] = 0;
+    }
+    return Object.entries(map)
+      .map(([name, cost]) => ({ name, value: Math.round(cost * 100) / 100 }))
+      .sort((a, b) => b.value - a.value);
   }, [filteredTrades]);
 
   const cumulativeChartData = useMemo(() => {
@@ -427,7 +420,7 @@ export default function UnifiedDashboard() {
                 ["Trend Following", "Trend Following"],
                 ["Breakout", "Breakout"],
                 ["Reversal", "Reversal"],
-                ["SMC", "SMC"],
+                ["Pullback", "Pullback"],
               ],
             },
             {
@@ -505,13 +498,17 @@ export default function UnifiedDashboard() {
         </div>
       </div>
 
-      {/* ── ZONE 1: ECOSYSTEM PULSE BAR (5 UNIVERSAL RADIAL GAUGES) ───────── */}
-      <div className="px-5 pt-4 pb-2 bg-[#09090c]">
+      {/* ── ZONE 1: ECOSYSTEM PULSE BAR & CONTEXT STRIP ───────── */}
+      <div className="px-5 pt-4 pb-2 bg-[#09090c] space-y-3">
         <EcosystemPulseBar
           accountData={mt5Data}
           todayStats={todayStats}
           positions={positions}
           onOpenPeek={openPeek}
+        />
+        <EcosystemContextLauncher
+          onOpenPeek={openPeek}
+          activeSymbol={activeSymbol}
         />
       </div>
 
@@ -522,15 +519,6 @@ export default function UnifiedDashboard() {
 
       {/* ── ZONE 2: ECOSYSTEM RADAR + LIVE COCKPIT WORKSPACE ──────────────── */}
       <div className="p-5 border-b border-[rgba(255,255,255,0.07)] space-y-4 bg-[#09090c]">
-        {/* Dynamic Intelligence Ticker Ribbon */}
-        <div>
-          <DashboardIntelligenceCarousel
-            onSelectSymbol={(sym) => setActiveSymbol(sym)}
-            onOpenPeek={openPeek}
-            accountEquity={mt5Data.equity}
-          />
-        </div>
-
         {/* Cockpit Grid: Multi-Asset Radar [1-5] (Left) + Pro Live Chart (Right) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           <div className="lg:col-span-3 min-h-[440px]">
@@ -556,47 +544,6 @@ export default function UnifiedDashboard() {
           />
         </div>
 
-        {/* Context Quick-Inspect Bar & Collapsible Drawer */}
-        <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-[#101014] border border-[rgba(255,255,255,0.07)]">
-          <div className="flex items-center gap-2 text-xs font-mono">
-            <span className="w-2 h-2 rounded-full bg-[#20e0b2]" />
-            <span className="font-black text-[#f4f4f5]">{activeSymbol} Deep Institutional Context</span>
-            <span className="text-[#71717a] hidden sm:inline">· Order Flow, Liquidity &amp; Macro Correlations</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowContextDeck(!showContextDeck)}
-              className="px-2.5 py-1 rounded-lg text-[9px] font-bold font-mono text-[#a1a1aa] hover:text-white bg-[#141419] border border-[rgba(255,255,255,0.07)] transition-all flex items-center gap-1.5"
-            >
-              <span>{showContextDeck ? "Hide Context Deck ▴" : "Quick Preview Context ▾"}</span>
-            </button>
-            <a
-              href={`/macro/${activeSymbol.toLowerCase()}`}
-              className="px-2.5 py-1 rounded-lg text-[9px] font-black font-mono uppercase tracking-wider text-[#20e0b2] bg-[#20e0b2]/10 hover:bg-[#20e0b2]/20 border border-[#20e0b2]/30 transition-all flex items-center gap-1 shadow-[0_0_10px_rgba(32,224,178,0.1)]"
-            >
-              <span>Macro Desk</span>
-              <span className="text-xs">↗</span>
-            </a>
-          </div>
-        </div>
-
-        {/* Collapsible Context Deck if user wants quick inspection without navigating away */}
-        <AnimatePresence>
-          {showContextDeck && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.2 }}
-              className="overflow-hidden"
-            >
-              <ContextDeck
-                symbol={activeSymbol}
-                onOpenPeek={openPeek}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* ── ZONE 4: ACCOUNT EXECUTION & LIVE POSITIONS DOCK ─────────────── */}
         <div>
@@ -882,7 +829,10 @@ export default function UnifiedDashboard() {
                   <div className="w-full lg:w-[320px] flex flex-col">
                     {/* Aggregate PnL */}
                     <div className="flex-1 border-b border-[rgba(255,255,255,0.07)] p-4 flex flex-col gap-3">
-                      <span className={labelCls}>Aggregate PnL</span>
+                      <div className="flex items-center justify-between">
+                        <span className={labelCls}>Aggregate PnL by Symbol</span>
+                        <span className="text-[8px] font-mono text-zinc-500 uppercase">Real Trades</span>
+                      </div>
                       <div className="flex flex-col gap-2.5">
                         {strategyData.slice(0, 5).map((item) => {
                           const maxVal = Math.max(...strategyData.map((d) => Math.abs(d.value))) || 1;
@@ -891,12 +841,17 @@ export default function UnifiedDashboard() {
                           return (
                             <div key={item.name} className="flex flex-col gap-1">
                               <div className="flex justify-between items-center">
-                                <span className="text-[9px] text-[#a1a1aa] font-mono">{item.name}</span>
-                                <span className={`text-[9px] font-black font-mono ${isWin ? "text-[#20e0b2]" : "text-[#ff5c73]"}`}>
-                                  {isWin ? "+" : ""}${item.value.toFixed(0)}
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[9.5px] font-bold text-[#f4f4f5] font-mono">{item.name}</span>
+                                  {item.count !== undefined && (
+                                    <span className="text-[8px] text-[#71717a] font-mono">({item.count} tr)</span>
+                                  )}
+                                </div>
+                                <span className={`text-[9.5px] font-black font-mono ${isWin ? "text-[#20e0b2]" : "text-[#ff5c73]"}`}>
+                                  {isWin ? "+" : ""}${item.value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                                 </span>
                               </div>
-                              <div className="w-full h-0.5 bg-[rgba(255,255,255,0.06)] rounded-full overflow-hidden">
+                              <div className="w-full h-1 bg-[rgba(255,255,255,0.06)] rounded-full overflow-hidden">
                                 <div
                                   className={`h-full rounded-full transition-all duration-500 ${
                                     isWin ? "bg-[#20e0b2]" : "bg-[#ff5c73]"
@@ -1120,14 +1075,14 @@ export default function UnifiedDashboard() {
                 </div>
               )}
 
-              {/* VIEW 4: FULL-WIDTH STRATEGY MATRIX */}
+              {/* VIEW 4: FULL-WIDTH STRATEGY / SYMBOL MATRIX */}
               {analyticsView === "strategy" && (
                 <div className="p-5 border-b border-[rgba(255,255,255,0.07)] bg-[#09090b]/30">
                   <div className="flex items-center justify-between pb-3 border-b border-[rgba(255,255,255,0.07)] mb-4">
                     <div>
-                      <span className="text-sm font-black font-mono text-[#f4f4f5]">Strategy &amp; Setup Edge Distribution</span>
+                      <span className="text-sm font-black font-mono text-[#f4f4f5]">Symbol &amp; Asset Edge Distribution</span>
                       <span className="text-[10px] text-[#71717a] font-mono block">
-                        Net PnL contribution categorized by ICT algorithmic model
+                        Net PnL contribution aggregated by traded instrument
                       </span>
                     </div>
                   </div>
@@ -1141,7 +1096,12 @@ export default function UnifiedDashboard() {
                       return (
                         <div key={item.name} className="p-3.5 rounded-lg bg-[#101014] border border-[rgba(255,255,255,0.06)] flex flex-col gap-2">
                           <div className="flex justify-between items-center">
-                            <span className="text-xs font-bold text-[#f4f4f5] font-mono">{item.name}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-[#f4f4f5] font-mono">{item.name}</span>
+                              {item.count !== undefined && (
+                                <span className="text-[9px] text-[#71717a] font-mono">({item.count} trades &bull; {item.winRate}% win rate)</span>
+                              )}
+                            </div>
                             <span className={`text-xs font-black font-mono ${isWin ? "text-[#20e0b2]" : "text-[#ff5c73]"}`}>
                               {isWin ? "+" : ""}${item.value.toFixed(2)}
                             </span>
@@ -1155,9 +1115,9 @@ export default function UnifiedDashboard() {
                             />
                           </div>
                           <div className="flex justify-between items-center text-[9px] text-[#71717a] font-mono">
-                            <span>Relative Weight: {ratio.toFixed(1)}%</span>
+                            <span>Volume Weight: {ratio.toFixed(1)}%</span>
                             <span className={isWin ? "text-[#20e0b2]" : "text-[#ff5c73]"}>
-                              {isWin ? "Net Profitable" : "Drawdown Contribution"}
+                              {isWin ? "Net Profitable Instrument" : "Drawdown Contribution"}
                             </span>
                           </div>
                         </div>
@@ -1245,7 +1205,7 @@ export default function UnifiedDashboard() {
                       let setupTag = "REVERSAL";
                       if (t.notes?.toLowerCase().includes("breakout")) setupTag = "BREAKOUT";
                       else if (t.notes?.toLowerCase().includes("fomo")) setupTag = "FOMO";
-                      else if (t.notes?.toLowerCase().includes("smc")) setupTag = "SMC";
+                      else if (t.notes?.toLowerCase().includes("pullback")) setupTag = "PULLBACK";
 
                       let mistakeTag = "";
                       if (t.emotion === "Greedy") mistakeTag = "GREED";
