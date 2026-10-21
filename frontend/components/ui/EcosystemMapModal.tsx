@@ -8,8 +8,9 @@ import {
   Radio, LayoutDashboard, List, Lock, Workflow
 } from "lucide-react";
 import {
-  NAV_PILLARS, NavItem, NavPillar, PRIMARY_CORE_IDS, TRADE_LIFECYCLE_STEPS, DEFAULT_QUICK_ACCESS_IDS
+  NAV_PILLARS, NavItem, NavPillar, PRIMARY_CORE_IDS, TRADE_LIFECYCLE_STEPS, DEFAULT_QUICK_ACCESS_IDS, visiblePillars
 } from "@/components/layout/navigation";
+import { useIsAdmin } from "@/lib/role";
 import { useFavorites } from "@/hooks/useFavorites";
 
 interface EcosystemMapModalProps {
@@ -20,6 +21,7 @@ interface EcosystemMapModalProps {
 export default function EcosystemMapModal({ open, onClose }: EcosystemMapModalProps) {
   const router = useRouter();
   const { favorites, toggleFavorite, isFavorite } = useFavorites();
+  const isAdmin = useIsAdmin();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPillar, setSelectedPillar] = useState<string>("all");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -47,7 +49,7 @@ export default function EcosystemMapModal({ open, onClose }: EcosystemMapModalPr
   const filteredPillars = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
-    return NAV_PILLARS.map((pillar) => {
+    return visiblePillars(NAV_PILLARS, isAdmin).map((pillar) => {
       if (selectedPillar !== "all" && pillar.id !== selectedPillar) {
         return { ...pillar, items: [] };
       }
@@ -65,7 +67,7 @@ export default function EcosystemMapModal({ open, onClose }: EcosystemMapModalPr
 
       return { ...pillar, items };
     }).filter((pillar) => pillar.items.length > 0);
-  }, [searchQuery, selectedPillar]);
+  }, [searchQuery, selectedPillar, isAdmin]);
 
   const handleNavigate = (href: string) => {
     router.push(href);
@@ -186,7 +188,7 @@ export default function EcosystemMapModal({ open, onClose }: EcosystemMapModalPr
             >
               All Pillars
             </button>
-            {NAV_PILLARS.map((pillar) => {
+            {visiblePillars(NAV_PILLARS, isAdmin).map((pillar) => {
               const Icon = pillar.icon;
               const isSelected = selectedPillar === pillar.id;
               return (

@@ -1,6 +1,7 @@
 "use client";
 
 import { getBackendUrl, fetchWithAuth } from "@/lib/utils";
+import AdminOnly from "@/components/AdminOnly";
 import { useBrokerAccounts } from "@/hooks/useCsvTrades";
 import { useCsvTrades } from "@/hooks/useCsvTrades";
 import {
@@ -129,7 +130,7 @@ function AccountCard({
   );
 }
 
-export default function Accounts() {
+function AccountsInner() {
   const { data: session } = useSession();
   const userEmail = session?.user?.email ?? undefined;
   const [activeTab, setActiveTab] = useState<"mt5" | "csv">("mt5");
@@ -1068,3 +1069,11 @@ export default function Accounts() {
   );
 }
 
+
+export default function Accounts() {
+  return (
+    <AdminOnly pageName="MT5 Accounts">
+      <AccountsInner />
+    </AdminOnly>
+  );
+}

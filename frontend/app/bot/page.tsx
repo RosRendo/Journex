@@ -1,6 +1,7 @@
 "use client"
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
+import AdminOnly from '@/components/AdminOnly';
 import {
   Bot, Settings, MessageSquare, Copy, BarChart3, Play, Pause,
   Plus, Trash2, Zap, TrendingUp, TrendingDown, Activity,
@@ -83,7 +84,7 @@ interface AnalyticsData {
   }>;
 }
 
-export default function BotsPage() {
+function BotsPageInner() {
   const [eas, setEas] = useState<EAInstance[]>([]);
   const [selectedMagic, setSelectedMagic] = useState<number>(88001);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
@@ -2592,3 +2593,12 @@ export default function BotsPage() {
   );
 }
 
+
+
+export default function BotsPage() {
+  return (
+    <AdminOnly pageName="Trading Bot EA">
+      <BotsPageInner />
+    </AdminOnly>
+  );
+}

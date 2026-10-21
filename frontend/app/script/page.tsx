@@ -2,8 +2,9 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { Plus, Trash2, Upload, X, Save, Code2, Copy, Check } from "lucide-react";
+import AdminOnly from "@/components/AdminOnly";
 
-export default function Page() {
+function ScriptPageInner() {
     const defaultCards = [
         {
             title: "Moving Averages & Trend",
@@ -2766,3 +2767,12 @@ function Card({
     );
 }
 
+
+
+export default function Page() {
+  return (
+    <AdminOnly pageName="MT5 Scripts">
+      <ScriptPageInner />
+    </AdminOnly>
+  );
+}

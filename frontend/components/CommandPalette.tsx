@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useFavorites } from "@/hooks/useFavorites";
-import { NAV_PILLARS } from "@/components/layout/navigation";
+import { NAV_PILLARS, visiblePillars } from "@/components/layout/navigation";
+import { useIsAdmin } from "@/lib/role";
 import {
   Search, Terminal, ShieldAlert, ChevronRight, Command, Star,
   Compass, Zap, Calculator, Radio, BookOpen, Globe, List, CheckCircle2
@@ -30,6 +31,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const { favorites, toggleFavorite } = useFavorites();
+  const isAdmin = useIsAdmin();
 
   const navigate = useCallback((href: string) => {
     router.push(href);
@@ -126,7 +128,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
     ];
 
     // Navigation layer (WHERE)
-    const pillarCommands: CommandItem[] = NAV_PILLARS.flatMap((pillar) =>
+    const pillarCommands: CommandItem[] = visiblePillars(NAV_PILLARS, isAdmin).flatMap((pillar) =>
       pillar.items.map((item) => ({
         id: item.id,
         label: `${item.label} — ${item.role}`,
@@ -144,7 +146,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
     );
 
     return [...actionLayer, ...pillarCommands];
-  }, [navigate, onClose]);
+  }, [navigate, onClose, isAdmin]);
 
   const filtered = useMemo(() => {
     if (query.trim() === "") return commands;

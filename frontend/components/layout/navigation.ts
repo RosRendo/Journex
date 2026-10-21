@@ -16,6 +16,7 @@ export type NavItem = {
   icon: any;
   badge?: string;
   isPrimaryCore?: boolean;
+  adminOnly?: boolean;
   category: "execution" | "analytics" | "intel" | "journal" | "risk_system";
   children?: { href: string; label: string }[];
 };
@@ -109,6 +110,7 @@ export const NAV_PILLARS: NavPillar[] = [
         href: "/bot",
         icon: Bot,
         badge: "AUTOMATION",
+        adminOnly: true,
         category: "execution",
       },
       {
@@ -118,6 +120,7 @@ export const NAV_PILLARS: NavPillar[] = [
         description: "One-click execution hotkeys, close-all scripts, and emergency risk overrides",
         href: "/script",
         icon: Code,
+        adminOnly: true,
         category: "execution",
       },
     ],
@@ -285,6 +288,7 @@ export const NAV_PILLARS: NavPillar[] = [
         href: "/accounts",
         icon: Wallet,
         badge: "BROKERS",
+        adminOnly: true,
         category: "risk_system",
       },
       {
@@ -347,6 +351,20 @@ export const DEFAULT_PINNED_IDS = [...PRIMARY_CORE_IDS, ...DEFAULT_QUICK_ACCESS_
 
 // Flattened list of all pages
 export const ALL_PAGES: NavItem[] = NAV_PILLARS.flatMap((p) => p.items);
+
+/**
+ * Role-based visibility. MT5 bridge features (live accounts, scripts, bot EA)
+ * are admin-only; normal users run the app in paper/sim mode.
+ */
+export function filterForRole(items: NavItem[], isAdmin: boolean): NavItem[] {
+  return items.filter((item) => !item.adminOnly || isAdmin);
+}
+
+export function visiblePillars(pillars: NavPillar[], isAdmin: boolean): NavPillar[] {
+  return pillars
+    .map((p) => ({ ...p, items: filterForRole(p.items, isAdmin) }))
+    .filter((p) => p.items.length > 0);
+}
 
 // Backward compatibility exports
 export type NavGroup = {

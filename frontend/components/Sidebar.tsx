@@ -10,8 +10,9 @@ import {
 import { useFocusMode } from "./providers/FocusModeProvider";
 import { useFavorites } from "@/hooks/useFavorites";
 import {
-  NAV_PILLARS, ALL_PAGES, NavItem, PRIMARY_CORE_IDS
+  NAV_PILLARS, ALL_PAGES, NavItem, PRIMARY_CORE_IDS, visiblePillars, filterForRole
 } from "./layout/navigation";
+import { useIsAdmin } from "@/lib/role";
 
 interface SidebarProps {
   onOpenCommandPalette?: () => void;
@@ -21,6 +22,7 @@ interface SidebarProps {
 const Sidebar = ({ onOpenCommandPalette, onOpenEcosystemMap }: SidebarProps) => {
   const pathname = usePathname();
   const { focusMode, toggleFocusMode } = useFocusMode();
+  const isAdmin = useIsAdmin();
   const { favorites, toggleFavorite, isFavorite } = useFavorites();
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [viewMode, setViewMode] = useState<"desk" | "all">("desk");
@@ -78,15 +80,30 @@ const Sidebar = ({ onOpenCommandPalette, onOpenEcosystemMap }: SidebarProps) => 
     return favorites
       .filter((id) => !PRIMARY_CORE_IDS.includes(id))
       .map((id) => ALL_PAGES.find((p) => p.id === id))
-      .filter((item): item is NavItem => Boolean(item));
+      .filter((item): item is NavItem => Boolean(item))
   }, [favorites]);
+
+  // Role-filtered icon sets (normal users never see MT5 bridge tools)
+  const visibleQuickAccess = useMemo(
+    () => filterForRole(quickAccessItems, isAdmin),
+    [quickAccessItems, isAdmin]
+  );
+  const visibleAllPages = useMemo(
+    () => filterForRole(ALL_PAGES, isAdmin),
+    [isAdmin]
+  );
+  const visiblePrimaryCore = useMemo(
+    () => filterForRole(primaryCoreItems, isAdmin),
+    [primaryCoreItems, isAdmin]
+  );
 
   // Filtered pillars for "All Pages" search
   const filteredPillars = useMemo(() => {
-    if (!allPagesSearch.trim()) return NAV_PILLARS;
+    const base = visiblePillars(NAV_PILLARS, isAdmin);
+    if (!allPagesSearch.trim()) return base;
     const q = allPagesSearch.toLowerCase();
 
-    return NAV_PILLARS.map((pillar) => ({
+    return base.map((pillar) => ({
       ...pillar,
       items: pillar.items.filter(
         (item) =>
@@ -96,7 +113,7 @@ const Sidebar = ({ onOpenCommandPalette, onOpenEcosystemMap }: SidebarProps) => 
           item.href.toLowerCase().includes(q)
       ),
     })).filter((pillar) => pillar.items.length > 0);
-  }, [allPagesSearch]);
+  }, [allPagesSearch, isAdmin]);
 
   return (
     <aside
@@ -200,7 +217,7 @@ const Sidebar = ({ onOpenCommandPalette, onOpenEcosystemMap }: SidebarProps) => 
               <Star className={`w-3 h-3 ${viewMode === "desk" ? "fill-yellow-400 text-yellow-400" : ""}`} />
               <span>My Desk</span>
               <span className="text-[10px] font-mono text-zinc-500">
-                ({primaryCoreItems.length + quickAccessItems.length})
+                ({visiblePrimaryCore.length + visibleQuickAccess.length})
               </span>
             </button>
             <button
@@ -213,7 +230,7 @@ const Sidebar = ({ onOpenCommandPalette, onOpenEcosystemMap }: SidebarProps) => 
             >
               <Layers className="w-3 h-3" />
               <span>All Pages</span>
-              <span className="text-[10px] font-mono text-zinc-500">({ALL_PAGES.length})</span>
+              <span className="text-[10px] font-mono text-zinc-500">                ({visibleAllPages.length})</span>
             </button>
           </div>
         </div>
@@ -236,7 +253,7 @@ const Sidebar = ({ onOpenCommandPalette, onOpenEcosystemMap }: SidebarProps) => 
                 </div>
               )}
 
-              {primaryCoreItems.map((item) => {
+              {visiblePrimaryCore.map((item) => {
                 const Icon = item.icon;
                 const active = isActive(item.href);
 
@@ -284,7 +301,7 @@ const Sidebar = ({ onOpenCommandPalette, onOpenEcosystemMap }: SidebarProps) => 
                 </div>
               )}
 
-              {quickAccessItems.length === 0 ? (
+              {visibleQuickAccess.length === 0 ? (
                 <div className="px-3 py-4 text-center text-zinc-500 text-xs">
                   <p className="text-[11px] mb-1.5">No extra tools pinned.</p>
                   <button
@@ -295,7 +312,7 @@ const Sidebar = ({ onOpenCommandPalette, onOpenEcosystemMap }: SidebarProps) => 
                   </button>
                 </div>
               ) : (
-                quickAccessItems.map((item) => {
+                visibleQuickAccess.map((item) => {
                   const Icon = item.icon;
                   const active = isActive(item.href);
 
