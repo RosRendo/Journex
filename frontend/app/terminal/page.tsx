@@ -16,8 +16,8 @@ export default function TerminalPage() {
   const [timeframe, setTimeframe] = useState("M15");
   const [orderOpen, setOrderOpen] = useState(false);
   const [orderInitialData, setOrderInitialData] = useState<any>(null);
-  const [isLeftOpen, setIsLeftOpen] = useState(true);
-  const [isRightOpen, setIsRightOpen] = useState(true);
+  const [isLeftOpen, setIsLeftOpen] = useState(false);
+  const [isRightOpen, setIsRightOpen] = useState(false);
   
   const handleOpenOrder = (initialData?: any) => {
     setOrderInitialData(initialData || null);

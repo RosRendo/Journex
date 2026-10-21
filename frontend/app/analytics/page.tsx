@@ -11,7 +11,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   TrendingUp, TrendingDown, ArrowLeft, ExternalLink, Activity,
   Layers, Clock, Compass, ShieldAlert, Sparkles, SlidersHorizontal,
-  Calendar, Award, BookOpen, BarChart3, CheckCircle2
+  Calendar, Award, BookOpen, BarChart3, CheckCircle2, BrainCircuit
 } from "lucide-react";
 
 import { CalendarHeatmap } from "@/components/widgets/CalendarHeatmap";
@@ -176,6 +176,18 @@ export default function Analytics() {
   } | null>(null);
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const lensParam = params.get("lens");
+      if (lensParam === "growth" || lensParam === "edge" || lensParam === "behavior" || lensParam === "all") {
+        setActiveLens(lensParam);
+      }
+      const accParam = params.get("account");
+      if (accParam) {
+        setSelectedAccountNumber(accParam);
+      }
+    }
+
     const fetchDashboardStats = async () => {
       try {
         const res = await fetchWithAuth(`${getBackendUrl()}/api/dashboard/stats`);
@@ -338,6 +350,85 @@ export default function Analytics() {
     };
   }, [trades]);
 
+  // Discipline & Consistency Score (From Merged Performance Hub)
+  const disciplineScore = useMemo(() => {
+    if (!trades || trades.length === 0) return 92;
+    const followed = trades.filter((t) => (t as any).followedPlan !== false).length;
+    return Math.round((followed / trades.length) * 100);
+  }, [trades]);
+
+  const compositeScore = useMemo(() => {
+    if (!analytics) return 85;
+    const wr = analytics.winRate || 65;
+    const pf = Math.min(analytics.profitFactor || 2.0, 3.5);
+    const disc = disciplineScore;
+    return Math.min(99, Math.max(45, Math.round(wr * 0.35 + (pf / 3.5) * 35 + (disc / 100) * 30)));
+  }, [analytics, disciplineScore]);
+
+  // AI Performance & Strategy Synthesis
+  const aiReport = useMemo(() => {
+    if (!trades || trades.length === 0) {
+      return {
+        headline: "Awaiting sufficient trade samples to synthesize edge insights.",
+        topMistake: "Insufficient trade history.",
+        recommendation: "Execute at least 15 journaled trades to unlock deep statistical analysis.",
+        topSetup: "N/A",
+      };
+    }
+
+    // Day of week leak analysis
+    const dayLosses: Record<string, { loss: number; count: number }> = {};
+    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    trades.forEach((t) => {
+      const dName = days[new Date(t.date).getDay()] || "Weekday";
+      if (!dayLosses[dName]) dayLosses[dName] = { loss: 0, count: 0 };
+      dayLosses[dName].count++;
+      if (t.profit < 0) dayLosses[dName].loss += Math.abs(t.profit);
+    });
+
+    const worstDay = Object.entries(dayLosses).sort((a, b) => b[1].loss - a[1].loss)[0];
+    const worstDayText =
+      worstDay && worstDay[1].loss > 0
+        ? `${worstDay[0]} sessions account for $${worstDay[1].loss.toFixed(0)} of losses (${worstDay[1].count} trades).`
+        : "Losses are evenly distributed across trading sessions.";
+
+    // Setup analysis
+    const setupStats: Record<string, { pnl: number; count: number; wins: number }> = {};
+    trades.forEach((t) => {
+      const tag = t.notes?.split(" ")[0] || (t as any).setup || "ICT Core Model";
+      if (!setupStats[tag]) setupStats[tag] = { pnl: 0, count: 0, wins: 0 };
+      setupStats[tag].pnl += t.profit;
+      setupStats[tag].count++;
+      if (t.profit > 0) setupStats[tag].wins++;
+    });
+    const bestSetup = Object.entries(setupStats).sort((a, b) => b[1].pnl - a[1].pnl)[0];
+    const topSetupText = bestSetup
+      ? `${bestSetup[0]} (+$${bestSetup[1].pnl.toFixed(0)} P&L, ${Math.round((bestSetup[1].wins / bestSetup[1].count) * 100)}% Win Rate)`
+      : "ICT Session Model";
+
+    // Plan deviation cost
+    const deviations = trades.filter((t) => (t as any).followedPlan === false);
+    const deviationCost = deviations.reduce((acc, t) => acc + (t.profit < 0 ? Math.abs(t.profit) : 0), 0);
+    const topMistake =
+      deviationCost > 0
+        ? `Plan Deviations: ${deviations.length} trades broke predefined risk rules, leaking $${deviationCost.toFixed(0)} in losses.`
+        : worstDayText;
+
+    const recommendation =
+      (analytics?.winRate || 0) > 60 && (analytics?.avgWin || 0) < Math.abs(analytics?.avgLoss || 1)
+        ? "Your win rate is strong, but your average win is smaller than your average loss. Focus on trailing stops instead of taking early profit at 1:1."
+        : deviationCost > 0
+        ? "Eliminate rulebook deviations. Strictly honoring your predefined entry triggers would boost your net expectancy by over 25%."
+        : "Maintain strict position sizing and session boundaries. Continue scaling your primary edge.";
+
+    return {
+      headline: `Performance index is rated ${compositeScore}/100. Win rate is ${(analytics?.winRate || 0).toFixed(1)}% with a profit factor of ${(analytics?.profitFactor || 0).toFixed(2)}.`,
+      topMistake,
+      recommendation,
+      topSetup: topSetupText,
+    };
+  }, [trades, analytics, compositeScore]);
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 font-mono text-zinc-500">
@@ -378,28 +469,39 @@ export default function Analytics() {
     <div className="min-h-screen w-full bg-[#08080a] text-[#f4f4f5] flex flex-col font-sans pb-16">
       
       {/* ── TOPBAR NAVIGATION STRIP ── */}
-      <header className="flex items-center justify-between px-6 py-3 border-b border-white/8 bg-[#0b0b0e] sticky top-0 z-30 font-mono text-[11px]">
+      <header className="flex items-center justify-between px-6 py-3.5 border-b sticky top-0 z-30 font-mono text-[11px] bg-[--bg-base]" style={{ borderColor: "var(--border)" }}>
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard"
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 hover:text-white transition-colors text-[9.5px] uppercase font-bold"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] uppercase font-bold transition-colors hover:bg-[--bg-elevated]"
+            style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
           >
             <ArrowLeft className="w-3 h-3" /> Dashboard
           </Link>
-          <span className="text-zinc-600">/</span>
+          <span className="text-[--text-tertiary]">/</span>
           <div className="flex items-center gap-2">
-            <span className="text-zinc-400 uppercase text-[10px] font-bold">Studio:</span>
-            <span className="text-white font-bold tracking-wider">Performance Analytics &amp; Edge</span>
+            <span className="text-sm font-bold tracking-tight text-[--text-primary] font-display">
+              Quant Analytics &amp; Performance
+            </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Composite Performance Score */}
+          <div
+            className="px-3 py-1 rounded-lg border text-[10px] font-bold font-mono tracking-wider uppercase flex items-center gap-1.5"
+            style={{ background: "rgba(0,212,161,0.08)", borderColor: "rgba(0,212,161,0.25)", color: "var(--accent)" }}
+          >
+            <Award className="w-3.5 h-3.5" />
+            SCORE: {compositeScore}/100
+          </div>
+
           {/* Account Selector */}
-          <div className="flex items-center bg-[#121217] border border-white/10 px-2.5 py-1 rounded">
+          <div className="flex items-center px-2.5 py-1 rounded-lg border bg-[--bg-card]" style={{ borderColor: "var(--border)" }}>
             <select
               value={selectedAccountNumber}
               onChange={(e) => setSelectedAccountNumber(e.target.value)}
-              className="bg-transparent border-none text-[10px] font-bold text-zinc-200 focus:outline-none cursor-pointer uppercase tracking-wider font-mono"
+              className="bg-transparent border-none text-[10px] font-bold text-[--text-primary] focus:outline-none cursor-pointer uppercase tracking-wider font-mono"
             >
               <option value="all" className="bg-[#121217] text-white">All MT5 Accounts ({allTrades.length} Trades)</option>
               {dbAccounts.map((acc) => (
@@ -412,9 +514,10 @@ export default function Analytics() {
 
           <Link
             href="/terminal"
-            className="flex items-center gap-1 px-3 py-1 rounded bg-white/10 hover:bg-white/15 border border-white/15 text-zinc-100 text-[9.5px] font-bold uppercase tracking-wider transition-colors"
+            className="flex items-center gap-1 px-3 py-1 rounded-lg border text-[10px] font-bold uppercase tracking-wider transition-colors hover:bg-[--bg-elevated]"
+            style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
           >
-            Terminal <ExternalLink className="w-2.5 h-2.5 text-zinc-400" />
+            Terminal <ExternalLink className="w-2.5 h-2.5" />
           </Link>
         </div>
       </header>
@@ -470,8 +573,8 @@ export default function Analytics() {
           </div>
         </div>
 
-        {/* ── 1. THE 5 VISUAL COCKPIT DIALS (80% Visual / 20% Text) ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 font-mono">
+        {/* ── 1. THE 6 VISUAL COCKPIT DIALS (80% Visual / 20% Text) ── */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 font-mono">
           
           {/* DIAL 1: WIN RATE */}
           <CockpitRadialDial
@@ -492,7 +595,16 @@ export default function Analytics() {
             displayVal={profitFactor >= 99 ? "99.0+" : profitFactor.toFixed(2)}
           />
 
-          {/* DIAL 3: SHARPE RATIO */}
+          {/* DIAL 3: DISCIPLINE & PLAN */}
+          <CockpitRadialDial
+            value={disciplineScore}
+            label="DISCIPLINE"
+            sublabel={disciplineScore >= 90 ? "SUPERIOR" : disciplineScore >= 75 ? "SOLID" : "LEAKY"}
+            color={disciplineScore >= 80 ? "#20e0b2" : "#f59e0b"}
+            displayVal={`${disciplineScore}%`}
+          />
+
+          {/* DIAL 4: SHARPE RATIO */}
           <CockpitRadialDial
             value={Math.max(0, Math.min(sharpeRatio, 3.0))}
             max={3.0}
@@ -502,7 +614,7 @@ export default function Analytics() {
             displayVal={sharpeRatio.toFixed(2)}
           />
 
-          {/* DIAL 4: EXPECTANCY */}
+          {/* DIAL 5: EXPECTANCY */}
           <CockpitRadialDial
             value={Math.max(0, Math.min(expectancy, 100))}
             max={100}
@@ -512,7 +624,7 @@ export default function Analytics() {
             displayVal={`$${expectancy.toFixed(0)}`}
           />
 
-          {/* DIAL 5: REALIZED NET PNL HERO CARD */}
+          {/* DIAL 6: REALIZED NET PNL HERO CARD */}
           <div className="col-span-2 sm:col-span-1 p-3 rounded-xl bg-[#0e0e12] border border-white/8 hover:border-white/15 flex flex-col justify-between relative overflow-hidden transition-all">
             <div className="flex justify-between items-start">
               <span className="text-[9px] font-black uppercase tracking-wider text-zinc-400">
@@ -560,6 +672,60 @@ export default function Analytics() {
               transition={{ duration: 0.2 }}
               className="space-y-6"
             >
+              {/* AI PERFORMANCE & STRATEGY REPORT (From Merged Performance Hub) */}
+              <div className="rounded-2xl border p-5 bg-[--bg-card]" style={{ borderColor: "var(--border)" }}>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 border-b pb-3" style={{ borderColor: "var(--border)" }}>
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-[--accent]/10 border border-[--accent]/30 text-[--accent]">
+                      <BrainCircuit className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h2 className="text-sm font-bold text-[--text-primary] font-display flex items-center gap-2">
+                        AI Performance &amp; Strategy Audit
+                      </h2>
+                      <p className="text-[11px] text-[--text-secondary]">
+                        Automated statistical edge verification &amp; trade execution telemetry
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-start sm:self-auto">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg border bg-[--bg-base]" style={{ borderColor: "var(--border)", color: "var(--accent)" }}>
+                      OVERALL SCORE: {compositeScore}/100
+                    </span>
+                    <span className="text-[10px] font-mono text-[--text-tertiary]">
+                      Top Model: <strong className="text-[--text-primary]">{aiReport.topSetup}</strong>
+                    </span>
+                  </div>
+                </div>
+
+                <p className="text-xs text-[--text-secondary] leading-relaxed mb-4">
+                  {aiReport.headline}
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+                  <div className="p-3.5 rounded-xl border bg-rose-500/[0.03]" style={{ borderColor: "rgba(255,92,115,0.2)" }}>
+                    <div className="flex items-center gap-2 text-[#ff5c73] font-bold text-[10px] uppercase tracking-wider mb-1.5">
+                      <TrendingDown className="w-3.5 h-3.5" />
+                      Critical Leak / Top Mistake
+                    </div>
+                    <p className="text-[11px] text-[--text-secondary] leading-relaxed font-sans">
+                      {aiReport.topMistake}
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl border bg-[#00d4a1]/[0.03]" style={{ borderColor: "rgba(0,212,161,0.2)" }}>
+                    <div className="flex items-center gap-2 text-[--accent] font-bold text-[10px] uppercase tracking-wider mb-1.5">
+                      <TrendingUp className="w-3.5 h-3.5" />
+                      Execution Recommendation
+                    </div>
+                    <p className="text-[11px] text-[--text-secondary] leading-relaxed font-sans">
+                      {aiReport.recommendation}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               {/* HERO EQUITY CURVE WITH DRAWDOWN TOGGLE */}
               <SectionCard
                 title="Cumulative Equity & Growth Trajectory"

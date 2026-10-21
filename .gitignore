@@ -5,6 +5,26 @@
 .env.production
 .env.development
 
+# ─── Secrets & Credentials (NEVER commit these) ────────────────────────────────
+*.pem
+*.key
+*.p12
+*.pfx
+user_mt5_credentials.json
+alert_config.json
+ngrok-tunnels.yml
+bots_database.json
+slaves_database.json
+
+# ─── Runtime data & logs ───────────────────────────────────────────────────────
+clap_log.txt
+debug_log*.txt
+debug_csv.txt
+logs.txt
+*.log.old
+ea_analytics.db
+*.db-journal
+
 # ─── Node.js ────────────────────────────────────────────────────────────────────
 node_modules/
 npm-debug.log*
@@ -46,7 +66,18 @@ desktop.ini
 
 # ─── Logs ───────────────────────────────────────────────────────────────────────
 *.log
+*.log.old
 build_error.log
+clap_log.txt
+debug_log2.txt
+
+# ─── Build artifacts & archives (local junk, not for git) ──────────────────────
+deploy.tar.gz
+deploy.zip
+VPS_Deployment.zip
+
+# ─── Test screenshots ───────────────────────────────────────────────────────────
+test*.png
 
 # ─── Prisma (keep schema, ignore generated client) ───────────────────────────────
 backend/node_modules/.prisma/
@@ -65,3 +96,6 @@ journals/
 .venv/
 *.xlsx
 *.csv
+scratch/
+backend/data/
+!backend/data/*.example

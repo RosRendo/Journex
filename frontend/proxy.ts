@@ -1,8 +1,10 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import NextAuth from 'next-auth';
+import { authConfig } from '@/auth.config';
 
-export async function proxy(request: NextRequest) {
-  return NextResponse.next();
-}
+// Next.js 16: proxy.ts replaces middleware.ts.
+// Runs the edge-compatible NextAuth `authorized` callback (route protection
+// + trial gate defined in auth.config.ts) on every matched request.
+export default NextAuth(authConfig).auth;
 
 export const config = {
   matcher: [

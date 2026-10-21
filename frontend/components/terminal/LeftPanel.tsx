@@ -21,7 +21,7 @@ function WidgetHeader({ title, right }: WidgetHeaderProps) {
     <div className="flex items-center justify-between px-2 h-7 bg-zinc-900 border-b border-zinc-800 shrink-0">
       <span
         data-testid={`widget-title-${title.toLowerCase().replace(/\s+/g, "-")}`}
-        className="text-[10px] font-bold tracking-[0.18em] uppercase text-amber-500"
+        className="text-[10px] font-bold tracking-[0.18em] uppercase text-zinc-300"
       >
         {title}
       </span>
@@ -36,7 +36,7 @@ interface StatusIconProps {
 
 function StatusIcon({ status }: StatusIconProps) {
   if (status === "ok") return <CheckCircle2 size={13} className="text-emerald-500 shrink-0" />;
-  if (status === "warn") return <HelpCircle size={13} className="text-amber-500 shrink-0" />;
+  if (status === "warn") return <HelpCircle size={13} className="text-zinc-400 shrink-0" />;
   if (status === "alert") return <AlertTriangle size={13} className="text-red-500 shrink-0" />;
   return <AlertOctagon size={13} className="text-zinc-500 shrink-0" />;
 }
@@ -77,21 +77,21 @@ function SetupChecklist({ data }: SetupChecklistProps) {
       <div className="flex items-center gap-2 px-2 pb-2 pt-1">
         <span className="text-[10px] uppercase tracking-widest text-zinc-500">Verdict</span>
         <span
-          className={`text-[11px] font-bold px-1.5 py-0.5 ${
-            verdictBull ? "text-emerald-500 bg-emerald-500/10" : "text-amber-500 bg-amber-500/10"
+          className={`text-[11px] font-bold px-1.5 py-0.5 rounded-sm ${
+            verdictBull ? "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20" : "text-zinc-300 bg-zinc-800 border border-zinc-700"
           }`}
         >
           {data.verdict}
         </span>
         <button
           data-testid="trade-it-btn"
-          className="ml-auto text-[10px] uppercase tracking-widest border border-zinc-700 hover:border-amber-500 px-2 py-0.5 text-zinc-100"
+          className="ml-auto text-[10px] uppercase tracking-widest border border-zinc-700 hover:border-zinc-500 px-2 py-0.5 text-zinc-200 hover:bg-white/5 transition-colors"
         >
           Trade It
         </button>
         <button
           data-testid="wait-btn"
-          className="text-[10px] uppercase tracking-widest border border-zinc-700 hover:border-zinc-500 px-2 py-0.5 text-zinc-100"
+          className="text-[10px] uppercase tracking-widest border border-zinc-700 hover:border-zinc-500 px-2 py-0.5 text-zinc-400 hover:text-zinc-200 hover:bg-white/5 transition-colors"
         >
           Wait
         </button>

@@ -1,7 +1,7 @@
-﻿"use client";
+"use client";
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import { Plus, Trash2, Upload, X, Save } from "lucide-react";
+import { Plus, Trash2, Upload, X, Save, Code2, Copy, Check } from "lucide-react";
 
 export default function Page() {
     const defaultCards = [
@@ -2454,25 +2454,29 @@ alertcondition(not validTrade, "Invalid Setup", "Check SL/TP placement!")
     };
 
     return (
-        <main className="p-8 h-full">
-            <div className="flex items-start justify-between mb-8">
+        <main className="max-w-[1600px] mx-auto p-6 space-y-6 pb-20">
+            {/* ── Page Header ── */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-5" style={{ borderColor: "var(--border)" }}>
                 <div>
-                    <h1 className="text-4xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-primary to-blue-400">
+                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[--text-primary] font-display flex items-center gap-3">
+                        <Code2 className="w-7 h-7 text-[--accent]" />
                         Script Library
                     </h1>
-                    <p className="text-muted-foreground mt-1">
-                        Browse built-in PineScripts or upload your own
+                    <p className="text-xs font-medium text-[--text-secondary] mt-1">
+                        Browse built-in algorithmic indicators, PineScripts, and custom TradingView strategies.
                     </p>
                 </div>
                 <button
                     onClick={() => setShowUpload(true)}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-bold transition-all hover:shadow-[0_0_15px_rgba(59,130,246,0.5)] hover:bg-primary/90 active:scale-95"
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all hover:opacity-90 active:scale-95 shadow-[0_0_20px_rgba(0,212,161,0.25)] self-start sm:self-auto"
+                    style={{ background: "var(--accent)", color: "#000000" }}
                 >
-                    <Plus className="w-4 h-4" />
+                    <Plus className="w-4 h-4 stroke-[2.5]" />
                     Add Script
                 </button>
             </div>
 
+            {/* ── Grid of Script Cards ── */}
             <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {cards.map((card, index) => (
                     <Card
@@ -2488,64 +2492,85 @@ alertcondition(not validTrade, "Invalid Setup", "Check SL/TP placement!")
                 ))}
             </div>
 
+            {/* ── Upload Custom Script Modal ── */}
             {showUpload && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
-                    <div className="fixed inset-0 bg-background/80" onClick={() => setShowUpload(false)} />
+                    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowUpload(false)} />
 
-                    <div className="relative w-full max-w-2xl bg-card border border-border/50 rounded-lg p-6 animate-in zoom-in-95 duration-200 z-10 m-auto mt-[40px] max-h-[90vh] overflow-y-auto custom-scrollbar">
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-2xl font-bold flex items-center gap-2">
-                                <Upload className="text-primary w-6 h-6" />
+                    <div
+                        className="relative w-full max-w-2xl rounded-2xl p-6 z-10 m-auto max-h-[90vh] overflow-y-auto custom-scrollbar border"
+                        style={{ background: "var(--bg-card)", borderColor: "var(--border-strong)" }}
+                    >
+                        <div className="flex items-center justify-between mb-6 border-b pb-4" style={{ borderColor: "var(--border)" }}>
+                            <h2 className="text-xl font-bold flex items-center gap-2 text-[--text-primary] font-display">
+                                <Upload className="w-5 h-5 text-[--accent]" />
                                 Add Custom Script
                             </h2>
-                            <button onClick={() => setShowUpload(false)} className="p-2 hover:bg-secondary rounded-full transition-colors">
+                            <button
+                                onClick={() => setShowUpload(false)}
+                                className="p-1.5 hover:bg-[--bg-elevated] text-[--text-secondary] hover:text-[--text-primary] rounded-lg transition-colors"
+                            >
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
 
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Script Title</label>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-[--text-tertiary] mb-1.5">
+                                    Script Title
+                                </label>
                                 <input
                                     type="text"
                                     value={newTitle}
                                     onChange={(e) => setNewTitle(e.target.value)}
-                                    placeholder="e.g. My Custom ICT Indicator"
-                                    className="w-full bg-secondary/50 border border-border/50 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/50 outline-none transition-all"
+                                    placeholder="e.g. ICT Order Block Scanner"
+                                    className="w-full rounded-xl border px-3.5 py-2.5 text-xs font-mono focus:outline-none focus:border-[--accent] transition-colors"
+                                    style={{ background: "var(--bg-base)", borderColor: "var(--border)", color: "var(--text-primary)" }}
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Short Description</label>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-[--text-tertiary] mb-1.5">
+                                    Short Description
+                                </label>
                                 <input
                                     type="text"
                                     value={newDesc}
                                     onChange={(e) => setNewDesc(e.target.value)}
-                                    placeholder="e.g. Detects FVG and draws Order Blocks"
-                                    className="w-full bg-secondary/50 border border-border/50 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/50 outline-none transition-all"
+                                    placeholder="e.g. Detects institutional Fair Value Gaps on M5 and M15"
+                                    className="w-full rounded-xl border px-3.5 py-2.5 text-xs font-mono focus:outline-none focus:border-[--accent] transition-colors"
+                                    style={{ background: "var(--bg-base)", borderColor: "var(--border)", color: "var(--text-primary)" }}
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Pine Script Code</label>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-[--text-tertiary] mb-1.5">
+                                    Pine Script Code
+                                </label>
                                 <textarea
                                     value={newContent}
                                     onChange={(e) => setNewContent(e.target.value)}
-                                    placeholder="//@version=5&#10;indicator('My Script', overlay=true)&#10;..."
+                                    placeholder="//@version=5&#10;indicator('My Indicator', overlay=true)&#10;..."
                                     rows={8}
-                                    className="w-full bg-secondary/50 font-mono border border-border/50 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/50 outline-none transition-all resize-none custom-scrollbar"
+                                    className="w-full rounded-xl border px-3.5 py-2.5 text-xs font-mono focus:outline-none focus:border-[--accent] transition-colors resize-none custom-scrollbar"
+                                    style={{ background: "var(--bg-base)", borderColor: "var(--border)", color: "var(--text-primary)" }}
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Indicator Screenshot</label>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-[--text-tertiary] mb-1.5">
+                                    Indicator Screenshot
+                                </label>
                                 {newImageBase64 ? (
-                                    <div className="relative rounded-xl overflow-hidden border border-border/50 aspect-video group w-full max-w-sm">
+                                    <div
+                                        className="relative rounded-xl overflow-hidden border aspect-video group w-full max-w-sm"
+                                        style={{ borderColor: "var(--border)" }}
+                                    >
                                         <img src={newImageBase64} alt="Preview" className="w-full h-full object-cover" />
-                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                             <button
                                                 onClick={() => setNewImageBase64(null)}
-                                                className="bg-red-500 hover:bg-red-600 text-foreground px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-transform hover:scale-105"
+                                                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-transform hover:scale-105"
                                             >
                                                 <Trash2 className="w-4 h-4" /> Remove
                                             </button>
@@ -2554,25 +2579,31 @@ alertcondition(not validTrade, "Invalid Setup", "Check SL/TP placement!")
                                 ) : (
                                     <div
                                         onClick={() => fileInputRef.current?.click()}
-                                        className="border-2 border-dashed border-border/60 bg-secondary/20 rounded-xl p-6 flex flex-col items-center justify-center text-muted-foreground hover:bg-secondary/40 hover:border-primary/50 transition-all cursor-pointer group"
+                                        className="border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center transition-all cursor-pointer group"
+                                        style={{ borderColor: "var(--border)", background: "var(--bg-base)" }}
                                     >
-                                        <div className="bg-secondary p-3 rounded-full mb-2 group-hover:scale-110 transition-transform">
-                                            <Upload className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                                        <div className="p-3 rounded-full mb-2 bg-[--bg-elevated] group-hover:scale-110 transition-transform">
+                                            <Upload className="w-5 h-5 text-[--accent]" />
                                         </div>
-                                        <p className="text-sm font-medium text-foreground">Click to upload screenshot</p>
+                                        <p className="text-xs font-bold text-[--text-primary]">Click to upload screenshot</p>
+                                        <p className="text-[10px] text-[--text-tertiary] mt-0.5">PNG, JPG, or WEBP up to 5MB</p>
                                     </div>
                                 )}
                                 <input type="file" accept="image/*" ref={fileInputRef} className="hidden" onChange={handleImageUpload} />
                             </div>
 
-                            <div className="pt-4 flex justify-end gap-3">
-                                <button onClick={() => setShowUpload(false)} className="px-5 py-2.5 rounded-xl font-medium hover:bg-secondary transition-colors">
+                            <div className="pt-4 flex justify-end gap-3 border-t" style={{ borderColor: "var(--border)" }}>
+                                <button
+                                    onClick={() => setShowUpload(false)}
+                                    className="px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider text-[--text-secondary] hover:bg-[--bg-elevated] transition-colors"
+                                >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={handleSaveUpload}
                                     disabled={!newTitle || !newContent || !newImageBase64}
-                                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-primary text-primary-foreground font-bold transition-all shadow-md shadow-primary/20 hover:shadow-primary/40 active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
+                                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-40 disabled:pointer-events-none shadow-[0_0_20px_rgba(0,212,161,0.25)]"
+                                    style={{ background: "var(--accent)", color: "#000000" }}
                                 >
                                     <Save className="w-4 h-4" />
                                     Save Script
@@ -2623,78 +2654,111 @@ function Card({
         window.addEventListener("keydown", onKeyDown);
         return () => window.removeEventListener("keydown", onKeyDown);
     }, []);
+
     return (
-        <div className="border min-h-57 p-4 rounded-xl shadow-md bg-white transition-all duration-300">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                <div>
+        <div
+            className="border p-5 rounded-2xl transition-all duration-300 bg-[--bg-card] hover:border-[--border-strong] shadow-sm flex flex-col justify-between"
+            style={{ borderColor: "var(--border)" }}
+        >
+            <div>
+                {/* Screenshot Preview */}
+                <div className="relative rounded-xl overflow-hidden border aspect-video mb-3.5 bg-[--bg-base] group" style={{ borderColor: "var(--border)" }}>
                     <Image
                         src={image}
-                        alt="displaytable"
-                        width={1000}
-                        height={1000}
+                        alt={title}
+                        width={800}
+                        height={500}
                         onClick={(e) => {
                             e.stopPropagation();
                             setIsZoomed(image);
                         }}
-                        className="cursor-pointer"
-                    ></Image>
-                    {isZoomed && (
-                        <div
-                            className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50"
-                            onClick={() => setIsZoomed(null)}
-                        >
-                            <Image
-                                src={image}
-                                alt="displaytable"
-                                width={1000}
-                                height={1000}
-                                className="min-w-[80%] min-h-[60%] object-cover rounded-lg transition-transform duration-500 scale-100 cursor-pointer"
-                            ></Image>
-                        </div>
-                    )}
-                    <div className="flex items-center gap-2 mt-1">
-                        <h2 className="text-lg font-semibold text-black">{title}</h2>
-                        {isCustom && (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">Custom</span>
-                        )}
+                        className="w-full h-full object-cover cursor-pointer transition-transform duration-300 group-hover:scale-105"
+                    />
+                    <div
+                        onClick={() => setIsZoomed(image)}
+                        className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer text-xs font-bold text-white tracking-wider uppercase"
+                    >
+                        Click to Preview
                     </div>
-                    <p className="text-gray-600 text-sm mt-1">{description}</p>
                 </div>
 
-                <div className="flex gap-2 shrink-0">
+                {isZoomed && (
+                    <div
+                        className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-6 backdrop-blur-sm"
+                        onClick={() => setIsZoomed(null)}
+                    >
+                        <div className="relative max-w-4xl max-h-[85vh] rounded-2xl overflow-hidden border border-white/20 shadow-2xl">
+                            <Image
+                                src={image}
+                                alt={title}
+                                width={1200}
+                                height={800}
+                                className="w-full h-full object-contain"
+                            />
+                        </div>
+                    </div>
+                )}
+
+                {/* Header & Badges */}
+                <div className="flex items-start justify-between gap-2">
+                    <h2 className="text-base font-bold text-[--text-primary] font-display leading-tight">{title}</h2>
+                    {isCustom && (
+                        <span
+                            className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider shrink-0"
+                            style={{ background: "rgba(0,212,161,0.15)", color: "var(--accent)", border: "1px solid rgba(0,212,161,0.3)" }}
+                        >
+                            Custom
+                        </span>
+                    )}
+                </div>
+                <p className="text-xs text-[--text-secondary] mt-1.5 leading-relaxed line-clamp-2">{description}</p>
+            </div>
+
+            {/* Action Footer */}
+            <div className="mt-4 pt-3.5 border-t flex items-center justify-between gap-2" style={{ borderColor: "var(--border)" }}>
+                <div className="flex items-center gap-2">
                     {isCustom && onDelete && (
                         <button
                             onClick={onDelete}
-                            className="p-1 text-[#ff5c73] hover:bg-red-50 rounded transition-colors"
+                            className="p-1.5 text-[--loss] hover:bg-[--loss]/10 rounded-lg transition-colors"
                             title="Delete Custom Script"
                         >
-                            <Trash2 className="w-5 h-5" />
+                            <Trash2 className="w-4 h-4" />
                         </button>
                     )}
                     <button
                         onClick={() => setOpen(!open)}
-                        className="text-blue-600 hover:underline font-medium"
+                        className="px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors hover:bg-[--bg-elevated]"
+                        style={{ borderColor: "var(--border)", color: "var(--accent)" }}
                     >
-                        {open ? "Hide" : "More"}
-                    </button>
-
-                    <button
-                        onClick={handleCopy}
-                        className={`font-medium px-3 py-1 rounded ${copied
-                                ? "bg-green-500 text-foreground"
-                                : "bg-gray-200 hover:bg-gray-300 hover:text-foreground"
-                            } transition-colors duration-300`}
-                    >
-                        {copied ? "Copied!" : "Copy"}
+                        {open ? "Hide Code" : "View Code"}
                     </button>
                 </div>
+
+                <button
+                    onClick={handleCopy}
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
+                    style={
+                        copied
+                            ? { background: "var(--profit)", color: "#000000" }
+                            : { background: "var(--bg-elevated)", color: "var(--text-primary)", border: "1px solid var(--border)" }
+                    }
+                >
+                    {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copied ? "Copied!" : "Copy Code"}
+                </button>
             </div>
 
+            {/* Collapsible Code Block */}
             <div
-                className={`transition-all duration-500 ease-in-out overflow-hidden ${open ? "max-h-full mt-2" : "max-h-0"
-                    }`}
+                className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                    open ? "max-h-[500px] mt-3.5 opacity-100" : "max-h-0 opacity-0"
+                }`}
             >
-                <pre className="bg-gray-100 text-black p-2 rounded text-sm overflow-x-auto whitespace-pre text-left">
+                <pre
+                    className="p-3.5 rounded-xl text-xs font-mono overflow-x-auto whitespace-pre text-left border custom-scrollbar"
+                    style={{ background: "var(--bg-base)", borderColor: "var(--border)", color: "var(--text-primary)" }}
+                >
                     <code>{content}</code>
                 </pre>
             </div>

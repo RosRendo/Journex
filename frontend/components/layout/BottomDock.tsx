@@ -20,7 +20,7 @@ export function BottomDock({ onOpenCommandPalette }: { onOpenCommandPalette: () 
 
   const secondaryItems: Array<{ id: string; href?: string; icon: any; tooltip: string; action?: () => void }> = [
     { id: "macro", href: "/macro/XAUUSD", icon: TrendingUp, tooltip: "Macro Desk" },
-    { id: "markets", href: "/news", icon: Globe, tooltip: "Markets" },
+    { id: "markets", href: "/calendar", icon: Globe, tooltip: "Markets" },
     { id: "education", href: "/playbook", icon: GraduationCap, tooltip: "Lessons" },
     { 
       id: "ecosystem", 

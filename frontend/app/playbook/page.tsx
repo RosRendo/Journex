@@ -950,7 +950,7 @@ function PlanForge() {
           <AnimatePresence mode="wait">
             {step === 1 && (
               <motion.div key="step1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6">
-                <h3 className="text-xs font-black uppercase text-white font-mono">// Phase 1: Market Foundation</h3>
+                <h3 className="text-xs font-black uppercase text-white font-mono">{"// Phase 1: Market Foundation"}</h3>
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <label className="text-[9px] font-bold uppercase text-zinc-500 font-mono">Market Asset Class</label>
@@ -996,7 +996,7 @@ function PlanForge() {
 
             {step === 2 && (
               <motion.div key="step2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6">
-                <h3 className="text-xs font-black uppercase text-white font-mono">// Phase 2: Execution Rules</h3>
+                <h3 className="text-xs font-black uppercase text-white font-mono">{"// Phase 2: Execution Rules"}</h3>
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <label className="text-[9px] font-bold uppercase text-zinc-500 font-mono">Strategy Blueprint</label>
@@ -1045,7 +1045,7 @@ function PlanForge() {
 
             {step === 3 && (
               <motion.div key="step3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6">
-                <h3 className="text-xs font-black uppercase text-white font-mono">// Phase 3: Survival Limits</h3>
+                <h3 className="text-xs font-black uppercase text-white font-mono">{"// Phase 3: Survival Limits"}</h3>
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <label className="text-[9px] font-bold uppercase text-zinc-500 font-mono">Account Balance ($)</label>
@@ -1101,7 +1101,7 @@ function PlanForge() {
                   <div className="absolute top-0 right-0 p-3 text-[8px] font-black text-zinc-600 uppercase tracking-widest">TK-PROT-1.0</div>
                   {planResult.plan?.planSections?.map((section: any, idx: number) => (
                     <div key={idx} className="space-y-2">
-                      <h4 className="text-[10px] font-black text-white uppercase border-b border-zinc-850 pb-1">// {section.title}</h4>
+                      <h4 className="text-[10px] font-black text-white uppercase border-b border-zinc-850 pb-1">{"// "}{section.title}</h4>
                       <p className="text-zinc-400 whitespace-pre-wrap text-[10px] leading-relaxed font-sans">{section.content}</p>
                     </div>
                   ))}

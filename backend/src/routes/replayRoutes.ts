@@ -127,9 +127,12 @@ router.get("/:tradeId", requireAuth, async (req, res) => {
     else if (tfUpper === "H4") tfSeconds = 14400;
     else if (tfUpper === "D1") tfSeconds = 86400;
 
-    // Provide adequate context bars (~60 bars prior to trade, ~30 bars after exit)
-    const bufferBefore = Math.max(3600 * 2, tfSeconds * 60);
-    const bufferAfter = Math.max(1800, tfSeconds * 30);
+    // Context bars: generous history behind entry (default 80 bars lookback) + after trade
+    const lookbackBars = Math.max(20, Math.min(250, Number(req.query.lookback) || 80));
+    const afterBars = Math.max(10, Math.min(100, Number(req.query.after) || 25));
+
+    const bufferBefore = tfSeconds * lookbackBars;
+    const bufferAfter = tfSeconds * afterBars;
     const start_time = Math.floor(entryTime - bufferBefore);
     const end_time = Math.floor(exitTime + bufferAfter);
     const symbol = trade.pair || "XAUUSD";
@@ -155,7 +158,7 @@ router.get("/:tradeId", requireAuth, async (req, res) => {
     if (candles.length === 0) {
       try {
         const fallbackRes = await fetch(
-          `${MT5_URL}/api/historical-candles?symbol=${encodeURIComponent(symbol)}&timeframe=${timeframe}&count=120`
+          `${MT5_URL}/api/historical-candles?symbol=${encodeURIComponent(symbol)}&timeframe=${timeframe}&count=${lookbackBars + afterBars}`
         );
         if (fallbackRes.ok) {
           const fallbackData = (await fallbackRes.json()) as any;
@@ -171,8 +174,9 @@ router.get("/:tradeId", requireAuth, async (req, res) => {
       const entryP = Number(trade.entry) || 100;
       const closeP = Number(trade.closePrice) || entryP * 1.002;
       const stepSeconds = tfSeconds;
-      const totalCandles = Math.max(40, Math.floor((exitTime - entryTime) / stepSeconds) + 30);
-      const simStart = entryTime - 20 * stepSeconds;
+      const tradeBars = Math.max(1, Math.floor((exitTime - entryTime) / stepSeconds));
+      const totalCandles = lookbackBars + tradeBars + afterBars;
+      const simStart = entryTime - lookbackBars * stepSeconds;
 
       let currentPrice = entryP;
       const priceDelta = (closeP - entryP) / Math.max(1, (exitTime - entryTime) / stepSeconds);

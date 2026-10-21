@@ -1,15 +1,13 @@
 "use client";
 
 import React, { useState } from "react";
-import GoldTradingSimulator from "@/components/GoldTradingSimulator";
 import FixedTradingSimulator from "@/components/FixedTradingSimulator";
 import FlexibleTradingSimulator from "@/components/FlexibleTradingSimulator";
 
 export default function PracticeTerminal() {
-  const [activeTab, setActiveTab] = useState<"sandbox" | "fixed" | "flexible">("sandbox");
+  const [activeTab, setActiveTab] = useState<"fixed" | "flexible">("fixed");
 
   const tabs = [
-    { id: "sandbox", label: "Gold Sandbox", desc: "Simulated execution with live-feed tick data" },
     { id: "fixed", label: "Fixed Challenge", desc: "Prop firm fixed-rule simulation" },
     { id: "flexible", label: "Flexible Rules", desc: "Custom margin and flexible rule practice" },
   ] as const;
@@ -55,7 +53,7 @@ export default function PracticeTerminal() {
         <div className="ml-auto flex items-center gap-1.5">
           <div className="px-2 py-0.5 rounded border border-[rgba(245,196,81,0.2)] bg-[rgba(245,196,81,0.06)]">
             <span className="text-[8px] font-bold uppercase tracking-widest font-mono text-[#f5c451]">
-              {activeTab === "sandbox" ? "GOLD SANDBOX" : activeTab === "fixed" ? "FIXED CHALLENGE" : "FLEXIBLE RULES"}
+              {activeTab === "fixed" ? "FIXED CHALLENGE" : "FLEXIBLE RULES"}
             </span>
           </div>
         </div>
@@ -63,7 +61,6 @@ export default function PracticeTerminal() {
 
       {/* ── WORKSPACE ── */}
       <div className="flex-1 w-full">
-        {activeTab === "sandbox" && <GoldTradingSimulator />}
         {activeTab === "fixed" && <FixedTradingSimulator />}
         {activeTab === "flexible" && <FlexibleTradingSimulator />}
       </div>

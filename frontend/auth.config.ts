@@ -29,6 +29,9 @@ export const authConfig: NextAuthConfig = {
         return true;
       }
 
+      // NextAuth API endpoints (sign-in callbacks, session polling) must stay public
+      if (pathname.startsWith("/api/auth")) return true;
+
       if (isPublicPage) return true;
 
       // Protect all other routes — require login

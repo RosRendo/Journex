@@ -35,7 +35,7 @@ export function CalendarHeatmap({ trades }: { trades: TradeData[] }) {
     const mLabels: { month: string; offset: number }[] = [];
     
     let currentWeek: { date: Date; pnl: number; key: string }[] = [];
-    let currentDay = new Date(startDate);
+    const currentDay = new Date(startDate);
     let lastMonth = -1;
 
     for (let i = 0; i < 371; i++) {

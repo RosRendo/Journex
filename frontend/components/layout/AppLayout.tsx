@@ -78,11 +78,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
     setIsMobileMenuOpen(false);
   }, [pathname]);
 
+  const isTerminalOrMacro = pathname.startsWith("/terminal") || pathname.startsWith("/macro");
   const isStandalonePage =
     pathname === "/" ||
     pathname.startsWith("/auth") ||
     pathname.startsWith("/subscription") ||
-    pathname.startsWith("/terminal");
+    isTerminalOrMacro;
 
   if (isStandalonePage) {
     return (
@@ -91,9 +92,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
           <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} />
           <EcosystemMapModal open={ecosystemOpen} onClose={() => setEcosystemOpen(false)} />
           <PanicModeOverlay />
-          <div className="min-h-screen flex flex-col" style={{ background: "var(--bg-base)", color: "var(--text-primary)" }}>
+          <div
+            className={`flex flex-col ${isTerminalOrMacro ? "h-screen w-screen overflow-hidden" : "min-h-screen"}`}
+            style={{ background: "var(--bg-base)", color: "var(--text-primary)" }}
+          >
             {pathname.startsWith("/subscription") && <Navbar />}
-            <main className="flex-1 w-full">{children}</main>
+            <main className={`w-full ${isTerminalOrMacro ? "flex-1 h-full min-h-0 overflow-hidden" : "flex-1"}`}>{children}</main>
           </div>
         </FocusModeProvider>
       </PanicModeProvider>

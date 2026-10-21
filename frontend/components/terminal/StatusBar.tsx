@@ -25,7 +25,7 @@ export default function StatusBar({ status, symbol, timeframe }) {
     {
       label: "Updates",
       value: `${status?.updates_per_sec ?? "—"}/s`,
-      cls: "text-amber-500",
+      cls: "text-zinc-300",
     },
     { label: "Symbol", value: symbol, cls: "text-zinc-300" },
     { label: "TF", value: timeframe, cls: "text-zinc-300" },

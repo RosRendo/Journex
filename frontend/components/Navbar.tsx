@@ -367,7 +367,7 @@ export default function Navbar({ onMenuToggle }: { onMenuToggle?: () => void }) 
             >
               <div className="px-4 py-2.5 border-b flex justify-between items-center" style={{ borderColor: "var(--border)" }}>
                 <h3 className="text-[12px] font-bold text-[--text-primary]">Market Alerts</h3>
-                <button className="text-[11px] text-[--accent] hover:opacity-80" onClick={() => router.push("/news")}>View All</button>
+                <button className="text-[11px] text-[--accent] hover:opacity-80" onClick={() => router.push("/calendar")}>View All</button>
               </div>
               <div className="max-h-[280px] overflow-y-auto">
                 {newsItems.length === 0 ? (

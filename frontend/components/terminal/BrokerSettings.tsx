@@ -186,7 +186,7 @@ export default function BrokerSettings({ open, onOpenChange, onConnected }: Brok
     if (!editingAccount) return;
     setSaving(true);
     try {
-      let updatedAccounts = [...accounts];
+      const updatedAccounts = [...accounts];
       const index = accounts.findIndex(a => a.id === editingAccount.id);
       if (index !== -1) {
         updatedAccounts[index] = editingAccount;

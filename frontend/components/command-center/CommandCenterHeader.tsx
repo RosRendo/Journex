@@ -26,6 +26,8 @@ interface Props {
   onOpenStrategyBuilder: () => void;
   onOpenSignalLab: () => void;
   onOpenLayoutConfig: () => void;
+  viewMode?: "TERMINAL" | "RESEARCH";
+  onViewModeChange?: (mode: "TERMINAL" | "RESEARCH") => void;
 }
 
 const PAIRS = [
@@ -52,6 +54,8 @@ export default function CommandCenterHeader({
   onOpenStrategyBuilder,
   onOpenSignalLab,
   onOpenLayoutConfig,
+  viewMode = "TERMINAL",
+  onViewModeChange,
 }: Props) {
   const [timeString, setTimeString] = useState<string>("00:00:00 UTC");
   const [strategyDropdownOpen, setStrategyDropdownOpen] = useState(false);
@@ -68,44 +72,52 @@ export default function CommandCenterHeader({
   }, []);
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-white/[0.08] bg-[#09090b]/95 backdrop-blur-md px-4 py-2 font-mono text-[11px] select-none">
-      <div className="flex flex-wrap items-center justify-between gap-3 max-w-[1720px] mx-auto">
+    <header className="sticky top-0 z-40 w-full h-11 border-b border-white/[0.08] bg-[#09090b]/95 backdrop-blur-md px-3 font-mono text-[11px] select-none shrink-0 flex items-center">
+      <div className="flex items-center justify-between gap-3 w-full overflow-x-auto no-scrollbar">
         
         {/* Left: Brand + Market Open + Clock */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 shrink-0">
           <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.6)] animate-pulse" />
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
             <span className="font-bold tracking-wider text-white text-xs">RENDO TRADE OS</span>
-            <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-amber-500/10 border border-amber-500/30 text-amber-400">
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-white/[0.04] border border-white/10 text-zinc-400">
               COMMAND CENTER
             </span>
           </div>
 
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-1 px-2 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white text-[9px] font-bold transition-colors font-mono"
+            title="Return to Unified Dashboard"
+          >
+            ← Dashboard
+          </Link>
+
           <div className="hidden sm:flex items-center gap-2 text-zinc-400 text-[10px] pl-3 border-l border-white/10">
-            <span className="flex items-center gap-1 text-emerald-400 font-semibold">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+            <span className="flex items-center gap-1.5 text-zinc-300 font-semibold">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
               MARKET OPEN
             </span>
             <span className="text-zinc-600">•</span>
-            <span className="text-zinc-300 font-mono">{timeString}</span>
+            <span className="text-zinc-400 font-mono">{timeString}</span>
           </div>
         </div>
 
         {/* Center: Instant Pair Switcher Ribbon */}
-        <div className="flex items-center gap-1 bg-black/40 p-1 rounded-lg border border-white/10 overflow-x-auto">
+        <div className="flex items-center gap-1 bg-black/40 p-1 rounded-lg border border-white/10 shrink-0">
           {PAIRS.map((p) => {
             const isActive = activeSymbol.toUpperCase() === p.symbol;
             return (
               <button
                 key={p.symbol}
                 onClick={() => onSymbolChange(p.symbol)}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded transition-all text-[10px] font-bold ${
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded transition-all text-[10px] font-mono ${
                   isActive
-                    ? "bg-white/15 text-white shadow-sm border border-white/20"
+                    ? "bg-white/15 text-white shadow-sm border border-white/20 font-bold"
                     : "text-zinc-400 hover:text-zinc-200 hover:bg-white/5 border border-transparent"
                 }`}
               >
-                <span className={`w-1.5 h-1.5 rounded-full ${p.dot} ${isActive ? "shadow-[0_0_6px_currentColor]" : "opacity-60"}`} />
+                <span className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-emerald-400" : "bg-zinc-600"}`} />
                 <span>{p.symbol}</span>
               </button>
             );
@@ -113,16 +125,16 @@ export default function CommandCenterHeader({
         </div>
 
         {/* Right Controls: Timeframe, Strategy Selector, Signal Lab, Builder, Layout */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Timeframe selector */}
-          <div className="hidden md:flex items-center gap-0.5 bg-black/40 p-0.5 rounded-md border border-white/10">
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Timeframe selector (only on ultra-wide 2xl screens to avoid chart header duplication) */}
+          <div className="hidden 2xl:flex items-center gap-0.5 bg-black/40 p-0.5 rounded-md border border-white/10">
             {TIMEFRAMES.map((tf) => (
               <button
                 key={tf}
                 onClick={() => onTimeframeChange(tf)}
                 className={`px-1.5 py-0.5 rounded text-[9.5px] font-semibold transition-colors ${
                   timeframe === tf
-                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                    ? "bg-white/15 text-white border border-white/20"
                     : "text-zinc-400 hover:text-zinc-200"
                 }`}
               >
@@ -157,7 +169,7 @@ export default function CommandCenterHeader({
                     }}
                     className={`w-full flex items-center justify-between px-2 py-1.5 rounded text-left transition-colors text-[10px] ${
                       activeStrategy.id === strat.id
-                        ? "bg-amber-500/15 text-amber-300 font-bold border border-amber-500/30"
+                        ? "bg-white/15 text-white font-bold border border-white/20"
                         : "text-zinc-300 hover:bg-white/5"
                     }`}
                   >
@@ -174,9 +186,9 @@ export default function CommandCenterHeader({
                       setStrategyDropdownOpen(false);
                       onOpenStrategyBuilder();
                     }}
-                    className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded text-amber-400 hover:bg-amber-500/10 text-[10px] font-bold"
+                    className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded text-zinc-300 hover:text-white hover:bg-white/10 text-[10px] font-medium"
                   >
-                    <SlidersHorizontal className="w-3 h-3" />
+                    <SlidersHorizontal className="w-3 h-3 text-zinc-400" />
                     <span>Open Strategy Builder...</span>
                   </button>
                 </div>
@@ -184,20 +196,50 @@ export default function CommandCenterHeader({
             )}
           </div>
 
+          {/* View Mode Toggle: Terminal Full Chart vs Research Desk */}
+          {onViewModeChange && (
+            <div className="flex items-center gap-1 bg-black/40 p-0.5 rounded-md border border-white/10">
+              <button
+                onClick={() => onViewModeChange("TERMINAL")}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded text-[9.5px] font-mono transition-all ${
+                  viewMode === "TERMINAL"
+                    ? "bg-white/15 text-white border border-white/20 font-bold"
+                    : "text-zinc-400 hover:text-white border border-transparent"
+                }`}
+                title="Full Institutional Terminal Chart Workstation"
+              >
+                <span>🖥️</span>
+                <span>Full Chart</span>
+              </button>
+              <button
+                onClick={() => onViewModeChange("RESEARCH")}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded text-[9.5px] font-mono transition-all ${
+                  viewMode === "RESEARCH"
+                    ? "bg-white/15 text-white border border-white/20 font-bold"
+                    : "text-zinc-400 hover:text-white border border-transparent"
+                }`}
+                title="Macro Research Desk Overview"
+              >
+                <span>📑</span>
+                <span>Macro Desk</span>
+              </button>
+            </div>
+          )}
+
           {/* Action Modals */}
           <button
             onClick={onOpenSignalLab}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 text-purple-300 text-[10px] font-bold transition-all shadow-sm"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-zinc-300 hover:text-white text-[10px] font-mono transition-all shadow-sm"
           >
-            <FlaskConical className="w-3 h-3" />
+            <FlaskConical className="w-3 h-3 text-zinc-400" />
             <span>Signal Lab</span>
           </button>
 
           <button
             onClick={onOpenStrategyBuilder}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white text-[10px] font-semibold transition-colors"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-zinc-300 hover:text-white text-[10px] font-mono transition-colors"
           >
-            <SlidersHorizontal className="w-3 h-3 text-amber-400" />
+            <SlidersHorizontal className="w-3 h-3 text-zinc-400" />
             <span className="hidden lg:inline">Confluence</span> Builder
           </button>
 

@@ -63,7 +63,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         description: "Instant contract sizing based on stop loss distance and account balance",
         icon: Calculator,
         category: "ACTIONS (DO)",
-        action: () => navigate("/calculators"),
+        action: () => navigate("/risk?tab=calculator"),
         keywords: ["calculate", "lot size", "risk", "1%", "contracts", "pips", "sizer"],
       },
       {

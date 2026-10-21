@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -28,14 +28,25 @@ const MT5_API = process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge";
 export default function RiskDeskPage() {
   const [activeTab, setActiveTab] = useState<"calculator" | "drawdown" | "compliance" | "validation">("calculator");
 
+  // Read URL query parameter ?tab=... on load for direct routing & redirects
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get("tab");
+      if (tab === "calculator" || tab === "drawdown" || tab === "compliance" || tab === "validation") {
+        setActiveTab(tab);
+      }
+    }
+  }, []);
+
   return (
     <div className="min-h-screen w-full bg-[#09090b] text-[#f4f4f5] flex flex-col pb-12 font-sans">
       
       {/* ── TOPBAR ── */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(255,255,255,0.07)] sticky top-0 z-20 bg-[#09090b]">
         <div>
-          <h1 className="text-sm font-bold tracking-tight text-[#f4f4f5]">Risk & Compliance Desk</h1>
-          <p className="text-[9px] font-bold uppercase tracking-widest font-mono text-[#71717a] mt-0.5">Position sizing · Drawdown · Prop rules · Validation</p>
+          <h1 className="text-sm font-bold tracking-tight text-[#f4f4f5]">Risk Desk & Sizing</h1>
+          <p className="text-[9px] font-bold uppercase tracking-widest font-mono text-[#71717a] mt-0.5">Position lot sizing · Drawdown guard · Prop compliance · Trade validation</p>
         </div>
 
         {/* Tab Selection */}
@@ -46,7 +57,7 @@ export default function RiskDeskPage() {
               activeTab === "calculator" ? "border-[#20e0b2] text-[#20e0b2]" : "border-transparent text-[#71717a] hover:text-[#a1a1aa]"
             }`}
           >
-            Calculator
+            Sizing Calculator
           </button>
           <button
             onClick={() => setActiveTab("drawdown")}
@@ -54,7 +65,7 @@ export default function RiskDeskPage() {
               activeTab === "drawdown" ? "border-[#20e0b2] text-[#20e0b2]" : "border-transparent text-[#71717a] hover:text-[#a1a1aa]"
             }`}
           >
-            Drawdown
+            Drawdown Guard
           </button>
           <button
             onClick={() => setActiveTab("compliance")}
@@ -62,7 +73,7 @@ export default function RiskDeskPage() {
               activeTab === "compliance" ? "border-[#20e0b2] text-[#20e0b2]" : "border-transparent text-[#71717a] hover:text-[#a1a1aa]"
             }`}
           >
-            Compliance
+            Prop Compliance
           </button>
           <button
             onClick={() => setActiveTab("validation")}

@@ -241,3 +241,12 @@ html.focus-mode header:hover {
 html.focus-mode [data-testid="center-panel"] {
   border-left: 1px solid rgba(251, 191, 36, 0.2) !important;
 }
+
+/* ── No Scrollbar Utility ─────────────────────────────────────────────────── */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

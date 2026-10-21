@@ -108,12 +108,8 @@ export function TradeReplayModal({ tradeId, onClose }: TradeReplayModalProps) {
             : Math.floor(new Date(data.trade.openTime || data.trade.date).getTime() / 1000);
           const eIdx = findClosestCandleIndex(candles, entryTime);
 
-          // Default view: Jump directly to entry candle so entry arrow is IMMEDIATELY visible!
-          if (eIdx !== -1 && candles.length > 0) {
-            setCurrentIndex(eIdx);
-          } else {
-            setCurrentIndex(Math.max(0, candles.length - 1));
-          }
+          // Default view: Show the full trade path from start to end so both entry and exit are IMMEDIATELY visible!
+          setCurrentIndex(Math.max(0, candles.length - 1));
         } else {
           setError(data.error || "Failed to load replay data");
         }

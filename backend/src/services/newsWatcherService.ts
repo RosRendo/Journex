@@ -40,7 +40,13 @@ export async function runNewsAlertsLoop(
       if (impact === "high" || tag === "BREAKING") {
         if (hasChannel) {
           try {
-            await dispatchAlert(keys, fmtNews(tag || "NEWS", headline, impact || "med"), undefined, "news");
+            const details = {
+              sentiment: h.sentiment || (h.bullishAssets?.length ? `Bullish on ${h.bullishAssets.join(", ")}` : undefined),
+              assetsAffected: h.assetsAffected || (h.symbols ? (Array.isArray(h.symbols) ? h.symbols : [h.symbols]) : undefined),
+              tradingImpact: h.tradingImpact || h.impactSummary,
+              actionableNote: h.actionableNote || h.actionPlan,
+            };
+            await dispatchAlert(keys, fmtNews(tag || "NEWS", headline, impact || "med", h.time || new Date(), details), undefined, "news");
           } catch (err: any) {
             console.warn("News alert dispatch failed:", err.message);
           }

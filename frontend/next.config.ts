@@ -4,10 +4,16 @@ const nextConfig: any = {
   output: 'standalone',
   reactStrictMode: true,
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
+  async redirects() {
+    return [
+      { source: "/login", destination: "/auth", permanent: false },
+      { source: "/news", destination: "/calendar", permanent: false },
+      { source: "/performance", destination: "/analytics", permanent: false },
+      { source: "/notificationandmonitor", destination: "/alerts?tab=targets", permanent: false },
+      { source: "/calculators", destination: "/risk?tab=calculator", permanent: false },
+    ];
   },
   async headers() {
     return [

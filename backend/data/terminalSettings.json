@@ -1,1 +1,0 @@
-{"broker": {"provider": "mt5_bridge", "environment": "live", "api_key": "", "api_secret": "", "account_id": "", "base_url": "http://127.0.0.1:5003", "connected": true}}

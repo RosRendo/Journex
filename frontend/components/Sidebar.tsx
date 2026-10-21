@@ -22,7 +22,7 @@ const Sidebar = ({ onOpenCommandPalette, onOpenEcosystemMap }: SidebarProps) => 
   const pathname = usePathname();
   const { focusMode, toggleFocusMode } = useFocusMode();
   const { favorites, toggleFavorite, isFavorite } = useFavorites();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const [viewMode, setViewMode] = useState<"desk" | "all">("desk");
   const [allPagesSearch, setAllPagesSearch] = useState("");
   const [expandedPillars, setExpandedPillars] = useState<string[]>(["execution"]);
@@ -33,6 +33,11 @@ const Sidebar = ({ onOpenCommandPalette, onOpenEcosystemMap }: SidebarProps) => 
       const saved = localStorage.getItem("sidebar-view-mode");
       if (saved === "desk" || saved === "all") {
         setViewMode(saved);
+      }
+      // Restore collapsed state; default is collapsed (true) if never saved
+      const savedCollapsed = localStorage.getItem("sidebar-collapsed");
+      if (savedCollapsed !== null) {
+        setIsCollapsed(savedCollapsed === "true");
       }
     } catch (e) {}
   }, []);
@@ -103,7 +108,11 @@ const Sidebar = ({ onOpenCommandPalette, onOpenEcosystemMap }: SidebarProps) => 
     >
       {/* Collapse Toggle Button */}
       <button
-        onClick={() => setIsCollapsed(!isCollapsed)}
+        onClick={() => {
+          const next = !isCollapsed;
+          setIsCollapsed(next);
+          try { localStorage.setItem("sidebar-collapsed", String(next)); } catch (e) {}
+        }}
         className="absolute -right-3 top-6 bg-zinc-800 border border-[rgba(255,255,255,0.1)] rounded-full p-1 text-zinc-400 hover:text-white hover:bg-zinc-700 z-50 transition-colors shadow-lg"
         title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
       >

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { getBackendUrl } from "@/lib/utils";
+import { getBackendUrl, getWebSocketUrl } from "@/lib/utils";
 import { getSession } from "next-auth/react";
 
 interface LiveEquity {
@@ -47,7 +47,7 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
       try {
         const session = await getSession();
         const token = (session?.user as any)?.apiToken || "";
-        const wsUrl = getBackendUrl().replace(/^http/, "ws") + `/api/ws/prices?token=${token}`;
+        const wsUrl = getWebSocketUrl(`api/ws/prices?token=${token}`);
         
         ws = new WebSocket(wsUrl);
 

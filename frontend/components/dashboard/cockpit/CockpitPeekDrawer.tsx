@@ -1147,7 +1147,7 @@ export const CockpitPeekDrawer: React.FC<CockpitPeekDrawerProps> = ({
                 : type === "risk_guard" || type === "daily_risk"
                 ? "/risk"
                 : type === "risk_calculator"
-                ? "/calculators"
+                ? "/risk?tab=calculator"
                 : type === "bot_telemetry"
                 ? "/bot"
                 : type === "script_runner"

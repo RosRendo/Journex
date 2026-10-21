@@ -1,0 +1,705 @@
+// ============================================================
+// Unified Price Action Engine | Pine Script v6
+// Version: 1.00 (CRT • Turtle Soup • MSNR • Quarterly Theory • AMD)
+// ============================================================
+// A unified price-action intelligence system combining:
+//   1. QT (Quarterly Theory) & AMD (Accumulation-Manipulation-Distribution) Time Cycles
+//   2. CRT (Candle Range Theory) HTF Reference Range & Sweep Reclaim
+//   3. Turtle Soup (20-bar Failed Breakout & Liquidity Sweep)
+//   4. MSNR (Malaysian Close-Based Support & Resistance Break/Retest)
+//   5. Confluence Scoring & Signal Arbitration (A+ Institutional Setups)
+//   6. 5-Phase Trade Lifecycle with 3-Tier Targets (1.2R / 2.5R / 4.0R) & Trailing Stop
+//   7. Persistent Live Target Lines & Complete Telemetry HUD
+// ============================================================
+//@version=6
+indicator("Unified Price Action Engine", shorttitle="UPAE", overlay=true, max_lines_count=300, max_labels_count=300, max_boxes_count=100)
+
+// ============================================================
+// ── INPUT CONFIGURATION GROUPS
+// ============================================================
+var string G_TIME  = "1. Quarterly Theory (QT) & AMD Cycles"
+var string G_CRT   = "2. Candle Range Theory (CRT) Engine"
+var string G_TS    = "3. Turtle Soup Liquidity Sweep Engine"
+var string G_MSNR  = "4. Malaysian SNR (MSNR) Engine"
+var string G_CONF  = "5. Confluence & Signal Arbitration"
+var string G_EXEC  = "6. Execution, Risk & 3-Tier Targets"
+var string G_DISP  = "7. Dashboard & Chart Visuals"
+
+// Group 1: QT & AMD Timing
+use_qt          = input.bool(true, "Enable Quarterly Theory (QT) Time Filtering", group=G_TIME)
+qt_timeframe    = input.string("Daily Cycle (6-Hour Quarters)", "QT Cycle Type", options=["Daily Cycle (6-Hour Quarters)", "Session 90-Min Quarters", "Disabled"], group=G_TIME)
+qt_tz           = input.string("America/New_York", "Cycle Timezone", options=["America/New_York", "UTC", "Europe/London"], group=G_TIME)
+only_q2_q3      = input.bool(true, "Prioritize Q2 (Manipulation) & Q3 (Distribution) Trades", group=G_TIME)
+
+// Group 2: CRT (Candle Range Theory)
+use_crt         = input.bool(true, "Enable CRT (Candle Range Theory)", group=G_CRT)
+crt_res         = input.timeframe("D", "CRT Reference Timeframe", group=G_CRT)
+crt_show_box    = input.bool(true, "Draw Active CRT Range Box", group=G_CRT)
+crt_show_mid    = input.bool(true, "Draw CRT 50% Equilibrium (Midpoint)", group=G_CRT)
+
+// Group 3: Turtle Soup
+use_ts          = input.bool(true, "Enable Turtle Soup Engine", group=G_TS)
+ts_lookback     = input.int(20, "Turtle Soup Swing Lookback", minval=10, maxval=50, group=G_TS)
+ts_wick_ratio   = input.float(0.30, "Min Sweep Rejection Wick % (Wick/Range)", minval=0.15, maxval=0.60, step=0.05, group=G_TS)
+ts_filter_atr   = input.float(0.20, "Min Sweep Penetration (x ATR)", minval=0.05, step=0.05, group=G_TS)
+
+// Group 4: MSNR (Malaysian Support & Resistance)
+use_msnr        = input.bool(true, "Enable MSNR Engine", group=G_MSNR)
+msnr_lookback   = input.int(30, "MSNR Level Detection Period", minval=10, maxval=100, group=G_MSNR)
+msnr_touch_tol  = input.float(0.25, "Level Retest Tolerance (x ATR)", minval=0.1, step=0.05, group=G_MSNR)
+
+// Group 5: Confluence & Scoring
+min_conf_score  = input.int(75, "Minimum Confluence Score (0-100)", minval=50, maxval=95, group=G_CONF)
+require_htf_bias= input.bool(true, "Require HTF Baseline Trend Alignment", group=G_CONF)
+
+// Group 6: Execution & Targets
+acct_size       = input.float(10000.0, "Account Balance ($)", minval=100.0, step=100.0, group=G_EXEC)
+risk_pct        = input.float(1.0, "Risk Per Trade (%)", minval=0.1, maxval=5.0, step=0.1, group=G_EXEC)
+sl_mode         = input.string("Sweep Wick Extreme", "Stop Loss Mode", options=["Sweep Wick Extreme", "Structure Pivot", "ATR Multiple"], group=G_EXEC)
+sl_atr_mult     = input.float(1.5, "Stop Loss ATR Multiple (Fallback)", minval=0.5, step=0.25, group=G_EXEC)
+tp1_rr          = input.float(1.2, "TP1 Target RR (Safety & BE Trigger)", minval=0.5, step=0.1, group=G_EXEC)
+tp2_rr          = input.float(2.5, "TP2 Target RR (Structural / CRT Target)", minval=1.0, step=0.1, group=G_EXEC)
+tp3_rr          = input.float(4.0, "TP3 Target RR (Macro Expansion Runner)", minval=1.5, step=0.1, group=G_EXEC)
+enable_be       = input.bool(true, "Move SL to Break-Even on TP1 Hit", group=G_EXEC)
+enable_trail    = input.bool(true, "Enable Adaptive Trailing Stop", group=G_EXEC)
+trail_atr_mult  = input.float(2.0, "Trailing Stop ATR Multiplier", minval=1.0, step=0.25, group=G_EXEC)
+
+// Group 7: Dashboard & Visuals
+hud_mode        = input.string("Compact HUD (10 Rows)", "Dashboard Mode", options=["Compact HUD (10 Rows)", "Full Analytics (28 Rows)", "Hidden"], group=G_DISP)
+hud_pos         = input.string("Top Right", "Dashboard Screen Position", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left"], group=G_DISP)
+show_live_lines = input.bool(true, "Show Live Projected Target Lines (Always Visible)", group=G_DISP)
+show_markers    = input.bool(true, "Show On-Chart Signal Markers", group=G_DISP)
+
+// ============================================================
+// ── BASELINE CALCULATIONS & ATR
+// ============================================================
+atr_val      = ta.atr(14)
+candle_range = high - low
+candle_body  = math.abs(close - open)
+upper_wick   = high - math.max(open, close)
+lower_wick   = math.min(open, close) - low
+
+// Baseline Trend filter (200 EMA & 50 EMA)
+ema50  = ta.ema(close, 50)
+ema200 = ta.ema(close, 200)
+bull_macro = close > ema200 and ema50 > ema200
+bear_macro = close < ema200 and ema50 < ema200
+
+// ============================================================
+// ── MODULE 1: QUARTERLY THEORY (QT) & AMD TIME CYCLES
+// ============================================================
+// Time in NY
+ny_hour   = hour(time, qt_tz)
+ny_minute = minute(time, qt_tz)
+minute_of_day = ny_hour * 60 + ny_minute
+
+string qt_phase = "Q1 [ACCUMULATION]"
+string qt_color = "GRAY"
+int    qt_score = 15
+
+if qt_timeframe == "Daily Cycle (6-Hour Quarters)"
+    // 24 hours divided into 4 quarters of 6 hours each (00:00, 06:00, 12:00, 18:00 EST)
+    if ny_hour >= 0 and ny_hour < 6
+        qt_phase := "Q1 [ACCUMULATION - ASIA RANGE]"
+        qt_color := "BLUE"
+        qt_score := 10
+    else if ny_hour >= 6 and ny_hour < 12
+        qt_phase := "Q2 [MANIPULATION - LONDON/NY OPEN]"
+        qt_color := "GOLD"
+        qt_score := 30
+    else if ny_hour >= 12 and ny_hour < 18
+        qt_phase := "Q3 [DISTRIBUTION - NY EXPANSION]"
+        qt_color := "GREEN"
+        qt_score := 35
+    else
+        qt_phase := "Q4 [REVERSAL/REBALANCE - CLOSE]"
+        qt_color := "PURPLE"
+        qt_score := 15
+else if qt_timeframe == "Session 90-Min Quarters"
+    // 90-minute sub-cycles (00-22m Q1, 23-45m Q2, 46-67m Q3, 68-90m Q4)
+    q_mod = minute_of_day % 90
+    if q_mod < 23
+        qt_phase := "Q1 [90m ACCUMULATION]"
+        qt_color := "BLUE"
+        qt_score := 10
+    else if q_mod < 45
+        qt_phase := "Q2 [90m MANIPULATION/SWEEP]"
+        qt_color := "GOLD"
+        qt_score := 30
+    else if q_mod < 68
+        qt_phase := "Q3 [90m EXPANSION]"
+        qt_color := "GREEN"
+        qt_score := 35
+    else
+        qt_phase := "Q4 [90m EXHAUSTION]"
+        qt_color := "PURPLE"
+        qt_score := 15
+else
+    qt_phase := "QT DISABLED"
+    qt_color := "GRAY"
+    qt_score := 25
+
+bool qt_favorable = not only_q2_q3 or str.contains(qt_phase, "Q2") or str.contains(qt_phase, "Q3")
+
+// ============================================================
+// ── MODULE 2: CANDLE RANGE THEORY (CRT) ENGINE
+// ============================================================
+// Non-repainting HTF Reference Candle High/Low
+f_crt_data() =>
+    [request.security(syminfo.tickerid, crt_res, high[1], barmerge.gaps_off, barmerge.lookahead_on),
+     request.security(syminfo.tickerid, crt_res, low[1], barmerge.gaps_off, barmerge.lookahead_on),
+     request.security(syminfo.tickerid, crt_res, open[1], barmerge.gaps_off, barmerge.lookahead_on),
+     request.security(syminfo.tickerid, crt_res, close[1], barmerge.gaps_off, barmerge.lookahead_on)]
+
+[crt_high, crt_low, crt_open, crt_close] = f_crt_data()
+crt_mid = not na(crt_high) and not na(crt_low) ? (crt_high + crt_low) / 2.0 : na
+
+// CRT Range Box Rendering
+var box crt_box = na
+var line crt_ln_mid = na
+
+if crt_show_box and not na(crt_high) and not na(crt_low) and barstate.islast
+    if not na(crt_box)
+        box.delete(crt_box)
+    if not na(crt_ln_mid)
+        line.delete(crt_ln_mid)
+
+    crt_box := box.new(bar_index - 30, crt_high, bar_index + 16, crt_low, border_color=color.new(#8b5cf6, 30), bgcolor=color.new(#8b5cf6, 94), border_style=line.style_dashed)
+    if crt_show_mid and not na(crt_mid)
+        crt_ln_mid := line.new(bar_index - 30, crt_mid, bar_index + 16, crt_mid, color=color.new(#8b5cf6, 40), style=line.style_dotted, width=1)
+
+// CRT Sweep & Reclaim State Machine
+bool crt_swept_low  = not na(crt_low) and low < crt_low and close > crt_low
+bool crt_swept_high = not na(crt_high) and high > crt_high and close < crt_high
+
+bool crt_bull_trigger = use_crt and crt_swept_low and close > open and (candle_range > 0 and (lower_wick / candle_range) >= 0.25)
+bool crt_bear_trigger = use_crt and crt_swept_high and close < open and (candle_range > 0 and (upper_wick / candle_range) >= 0.25)
+
+string crt_status = crt_swept_low ? "LOW SWEPT & RECLAIMED" : crt_swept_high ? "HIGH SWEPT & RECLAIMED" : (close > crt_mid ? "UPPER HALF [PREMIUM]" : "LOWER HALF [DISCOUNT]")
+
+// ============================================================
+// ── MODULE 3: TURTLE SOUP ENGINE (Failed Breakout Reversals)
+// ============================================================
+ts_hi = ta.highest(high, ts_lookback)[1]
+ts_lo = ta.lowest(low, ts_lookback)[1]
+
+// Penetration requirement
+bool ts_bull_pen = (ts_lo - low) >= (atr_val * ts_filter_atr)
+bool ts_bear_pen = (high - ts_hi) >= (atr_val * ts_filter_atr)
+
+// Reclaim requirement (closes back inside prior range with rejection wick)
+bool ts_bull_rejection = candle_range > 0 and (lower_wick / candle_range) >= ts_wick_ratio and close > open
+bool ts_bear_rejection = candle_range > 0 and (upper_wick / candle_range) >= ts_wick_ratio and close < open
+
+bool ts_bull_trigger = use_ts and low < ts_lo and close > ts_lo and ts_bull_rejection and ts_bull_pen
+bool ts_bear_trigger = use_ts and high > ts_hi and close < ts_hi and ts_bear_rejection and ts_bear_pen
+
+// ============================================================
+// ── MODULE 4: MALAYSIAN SNR (MSNR) ENGINE
+// ============================================================
+// Engulfing candles define clean structural MSNR levels
+bool bull_engulf = close > open and close[1] < open[1] and close > open[1] and open < close[1]
+bool bear_engulf = close < open and close[1] > open[1] and close < open[1] and open > close[1]
+
+var float msnr_sup_px = na
+var float msnr_res_px = na
+var int   msnr_sup_bar = na
+var int   msnr_res_bar = na
+
+if bull_engulf
+    msnr_sup_px  := math.min(open, close[1]) // Clean line of support
+    msnr_sup_bar := bar_index
+
+if bear_engulf
+    msnr_res_px  := math.max(open, close[1]) // Clean line of resistance
+    msnr_res_bar := bar_index
+
+// MSNR Rejection & Break-and-Retest
+bool msnr_test_sup = not na(msnr_sup_px) and math.abs(low - msnr_sup_px) <= (atr_val * msnr_touch_tol) and close > msnr_sup_px and close > open
+bool msnr_test_res = not na(msnr_res_px) and math.abs(high - msnr_res_px) <= (atr_val * msnr_touch_tol) and close < msnr_res_px and close < open
+
+bool msnr_bull_trigger = use_msnr and msnr_test_sup and (bar_index - nz(msnr_sup_bar, 0) <= msnr_lookback)
+bool msnr_bear_trigger = use_msnr and msnr_test_res and (bar_index - nz(msnr_res_bar, 0) <= msnr_lookback)
+
+// ============================================================
+// ── MODULE 5: CONFLUENCE SCORING & SIGNAL ARBITRATION
+// ============================================================
+int    bull_score  = 0
+int    bear_score  = 0
+string setup_label = "NONE"
+
+if barstate.isconfirmed
+    // 1. Time Cycle Bonus (QT)
+    if qt_favorable
+        bull_score := bull_score + qt_score
+        bear_score := bear_score + qt_score
+
+    // 2. CRT Points
+    if crt_bull_trigger
+        bull_score := bull_score + 35
+        setup_label := "CRT RECLAIM"
+    if crt_bear_trigger
+        bear_score := bear_score + 35
+        setup_label := "CRT RECLAIM"
+
+    // 3. Turtle Soup Points
+    if ts_bull_trigger
+        bull_score := bull_score + 35
+        setup_label := setup_label == "NONE" ? "TURTLE SOUP" : setup_label + " + TS"
+    if ts_bear_trigger
+        bear_score := bear_score + 35
+        setup_label := setup_label == "NONE" ? "TURTLE SOUP" : setup_label + " + TS"
+
+    // 4. MSNR Points
+    if msnr_bull_trigger
+        bull_score := bull_score + 25
+        setup_label := setup_label == "NONE" ? "MSNR RETEST" : setup_label + " + MSNR"
+    if msnr_bear_trigger
+        bear_score := bear_score + 25
+        setup_label := setup_label == "NONE" ? "MSNR RETEST" : setup_label + " + MSNR"
+
+    // 5. Macro Trend Alignment Bonus
+    if require_htf_bias
+        if bull_macro
+            bull_score := bull_score + 15
+        if bear_macro
+            bear_score := bear_score + 15
+
+// Final Signal Gating
+bool buy_signal  = bull_score >= min_conf_score and bull_score > bear_score
+bool sell_signal = bear_score >= min_conf_score and bear_score > bull_score
+int  active_conf = buy_signal ? bull_score : sell_signal ? bear_score : math.max(bull_score, bear_score)
+
+// ============================================================
+// ── MODULE 6: TRADE LIFECYCLE & 3-TIER EXECUTION (1.2R / 2.5R / 4.0R)
+// ============================================================
+var float trade_entry   = na
+var float trade_sl      = na
+var float trade_tp1     = na
+var float trade_tp2     = na
+var float trade_tp3     = na
+var int   trade_dir     = 0
+var int   trade_bar     = na
+var bool  tp1_hit       = false
+var bool  tp2_hit       = false
+var bool  tp3_hit       = false
+var string trade_setup  = ""
+
+// Performance Analytics
+var int   total_trades = 0
+var int   wins_count   = 0
+var float net_r_gain   = 0.0
+
+trade_active = trade_dir != 0 and not na(trade_entry)
+
+// Stop Loss Distance Calculation
+float calc_sl_dist = atr_val * sl_atr_mult
+if sl_mode == "Sweep Wick Extreme"
+    if buy_signal or trade_dir == 1 or (trade_dir == 0 and close > ema50)
+        calc_sl_dist := math.max(atr_val * 0.75, math.abs(close - low))
+    else
+        calc_sl_dist := math.max(atr_val * 0.75, math.abs(high - close))
+else if sl_mode == "Structure Pivot"
+    if buy_signal or trade_dir == 1 or (trade_dir == 0 and close > ema50)
+        calc_sl_dist := not na(ts_lo) ? math.max(atr_val * 0.8, math.abs(close - ts_lo)) : atr_val * sl_atr_mult
+    else
+        calc_sl_dist := not na(ts_hi) ? math.max(atr_val * 0.8, math.abs(close - ts_hi)) : atr_val * sl_atr_mult
+
+calc_sl_dist := math.max(syminfo.mintick * 10, calc_sl_dist)
+
+// Dynamic Lot Sizing
+lot_calc  = (acct_size * (risk_pct / 100.0)) / (calc_sl_dist * syminfo.pointvalue)
+curr_lots = math.max(0.01, math.round(lot_calc * 100.0) / 100.0)
+
+// Active or Projected Execution Levels
+float disp_entry   = trade_active ? trade_entry : close
+float disp_sl      = trade_active ? trade_sl : (buy_signal or close > ema50 ? close - calc_sl_dist : close + calc_sl_dist)
+float disp_sl_dist = math.max(syminfo.mintick * 10, math.abs(disp_entry - disp_sl))
+int   disp_dir     = trade_active ? trade_dir : (buy_signal or close > ema50 ? 1 : -1)
+
+float disp_tp1     = trade_active and not na(trade_tp1) ? trade_tp1 : (disp_dir == 1 ? disp_entry + disp_sl_dist * tp1_rr : disp_entry - disp_sl_dist * tp1_rr)
+float disp_tp2     = trade_active and not na(trade_tp2) ? trade_tp2 : (disp_dir == 1 ? disp_entry + disp_sl_dist * tp2_rr : disp_entry - disp_sl_dist * tp2_rr)
+float disp_tp3     = trade_active and not na(trade_tp3) ? trade_tp3 : (disp_dir == 1 ? disp_entry + disp_sl_dist * tp3_rr : disp_entry - disp_sl_dist * tp3_rr)
+
+string tp1_txt = str.tostring(disp_tp1, "#.##") + (trade_active and tp1_hit ? " ✓" : "")
+string tp2_txt = str.tostring(disp_tp2, "#.##") + (trade_active and tp2_hit ? " ✓" : "")
+string tp3_txt = str.tostring(disp_tp3, "#.##") + (trade_active and tp3_hit ? " ✓" : "")
+string sl_txt  = str.tostring(disp_sl, "#.##") + (trade_active and trade_sl == trade_entry ? " (BE)" : "")
+
+// Bar confirmed management
+if barstate.isconfirmed
+    // Active trade checks
+    if trade_active
+        // TP1 Hit
+        if not tp1_hit
+            if (trade_dir == 1 and high >= trade_tp1) or (trade_dir == -1 and low <= trade_tp1)
+                tp1_hit := true
+                if enable_be
+                    trade_sl := trade_entry // Break-Even
+
+        // TP2 Hit
+        if not tp2_hit
+            if (trade_dir == 1 and high >= trade_tp2) or (trade_dir == -1 and low <= trade_tp2)
+                tp2_hit := true
+
+        // Phase 4 Trailing Stop
+        if enable_trail and tp1_hit
+            if trade_dir == 1
+                trail_px = high - (atr_val * trail_atr_mult)
+                if trail_px > trade_sl
+                    trade_sl := trail_px
+            else
+                trail_px = low + (atr_val * trail_atr_mult)
+                if trail_px < trade_sl
+                    trade_sl := trail_px
+
+        // Check Exit
+        sl_hit  = (trade_dir == 1 and low <= trade_sl) or (trade_dir == -1 and high >= trade_sl)
+        tp3_hit_now = (trade_dir == 1 and high >= trade_tp3) or (trade_dir == -1 and low <= trade_tp3)
+
+        if sl_hit or tp3_hit_now
+            total_trades := total_trades + 1
+            float r_outcome = 0.0
+            if tp3_hit_now
+                tp3_hit   := true
+                r_outcome := tp3_rr
+                wins_count := wins_count + 1
+            else if tp2_hit
+                r_outcome := 1.5
+                wins_count := wins_count + 1
+            else if tp1_hit
+                r_outcome := 0.5
+                wins_count := wins_count + 1
+            else
+                r_outcome := -1.0
+
+            net_r_gain := net_r_gain + r_outcome
+
+            // Reset
+            trade_entry := na
+            trade_sl    := na
+            trade_tp1   := na
+            trade_tp2   := na
+            trade_tp3   := na
+            trade_dir   := 0
+            tp1_hit     := false
+            tp2_hit     := false
+            tp3_hit     := false
+
+    // Open new trade
+    if not trade_active and (buy_signal or sell_signal)
+        trade_dir    := buy_signal ? 1 : -1
+        trade_entry  := close
+        trade_sl     := buy_signal ? close - calc_sl_dist : close + calc_sl_dist
+        trade_tp1    := buy_signal ? close + calc_sl_dist * tp1_rr : close - calc_sl_dist * tp1_rr
+        trade_tp2    := buy_signal ? close + calc_sl_dist * tp2_rr : close - calc_sl_dist * tp2_rr
+        trade_tp3    := buy_signal ? close + calc_sl_dist * tp3_rr : close - calc_sl_dist * tp3_rr
+        trade_bar    := bar_index
+        tp1_hit      := false
+        tp2_hit      := false
+        tp3_hit      := false
+        trade_setup  := setup_label
+
+// ============================================================
+// ── ON-CHART VISUAL MARKERS (Non-Repainting Signals)
+// ============================================================
+// Main Execution Signals
+plotshape(show_markers and barstate.isconfirmed and buy_signal,  "UPAE Buy Signal",  shape.triangleup,   location.belowbar, color=#22c55e, text="UPAE-BUY", size=size.normal)
+plotshape(show_markers and barstate.isconfirmed and sell_signal, "UPAE Sell Signal", shape.triangledown, location.abovebar, color=#ef4444, text="UPAE-SELL", size=size.normal)
+
+// Individual Strategy Markers
+plotshape(show_markers and barstate.isconfirmed and crt_bull_trigger and not buy_signal, "CRT Reclaim Long", shape.diamond, location.belowbar, color=#8b5cf6, text="CRT", size=size.tiny)
+plotshape(show_markers and barstate.isconfirmed and crt_bear_trigger and not sell_signal, "CRT Reclaim Short", shape.diamond, location.abovebar, color=#8b5cf6, text="CRT", size=size.tiny)
+
+plotshape(show_markers and barstate.isconfirmed and ts_bull_trigger and not buy_signal, "Turtle Soup Long", shape.circle, location.belowbar, color=#f59e0b, text="SOUP", size=size.tiny)
+plotshape(show_markers and barstate.isconfirmed and ts_bear_trigger and not sell_signal, "Turtle Soup Short", shape.circle, location.abovebar, color=#f59e0b, text="SOUP", size=size.tiny)
+
+plotshape(show_markers and barstate.isconfirmed and msnr_bull_trigger and not buy_signal, "MSNR Bounce Long", shape.square, location.belowbar, color=#06b6d4, text="MSNR", size=size.tiny)
+plotshape(show_markers and barstate.isconfirmed and msnr_bear_trigger and not sell_signal, "MSNR Bounce Short", shape.square, location.abovebar, color=#06b6d4, text="MSNR", size=size.tiny)
+
+// EMAs
+plot(ema50,  "EMA 50",  color=color.new(#38bdf8, 40), linewidth=1)
+plot(ema200, "EMA 200", color=color.new(#f59e0b, 40), linewidth=2)
+
+// ============================================================
+// ── PERSISTENT LIVE PROJECTED TARGET LINES (Always Visible)
+// ============================================================
+var line live_ln_entry = na
+var line live_ln_sl    = na
+var line live_ln_tp1   = na
+var line live_ln_tp2   = na
+var line live_ln_tp3   = na
+
+var label live_lbl_entry = na
+var label live_lbl_sl    = na
+var label live_lbl_tp1   = na
+var label live_lbl_tp2   = na
+var label live_lbl_tp3   = na
+
+if show_live_lines and barstate.islast
+    if not na(live_ln_entry)
+        line.delete(live_ln_entry)
+    if not na(live_ln_sl)
+        line.delete(live_ln_sl)
+    if not na(live_ln_tp1)
+        line.delete(live_ln_tp1)
+    if not na(live_ln_tp2)
+        line.delete(live_ln_tp2)
+    if not na(live_ln_tp3)
+        line.delete(live_ln_tp3)
+
+    if not na(live_lbl_entry)
+        label.delete(live_lbl_entry)
+    if not na(live_lbl_sl)
+        label.delete(live_lbl_sl)
+    if not na(live_lbl_tp1)
+        label.delete(live_lbl_tp1)
+    if not na(live_lbl_tp2)
+        label.delete(live_lbl_tp2)
+    if not na(live_lbl_tp3)
+        label.delete(live_lbl_tp3)
+
+    lx1 = bar_index - 8
+    lx2 = bar_index + 16
+
+    live_ln_entry := line.new(lx1, disp_entry, lx2, disp_entry, color=#3b82f6, width=1, style=line.style_solid)
+    live_ln_sl    := line.new(lx1, disp_sl, lx2, disp_sl, color=#ef4444, width=1, style=line.style_dashed)
+    live_ln_tp1   := line.new(lx1, disp_tp1, lx2, disp_tp1, color=#22c55e, width=1, style=line.style_dotted)
+    live_ln_tp2   := line.new(lx1, disp_tp2, lx2, disp_tp2, color=#22c55e, width=2, style=line.style_dashed)
+    live_ln_tp3   := line.new(lx1, disp_tp3, lx2, disp_tp3, color=#10b981, width=2, style=line.style_solid)
+
+    live_lbl_entry := label.new(lx2, disp_entry, (trade_active ? "ENTRY " : "PROJ ENTRY ") + str.tostring(disp_entry, "#.##"), xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(#3b82f6, 10), textcolor=color.white, size=size.tiny)
+    live_lbl_sl    := label.new(lx2, disp_sl, (trade_active ? "⛔ SL " : "⛔ PROJ SL ") + sl_txt, xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(#ef4444, 10), textcolor=color.white, size=size.tiny)
+    live_lbl_tp1   := label.new(lx2, disp_tp1, "🎯 TP1 " + tp1_txt, xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(#22c55e, 10), textcolor=color.white, size=size.tiny)
+    live_lbl_tp2   := label.new(lx2, disp_tp2, "🎯 TP2 " + tp2_txt, xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(#22c55e, 10), textcolor=color.white, size=size.tiny)
+    live_lbl_tp3   := label.new(lx2, disp_tp3, "🎯 TP3 " + tp3_txt, xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(#10b981, 10), textcolor=color.white, size=size.tiny)
+
+// ============================================================
+// ── MODULE 7: HUD DASHBOARD TELEMETRY
+// ============================================================
+tbl_pos = hud_pos == "Top Right" ? position.top_right : hud_pos == "Top Left" ? position.top_left : hud_pos == "Bottom Right" ? position.bottom_right : position.bottom_left
+
+var table hud_compact = na
+var table hud_full    = na
+
+if barstate.islast
+    if hud_mode == "Compact HUD (10 Rows)"
+        if not na(hud_full)
+            table.delete(hud_full)
+            hud_full := na
+        if na(hud_compact)
+            hud_compact := table.new(tbl_pos, 4, 10, bgcolor=color.new(#0d1117, 10), border_color=color.new(#334155, 0), border_width=1, frame_color=color.new(#8b5cf6, 0), frame_width=1)
+            table.merge_cells(hud_compact, 0, 0, 1, 0)
+            table.merge_cells(hud_compact, 2, 0, 3, 0)
+            table.merge_cells(hud_compact, 0, 7, 3, 7)
+    else if hud_mode == "Full Analytics (28 Rows)"
+        if not na(hud_compact)
+            table.delete(hud_compact)
+            hud_compact := na
+        if na(hud_full)
+            hud_full := table.new(tbl_pos, 4, 28, bgcolor=color.new(#0d1117, 10), border_color=color.new(#334155, 0), border_width=1, frame_color=color.new(#8b5cf6, 0), frame_width=1)
+            table.merge_cells(hud_full, 0, 0, 1, 0)
+            table.merge_cells(hud_full, 2, 0, 3, 0)
+            table.merge_cells(hud_full, 0, 1, 3, 1)
+            table.merge_cells(hud_full, 0, 7, 3, 7)
+            table.merge_cells(hud_full, 0, 14, 3, 14)
+            table.merge_cells(hud_full, 0, 20, 3, 20)
+    else
+        if not na(hud_compact)
+            table.delete(hud_compact)
+            hud_compact := na
+        if not na(hud_full)
+            table.delete(hud_full)
+            hud_full := na
+
+if hud_mode != "Hidden" and barstate.islast
+    c_hdr   = color.new(#2e1065, 0)
+    c_sub   = color.new(#1e1b4b, 0)
+    c_txt   = color.white
+    c_green = #22c55e
+    c_red   = #ef4444
+    c_blue  = #3b82f6
+    c_purp  = #a855f7
+    c_gold  = #f59e0b
+
+    sig_col = trade_active ? (trade_dir == 1 ? c_green : c_red) : (buy_signal ? c_green : sell_signal ? c_red : color.gray)
+    sig_str = trade_active ? (trade_dir == 1 ? "▲ ACTIVE BUY" : "▼ ACTIVE SELL") : (buy_signal ? "▲ BUY SIGNAL" : sell_signal ? "▼ SELL SIGNAL" : "SCANNING")
+
+    if hud_mode == "Compact HUD (10 Rows)"
+        table.cell(hud_compact, 0, 0, "⚡ UNIFIED PRICE ACTION", text_color=c_purp, text_size=size.small, bgcolor=c_hdr, text_halign="center")
+        table.cell(hud_compact, 2, 0, "CRT • SOUP • MSNR", text_color=color.new(c_purp, 30), text_size=size.tiny, bgcolor=c_hdr, text_halign="center")
+
+        table.cell(hud_compact, 0, 1, "  QT Phase", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 1, 1, qt_phase + "  ", text_color=c_gold, text_size=size.tiny, text_halign="right")
+        table.cell(hud_compact, 2, 1, "  Confluence", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 3, 1, str.tostring(active_conf) + " / 100  ", text_color=active_conf >= min_conf_score ? c_green : c_gold, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_compact, 0, 2, "  Signal", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 1, 2, sig_str + "  ", text_color=sig_col, text_size=size.tiny, text_halign="right")
+        table.cell(hud_compact, 2, 2, "  Setup Model", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 3, 2, (trade_active ? trade_setup : setup_label) + "  ", text_color=c_purp, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_compact, 0, 3, "  CRT Status", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 1, 3, crt_status + "  ", text_color=crt_swept_low ? c_green : crt_swept_high ? c_red : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud_compact, 2, 3, "  CRT 50% Mid", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 3, 3, (not na(crt_mid) ? str.tostring(crt_mid, "#.##") : "--") + "  ", text_color=c_purp, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_compact, 0, 4, "  Turtle Soup", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 1, 4, (ts_bull_trigger ? "BULL SWEEP" : ts_bear_trigger ? "BEAR SWEEP" : "IN RANGE") + "  ", text_color=(ts_bull_trigger or ts_bear_trigger) ? c_gold : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud_compact, 2, 4, "  MSNR Level", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 3, 4, (msnr_bull_trigger ? "SUP BOUNCE" : msnr_bear_trigger ? "RES BOUNCE" : "NEUTRAL") + "  ", text_color=(msnr_bull_trigger or msnr_bear_trigger) ? c_blue : color.gray, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_compact, 0, 5, "  Macro Bias", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 1, 5, (bull_macro ? "BULLISH 200" : bear_macro ? "BEARISH 200" : "TRANSITION") + "  ", text_color=bull_macro ? c_green : bear_macro ? c_red : c_gold, text_size=size.tiny, text_halign="right")
+        table.cell(hud_compact, 2, 5, "  Sized Lots", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 3, 5, str.tostring(curr_lots, "#.##") + " Lots  ", text_color=c_txt, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_compact, 0, 6, "  Win Rate", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        wr = total_trades > 0 ? (float(wins_count) / float(total_trades)) * 100.0 : 0.0
+        table.cell(hud_compact, 1, 6, str.tostring(total_trades) + " trades (" + str.tostring(wr, "#.#") + "%)  ", text_color=wr >= 50 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud_compact, 2, 6, "  Net R Gain", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 3, 6, str.tostring(net_r_gain, "#.##") + " R  ", text_color=net_r_gain >= 0 ? c_green : c_red, text_size=size.tiny, text_halign="right")
+
+        // Rows 7-9: Execution Targets
+        table.cell(hud_compact, 0, 7, "🎯 MULTI-ENGINE TARGETS (1.2R / 2.5R / 4.0R)", text_color=color.white, text_size=size.tiny, bgcolor=c_sub, text_halign="center")
+
+        table.cell(hud_compact, 0, 8, "  TP1 (1.2R Safety)", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 1, 8, tp1_txt + "  ", text_color=c_green, text_size=size.tiny, text_halign="right")
+        table.cell(hud_compact, 2, 8, "  TP2 (2.5R CRT)", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 3, 8, tp2_txt + "  ", text_color=c_green, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_compact, 0, 9, "  TP3 (4.0R Runner)", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 1, 9, tp3_txt + "  ", text_color=#10b981, text_size=size.tiny, text_halign="right")
+        table.cell(hud_compact, 2, 9, "  Stop Loss", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 3, 9, sl_txt + "  ", text_color=c_red, text_size=size.tiny, text_halign="right")
+
+    else if hud_mode == "Full Analytics (28 Rows)"
+        table.cell(hud_full, 0, 0, "⚡ UNIFIED PRICE ACTION OPERATING SYSTEM", text_color=c_purp, text_size=size.small, bgcolor=c_hdr, text_halign="center")
+        table.cell(hud_full, 2, 0, "CYCLE: " + qt_timeframe, text_color=color.new(c_purp, 30), text_size=size.tiny, bgcolor=c_hdr, text_halign="center")
+
+        table.cell(hud_full, 0, 1, "── TIME CYCLES & CONTEXT (QT / AMD) ──", text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="center")
+        table.cell(hud_full, 0, 2, "  QT Phase", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 2, qt_phase + "  ", text_color=c_gold, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 2, "  QT Alignment", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 2, (qt_favorable ? "FAVORABLE [HIGH PROB]" : "RESTRICTED") + "  ", text_color=qt_favorable ? c_green : c_red, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 3, "  Macro Trend 200", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 3, (bull_macro ? "BULLISH" : bear_macro ? "BEARISH" : "MIXED") + "  ", text_color=bull_macro ? c_green : bear_macro ? c_red : c_gold, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 3, "  Intermediate 50", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 3, (close > ema50 ? "ABOVE 50" : "BELOW 50") + "  ", text_color=close > ema50 ? c_green : c_red, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 4, "  Confluence Score", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 4, str.tostring(active_conf) + " / 100  ", text_color=active_conf >= min_conf_score ? c_green : c_gold, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 4, "  Threshold Gate", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 4, "Min " + str.tostring(min_conf_score) + " pts  ", text_color=c_txt, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 5, "  Active Signal", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 5, sig_str + "  ", text_color=sig_col, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 5, "  Setup Model", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 5, (trade_active ? trade_setup : setup_label) + "  ", text_color=c_purp, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 6, "  Average True Range", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 6, str.tostring(atr_val, "#.####") + "  ", text_color=c_txt, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 6, "  Candle Body %", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 6, str.tostring(candle_range > 0 ? (candle_body / candle_range) * 100 : 0, "#") + "%  ", text_color=c_txt, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 7, "── CANDLE RANGE THEORY (CRT) ──", text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="center")
+        table.cell(hud_full, 0, 8, "  CRT Timeframe", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 8, crt_res + " Reference  ", text_color=c_purp, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 8, "  CRT Status", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 8, crt_status + "  ", text_color=crt_swept_low ? c_green : crt_swept_high ? c_red : color.gray, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 9, "  CRT Range High", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 9, (not na(crt_high) ? str.tostring(crt_high, "#.##") : "--") + "  ", text_color=c_red, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 9, "  CRT Range Low", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 9, (not na(crt_low) ? str.tostring(crt_low, "#.##") : "--") + "  ", text_color=c_green, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 10, "  CRT Mid Equilibrium", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 10, (not na(crt_mid) ? str.tostring(crt_mid, "#.##") : "--") + "  ", text_color=c_purp, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 10, "  CRT Reclaim Trigger", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 10, (crt_bull_trigger ? "BULL RECLAIM" : crt_bear_trigger ? "BEAR RECLAIM" : "NONE") + "  ", text_color=(crt_bull_trigger or crt_bear_trigger) ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 11, "── TURTLE SOUP & LIQUIDITY SWEEPS ──", text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="center")
+        table.cell(hud_full, 0, 12, "  20-Bar High", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 12, str.tostring(ts_hi, "#.##") + "  ", text_color=c_red, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 12, "  20-Bar Low", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 12, str.tostring(ts_lo, "#.##") + "  ", text_color=c_green, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 13, "  Soup Trigger", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 13, (ts_bull_trigger ? "BULL SOUP" : ts_bear_trigger ? "BEAR SOUP" : "STANDBY") + "  ", text_color=(ts_bull_trigger or ts_bear_trigger) ? c_gold : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 13, "  Sweep Wick Ratio", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 13, str.tostring(candle_range > 0 ? (math.max(upper_wick, lower_wick) / candle_range) * 100 : 0, "#") + "%  ", text_color=c_gold, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 14, "── MALAYSIAN SNR (MSNR) ──", text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="center")
+        table.cell(hud_full, 0, 15, "  MSNR Support", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 15, (not na(msnr_sup_px) ? str.tostring(msnr_sup_px, "#.##") : "--") + "  ", text_color=c_green, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 15, "  MSNR Resistance", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 15, (not na(msnr_res_px) ? str.tostring(msnr_res_px, "#.##") : "--") + "  ", text_color=c_red, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 16, "  MSNR Retest Trigger", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 16, (msnr_bull_trigger ? "SUP BOUNCE" : msnr_bear_trigger ? "RES BOUNCE" : "NONE") + "  ", text_color=(msnr_bull_trigger or msnr_bear_trigger) ? c_blue : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 16, "  Engulfing Anchor", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 16, (bull_engulf ? "BULL ENGULF" : bear_engulf ? "BEAR ENGULF" : "CONFIRMED") + "  ", text_color=(bull_engulf or bear_engulf) ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 17, "── POSITION SIZING & RISK MANAGEMENT ──", text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="center")
+        table.cell(hud_full, 0, 18, "  Dynamic Lot Sizing", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 18, str.tostring(curr_lots, "#.##") + " Lots  ", text_color=c_txt, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 18, "  Risk Capital", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 18, "$" + str.tostring(acct_size * (risk_pct / 100.0), "#.##") + "  ", text_color=c_txt, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 19, "  Stop Loss Mode", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 19, sl_mode + "  ", text_color=c_red, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 19, "  BE Trigger", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 19, (enable_be ? "AT TP1 [1.2R]" : "MANUAL") + "  ", text_color=c_green, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 20, "── EXECUTION TARGETS (1.2R / 2.5R / 4.0R) ──", text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="center")
+        table.cell(hud_full, 0, 21, "  Target TP1 (1.2R)", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 21, tp1_txt + "  ", text_color=c_green, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 21, "  Target TP2 (2.5R)", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 21, tp2_txt + "  ", text_color=c_green, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 22, "  Target TP3 (4.0R)", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 22, tp3_txt + "  ", text_color=#10b981, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 22, "  Stop Loss", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 22, sl_txt + "  ", text_color=c_red, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 23, "  Trailing Mode", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 23, (enable_trail ? "ADAPTIVE ATR (" + str.tostring(trail_atr_mult, "#.#") + "x)" : "DISABLED") + "  ", text_color=c_blue, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 23, "  Entry Price", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 23, str.tostring(disp_entry, "#.##") + "  ", text_color=c_blue, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 24, "── PERFORMANCE & STRATEGY STATS ──", text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="center")
+        wr_full = total_trades > 0 ? (float(wins_count) / float(total_trades)) * 100.0 : 0.0
+        table.cell(hud_full, 0, 25, "  Total Closed Trades", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 25, str.tostring(total_trades) + "  ", text_color=c_txt, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 25, "  Win Rate", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 25, str.tostring(wr_full, "#.1") + "%  ", text_color=wr_full >= 50 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 26, "  Net Realized R", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 26, str.tostring(net_r_gain, "#.##") + " R  ", text_color=net_r_gain >= 0 ? c_green : c_red, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 26, "  Engine Model", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 26, "CRT + TS + MSNR  ", text_color=c_purp, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 27, "  System Version", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 27, "v1.00 [Pine Script v6]  ", text_color=c_purp, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 27, "  Execution Standard", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 27, "Zero-Repaint Confirmed  ", text_color=c_green, text_size=size.tiny, text_halign="right")
+
+// ============================================================
+// ── TRADINGVIEW ALERT CONDITIONS
+// ============================================================
+alertcondition(buy_signal,
+     "🚀 UPAE: BUY Signal Triggered",
+     "Unified Price Action Engine: BUY entry triggered on {{ticker}} {{interval}} at price {{close}}.")
+
+alertcondition(sell_signal,
+     "🔻 UPAE: SELL Signal Triggered",
+     "Unified Price Action Engine: SELL entry triggered on {{ticker}} {{interval}} at price {{close}}.")
+
+alertcondition(crt_bull_trigger or crt_bear_trigger,
+     "🎯 UPAE: CRT Range Reclaim Detected",
+     "Unified Price Action Engine: Candle Range Theory (CRT) boundary sweep and reclaim detected on {{ticker}} {{interval}}.")
+
+alertcondition(ts_bull_trigger or ts_bear_trigger,
+     "🥣 UPAE: Turtle Soup Failed Breakout",
+     "Unified Price Action Engine: Turtle Soup liquidity sweep and reversal detected on {{ticker}} {{interval}}.")

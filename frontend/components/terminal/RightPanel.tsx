@@ -16,7 +16,7 @@ interface WidgetHeaderProps {
 function WidgetHeader({ title, right }: WidgetHeaderProps) {
   return (
     <div className="flex items-center justify-between px-2 h-7 bg-zinc-900 border-b border-zinc-800 shrink-0">
-      <span className="text-[10px] font-bold tracking-[0.18em] uppercase text-amber-500">
+      <span className="text-[10px] font-bold tracking-[0.18em] uppercase text-zinc-300">
         {title}
       </span>
       {right}
@@ -48,7 +48,7 @@ function OpenPositions({ data, onNewOrder, onChanged }: OpenPositionsProps) {
           <button
             data-testid="new-order-from-positions"
             onClick={onNewOrder}
-            className="text-[10px] uppercase tracking-widest text-amber-500 hover:text-amber-300"
+            className="text-[10px] uppercase tracking-widest text-zinc-400 hover:text-white transition-colors"
           >
             + Order
           </button>

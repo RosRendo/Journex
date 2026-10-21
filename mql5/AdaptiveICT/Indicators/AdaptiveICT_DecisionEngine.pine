@@ -1,5 +1,21 @@
 // ============================================================
 // AdaptiveICT Decision Engine | Pine Script v5
+// Version: 2.10 (Volume Profile POC & Institutional Confluence)
+// ============================================================
+// A professional-grade market intelligence dashboard.
+// NOT a simple signal indicator — it explains WHY a trade exists.
+//
+// Changelog v2.10 (2026-09-28):
+//   - US1: Developing Daily Volume Profile (20 dynamic bins, POC, 70% VAH/VAL)
+//   - US1: Virgin POC (vPOC) Forward Projection & Touch Termination (max 3)
+//   - US1: Market Profile 80% Rule Rotation state machine & alerts
+//   - US2: Asian Session Range (00:00–08:00 UTC) High/Low reference mapping
+//   - US2: London Judas Swing Liquidity Sweep detector & visual markers
+//   - US2: New York Midnight Open (00:00 EST / 04:00 UTC) True Day Open benchmark
+//   - US3: Cumulative Volume Delta (CVD) calculation & delta absorption at POC
+//   - US4: Multi-Asset SMT Divergence Radar (XAUUSD vs XAGUSD / EURUSD vs DXY)
+//   - Confluence Scorecard: +10 Institutional bonus points integration
+//   - Drawing object lifecycle GC ensuring < 100 active lines & labels
 // ============================================================
 // A professional-grade market intelligence dashboard.
 // NOT a simple signal indicator — it explains WHY a trade exists.
@@ -14,8 +30,7 @@
 //   7. Dashboard Panel       (Large HUD table overlay)
 // ============================================================
 //@version=5
-indicator("AdaptiveICT Decision Engine", shorttitle="AICT-DE", overlay=true,
-     max_lines_count=200, max_labels_count=200, max_boxes_count=100)
+indicator("AdaptiveICT Decision Engine", shorttitle="AICT-DE", overlay=true, max_lines_count=200, max_labels_count=200, max_boxes_count=100)
 
 // ============================================================
 // ── INPUTS
@@ -31,8 +46,7 @@ var string G_NEWS  = "News / Calendar Filter"
 var string G_EXEC  = "Execution & Trade"
 var string G_DISP  = "Display Settings"
 
-mode       = input.string("Momentum Scalper", "Trading Mode",
-             options=["Momentum Scalper", "ICT Swing / Sniper"], group=G_MODE)
+mode       = input.string("MQL5 Engine Parity (v0.50)", "Trading Mode", options=["MQL5 Engine Parity (v0.50)", "Momentum Scalper", "ICT Swing / Sniper"], group=G_MODE)
 min_score  = input.int(75, "Minimum Decision Score", minval=50, maxval=100, group=G_MODE)
 
 mom_lookback = input.int(5,  "Momentum Lookback Bars", minval=2, maxval=20, group=G_MOM)
@@ -50,9 +64,9 @@ fvg_min_size = input.float(0.0002, "Min FVG Size",    minval=0.0001, group=G_ICT
 eqh_tol      = input.float(0.001,  "EQH/EQL Tolerance", minval=0.0001, group=G_ICT)
 
 sl_atr_mult  = input.float(2.0, "Stop Loss ATR Multiple", minval=0.5, step=0.25, group=G_EXEC)
-tp1_rr       = input.float(1.0, "TP1 Target RR", minval=0.5, step=0.25, group=G_EXEC)
-tp2_rr       = input.float(2.0, "TP2 Target RR", minval=1.0, step=0.25, group=G_EXEC)
-tp3_rr       = input.float(3.0, "TP3 Target RR (Runner)", minval=1.5, step=0.25, group=G_EXEC)
+tp1_rr       = input.float(1.2, "TP1 Target RR (Safety & BE)", minval=0.5, step=0.1, group=G_EXEC)
+tp2_rr       = input.float(2.5, "TP2 Target RR (Structural)", minval=1.0, step=0.1, group=G_EXEC)
+tp3_rr       = input.float(4.0, "TP3 Target RR (Expansion Runner)", minval=1.5, step=0.1, group=G_EXEC)
 enable_be    = input.bool(true, "Move SL to Break-Even on TP1 Hit", group=G_EXEC)
 enable_trail = input.bool(true, "Enable Trailing Stop on Structure", group=G_EXEC)
 reset_stats  = input.bool(false, "Reset Performance Analytics", group=G_EXEC)
@@ -92,6 +106,16 @@ show_obs     = input.bool(true, "Show Order Block Zones", group=G_SMC_VIZ)
 show_sweeps  = input.bool(true, "Show Liquidity sweeps", group=G_SMC_VIZ)
 show_vprof   = input.bool(false, "Show Volume Profile POC/VAH/VAL", group=G_SMC_VIZ)
 
+// === Volume Profile & Institutional Benchmarks === (T003)
+var string G_VP_INST    = "=== Volume Profile & Institutional Benchmarks ==="
+show_session_vp     = input.bool(true, "Show Daily Developing Volume Profile (POC/VAH/VAL)", group=G_VP_INST)
+show_vpoc           = input.bool(true, "Show Virgin POC (vPOC) Projections", group=G_VP_INST)
+show_asian_range    = input.bool(true, "Show Asian Range & Judas Swings", group=G_VP_INST)
+show_midnight_open  = input.bool(true, "Show NY Midnight True Open Benchmark", group=G_VP_INST)
+show_cvd_divergence = input.bool(true, "Show Order Flow CVD Delta Absorption", group=G_VP_INST)
+show_smt_radar      = input.bool(true, "Show Multi-Asset SMT Divergence Radar", group=G_VP_INST)
+smt_symbol          = input.symbol("PEPPERSTONE:XAGUSD", "SMT Benchmark Correlated Symbol", group=G_VP_INST)
+
 // Risk Manager Inputs
 G_RISK_MGR   = "Dynamic Risk & Position Sizer"
 acct_size    = input.float(10000.0, "Account Balance ($)", minval=100.0, step=100.0, group=G_RISK_MGR)
@@ -99,11 +123,19 @@ risk_pct     = input.float(1.0, "Risk Percentage (%)", minval=0.1, maxval=10.0, 
 sl_mode      = input.string("ATR Multiple", "Stop Loss Mode", options=["ATR Multiple", "Structure Pivot"], group=G_RISK_MGR)
 
 show_hud   = input.bool(true, "Show Dashboard Panel", group=G_DISP)
-hud_mode   = input.string("Compact", "Dashboard Size", options=["Compact", "Full (34 Rows)", "Hidden"], group=G_DISP)
-hud_pos    = input.string("Top Right", "Dashboard Position",
-             options=["Top Right","Top Left","Bottom Right","Bottom Left"], group=G_DISP)
+hud_mode   = input.string("Compact (11 Rows)", "Dashboard Size", options=["Compact (11 Rows)", "Full (34 Rows)", "Hidden"], group=G_DISP)
+hud_pos    = input.string("Top Right", "Dashboard Position", options=["Top Right","Top Left","Bottom Right","Bottom Left"], group=G_DISP)
 hud_bg     = input.color(color.new(#0d1117, 10),   "HUD Background", group=G_DISP)
 hud_txt    = input.color(color.new(color.white, 10), "HUD Text Color", group=G_DISP)
+
+// ============================================================
+// ── HELPER: NON-REPAINTING HTF SECURITY WRAPPER (T003)
+// ============================================================
+f_security_nonrepaint(res, expr) =>
+    request.security(syminfo.tickerid, res, expr[1], barmerge.gaps_off, barmerge.lookahead_on)
+
+f_security_symbol_nonrepaint(sym, res, expr) =>
+    request.security(sym, res, expr[1], barmerge.gaps_off, barmerge.lookahead_on)
 
 // ============================================================
 // ── MODULE 1: MOMENTUM ENGINE
@@ -172,25 +204,25 @@ detectRegime() =>
     string regime = "RANGING"
     int    conf   = 60
 
-    if atr_pct < 0.0003
-        regime := "LOW VOLATILITY"
+    if atr_pct < 0.0003 or atr_pct > 0.0025
+        regime := "HIGH_VOLATILITY"
         conf   := 85
     else if adx_v > 40
-        regime := close > ema_s ? "TRENDING BULL" : "TRENDING BEAR"
+        regime := close > ema_s ? "TRENDING_BULLISH" : "TRENDING_BEARISH"
         conf   := int(math.min(95.0, 70.0 + (adx_v - adx_trend) * 0.8))
     else if adx_v > adx_trend
         near_hi = close > recent_hi * 0.998
         near_lo = close < recent_lo * 1.002
         if near_hi or near_lo
-            regime := "BREAKOUT"
+            regime := "TRANSITION"
             conf   := 78
         else
-            regime := close > ema_s ? "TRENDING BULL" : "TRENDING BEAR"
+            regime := close > ema_s ? "TRENDING_BULLISH" : "TRENDING_BEARISH"
             conf   := int(60.0 + adx_v)
     else
         rsi_v  = rsi_val
         if rsi_v > 68 or rsi_v < 32
-            regime := "REVERSAL"
+            regime := "TRANSITION"
             conf   := 72
         else
             regime := "RANGING"
@@ -278,8 +310,7 @@ detectStructure() =>
         else if is_lh and is_hl
             struct_lbl := "CHOCH BEAR"
 
-    bias_int = (struct_lbl == "BULLISH" or struct_lbl == "CHOCH BULL") ? 1 :
-               (struct_lbl == "BEARISH" or struct_lbl == "CHOCH BEAR") ? -1 : 0
+    bias_int = (struct_lbl == "BULLISH" or struct_lbl == "CHOCH BULL") ? 1 : (struct_lbl == "BEARISH" or struct_lbl == "CHOCH BEAR") ? -1 : 0
 
     // Capture the current values for return (so the outer scope gets the valid level on the breakout bar)
     float ret_ph1 = ph1
@@ -300,8 +331,8 @@ detectStructure() =>
 // ── Purpose: Equal Highs/Lows, PDH/PDL, sweep events.
 // ============================================================
 detectLiquidity() =>
-    pdh = request.security(syminfo.tickerid, "D", high[1], barmerge.gaps_off, barmerge.lookahead_off)
-    pdl = request.security(syminfo.tickerid, "D", low[1],  barmerge.gaps_off, barmerge.lookahead_off)
+    pdh = request.security(syminfo.tickerid, "D", high[1], barmerge.gaps_off, barmerge.lookahead_on)
+    pdl = request.security(syminfo.tickerid, "D", low[1],  barmerge.gaps_off, barmerge.lookahead_on)
 
     recent_hi = ta.highest(high, ict_lookback)
     prev_hi   = ta.highest(high[1], ict_lookback)
@@ -314,8 +345,7 @@ detectLiquidity() =>
     bull_sweep = low < pdl and close > pdl
     bear_sweep = high > pdh and close < pdh
 
-    liq_lbl    = eqh ? "EQH Detected" : eql ? "EQL Detected" :
-                 bull_sweep ? "SSL Swept" : bear_sweep ? "BSL Swept" : "None"
+    liq_lbl    = eqh ? "EQH Detected" : eql ? "EQL Detected" : bull_sweep ? "SSL Swept" : bear_sweep ? "BSL Swept" : "None"
     liq_active = eqh or eql or bull_sweep or bear_sweep
 
     [liq_active, liq_lbl, bull_sweep, bear_sweep, pdh, pdl]
@@ -356,22 +386,19 @@ getPD() =>
 // ── MODULE 8: MULTI-TIMEFRAME ALIGNMENT ENGINE
 // ── Purpose: Gather HTF trend and structural bias to build confluence.
 // ============================================================
-// Compute slow EMA series on current timeframe first to request it
-ema_slow_series = ta.ema(close, ema_slow_len)
-
-// HTF 1 (e.g. 4H) - non-repainting
-htf1_close = request.security(syminfo.tickerid, htf1_res, close, barmerge.gaps_off, barmerge.lookahead_off)
-htf1_ema   = request.security(syminfo.tickerid, htf1_res, ema_slow_series, barmerge.gaps_off, barmerge.lookahead_off)
+// HTF 1 (e.g. 4H) - Strictly non-repainting with native HTF EMA (T006 & T007)
+htf1_close = f_security_nonrepaint(htf1_res, close)
+htf1_ema   = request.security(syminfo.tickerid, htf1_res, ta.ema(close, ema_slow_len)[1], barmerge.gaps_off, barmerge.lookahead_on)
 htf1_bias  = htf1_close > htf1_ema ? 1 : -1
 
-// HTF 2 (e.g. 1H) - non-repainting
-htf2_close = request.security(syminfo.tickerid, htf2_res, close, barmerge.gaps_off, barmerge.lookahead_off)
-htf2_ema   = request.security(syminfo.tickerid, htf2_res, ema_slow_series, barmerge.gaps_off, barmerge.lookahead_off)
+// HTF 2 (e.g. 1H) - Strictly non-repainting with native HTF EMA (T006 & T007)
+htf2_close = f_security_nonrepaint(htf2_res, close)
+htf2_ema   = request.security(syminfo.tickerid, htf2_res, ta.ema(close, ema_slow_len)[1], barmerge.gaps_off, barmerge.lookahead_on)
 htf2_bias  = htf2_close > htf2_ema ? 1 : -1
 
-// HTF 3 (e.g. 15M) - non-repainting
-htf3_close = request.security(syminfo.tickerid, htf3_res, close, barmerge.gaps_off, barmerge.lookahead_off)
-htf3_ema   = request.security(syminfo.tickerid, htf3_res, ema_slow_series, barmerge.gaps_off, barmerge.lookahead_off)
+// HTF 3 (e.g. 15M) - Strictly non-repainting with native HTF EMA (T006 & T007)
+htf3_close = f_security_nonrepaint(htf3_res, close)
+htf3_ema   = request.security(syminfo.tickerid, htf3_res, ta.ema(close, ema_slow_len)[1], barmerge.gaps_off, barmerge.lookahead_on)
 htf3_bias  = htf3_close > htf3_ema ? 1 : -1
 
 calcMTF() =>
@@ -517,30 +544,35 @@ checkNewsGating() =>
 // ── MODULE 1.5: VOLUME PROFILE (POC / VAH / VAL)
 // ── Purpose: Estimate point of control and value area bounds.
 // ============================================================
-calcVolumeProfile(lookback_len) =>
-    hi_price = ta.highest(high, lookback_len)
-    lo_price = ta.lowest(low, lookback_len)
-    bin_size = (hi_price - lo_price) / 15.0 // 15 bins
-    bin_vols = array.new_float(15, 0.0)
+// T004 & T005: 20-bin Session Volume Profile with 70% Value Area
+calcSessionVolumeProfile(lookback_len) =>
+    lb = math.max(1, lookback_len)
+    hi_price = high
+    lo_price = low
+    for i = 0 to lb - 1
+        hi_price := math.max(hi_price, high[i])
+        lo_price := math.min(lo_price, low[i])
+    bin_size = (hi_price - lo_price) / 20.0 // bin_count: fixed at 20 bins per daily range
+    bin_vols = array.new_float(20, 0.0)
     
-    for i = 0 to lookback_len - 1
+    for i = 0 to lb - 1
         bar_close = close[i]
         bar_vol   = na(volume[i]) ? 0.0 : volume[i]
         if bin_size > 0
-            bin_index = math.min(14, math.max(0, math.floor((bar_close - lo_price) / bin_size)))
+            bin_index = math.min(19, math.max(0, math.floor((bar_close - lo_price) / bin_size)))
             array.set(bin_vols, bin_index, array.get(bin_vols, bin_index) + bar_vol)
             
     max_vol = -1.0
     poc_index = 0
     total_vol = 0.0
-    for j = 0 to 14
+    for j = 0 to 19
         v = array.get(bin_vols, j)
         total_vol := total_vol + v
         if v > max_vol
             max_vol := v
             poc_index := j
             
-    poc_price = lo_price + (poc_index + 0.5) * bin_size
+    poc_price = bin_size > 0 ? lo_price + (poc_index + 0.5) * bin_size : close
     
     // Accumulate 70% of total volume for Value Area
     double_va_target = total_vol * 0.70
@@ -548,27 +580,27 @@ calcVolumeProfile(lookback_len) =>
     left_idx = poc_index
     right_idx = poc_index
     
-    for k = 1 to 14
+    for k = 1 to 19
         if accum_vol >= double_va_target
             break
         left_val  = left_idx > 0 ? array.get(bin_vols, left_idx - 1) : 0.0
-        right_val = right_idx < 14 ? array.get(bin_vols, right_idx + 1) : 0.0
+        right_val = right_idx < 19 ? array.get(bin_vols, right_idx + 1) : 0.0
         if left_val >= right_val and left_idx > 0
             left_idx  := left_idx - 1
             accum_vol := accum_vol + left_val
-        else if right_idx < 14
+        else if right_idx < 19
             right_idx := right_idx + 1
             accum_vol := accum_vol + right_val
             
-    vah_price = lo_price + (right_idx + 1) * bin_size
-    val_price = lo_price + left_idx * bin_size
+    vah_price = bin_size > 0 ? lo_price + (right_idx + 1) * bin_size : close
+    val_price = bin_size > 0 ? lo_price + left_idx * bin_size : close
     [poc_price, vah_price, val_price]
 
 // ============================================================
 // ── MODULE 5: DECISION SCORING ENGINE (AI Explanation Layer)
 // ── Purpose: Weighted multi-factor confluence score (0-100).
 // ============================================================
-calcDecisionScore(m_s, v_s, regime, bias, struct_bias, liq, fvg, ob, pd_zone, mtf_sc, sess_bst, of_sc, news_act, dec_dir) =>
+calcDecisionScore(m_s, v_s, regime, bias, struct_bias, liq, fvg, ob, pd_zone, mtf_sc, sess_bst, of_sc, news_act, dec_dir, vol_rat, inst_bonus) =>
     c_mom    = 0.0
     c_reg    = 0.0
     c_vol    = 0.0
@@ -584,14 +616,40 @@ calcDecisionScore(m_s, v_s, regime, bias, struct_bias, liq, fvg, ob, pd_zone, mt
     s        = 0.0
     
     if not news_act
-        if mode == "Momentum Scalper"
+        if mode == "MQL5 Engine Parity (v0.50)"
+            // T010: Exact 10-Component Matrix matching EntryQualityEngine.mqh (Total = 100 pts)
+            // 1. Structure (20 pts)
+            c_struct := (struct_bias != 0 ? 20.0 : 5.0)
+            // 2. Liquidity (15 pts)
+            c_liq    := (liq ? 15.0 : 3.0)
+            // 3. FVG Imbalance (15 pts)
+            c_fvg    := (fvg ? 15.0 : 3.0)
+            // 4. Displacement / Momentum (10 pts)
+            c_mom    := (m_s >= 65 ? 10.0 : m_s >= 50 ? 5.0 : 0.0)
+            // 5. Session Alignment (10 pts)
+            c_sess   := (sess_bst > 0 ? 10.0 : sess_bst == 0 ? 5.0 : 0.0)
+            // 6. HTF Bias Alignment (10 pts)
+            c_mtf    := (mtf_sc == 100 ? 10.0 : mtf_sc == 50 ? 5.0 : 0.0)
+            // 7. Premium / Discount (10 pts)
+            pd_score = 5.0
+            if dec_dir == 1
+                pd_score := pd_zone == "DISCOUNT" ? 10.0 : pd_zone == "EQUILIBRIUM" ? 5.0 : 1.0
+            else if dec_dir == -1
+                pd_score := pd_zone == "PREMIUM" ? 10.0 : pd_zone == "EQUILIBRIUM" ? 5.0 : 1.0
+            c_pd     := pd_score
+            // 8. Order Flow / CVD (5 pts)
+            c_of     := (of_sc >= 75 ? 5.0 : of_sc >= 50 ? 2.5 : 0.0)
+            // 9. Volume Ratio (3 pts)
+            c_vol    := (vol_rat >= 1.4 ? 3.0 : vol_rat >= 1.0 ? 1.5 : 0.0)
+            // 10. News Clearance (2 pts)
+            c_exec   := (not news_act ? 2.0 : 0.0)
+            
+            s := c_struct + c_liq + c_fvg + c_mom + c_sess + c_mtf + c_pd + c_of + c_vol + c_exec
+        else if mode == "Momentum Scalper"
             // Momentum 25% | Regime 15% | Volatility 10% | Structure 15% | MTF 10% | OF 10% | Session 5% | Exec 10%
             c_mom    := m_s * 0.25
             
-            rp = regime == "TRENDING BULL" or regime == "TRENDING BEAR" ? 100.0 :
-                 regime == "BREAKOUT" ? 85.0 :
-                 regime == "REVERSAL" ? 50.0 :
-                 regime == "LOW VOLATILITY" ? 20.0 : 40.0
+            rp = str.contains(regime, "BULL") or str.contains(regime, "BEAR") ? 100.0 : regime == "TRANSITION" ? 80.0 : regime == "HIGH_VOLATILITY" ? 20.0 : 40.0
             c_reg    := rp * 0.15
             
             c_vol    := v_s * 0.10
@@ -603,7 +661,7 @@ calcDecisionScore(m_s, v_s, regime, bias, struct_bias, liq, fvg, ob, pd_zone, mt
             
             s := c_mom + c_reg + c_vol + c_struct + c_mtf + c_of + c_sess + c_exec + sess_bst
         else
-            // Structure 25% | Liquidity 15% | FVG 10% | OB 10% | Premium/Discount 10% | MTF 10% | OF 10% | Session 5% | Exec 5%
+            // ICT Sniper Mode: Structure 25% | Liquidity 15% | FVG 10% | OB 10% | Premium/Discount 10% | MTF 10% | OF 10% | Session 5% | Exec 5%
             c_struct := (struct_bias != 0 ? 100.0 : 30.0) * 0.25
             c_liq    := (liq ? 100.0 : 25.0)             * 0.15
             c_fvg    := (fvg ? 100.0 : 20.0)             * 0.10
@@ -623,9 +681,13 @@ calcDecisionScore(m_s, v_s, regime, bias, struct_bias, liq, fvg, ob, pd_zone, mt
             
             s := c_struct + c_liq + c_fvg + c_ob + c_pd + c_mtf + c_of + c_sess + c_exec + sess_bst
 
+    // T013 & T022: Institutional Confluence Bonus (max +10 pts)
+    c_inst = math.min(10.0, math.max(0.0, inst_bonus))
+    s := math.min(100.0, s + c_inst)
+
     sc    = int(math.round(math.max(0.0, math.min(100.0, s))))
     grade = sc >= 90 ? "A+" : sc >= 80 ? "A" : sc >= 70 ? "B" : sc >= 60 ? "C" : "F"
-    [sc, grade, c_mom, c_reg, c_vol, c_struct, c_liq, c_fvg, c_ob, c_pd, c_mtf, c_of, c_sess, c_exec]
+    [sc, grade, c_mom, c_reg, c_vol, c_struct, c_liq, c_fvg, c_ob, c_pd, c_mtf, c_of, c_sess, c_exec, c_inst]
 
 // ============================================================
 // ── RUN ALL MODULES (confirmed bars — no repainting)
@@ -645,43 +707,219 @@ calcDecisionScore(m_s, v_s, regime, bias, struct_bias, liq, fvg, ob, pd_zone, mt
 [of_score, of_lbl, delta_pct_v, cvd_val_v]                            = calcOrderFlow()
 [news_active, news_lbl]                                               = checkNewsGating()
 
-// Estimate potential direction before final scorecard
-potential_dir = (struct_bias_v == 1 or bull_sweep_v or bull_fvg_v or bull_ob_v) ? 1 : ((struct_bias_v == -1 or bear_sweep_v or bear_fvg_v or bear_ob_v) ? -1 : 0)
+// ============================================================
+// ── MODULE 12: VOLUME PROFILE & INSTITUTIONAL BENCHMARKS ENGINE
+// ── (US1: Session POC/VAH/VAL, vPOC, 80% Rule | US2: Asian Judas, True Open | US3: CVD Absorpt | US4: SMT)
+// ============================================================
+is_new_day = ta.change(time("D")) != 0
 
-[dec_score, dec_grade, c_mom, c_reg, c_vol, c_struct, c_liq, c_fvg, c_ob, c_pd, c_mtf, c_of, c_sess, c_exec] = calcDecisionScore(mom_s, vol_score, regime_lbl, ema_bias_v, struct_bias_v, liq_active, fvg_active, ob_active, pd_zone, mtf_score, sess_bst, of_score, news_active, potential_dir)
+// 1. Developing Daily Volume Profile (US1 - FR-001)
+var int   day_start_bar  = 0
+var float dev_poc        = na
+var float dev_vah        = na
+var float dev_val        = na
+var float yesterday_poc  = na
+
+// Persistent Virgin POC Tracking Registry (US1 - FR-002, Max 3 vPOCs)
+var float[] virgin_pocs       = array.new_float(0)
+var line[]  virgin_poc_lines  = array.new_line(0)
+var label[] virgin_poc_labels = array.new_label(0)
+
+if is_new_day
+    if not na(dev_poc)
+        yesterday_poc := dev_poc
+        if show_vpoc
+            if array.size(virgin_pocs) >= 3
+                old_l = array.shift(virgin_poc_lines)
+                old_b = array.shift(virgin_poc_labels)
+                array.shift(virgin_pocs)
+                line.delete(old_l)
+                label.delete(old_b)
+            array.push(virgin_pocs, yesterday_poc)
+            vl = line.new(bar_index, yesterday_poc, bar_index + 10, yesterday_poc, extend=extend.right, color=color.new(#f59e0b, 20), width=1, style=line.style_dashed)
+            vlbl = label.new(bar_index, yesterday_poc, "vPOC " + str.tostring(yesterday_poc, "#.##"), xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(color.black, 100), textcolor=#f59e0b, size=size.tiny)
+            array.push(virgin_poc_lines, vl)
+            array.push(virgin_poc_labels, vlbl)
+    day_start_bar := bar_index
+
+cur_day_bars = bar_index - day_start_bar + 1
+[cur_poc, cur_vah, cur_val] = calcSessionVolumeProfile(cur_day_bars)
+dev_poc := cur_poc
+dev_vah := cur_vah
+dev_val := cur_val
+
+// Dynamic Touch-Termination for Virgin POCs (US1 - FR-002: low <= vpoc and high >= vpoc)
+var bool vpoc_touched = false
+vpoc_touched := false
+if show_vpoc and array.size(virgin_pocs) > 0
+    for idx = array.size(virgin_pocs) - 1 to 0
+        vp = array.get(virgin_pocs, idx)
+        if high >= vp and low <= vp
+            vpoc_touched := true
+            cur_l = array.get(virgin_poc_lines, idx)
+            cur_b = array.get(virgin_poc_labels, idx)
+            line.set_x2(cur_l, bar_index)
+            line.set_extend(cur_l, extend.none)
+            label.set_x(cur_b, bar_index)
+            label.set_text(cur_b, "vPOC Mitigated ✖")
+            label.set_textcolor(cur_b, color.gray)
+            array.remove(virgin_pocs, idx)
+            array.remove(virgin_poc_lines, idx)
+            array.remove(virgin_poc_labels, idx)
+
+// Market Profile 80% Rule State Machine (US1 - FR-006: 2 consecutive closes inside Value Area)
+var int  va_reentry_count  = 0
+var bool va_80_rule_active = false
+var int  va_reentry_dir    = 0
+
+if is_new_day
+    va_reentry_count  := 0
+    va_80_rule_active := false
+    va_reentry_dir    := 0
+
+opened_above_va = open[cur_day_bars - 1] > dev_vah
+opened_below_va = open[cur_day_bars - 1] < dev_val
+
+if (opened_above_va or opened_below_va) and not va_80_rule_active
+    inside_va = close <= dev_vah and close >= dev_val
+    if inside_va
+        va_reentry_count += 1
+        if va_reentry_count >= 2
+            va_80_rule_active := true
+            va_reentry_dir    := opened_above_va ? -1 : 1
+    else
+        va_reentry_count := 0
+
+// 2. Institutional Time Benchmarks & Asian Judas Swings (US2 - FR-003, FR-004, FR-005)
+in_asia_session = not na(time(timeframe.period, "0000-0800:1234567", "UTC"))
+var float asia_range_hi  = na
+var float asia_range_lo  = na
+var int   asia_start_idx = na
+
+if is_new_day
+    asia_range_hi  := na
+    asia_range_lo  := na
+    asia_start_idx := na
+
+if in_asia_session
+    if na(asia_start_idx)
+        asia_start_idx := bar_index
+        asia_range_hi  := high
+        asia_range_lo  := low
+    else
+        asia_range_hi  := math.max(asia_range_hi, high)
+        asia_range_lo  := math.min(asia_range_lo, low)
+
+// London Killzone Judas Swing Detection (08:00 - 11:00 UTC)
+in_london_killzone   = not na(time(timeframe.period, "0800-1100:1234567", "UTC"))
+var bool judas_bull_sweep = false
+var bool judas_bear_sweep = false
+judas_bull_sweep := false
+judas_bear_sweep := false
+
+if show_asian_range and in_london_killzone and not na(asia_range_hi) and not na(asia_range_lo)
+    if low < asia_range_lo and close > asia_range_lo
+        judas_bull_sweep := true
+    if high > asia_range_hi and close < asia_range_hi
+        judas_bear_sweep := true
+
+judas_swing_detected = judas_bull_sweep or judas_bear_sweep
+
+// New York Midnight Open Benchmark (00:00 EST / 04:00 UTC) (US2 - FR-004)
+var float ny_midnight_open = na
+is_midnight_candle = hour(time, "America/New_York") == 0 and minute(time, "America/New_York") == 0
+if is_midnight_candle
+    ny_midnight_open := open
+
+is_daily_discount = not na(ny_midnight_open) and close < ny_midnight_open
+is_daily_premium  = not na(ny_midnight_open) and close > ny_midnight_open
+
+// 3. Order Flow CVD Delta Absorption at Volume Nodes (US3 - FR-007)
+dist_to_poc = not na(dev_poc) and dev_poc > 0 ? math.abs(close - dev_poc) / dev_poc : 1.0
+dist_to_val = not na(dev_val) and dev_val > 0 ? math.abs(close - dev_val) / dev_val : 1.0
+dist_to_vah = not na(dev_vah) and dev_vah > 0 ? math.abs(close - dev_vah) / dev_vah : 1.0
+near_vol_node = dist_to_poc < 0.003 or dist_to_val < 0.003 or dist_to_vah < 0.003
+
+bool cvd_bull_absorp = false
+bool cvd_bear_absorp = false
+if show_cvd_divergence and near_vol_node
+    if of_lbl == "Bullish Div"
+        cvd_bull_absorp := true
+    if of_lbl == "Bearish Div"
+        cvd_bear_absorp := true
+
+// 4. Multi-Asset SMT Divergence Radar (US4)
+bench_high = show_smt_radar ? f_security_symbol_nonrepaint(smt_symbol, timeframe.period, high) : na
+bench_low  = show_smt_radar ? f_security_symbol_nonrepaint(smt_symbol, timeframe.period, low)  : na
+
+var bool smt_bull_div = false
+var bool smt_bear_div = false
+smt_bull_div := false
+smt_bear_div := false
+
+if show_smt_radar and not na(bench_high) and not na(bench_low)
+    b_hi = ta.pivothigh(bench_high, 5, 5)
+    b_lo = ta.pivotlow(bench_low, 5, 5)
+    if not na(p_hi) and not na(last_p_hi_val) and (high[5] > last_p_hi_val) and not na(b_hi)
+        if b_hi < ta.highest(bench_high, 20)[5]
+            smt_bear_div := true
+    if not na(p_lo) and not na(last_p_lo_val) and (low[5] < last_p_lo_val) and not na(b_lo)
+        if b_lo > ta.lowest(bench_low, 20)[5]
+            smt_bull_div := true
+
+// 5. Calculate Consolidated Institutional Bonus Points (FR-008, Max +10 pts)
+inst_bonus = 0.0
+if near_vol_node or vpoc_touched
+    inst_bonus += 5.0
+if judas_swing_detected or va_80_rule_active
+    inst_bonus += 5.0
+if smt_bull_div or smt_bear_div
+    inst_bonus += 5.0
+if cvd_bull_absorp or cvd_bear_absorp
+    inst_bonus += 5.0
+
+// Estimate potential direction before final scorecard
+potential_dir = 0
+if struct_bias_v == 1 or bull_sweep_v or bull_fvg_v or bull_ob_v or judas_bull_sweep or (va_80_rule_active and va_reentry_dir == 1)
+    potential_dir := 1
+else if struct_bias_v == -1 or bear_sweep_v or bear_fvg_v or bear_ob_v or judas_bear_sweep or (va_80_rule_active and va_reentry_dir == -1)
+    potential_dir := -1
+
+[dec_score, dec_grade, c_mom, c_reg, c_vol, c_struct, c_liq, c_fvg, c_ob, c_pd, c_mtf, c_of, c_sess, c_exec, c_inst] = calcDecisionScore(mom_s, vol_score, regime_lbl, ema_bias_v, struct_bias_v, liq_active, fvg_active, ob_active, pd_zone, mtf_score, sess_bst, of_score, news_active, potential_dir, vol_ratio_v, inst_bonus)
 
 // ============================================================
 // ── SIGNAL LOGIC (barstate.isconfirmed — no repainting)
 // ============================================================
-var bool buy_signal  = false
-var bool sell_signal = false
+bool buy_signal  = false
+bool sell_signal = false
 
 if barstate.isconfirmed
-    buy_signal  := false
-    sell_signal := false
-
-    if mode == "Momentum Scalper"
-        buy_signal  := mom_dir == 1 and mom_s >= 65 and ema_bias_v == 1 and
-                       (vol_state == "NORMAL" or vol_state == "HIGH") and
-                       (regime_lbl == "TRENDING BULL" or regime_lbl == "BREAKOUT") and
-                       dec_score >= min_score and not news_active
-        sell_signal := mom_dir == -1 and mom_s >= 65 and ema_bias_v == -1 and
-                       (vol_state == "NORMAL" or vol_state == "HIGH") and
-                       (regime_lbl == "TRENDING BEAR" or regime_lbl == "BREAKOUT") and
-                       dec_score >= min_score and not news_active
+    if mode == "MQL5 Engine Parity (v0.50)"
+        regime_ok = regime_lbl != "HIGH_VOLATILITY" and regime_lbl != "RANGING"
+        buy_signal  := struct_bias_v == 1 and (bull_fvg_v or bull_ob_v or bull_sweep_v) and regime_ok and dec_score >= math.max(60, min_score) and not news_active
+        sell_signal := struct_bias_v == -1 and (bear_fvg_v or bear_ob_v or bear_sweep_v) and regime_ok and dec_score >= math.max(60, min_score) and not news_active
+    else if mode == "Momentum Scalper"
+        buy_signal  := mom_dir == 1 and mom_s >= 65 and ema_bias_v == 1 and (vol_state == "NORMAL" or vol_state == "HIGH") and (regime_lbl == "TRENDING_BULLISH" or regime_lbl == "TRANSITION") and dec_score >= min_score and not news_active
+        sell_signal := mom_dir == -1 and mom_s >= 65 and ema_bias_v == -1 and (vol_state == "NORMAL" or vol_state == "HIGH") and (regime_lbl == "TRENDING_BEARISH" or regime_lbl == "TRANSITION") and dec_score >= min_score and not news_active
     else
-        buy_signal  := struct_bias_v == 1 and liq_active and
-                       (bull_fvg_v or bull_ob_v) and pd_zone == "DISCOUNT" and
-                       dec_score >= min_score and not news_active
-        sell_signal := struct_bias_v == -1 and liq_active and
-                       (bear_fvg_v or bear_ob_v) and pd_zone == "PREMIUM" and
-                       dec_score >= min_score and not news_active
+        buy_signal  := struct_bias_v == 1 and liq_active and (bull_fvg_v or bull_ob_v) and pd_zone == "DISCOUNT" and regime_lbl != "HIGH_VOLATILITY" and dec_score >= min_score and not news_active
+        sell_signal := struct_bias_v == -1 and liq_active and (bear_fvg_v or bear_ob_v) and pd_zone == "PREMIUM" and regime_lbl != "HIGH_VOLATILITY" and dec_score >= min_score and not news_active
 
 // ============================================================
-// ── SIGNAL SHAPE PLOTS
+// ── SIGNAL SHAPE PLOTS (Confirmed closed candles only — Zero repainting/flickering)
 // ============================================================
-plotshape(buy_signal,  "BUY Signal",  shape.triangleup,   location.belowbar, color=#22c55e, size=size.normal)
-plotshape(sell_signal, "SELL Signal", shape.triangledown,  location.abovebar, color=#ef4444, size=size.normal)
+plotshape(barstate.isconfirmed and buy_signal,  "BUY Signal",  shape.triangleup,   location.belowbar, color=#22c55e, size=size.normal)
+plotshape(barstate.isconfirmed and sell_signal, "SELL Signal", shape.triangledown,  location.abovebar, color=#ef4444, size=size.normal)
+
+// Institutional Confluence Visual Markers (Confirmed only)
+plotshape(barstate.isconfirmed and show_asian_range and judas_bull_sweep, "Bullish Judas Sweep", shape.labelup, location.belowbar, color=#f59e0b, text="JUDAS", textcolor=color.black, size=size.tiny)
+plotshape(barstate.isconfirmed and show_asian_range and judas_bear_sweep, "Bearish Judas Sweep", shape.labeldown, location.abovebar, color=#f59e0b, text="JUDAS", textcolor=color.black, size=size.tiny)
+
+plotshape(barstate.isconfirmed and show_cvd_divergence and cvd_bull_absorp, "Bullish CVD Absorption", shape.diamond, location.belowbar, color=#06b6d4, size=size.tiny)
+plotshape(barstate.isconfirmed and show_cvd_divergence and cvd_bear_absorp, "Bearish CVD Absorption", shape.diamond, location.abovebar, color=#ec4899, size=size.tiny)
+
+plotshape(barstate.isconfirmed and show_smt_radar and smt_bull_div, "Bullish SMT Divergence", shape.labelup, location.belowbar, color=#3b82f6, text="SMT", textcolor=color.white, size=size.tiny)
+plotshape(barstate.isconfirmed and show_smt_radar and smt_bear_div, "Bearish SMT Divergence", shape.labeldown, location.abovebar, color=#f97316, text="SMT", textcolor=color.white, size=size.tiny)
 
 // ============================================================
 // ── EMA PLOTS + PDH/PDL REFERENCE
@@ -738,6 +976,16 @@ var int pat_cont_wins   = 0
 var int pat_brk_trades  = 0
 var int pat_brk_wins    = 0
 
+// T018: Score-band stats trackers
+var int band_90_trades = 0
+var int band_90_wins   = 0
+var int band_80_trades = 0
+var int band_80_wins   = 0
+var int band_70_trades = 0
+var int band_70_wins   = 0
+var int band_60_trades = 0
+var int band_60_wins   = 0
+
 // Reset stats if requested
 if reset_stats
     total_trades_count := 0
@@ -757,6 +1005,14 @@ if reset_stats
     pat_cont_wins      := 0
     pat_brk_trades     := 0
     pat_brk_wins       := 0
+    band_90_trades     := 0
+    band_90_wins       := 0
+    band_80_trades     := 0
+    band_80_wins       := 0
+    band_70_trades     := 0
+    band_70_wins       := 0
+    band_60_trades     := 0
+    band_60_wins       := 0
 
 // Drawing objects — one set, reused across trades
 var line  ln_entry   = na      // Entry horizontal line
@@ -783,18 +1039,47 @@ if mode == "ICT Sniper"
     else
         setup_pattern := "ICT SNIPER SETUP"
 else
-    if regime_lbl == "BREAKOUT" and vol_ratio_v > 1.4
+    if regime_lbl == "TRANSITION" and vol_ratio_v > 1.4
         setup_pattern := "RANGE BREAKOUT"
     else if vel_lbl == "Strong" and accel_lbl == "Increasing"
         setup_pattern := "MOMENTUM CONTINUE"
     else
         setup_pattern := "SCALPER EXPANSION"
 
+// ── Global Trade State & Execution Targets (Always in Scope)
+trade_active = trade_dir != 0 and not na(trade_entry)
+
+float curr_sl_px = na
+if sl_mode == "Structure Pivot"
+    curr_sl_px := (buy_signal or struct_bias_v == 1) ? pl1 : ph1
+if na(curr_sl_px) or curr_sl_px <= 0.0
+    sl_dist = atr_v * sl_atr_mult
+    curr_sl_px := (buy_signal or struct_bias_v == 1) ? close - sl_dist : close + sl_dist
+
+curr_sl_dist = math.abs(close - curr_sl_px)
+curr_lot_size = (acct_size * (risk_pct / 100.0)) / (curr_sl_dist * syminfo.pointvalue)
+curr_lot_size := math.max(0.01, math.round(curr_lot_size * 100.0) / 100.0)
+
+// Current or Projected Execution Targets (TP1, TP2, TP3, SL)
+float disp_entry = trade_active ? trade_entry : close
+float disp_sl    = trade_active ? trade_sl : curr_sl_px
+float disp_sl_dist = math.max(syminfo.mintick * 10, math.abs(disp_entry - disp_sl))
+int   disp_dir   = trade_active ? trade_dir : (buy_signal or struct_bias_v == 1 ? 1 : -1)
+
+float disp_tp1   = trade_active and not na(trade_tp1) ? trade_tp1 : (disp_dir == 1 ? disp_entry + disp_sl_dist * tp1_rr : disp_entry - disp_sl_dist * tp1_rr)
+float disp_tp2   = trade_active and not na(trade_tp2) ? trade_tp2 : (disp_dir == 1 ? disp_entry + disp_sl_dist * tp2_rr : disp_entry - disp_sl_dist * tp2_rr)
+float disp_tp3   = trade_active and not na(trade_tp3) ? trade_tp3 : (disp_dir == 1 ? disp_entry + disp_sl_dist * tp3_rr : disp_entry - disp_sl_dist * tp3_rr)
+
+string tp1_txt = str.tostring(disp_tp1, "#.##") + (trade_active and tp1_hit ? " ✓" : "")
+string tp2_txt = str.tostring(disp_tp2, "#.##") + (trade_active and tp2_hit ? " ✓" : "")
+string tp3_txt = str.tostring(disp_tp3, "#.##") + (trade_active and tp3_hit ? " ✓" : "")
+string sl_txt  = str.tostring(disp_sl, "#.##") + (trade_active and trade_sl == trade_entry ? " (BE)" : "")
+
 // ── Trade Lifecycle — gated behind barstate.isconfirmed
 if barstate.isconfirmed
 
     // ── Active Trade Check
-    trade_active = trade_dir != 0 and not na(trade_entry)
+    trade_active := trade_dir != 0 and not na(trade_entry)
 
     // ── Module 15: Trailing Stop Logic (Structure-based)
     if trade_active and enable_trail
@@ -824,9 +1109,7 @@ if barstate.isconfirmed
     if tp1_triggered and not tp1_hit
         tp1_hit := true
         if show_labels
-            label.new(bar_index, trade_tp1, "🎯 TP1 HIT (40%)",
-                 xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left,
-                 color=color.new(#22c55e, 10), textcolor=color.white, size=size.small)
+            label.new(bar_index, trade_tp1, "🎯 TP1 HIT (40%)", xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(#22c55e, 10), textcolor=color.white, size=size.small)
         // Module 15 Break-Even rules
         if enable_be
             trade_sl := trade_entry
@@ -837,9 +1120,7 @@ if barstate.isconfirmed
     if tp2_triggered and not tp2_hit
         tp2_hit := true
         if show_labels
-            label.new(bar_index, trade_tp2, "🎯 TP2 HIT (40%)",
-                 xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left,
-                 color=color.new(#22c55e, 10), textcolor=color.white, size=size.small)
+            label.new(bar_index, trade_tp2, "🎯 TP2 HIT (40%)", xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(#22c55e, 10), textcolor=color.white, size=size.small)
 
     // ── Check Overall Trade Exit
     exit_triggered = sl_triggered or tp3_triggered
@@ -909,12 +1190,26 @@ if barstate.isconfirmed
             if r_gain > 0
                 pat_brk_wins := pat_brk_wins + 1
 
+        // T018: Update score band statistics
+        if trade_score >= 90
+            band_90_trades := band_90_trades + 1
+            if r_gain > 0
+                band_90_wins := band_90_wins + 1
+        else if trade_score >= 80
+            band_80_trades := band_80_trades + 1
+            if r_gain > 0
+                band_80_wins := band_80_wins + 1
+        else if trade_score >= 70
+            band_70_trades := band_70_trades + 1
+            if r_gain > 0
+                band_70_wins := band_70_wins + 1
+        else if trade_score >= 60
+            band_60_trades := band_60_trades + 1
+            if r_gain > 0
+                band_60_wins := band_60_wins + 1
+
         if show_labels
-            label.new(bar_index, result_y, result_txt,
-                 xloc=xloc.bar_index, yloc=yloc.price,
-                 style=label.style_label_left,
-                 color=color.new(result_col, 10),
-                 textcolor=color.white, size=size.small)
+            label.new(bar_index, result_y, result_txt, xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(result_col, 10), textcolor=color.white, size=size.small)
 
         // Delete drawings
         if not na(ln_entry)
@@ -1016,16 +1311,11 @@ if barstate.isconfirmed
                 line.delete(ln_tp3)
                 ln_tp3 := na
 
-            ln_entry := line.new(bar_index, e_px,  bar_index + 1, e_px,
-                 color=#3b82f6, width=2, style=line.style_solid,  extend=extend.right)
-            ln_sl    := line.new(bar_index, sl_px, bar_index + 1, sl_px,
-                 color=#ef4444, width=1, style=line.style_dashed, extend=extend.right)
-            ln_tp1   := line.new(bar_index, tp1_px, bar_index + 1, tp1_px,
-                 color=#22c55e, width=1, style=line.style_dotted, extend=extend.right)
-            ln_tp2   := line.new(bar_index, tp2_px, bar_index + 1, tp2_px,
-                 color=#22c55e, width=1, style=line.style_dashed, extend=extend.right)
-            ln_tp3   := line.new(bar_index, tp3_px, bar_index + 1, tp3_px,
-                 color=#10b981, width=2, style=line.style_solid,  extend=extend.right)
+            ln_entry := line.new(bar_index, e_px,  bar_index + 1, e_px, color=#3b82f6, width=2, style=line.style_solid,  extend=extend.right)
+            ln_sl    := line.new(bar_index, sl_px, bar_index + 1, sl_px, color=#ef4444, width=1, style=line.style_dashed, extend=extend.right)
+            ln_tp1   := line.new(bar_index, tp1_px, bar_index + 1, tp1_px, color=#22c55e, width=1, style=line.style_dotted, extend=extend.right)
+            ln_tp2   := line.new(bar_index, tp2_px, bar_index + 1, tp2_px, color=#22c55e, width=1, style=line.style_dashed, extend=extend.right)
+            ln_tp3   := line.new(bar_index, tp3_px, bar_index + 1, tp3_px, color=#10b981, width=2, style=line.style_solid,  extend=extend.right)
 
         if show_labels
             if not na(lbl_entry)
@@ -1054,70 +1344,22 @@ if barstate.isconfirmed
 
             dir_txt   = buy_signal ? "▲ BUY" : "▼ SELL"
             entry_txt = dir_txt + "  " + syminfo.ticker + "\nPattern: " + setup_pattern + "\nEntry:   " + e_str + "\nLots:    " + lt_str + "\nSL:      " + sl_str + "\nTP1:     " + tp1_str + "\nTP2:     " + tp2_str + "\nTP3:     " + tp3_str + "\nScore:   " + sc_str
-            lbl_entry := label.new(
-                 bar_index,
-                 e_px,
-                 entry_txt,
-                 xloc=xloc.bar_index,
-                 yloc=yloc.price,
-                 style=buy_signal ? label.style_label_up : label.style_label_down,
-                 color=color.new(buy_signal ? #22c55e : #ef4444, 15),
-                 textcolor=color.white, size=size.small)
-
-            lbl_sl := label.new(
-                 bar_index,
-                 sl_px,
-                 "⛔ SL  " + sl_str,
-                 xloc=xloc.bar_index,
-                 yloc=yloc.price,
-                 style=label.style_label_right,
-                 color=color.new(#ef4444, 20),
-                 textcolor=color.white, size=size.tiny)
-
-            lbl_tp1 := label.new(
-                 bar_index,
-                 tp1_px,
-                 "🎯 TP1  " + tp1_str,
-                 xloc=xloc.bar_index,
-                 yloc=yloc.price,
-                 style=label.style_label_right,
-                 color=color.new(#22c55e, 20),
-                 textcolor=color.white, size=size.tiny)
-
-            lbl_tp2 := label.new(
-                 bar_index,
-                 tp2_px,
-                 "🎯 TP2  " + tp2_str,
-                 xloc=xloc.bar_index,
-                 yloc=yloc.price,
-                 style=label.style_label_right,
-                 color=color.new(#22c55e, 20),
-                 textcolor=color.white, size=size.tiny)
-
-            lbl_tp3 := label.new(
-                 bar_index,
-                 tp3_px,
-                 "🎯 TP3  " + tp3_str,
-                 xloc=xloc.bar_index,
-                 yloc=yloc.price,
-                 style=label.style_label_right,
-                 color=color.new(#10b981, 20),
-                 textcolor=color.white, size=size.tiny)
+            lbl_entry := label.new(bar_index, e_px, entry_txt, xloc=xloc.bar_index, yloc=yloc.price, style=buy_signal ? label.style_label_up : label.style_label_down, color=color.new(buy_signal ? #22c55e : #ef4444, 15), textcolor=color.white, size=size.small)
+            lbl_sl := label.new(bar_index, sl_px, "⛔ SL  " + sl_str, xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_right, color=color.new(#ef4444, 20), textcolor=color.white, size=size.tiny)
+            lbl_tp1 := label.new(bar_index, tp1_px, "🎯 TP1  " + tp1_str, xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_right, color=color.new(#22c55e, 20), textcolor=color.white, size=size.tiny)
+            lbl_tp2 := label.new(bar_index, tp2_px, "🎯 TP2  " + tp2_str, xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_right, color=color.new(#22c55e, 20), textcolor=color.white, size=size.tiny)
+            lbl_tp3 := label.new(bar_index, tp3_px, "🎯 TP3  " + tp3_str, xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_right, color=color.new(#10b981, 20), textcolor=color.white, size=size.tiny)
 
     // ── Module 16: Structure Visualization Engine
     if show_smc_viz
         // 1. HH/HL/LH/LL Labels (Lagging pivots)
         if show_pivots and not na(swing_hi)
             string ph_text = ph1 > ph2 ? "HH" : "LH"
-            label.new(bar_index - 5, swing_hi, ph_text, xloc=xloc.bar_index, yloc=yloc.price,
-                 style=label.style_label_down, color=color.new(color.black, 100),
-                 textcolor=color.new(color.yellow, 20), size=size.tiny)
-                 
+            label.new(bar_index - 5, swing_hi, ph_text, xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_down, color=color.new(color.black, 100), textcolor=color.new(color.yellow, 20), size=size.tiny)
+                
         if show_pivots and not na(swing_lo)
             string pl_text = pl1 > pl2 ? "HL" : "LL"
-            label.new(bar_index - 5, swing_lo, pl_text, xloc=xloc.bar_index, yloc=yloc.price,
-                 style=label.style_label_up, color=color.new(color.black, 100),
-                 textcolor=color.new(color.yellow, 20), size=size.tiny)
+            label.new(bar_index - 5, swing_lo, pl_text, xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_up, color=color.new(color.black, 100), textcolor=color.new(color.yellow, 20), size=size.tiny)
 
         // 2. BOS & CHoCH Breakout Lines & Labels
         var string last_trend = "NEUTRAL"
@@ -1127,8 +1369,7 @@ if barstate.isconfirmed
             lbl_color = is_bos ? color.new(#22c55e, 20) : color.new(#3b82f6, 20)
             if (is_bos and show_bos) or (not is_bos and show_choch)
                 line.new(ph1_bar, ph1, bar_index, ph1, color=lbl_color, style=line.style_dashed, width=1)
-                label.new(math.round((ph1_bar + bar_index)/2), ph1, lbl_text, xloc=xloc.bar_index, yloc=yloc.price,
-                     style=label.style_label_down, color=color.new(color.black, 100), textcolor=lbl_color, size=size.small)
+                label.new(math.round((ph1_bar + bar_index)/2), ph1, lbl_text, xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_down, color=color.new(color.black, 100), textcolor=lbl_color, size=size.small)
             last_trend := "BULLISH"
             ph1 := na
             
@@ -1138,8 +1379,7 @@ if barstate.isconfirmed
             lbl_color = is_bos ? color.new(#ef4444, 20) : color.new(#a855f7, 20)
             if (is_bos and show_bos) or (not is_bos and show_choch)
                 line.new(pl1_bar, pl1, bar_index, pl1, color=lbl_color, style=line.style_dashed, width=1)
-                label.new(math.round((pl1_bar + bar_index)/2), pl1, lbl_text, xloc=xloc.bar_index, yloc=yloc.price,
-                     style=label.style_label_up, color=color.new(color.black, 100), textcolor=lbl_color, size=size.small)
+                label.new(math.round((pl1_bar + bar_index)/2), pl1, lbl_text, xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_up, color=color.new(color.black, 100), textcolor=lbl_color, size=size.small)
             last_trend := "BEARISH"
             pl1 := na
 
@@ -1147,31 +1387,20 @@ if barstate.isconfirmed
         if show_fvgs and fvg_active
             fvg_top = bull_fvg_v ? low : low[2]
             fvg_bot = bull_fvg_v ? high[2] : high
-            box.new(bar_index - 2, fvg_top, bar_index + 8, fvg_bot,
-                 bgcolor=bull_fvg_v ? color.new(#22c55e, 90) : color.new(#ef4444, 90),
-                 border_color=bull_fvg_v ? color.new(#22c55e, 70) : color.new(#ef4444, 70),
-                 border_style=line.style_solid)
+            box.new(bar_index - 2, fvg_top, bar_index + 8, fvg_bot, bgcolor=bull_fvg_v ? color.new(#22c55e, 90) : color.new(#ef4444, 90), border_color=bull_fvg_v ? color.new(#22c55e, 70) : color.new(#ef4444, 70), border_style=line.style_solid)
 
         // 4. Order Block Zones
         if show_obs and ob_active
-            box.new(bar_index - 1, high[1], bar_index + 15, low[1],
-                 bgcolor=bull_ob_v ? color.new(#3b82f6, 92) : color.new(#a855f7, 92),
-                 border_color=bull_ob_v ? color.new(#3b82f6, 75) : color.new(#a855f7, 75),
-                 text=bull_ob_v ? "Bull OB" : "Bear OB", text_color=color.white, text_size=size.tiny)
+            box.new(bar_index - 1, high[1], bar_index + 15, low[1], bgcolor=bull_ob_v ? color.new(#3b82f6, 92) : color.new(#a855f7, 92), border_color=bull_ob_v ? color.new(#3b82f6, 75) : color.new(#a855f7, 75), text=bull_ob_v ? "Bull OB" : "Bear OB", text_color=color.white, text_size=size.tiny)
 
         // 5. Liquidity Sweep Markers
         if show_sweeps and liq_active
             if bull_sweep_v and not bull_sweep_v[1]
-                label.new(bar_index, low, "SSL Swept ✖", xloc=xloc.bar_index, yloc=yloc.price,
-                     style=label.style_label_up, color=color.new(color.black, 100), textcolor=#22c55e, size=size.tiny)
+                label.new(bar_index, low, "SSL Swept ✖", xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_up, color=color.new(color.black, 100), textcolor=#22c55e, size=size.tiny)
             if bear_sweep_v and not bear_sweep_v[1]
-                label.new(bar_index, high, "BSL Swept ✖", xloc=xloc.bar_index, yloc=yloc.price,
-                     style=label.style_label_down, color=color.new(color.black, 100), textcolor=#ef4444, size=size.tiny)
+                label.new(bar_index, high, "BSL Swept ✖", xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_down, color=color.new(color.black, 100), textcolor=#ef4444, size=size.tiny)
 
-// Call Volume Profile at the global scope to keep history consistent
-[vprof_poc, vprof_vah, vprof_val] = calcVolumeProfile(50)
-
-// ── Volume Profile POC/VAH/VAL drawings (Runs outside confirmed gate on last bar)
+// ── Volume Profile & Time Benchmark Drawings (T005, T011, T013, T024 GC)
 var line line_poc = na
 var line line_vah = na
 var line line_val = na
@@ -1179,7 +1408,11 @@ var label lbl_poc = na
 var label lbl_vah = na
 var label lbl_val = na
 
-if show_smc_viz and show_vprof and barstate.islast
+var line line_asia_hi  = na
+var line line_asia_lo  = na
+var line line_midnight = na
+
+if (show_session_vp or show_vprof) and barstate.islast
     if not na(line_poc)
         line.delete(line_poc)
     if not na(line_vah)
@@ -1193,17 +1426,31 @@ if show_smc_viz and show_vprof and barstate.islast
     if not na(lbl_val)
         label.delete(lbl_val)
         
-    poc_p = vprof_poc
-    vah_p = vprof_vah
-    val_p = vprof_val
+    start_b = math.max(0, day_start_bar)
+    line_poc := line.new(start_b, dev_poc, bar_index, dev_poc, color=color.new(#a855f7, 20), width=2, style=line.style_solid)
+    line_vah := line.new(start_b, dev_vah, bar_index, dev_vah, color=color.new(#ef4444, 40), width=1, style=line.style_dashed)
+    line_val := line.new(start_b, dev_val, bar_index, dev_val, color=color.new(#22c55e, 40), width=1, style=line.style_dashed)
     
-    line_poc := line.new(bar_index - 50, poc_p, bar_index, poc_p, color=color.new(#a855f7, 30), width=2, style=line.style_solid)
-    line_vah := line.new(bar_index - 50, vah_p, bar_index, vah_p, color=color.new(#ef4444, 45), width=1, style=line.style_dashed)
-    line_val := line.new(bar_index - 50, val_p, bar_index, val_p, color=color.new(#22c55e, 45), width=1, style=line.style_dashed)
-    
-    lbl_poc := label.new(bar_index, poc_p, "POC " + str.tostring(poc_p, "#.####"), xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(color.black, 100), textcolor=#a855f7, size=size.tiny)
-    lbl_vah := label.new(bar_index, vah_p, "VAH " + str.tostring(vah_p, "#.####"), xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(color.black, 100), textcolor=#ef4444, size=size.tiny)
-    lbl_val := label.new(bar_index, val_p, "VAL " + str.tostring(val_p, "#.####"), xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(color.black, 100), textcolor=#22c55e, size=size.tiny)
+    lbl_poc := label.new(bar_index, dev_poc, "POC " + str.tostring(dev_poc, "#.##"), xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(color.black, 100), textcolor=#a855f7, size=size.tiny)
+    lbl_vah := label.new(bar_index, dev_vah, "VAH " + str.tostring(dev_vah, "#.##"), xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(color.black, 100), textcolor=#ef4444, size=size.tiny)
+    lbl_val := label.new(bar_index, dev_val, "VAL " + str.tostring(dev_val, "#.##"), xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(color.black, 100), textcolor=#22c55e, size=size.tiny)
+
+// Draw Asian Range reference lines
+if show_asian_range and not in_asia_session and not na(asia_range_hi) and not na(asia_range_lo) and barstate.islast
+    if not na(line_asia_hi)
+        line.delete(line_asia_hi)
+    if not na(line_asia_lo)
+        line.delete(line_asia_lo)
+    a_start = math.max(0, nz(asia_start_idx, day_start_bar))
+    line_asia_hi := line.new(a_start, asia_range_hi, bar_index, asia_range_hi, color=color.new(#f59e0b, 40), style=line.style_dotted, width=1)
+    line_asia_lo := line.new(a_start, asia_range_lo, bar_index, asia_range_lo, color=color.new(#3b82f6, 40), style=line.style_dotted, width=1)
+
+// Draw New York Midnight Open Benchmark
+if show_midnight_open and not na(ny_midnight_open) and barstate.islast
+    if not na(line_midnight)
+        line.delete(line_midnight)
+    start_b = math.max(0, day_start_bar)
+    line_midnight := line.new(start_b, ny_midnight_open, bar_index + 10, ny_midnight_open, color=color.new(#94a3b8, 30), style=line.style_dashed, width=1)
 
 // ── Live Labels: Fixed Anchor with Dynamic Text Updates
 if trade_dir != 0 and not na(trade_entry) and show_labels
@@ -1215,20 +1462,12 @@ if trade_dir != 0 and not na(trade_entry) and show_labels
     dur_str    = str.tostring(dur_bars)
     
     // Status text showing active target achievements
-    status_txt = dir_str + "  |  Score: " + sc_lbl + "\nPnL: " + pnl_str + "  |  Bars: " + dur_str + 
-                 "\nTargets: TP1 " + (tp1_hit ? "✓" : "✗") + " | TP2 " + (tp2_hit ? "✓" : "✗") + " | TP3 " + (tp3_hit ? "✓" : "✗")
+    status_txt = dir_str + "  |  Score: " + sc_lbl + "\nPnL: " + pnl_str + "  |  Bars: " + dur_str + "\nTargets: TP1 " + (tp1_hit ? "✓" : "✗") + " | TP2 " + (tp2_hit ? "✓" : "✗") + " | TP3 " + (tp3_hit ? "✓" : "✗")
     status_col = cur_pnl >= 0 ? color.new(#22c55e, 20) : color.new(#ef4444, 20)
 
     // Status label — anchored at opening candle, text updates dynamically
     if na(lbl_status)
-        lbl_status := label.new(
-             trade_bar,
-             trade_entry,
-             status_txt,
-             xloc=xloc.bar_index,
-             yloc=yloc.price,
-             style=label.style_label_right,
-             color=status_col, textcolor=color.white, size=size.small)
+        lbl_status := label.new(trade_bar, trade_entry, status_txt, xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_right, color=status_col, textcolor=color.white, size=size.small)
     else
         label.set_text(lbl_status, status_txt)
         label.set_color(lbl_status, status_col)
@@ -1254,43 +1493,53 @@ if trade_dir != 0 and not na(trade_entry) and show_labels
 // ── MODULE 7: DASHBOARD PANEL
 // ── 4-column side-by-side HUD table overlay with all engine readings.
 // ============================================================
-tbl_pos = hud_pos == "Top Right"    ? position.top_right    :
-          hud_pos == "Top Left"     ? position.top_left     :
-          hud_pos == "Bottom Right" ? position.bottom_right : position.bottom_left
+tbl_pos = hud_pos == "Top Right" ? position.top_right : hud_pos == "Top Left" ? position.top_left : hud_pos == "Bottom Right" ? position.bottom_right : position.bottom_left
 
-var table hud_compact = table.new(tbl_pos, 4, 5,
-     bgcolor=hud_bg,
-     border_color=color.new(#334155, 0), border_width=1,
-     frame_color=color.new(#a855f7, 0),  frame_width=1)
+var table hud_compact = na
+var table hud = na
 
-var table hud = table.new(tbl_pos, 4, 34,
-     bgcolor=hud_bg,
-     border_color=color.new(#334155, 0), border_width=1,
-     frame_color=color.new(#a855f7, 0),  frame_width=1)
-
-if barstate.isfirst
-    if hud_mode == "Compact"
-        table.merge_cells(hud_compact, 0, 0, 1, 0)
-        table.merge_cells(hud_compact, 2, 0, 3, 0)
-    else if hud_mode == "Full (34 Rows)"
-        // Merge Top Headers
-        table.merge_cells(hud, 0, 0, 1, 0)
-        table.merge_cells(hud, 2, 0, 3, 0)
-        
-        // Merge Left Section Headers
-        table.merge_cells(hud, 0, 1, 1, 1)   // DECISION SCORE
-        table.merge_cells(hud, 0, 7, 1, 7)   // SCORE BREAKDOWN
-        table.merge_cells(hud, 0, 19, 1, 19) // MOMENTUM
-        table.merge_cells(hud, 0, 25, 1, 25) // MARKET REGIME
-        table.merge_cells(hud, 0, 30, 1, 30) // VOLATILITY
-        
-        // Merge Right Section Headers
-        table.merge_cells(hud, 2, 1, 3, 1)   // ICT SMART MONEY
-        table.merge_cells(hud, 2, 7, 3, 7)   // MULTI-TIMEFRAME
-        table.merge_cells(hud, 2, 12, 3, 12) // SESSION & FLOW
-        table.merge_cells(hud, 2, 17, 3, 17) // PERFORMANCE
-        table.merge_cells(hud, 2, 24, 3, 24) // JOURNAL BY SESSION
-        table.merge_cells(hud, 2, 29, 3, 29) // JOURNAL BY PATTERN
+if barstate.islast
+    if show_hud and hud_mode != "Hidden"
+        if str.contains(hud_mode, "Compact")
+            if not na(hud)
+                table.delete(hud)
+                hud := na
+            if na(hud_compact)
+                hud_compact := table.new(tbl_pos, 4, 11, bgcolor=hud_bg, border_color=color.new(#334155, 0), border_width=1, frame_color=color.new(#a855f7, 0), frame_width=1)
+                table.merge_cells(hud_compact, 0, 0, 1, 0)
+                table.merge_cells(hud_compact, 2, 0, 3, 0)
+                table.merge_cells(hud_compact, 0, 8, 3, 8)
+        else if hud_mode == "Full (34 Rows)"
+            if not na(hud_compact)
+                table.delete(hud_compact)
+                hud_compact := na
+            if na(hud)
+                hud := table.new(tbl_pos, 4, 34, bgcolor=hud_bg, border_color=color.new(#334155, 0), border_width=1, frame_color=color.new(#a855f7, 0), frame_width=1)
+                // Merge Top Headers
+                table.merge_cells(hud, 0, 0, 1, 0)
+                table.merge_cells(hud, 2, 0, 3, 0)
+                
+                // Merge Left Section Headers
+                table.merge_cells(hud, 0, 1, 1, 1)   // DECISION SCORE
+                table.merge_cells(hud, 0, 7, 1, 7)   // SCORE BREAKDOWN
+                table.merge_cells(hud, 0, 19, 1, 19) // MOMENTUM
+                table.merge_cells(hud, 0, 25, 1, 25) // MARKET REGIME
+                table.merge_cells(hud, 0, 30, 1, 30) // VOLATILITY
+                
+                // Merge Right Section Headers
+                table.merge_cells(hud, 2, 1, 3, 1)   // ICT SMART MONEY
+                table.merge_cells(hud, 2, 7, 3, 7)   // MULTI-TIMEFRAME
+                table.merge_cells(hud, 2, 12, 3, 12) // SESSION & FLOW
+                table.merge_cells(hud, 2, 17, 3, 17) // PERFORMANCE
+                table.merge_cells(hud, 2, 24, 3, 24) // JOURNAL BY SESSION
+                table.merge_cells(hud, 2, 29, 3, 29) // JOURNAL BY PATTERN
+    else
+        if not na(hud)
+            table.delete(hud)
+            hud := na
+        if not na(hud_compact)
+            table.delete(hud_compact)
+            hud_compact := na
 
 if show_hud and hud_mode != "Hidden" and barstate.islast
     // Color palette
@@ -1303,26 +1552,17 @@ if show_hud and hud_mode != "Hidden" and barstate.islast
     c_sub    = color.new(#1a1f35, 0)
     c_txt    = hud_txt
 
-    sc_col = dec_score >= 90 ? c_green : dec_score >= 80 ? c_blue :
-             dec_score >= 70 ? c_yellow : c_red
+    sc_col = dec_score >= 90 ? c_green : dec_score >= 80 ? c_blue : dec_score >= 70 ? c_yellow : c_red
     sig_str = buy_signal ? "▲ BUY" : sell_signal ? "▼ SELL" : "WATCHING"
     sig_col = buy_signal ? c_green : sell_signal ? c_red : c_yellow
-    reg_col = str.contains(regime_lbl, "BULL") or regime_lbl == "BREAKOUT" ? c_green :
-              str.contains(regime_lbl, "BEAR") ? c_red :
-              regime_lbl == "LOW VOLATILITY"   ? c_yellow : color.gray
+    reg_col = str.contains(regime_lbl, "BULL") ? c_green : str.contains(regime_lbl, "BEAR") ? c_red : regime_lbl == "HIGH_VOLATILITY" ? c_red : regime_lbl == "TRANSITION" ? c_yellow : color.gray
     mtf_align_col = mtf_status == "BULLISH" ? c_green : mtf_status == "BEARISH" ? c_red : c_yellow
     sess_col      = act_sess == "OFF-HOURS" ? c_red : act_sess == "ASIA" ? c_yellow : c_green
     news_col      = news_active ? c_red : c_green
 
-    // Calculate current dynamic stop distance and required lot sizing for display
-    curr_sl_px = pl1
-    if na(curr_sl_px) or curr_sl_px <= 0.0
-        curr_sl_px := close - (atr_v * sl_atr_mult)
-    curr_sl_dist = math.abs(close - curr_sl_px)
-    curr_lot_size = (acct_size * (risk_pct / 100.0)) / (curr_sl_dist * syminfo.pointvalue)
-    curr_lot_size := math.max(0.01, math.round(curr_lot_size * 100.0) / 100.0)
+    // Note: Execution targets and lot sizing are calculated at global scope
 
-    if hud_mode == "Compact"
+    if str.contains(hud_mode, "Compact")
         // ── COMPACT DASHBOARD (Clean 5 Rows)
         table.cell(hud_compact, 0, 0, "⚡ ADAPTIVE ICT", text_color=c_purple, text_size=size.small, bgcolor=c_hdr, text_halign="center")
         table.cell(hud_compact, 2, 0, mode == "Momentum Scalper" ? "MOMENTUM" : "ICT SNIPER", text_color=color.new(c_purple, 40), text_size=size.tiny, bgcolor=c_hdr, text_halign="center")
@@ -1347,172 +1587,200 @@ if show_hud and hud_mode != "Hidden" and barstate.islast
         table.cell(hud_compact, 2, 4, "  Confluence", text_color=c_txt, text_size=size.tiny, text_halign="left")
         table.cell(hud_compact, 3, 4, mtf_status + "  ", text_color=mtf_align_col, text_size=size.tiny, text_halign="right")
 
+        // Rows 5-7: Institutional Benchmarks Telemetry (T015, T023)
+        table.cell(hud_compact, 0, 5, "  Dev POC", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 1, 5, (not na(dev_poc) ? str.tostring(dev_poc, "#.##") : "--") + "  ", text_color=c_purple, text_size=size.tiny, text_halign="right")
+        table.cell(hud_compact, 2, 5, "  vPOC Active", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 3, 5, str.tostring(array.size(virgin_pocs)) + " Active  ", text_color=array.size(virgin_pocs) > 0 ? c_yellow : color.gray, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_compact, 0, 6, "  Asian Range", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 1, 6, (not na(asia_range_hi) ? str.tostring(asia_range_hi, "#.#") + "-" + str.tostring(asia_range_lo, "#.#") : "--") + "  ", text_color=c_blue, text_size=size.tiny, text_halign="right")
+        table.cell(hud_compact, 2, 6, "  Judas Sweep", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 3, 6, (judas_bull_sweep ? "LOW SWEPT" : judas_bear_sweep ? "HIGH SWEPT" : "NONE") + "  ", text_color=judas_swing_detected ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_compact, 0, 7, "  True Open", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 1, 7, (not na(ny_midnight_open) ? str.tostring(ny_midnight_open, "#.##") : "--") + "  ", text_color=c_txt, text_size=size.tiny, text_halign="right")
+        table.cell(hud_compact, 2, 7, "  SMT Radar", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 3, 7, (smt_bull_div ? "BULL DIV" : smt_bear_div ? "BEAR DIV" : "ALIGNED") + "  ", text_color=(smt_bull_div or smt_bear_div) ? c_blue : color.gray, text_size=size.tiny, text_halign="right")
+
+        // Rows 8-10: Dedicated Execution Targets (TP1, TP2, TP3, SL)
+        table.cell(hud_compact, 0, 8, "🎯 EXECUTION TARGETS (TP / SL)", text_color=color.white, text_size=size.tiny, bgcolor=c_sub, text_halign="center")
+
+        table.cell(hud_compact, 0, 9, "  TP1 (1.2R)", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 1, 9, tp1_txt + "  ", text_color=c_green, text_size=size.tiny, text_halign="right")
+        table.cell(hud_compact, 2, 9, "  TP2 (2.5R)", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 3, 9, tp2_txt + "  ", text_color=c_green, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_compact, 0, 10, "  TP3 (4.0R)", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 1, 10, tp3_txt + "  ", text_color=#10b981, text_size=size.tiny, text_halign="right")
+        table.cell(hud_compact, 2, 10, "  Stop Loss", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 3, 10, sl_txt + "  ", text_color=c_red, text_size=size.tiny, text_halign="right")
+
     else if hud_mode == "Full (34 Rows)"
         // ── FULL TELEMETRY DASHBOARD (34 Rows)
         // ── HEADER (Row 0)
         table.cell(hud, 0, 0, "⚡ ADAPTIVE ICT — DECISION ENGINE", text_color=c_purple, text_size=size.small, bgcolor=c_hdr, text_halign="center")
         table.cell(hud, 2, 0, mode == "Momentum Scalper" ? "MOMENTUM MODE" : "ICT SNIPER MODE", text_color=color.new(c_purple, 40), text_size=size.tiny, bgcolor=c_hdr, text_halign="center")
 
-    // ── LEFT COLUMN SECTIONS ──
+        // ── LEFT COLUMN SECTIONS ──
 
-    // DECISION SCORE (Rows 1-6)
-    table.cell(hud, 0, 1, "  DECISION SCORE", text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="left")
-    table.cell(hud, 0, 2, "  Score",  text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 1, 2, str.tostring(dec_score) + " / 100  ", text_color=sc_col, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 0, 3, "  Grade",  text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 1, 3, dec_grade + "  ", text_color=sc_col, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 0, 4, "  Signal", text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 1, 4, sig_str + "  ", text_color=sig_col, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 0, 5, "  Pattern", text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 1, 5, setup_pattern + "  ", text_color=c_purple, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 0, 6, "  Sized Lots", text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 1, 6, str.tostring(curr_lot_size, "#.##") + " Lots  ", text_color=c_txt, text_size=size.tiny, text_halign="right")
+        // DECISION SCORE (Rows 1-6)
+        table.cell(hud, 0, 1, "  DECISION SCORE", text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="left")
+        table.cell(hud, 0, 2, "  Score",  text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 1, 2, str.tostring(dec_score) + " / 100  ", text_color=sc_col, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 0, 3, "  Grade",  text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 1, 3, dec_grade + "  ", text_color=sc_col, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 0, 4, "  Signal", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 1, 4, sig_str + "  ", text_color=sig_col, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 0, 5, "  Pattern", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 1, 5, setup_pattern + "  ", text_color=c_purple, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 0, 6, "  Sized Lots", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 1, 6, str.tostring(curr_lot_size, "#.##") + " Lots  ", text_color=c_txt, text_size=size.tiny, text_halign="right")
 
-    // SCORE BREAKDOWN (AI) (Rows 7-18)
-    table.cell(hud, 0, 7, "  SCORE BREAKDOWN (AI)", text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="left")
-    table.cell(hud, 0, 8, "  Momentum Weight",       text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 1, 8, "+" + str.tostring(c_mom, "#.1") + "  ", text_color=c_mom > 0 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 0, 9, "  Regime Weight",         text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 1, 9, "+" + str.tostring(c_reg, "#.1") + "  ", text_color=c_reg > 0 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 0, 10, "  Volatility Weight",     text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 1, 10, "+" + str.tostring(c_vol, "#.1") + "  ", text_color=c_vol > 0 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 0, 11, "  Structure Weight",      text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 1, 11, "+" + str.tostring(c_struct, "#.1") + "  ", text_color=c_struct > 0 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 0, 12, "  Liquidity Weight",      text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 1, 12, "+" + str.tostring(c_liq, "#.1") + "  ", text_color=c_liq > 0 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 0, 13, "  FVG Imbalance Weight",  text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 1, 13, "+" + str.tostring(c_fvg, "#.1") + "  ", text_color=c_fvg > 0 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 0, 14, "  Order Block Weight",    text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 1, 14, "+" + str.tostring(c_ob, "#.1") + "  ", text_color=c_ob > 0 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 0, 15, "  Premium/Discount Wt",   text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 1, 15, "+" + str.tostring(c_pd, "#.1") + "  ", text_color=c_pd > 0 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 0, 16, "  HTF / MTF Weight",      text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 1, 16, "+" + str.tostring(c_mtf, "#.1") + "  ", text_color=c_mtf > 0 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 0, 17, "  Order Flow Weight",     text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 1, 17, "+" + str.tostring(c_of, "#.1") + "  ", text_color=c_of > 0 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 0, 18, "  Session Filter Weight",  text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 1, 18, "+" + str.tostring(c_sess, "#.1") + "  ", text_color=c_sess > 0 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+        // SCORE BREAKDOWN (AI) (Rows 7-18)
+        table.cell(hud, 0, 7, "  SCORE BREAKDOWN (AI)", text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="left")
+        table.cell(hud, 0, 8, "  Momentum Weight",       text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 1, 8, "+" + str.tostring(c_mom, "#.1") + "  ", text_color=c_mom > 0 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 0, 9, "  Regime Weight",         text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 1, 9, "+" + str.tostring(c_reg, "#.1") + "  ", text_color=c_reg > 0 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 0, 10, "  Volatility Weight",     text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 1, 10, "+" + str.tostring(c_vol, "#.1") + "  ", text_color=c_vol > 0 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 0, 11, "  Structure Weight",      text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 1, 11, "+" + str.tostring(c_struct, "#.1") + "  ", text_color=c_struct > 0 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 0, 12, "  Liquidity Weight",      text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 1, 12, "+" + str.tostring(c_liq, "#.1") + "  ", text_color=c_liq > 0 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 0, 13, "  FVG Imbalance Weight",  text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 1, 13, "+" + str.tostring(c_fvg, "#.1") + "  ", text_color=c_fvg > 0 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 0, 14, "  Order Block Weight",    text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 1, 14, "+" + str.tostring(c_ob, "#.1") + "  ", text_color=c_ob > 0 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 0, 15, "  Premium/Discount Wt",   text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 1, 15, "+" + str.tostring(c_pd, "#.1") + "  ", text_color=c_pd > 0 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 0, 16, "  HTF / MTF Weight",      text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 1, 16, "+" + str.tostring(c_mtf, "#.1") + "  ", text_color=c_mtf > 0 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 0, 17, "  Order Flow Weight",     text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 1, 17, "+" + str.tostring(c_of, "#.1") + "  ", text_color=c_of > 0 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 0, 18, "  Session Filter Weight",  text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 1, 18, "+" + str.tostring(c_sess, "#.1") + "  ", text_color=c_sess > 0 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
 
-    // MOMENTUM (Rows 19-24)
-    table.cell(hud, 0, 19, "  MOMENTUM", text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="left")
-    m_col = mom_s >= 75 ? c_green : mom_s >= 50 ? c_yellow : c_red
-    table.cell(hud, 0, 20, "  Score",       text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 1, 20, str.tostring(mom_s) + " / 100  ", text_color=m_col, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 0, 21, "  Velocity",    text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 1, 21, vel_lbl + "  ", text_color=vel_lbl == "Strong" ? c_green : vel_lbl == "Moderate" ? c_yellow : c_red, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 0, 22, "  Acceleration",text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 1, 22, accel_lbl + "  ", text_color=accel_lbl == "Increasing" ? c_green : accel_lbl == "Weakening" ? c_red : c_yellow, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 0, 23, "  Candle Exp.", text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 1, 23, str.tostring(exp_ratio, "#.##") + "x  ", text_color=exp_ratio >= exp_thresh ? c_green : c_yellow, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 0, 24, "  Volume",     text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 1, 24, vol_lbl + " (" + str.tostring(vol_ratio_v, "#.#") + "x)  ", text_color=vol_ratio_v > 1.4 ? c_green : c_yellow, text_size=size.tiny, text_halign="right")
+        // MOMENTUM (Rows 19-24)
+        table.cell(hud, 0, 19, "  MOMENTUM", text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="left")
+        m_col = mom_s >= 75 ? c_green : mom_s >= 50 ? c_yellow : c_red
+        table.cell(hud, 0, 20, "  Score",       text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 1, 20, str.tostring(mom_s) + " / 100  ", text_color=m_col, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 0, 21, "  Velocity",    text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 1, 21, vel_lbl + "  ", text_color=vel_lbl == "Strong" ? c_green : vel_lbl == "Moderate" ? c_yellow : c_red, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 0, 22, "  Acceleration",text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 1, 22, accel_lbl + "  ", text_color=accel_lbl == "Increasing" ? c_green : accel_lbl == "Weakening" ? c_red : c_yellow, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 0, 23, "  Candle Exp.", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 1, 23, str.tostring(exp_ratio, "#.##") + "x  ", text_color=exp_ratio >= exp_thresh ? c_green : c_yellow, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 0, 24, "  Volume",     text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 1, 24, vol_lbl + " (" + str.tostring(vol_ratio_v, "#.#") + "x)  ", text_color=vol_ratio_v > 1.4 ? c_green : c_yellow, text_size=size.tiny, text_halign="right")
 
-    // MARKET REGIME (Rows 25-29)
-    table.cell(hud, 0, 25, "  MARKET REGIME", text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="left")
-    table.cell(hud, 0, 26, "  Regime",     text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 1, 26, regime_lbl + "  ", text_color=reg_col, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 0, 27, "  Confidence", text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 1, 27, str.tostring(regime_conf) + "%  ", text_color=regime_conf >= 75 ? c_green : c_yellow, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 0, 28, "  ADX",        text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 1, 28, str.tostring(adx_v, "#.#") + "  ", text_color=adx_v > adx_trend ? c_green : c_yellow, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 0, 29, "  HTF Bias",   text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 1, 29, (ema_bias_v == 1 ? "BULLISH" : "BEARISH") + "  ", text_color=ema_bias_v == 1 ? c_green : c_red, text_size=size.tiny, text_halign="right")
+        // MARKET REGIME (Rows 25-29)
+        table.cell(hud, 0, 25, "  MARKET REGIME", text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="left")
+        table.cell(hud, 0, 26, "  Regime",     text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 1, 26, regime_lbl + "  ", text_color=reg_col, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 0, 27, "  Confidence", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 1, 27, str.tostring(regime_conf) + "%  ", text_color=regime_conf >= 75 ? c_green : c_yellow, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 0, 28, "  ADX",        text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 1, 28, str.tostring(adx_v, "#.#") + "  ", text_color=adx_v > adx_trend ? c_green : c_yellow, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 0, 29, "  HTF Bias",   text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 1, 29, (ema_bias_v == 1 ? "BULLISH" : "BEARISH") + "  ", text_color=ema_bias_v == 1 ? c_green : c_red, text_size=size.tiny, text_halign="right")
 
-    // VOLATILITY (Rows 30-33)
-    table.cell(hud, 0, 30, "  VOLATILITY", text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="left")
-    v_col = vol_state == "HIGH" ? c_green : vol_state == "NORMAL" ? c_blue : vol_state == "EXTREME" ? c_red : c_yellow
-    table.cell(hud, 0, 31, "  State",     text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 1, 31, vol_state + "  ", text_color=v_col, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 0, 32, "  Condition", text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 1, 32, vol_cond + "  ",  text_color=v_col, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 0, 33, "  ATR %",    text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 1, 33, str.tostring(atr_pct_v * 100, "#.##") + "%  ", text_color=c_txt, text_size=size.tiny, text_halign="right")
+        // VOLATILITY (Rows 30-33)
+        table.cell(hud, 0, 30, "  VOLATILITY", text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="left")
+        v_col = vol_state == "HIGH" ? c_green : vol_state == "NORMAL" ? c_blue : vol_state == "EXTREME" ? c_red : c_yellow
+        table.cell(hud, 0, 31, "  State",     text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 1, 31, vol_state + "  ", text_color=v_col, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 0, 32, "  Condition", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 1, 32, vol_cond + "  ",  text_color=v_col, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 0, 33, "  ATR %",    text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 1, 33, str.tostring(atr_pct_v * 100, "#.##") + "%  ", text_color=c_txt, text_size=size.tiny, text_halign="right")
 
-    // ── RIGHT COLUMN SECTIONS ──
+        // ── RIGHT COLUMN SECTIONS ──
 
-    // ICT SMART MONEY (Rows 1-6)
-    table.cell(hud, 2, 1, "  ICT SMART MONEY", text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="left")
-    st_col = struct_lbl == "BULLISH" or struct_lbl == "CHOCH BULL" ? c_green :
-             struct_lbl == "BEARISH" or struct_lbl == "CHOCH BEAR" ? c_red : color.gray
-    table.cell(hud, 2, 2, "  Structure",  text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 3, 2, struct_lbl + "  ", text_color=st_col, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 2, 3, "  Liquidity",  text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 3, 3, (liq_active ? liq_lbl : "None") + "  ", text_color=liq_active ? c_green : color.gray, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 2, 4, "  FVG",        text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 3, 4, (fvg_active ? fvg_lbl : "None") + "  ", text_color=fvg_active ? c_green : color.gray, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 2, 5, "  Order Block",text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 3, 5, (ob_active ? ob_lbl : "None") + "  ",   text_color=ob_active ? c_green : color.gray, text_size=size.tiny, text_halign="right")
-    pd_col = pd_zone == "DISCOUNT" ? c_green : pd_zone == "PREMIUM" ? c_red : c_yellow
-    table.cell(hud, 2, 6, "  Price Zone", text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 3, 6, pd_zone + " (" + str.tostring(pd_pct, "#") + "%)  ", text_color=pd_col, text_size=size.tiny, text_halign="right")
+        // ICT SMART MONEY (Rows 1-6)
+        table.cell(hud, 2, 1, "  ICT SMART MONEY", text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="left")
+        st_col = struct_lbl == "BULLISH" or struct_lbl == "CHOCH BULL" ? c_green : struct_lbl == "BEARISH" or struct_lbl == "CHOCH BEAR" ? c_red : color.gray
+        table.cell(hud, 2, 2, "  Structure",  text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 3, 2, struct_lbl + "  ", text_color=st_col, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 2, 3, "  Liquidity",  text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 3, 3, (liq_active ? liq_lbl : "None") + "  ", text_color=liq_active ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 2, 4, "  FVG",        text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 3, 4, (fvg_active ? fvg_lbl : "None") + "  ", text_color=fvg_active ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 2, 5, "  Order Block",text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 3, 5, (ob_active ? ob_lbl : "None") + "  ",   text_color=ob_active ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+        pd_col = pd_zone == "DISCOUNT" ? c_green : pd_zone == "PREMIUM" ? c_red : c_yellow
+        table.cell(hud, 2, 6, "  Price Zone", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 3, 6, pd_zone + " (" + str.tostring(pd_pct, "#") + "%)  ", text_color=pd_col, text_size=size.tiny, text_halign="right")
 
-    // MULTI-TIMEFRAME (Rows 7-11)
-    table.cell(hud, 2, 7, "  MULTI-TIMEFRAME", text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="left")
-    table.cell(hud, 2, 8, "  4H Bias",        text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 3, 8, (htf1_bias == 1 ? "BULLISH" : "BEARISH") + "  ", text_color=htf1_bias == 1 ? c_green : c_red, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 2, 9, "  1H Bias",        text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 3, 9, (htf2_bias == 1 ? "BULLISH" : "BEARISH") + "  ", text_color=htf2_bias == 1 ? c_green : c_red, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 2, 10, "  15M Bias",       text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 3, 10, (htf3_bias == 1 ? "BULLISH" : "BEARISH") + "  ", text_color=htf3_bias == 1 ? c_green : c_red, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 2, 11, "  Confluence",     text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 3, 11, mtf_status + "  ",       text_color=mtf_align_col, text_size=size.tiny, text_halign="right")
+        // MULTI-TIMEFRAME (Rows 7-11)
+        table.cell(hud, 2, 7, "  MULTI-TIMEFRAME", text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="left")
+        table.cell(hud, 2, 8, "  4H Bias",        text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 3, 8, (htf1_bias == 1 ? "BULLISH" : "BEARISH") + "  ", text_color=htf1_bias == 1 ? c_green : c_red, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 2, 9, "  1H Bias",        text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 3, 9, (htf2_bias == 1 ? "BULLISH" : "BEARISH") + "  ", text_color=htf2_bias == 1 ? c_green : c_red, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 2, 10, "  15M Bias",       text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 3, 10, (htf3_bias == 1 ? "BULLISH" : "BEARISH") + "  ", text_color=htf3_bias == 1 ? c_green : c_red, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 2, 11, "  Confluence",     text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 3, 11, mtf_status + "  ",       text_color=mtf_align_col, text_size=size.tiny, text_halign="right")
 
-    // SESSION FILTER & ORDER FLOW (Rows 12-16)
-    table.cell(hud, 2, 12, "  SESSION & FLOW",  text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="left")
-    table.cell(hud, 2, 13, "  Active Session", text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 3, 13, act_sess + "  ",         text_color=sess_col, text_size=size.tiny, text_halign="right")
-    d_col = delta_pct_v > 15.0 ? c_green : delta_pct_v < -15.0 ? c_red : c_yellow
-    table.cell(hud, 2, 14, "  Volume Delta",   text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 3, 14, str.tostring(delta_pct_v, "#.##") + "%  ", text_color=d_col, text_size=size.tiny, text_halign="right")
-    div_col = of_lbl == "Neutral" ? c_txt : of_lbl == "Bullish Div" ? c_green : c_red
-    table.cell(hud, 2, 15, "  CVD Divergence", text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 3, 15, of_lbl + "  ",           text_color=div_col, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 2, 16, "  News Gate",       text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 3, 16, news_lbl + "  ",          text_color=news_col, text_size=size.tiny, text_halign="right")
+        // SESSION FILTER & ORDER FLOW (Rows 12-16)
+        table.cell(hud, 2, 12, "  SESSION & FLOW",  text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="left")
+        table.cell(hud, 2, 13, "  Active Session", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 3, 13, act_sess + "  ",         text_color=sess_col, text_size=size.tiny, text_halign="right")
+        d_col = delta_pct_v > 15.0 ? c_green : delta_pct_v < -15.0 ? c_red : c_yellow
+        table.cell(hud, 2, 14, "  Volume Delta",   text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 3, 14, str.tostring(delta_pct_v, "#.##") + "%  ", text_color=d_col, text_size=size.tiny, text_halign="right")
+        div_col = of_lbl == "Neutral" ? c_txt : of_lbl == "Bullish Div" ? c_green : c_red
+        table.cell(hud, 2, 15, "  CVD Divergence", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 3, 15, of_lbl + "  ",           text_color=div_col, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 2, 16, "  News Gate",       text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 3, 16, news_lbl + "  ",          text_color=news_col, text_size=size.tiny, text_halign="right")
 
-    // PERFORMANCE ANALYTICS (Rows 17-23)
-    table.cell(hud, 2, 17, "  PERFORMANCE & DETAILS", text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="left")
-    win_rate = total_trades_count > 0 ? (float(wins_count) / float(total_trades_count)) * 100.0 : 0.0
-    table.cell(hud, 2, 18, "  Total Trades",           text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 3, 18, str.tostring(total_trades_count) + "  ", text_color=c_txt, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 2, 19, "  Win Rate",               text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 3, 19, str.tostring(win_rate, "#.#") + "%  ", text_color=win_rate >= 50 ? c_green : c_yellow, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 2, 20, "  Net R-Gain",             text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 3, 20, str.tostring(net_r_gained, "#.##") + " R  ", text_color=net_r_gained >= 0 ? c_green : c_red, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 2, 21, "  Max Drawdown",           text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 3, 21, str.tostring(max_r_drawdown, "#.##") + " R  ", text_color=c_red, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 2, 22, "  TP Targets (1/2/3)",     text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 3, 22, str.tostring(tp1_rr, "#.#") + " / " + str.tostring(tp2_rr, "#.#") + " / " + str.tostring(tp3_rr, "#.#") + " R  ", text_color=c_green, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 2, 23, "  Risk per Trade",          text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 3, 23, str.tostring(risk_pct, "#.#") + "%  ", text_color=c_txt, text_size=size.tiny, text_halign="right")
+        // PERFORMANCE ANALYTICS (Rows 17-23)
+        table.cell(hud, 2, 17, "  PERFORMANCE & DETAILS", text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="left")
+        win_rate = total_trades_count > 0 ? (float(wins_count) / float(total_trades_count)) * 100.0 : 0.0
+        table.cell(hud, 2, 18, "  Total Trades",           text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 3, 18, str.tostring(total_trades_count) + "  ", text_color=c_txt, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 2, 19, "  Win Rate",               text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 3, 19, str.tostring(win_rate, "#.#") + "%  ", text_color=win_rate >= 50 ? c_green : c_yellow, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 2, 20, "  Net R-Gain",             text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 3, 20, str.tostring(net_r_gained, "#.##") + " R  ", text_color=net_r_gained >= 0 ? c_green : c_red, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 2, 21, "  Target TP1 (1.2R)",      text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 3, 21, tp1_txt + "  ", text_color=c_green, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 2, 22, "  Target TP2 (2.5R)",      text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 3, 22, tp2_txt + "  ", text_color=c_green, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 2, 23, "  Target TP3 (4.0R)",      text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 3, 23, tp3_txt + "  ", text_color=#10b981, text_size=size.tiny, text_halign="right")
 
-    // JOURNAL BY SESSION (Rows 24-28)
-    table.cell(hud, 2, 24, "  JOURNAL BY SESSION",     text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="left")
-    lon_wr = london_trades > 0 ? (float(london_wins) / float(london_trades)) * 100.0 : 0.0
-    ny_wr  = ny_trades > 0 ? (float(ny_wins) / float(ny_trades)) * 100.0 : 0.0
-    as_wr  = asia_trades > 0 ? (float(asia_wins) / float(asia_trades)) * 100.0 : 0.0
-    table.cell(hud, 2, 25, "  London Session",         text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 3, 25, str.tostring(london_trades) + " (" + str.tostring(lon_wr, "#.#") + "%)  ", text_color=lon_wr >= 50 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 2, 26, "  New York Session",       text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 3, 26, str.tostring(ny_trades) + " (" + str.tostring(ny_wr, "#.#") + "%)  ", text_color=ny_wr >= 50 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 2, 27, "  Asian Session",          text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 3, 27, str.tostring(asia_trades) + " (" + str.tostring(as_wr, "#.#") + "%)  ", text_color=as_wr >= 50 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 2, 28, "",                        text_color=c_txt, text_size=size.tiny)
-    table.cell(hud, 3, 28, "",                        text_color=c_txt, text_size=size.tiny)
+        // JOURNAL BY SESSION (Rows 24-28)
+        table.cell(hud, 2, 24, "  JOURNAL BY SESSION",     text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="left")
+        lon_wr = london_trades > 0 ? (float(london_wins) / float(london_trades)) * 100.0 : 0.0
+        ny_wr  = ny_trades > 0 ? (float(ny_wins) / float(ny_trades)) * 100.0 : 0.0
+        as_wr  = asia_trades > 0 ? (float(asia_wins) / float(asia_trades)) * 100.0 : 0.0
+        table.cell(hud, 2, 25, "  London Session",         text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 3, 25, str.tostring(london_trades) + " (" + str.tostring(lon_wr, "#.#") + "%)  ", text_color=lon_wr >= 50 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 2, 26, "  New York Session",       text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 3, 26, str.tostring(ny_trades) + " (" + str.tostring(ny_wr, "#.#") + "%)  ", text_color=ny_wr >= 50 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 2, 27, "  Asian Session",          text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 3, 27, str.tostring(asia_trades) + " (" + str.tostring(as_wr, "#.#") + "%)  ", text_color=as_wr >= 50 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 2, 28, "  Asian Range (00-08)",   text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 3, 28, (not na(asia_range_hi) ? str.tostring(asia_range_hi, "#.#") + "-" + str.tostring(asia_range_lo, "#.#") : "--") + "  ", text_color=c_blue, text_size=size.tiny, text_halign="right")
 
-    // JOURNAL BY SETUP PATTERN (Rows 29-33)
-    table.cell(hud, 2, 29, "  JOURNAL BY PATTERN",     text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="left")
-    rev_wr  = pat_rev_trades > 0 ? (float(pat_rev_wins) / float(pat_rev_trades)) * 100.0 : 0.0
-    cont_wr = pat_cont_trades > 0 ? (float(pat_cont_wins) / float(pat_cont_trades)) * 100.0 : 0.0
-    brk_wr  = pat_brk_trades > 0 ? (float(pat_brk_wins) / float(pat_brk_trades)) * 100.0 : 0.0
-    table.cell(hud, 2, 30, "  ICT Reversal",           text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 3, 30, str.tostring(pat_rev_trades) + " (" + str.tostring(rev_wr, "#.#") + "%)  ", text_color=rev_wr >= 50 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 2, 31, "  Trend Continuation",     text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 3, 31, str.tostring(pat_cont_trades) + " (" + str.tostring(cont_wr, "#.#") + "%)  ", text_color=cont_wr >= 50 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 2, 32, "  Breakout Scalp",         text_color=c_txt, text_size=size.tiny, text_halign="left")
-    table.cell(hud, 3, 32, str.tostring(pat_brk_trades) + " (" + str.tostring(brk_wr, "#.#") + "%)  ", text_color=brk_wr >= 50 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
-    table.cell(hud, 2, 33, "",                        text_color=c_txt, text_size=size.tiny)
-    table.cell(hud, 3, 33, "",                        text_color=c_txt, text_size=size.tiny)
+        // JOURNAL BY SETUP PATTERN (Rows 29-33)
+        table.cell(hud, 2, 29, "  JOURNAL BY PATTERN",     text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="left")
+        rev_wr  = pat_rev_trades > 0 ? (float(pat_rev_wins) / float(pat_rev_trades)) * 100.0 : 0.0
+        cont_wr = pat_cont_trades > 0 ? (float(pat_cont_wins) / float(pat_cont_trades)) * 100.0 : 0.0
+        brk_wr  = pat_brk_trades > 0 ? (float(pat_brk_wins) / float(pat_brk_trades)) * 100.0 : 0.0
+        table.cell(hud, 2, 30, "  ICT Reversal",           text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 3, 30, str.tostring(pat_rev_trades) + " (" + str.tostring(rev_wr, "#.#") + "%)  ", text_color=rev_wr >= 50 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 2, 31, "  Trend Continuation",     text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 3, 31, str.tostring(pat_cont_trades) + " (" + str.tostring(cont_wr, "#.#") + "%)  ", text_color=cont_wr >= 50 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 2, 32, "  Breakout Scalp",         text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 3, 32, str.tostring(pat_brk_trades) + " (" + str.tostring(brk_wr, "#.#") + "%)  ", text_color=brk_wr >= 50 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 2, 33, "  SMT Radar (" + smt_symbol + ")", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 3, 33, (smt_bull_div ? "BULL DIV" : smt_bear_div ? "BEAR DIV" : "ALIGNED") + "  ", text_color=(smt_bull_div or smt_bear_div) ? c_blue : color.gray, text_size=size.tiny, text_halign="right")
 
 // ============================================================
 // ── ALERTS
@@ -1536,3 +1804,79 @@ alertcondition(mom_s < 40 and mom_s[1] >= 60,
 alertcondition((buy_signal[1] and struct_bias_v == -1) or (sell_signal[1] and struct_bias_v == 1),
      "🔴 Exit Warning — AdaptiveICT",
      "AdaptiveICT: Market structure flipped against open trade on {{ticker}} {{interval}} — review position.")
+
+// Alert 5: Regime Shift Notification (T020)
+reg_shifted = regime_lbl != regime_lbl[1]
+alertcondition(reg_shifted,
+     "🔄 Regime Shift — AdaptiveICT",
+     "AdaptiveICT: Market regime changed on {{ticker}} {{interval}}. Check dashboard for updated trading conditions.")
+
+// Alert 6: Virgin POC Mitigated (T009)
+alertcondition(vpoc_touched,
+     "🎯 Virgin POC Mitigated — AdaptiveICT",
+     "AdaptiveICT: Virgin POC touched and mitigated on {{ticker}} {{interval}}.")
+
+// Alert 7: Judas Swing Liquidity Sweep (T014)
+alertcondition(judas_swing_detected,
+     "⚡ Judas Swing Liquidity Sweep — AdaptiveICT",
+     "AdaptiveICT: Judas Swing detected! Asian Range liquidity swept during London Open on {{ticker}} {{interval}}.")
+
+// Alert 8: Value Area 80% Rule Rotation (T009)
+alertcondition(va_80_rule_active and not va_80_rule_active[1],
+     "📊 Value Area 80% Rule Rotation — AdaptiveICT",
+     "AdaptiveICT: Market Profile 80% Rule activated! Rotation active towards developing POC on {{ticker}} {{interval}}.")
+
+// Alert 9: Multi-Asset SMT Divergence Detected
+alertcondition(smt_bull_div or smt_bear_div,
+     "🛰️ SMT Divergence Detected — AdaptiveICT",
+     "AdaptiveICT: Smart Money Tool (SMT) Divergence detected between primary asset and benchmark on {{ticker}} {{interval}}.")
+// ── Persistent Live Execution Target Lines & Labels (Always Visible)
+var line live_ln_entry = na
+var line live_ln_sl    = na
+var line live_ln_tp1   = na
+var line live_ln_tp2   = na
+var line live_ln_tp3   = na
+
+var label live_lbl_entry = na
+var label live_lbl_sl    = na
+var label live_lbl_tp1   = na
+var label live_lbl_tp2   = na
+var label live_lbl_tp3   = na
+
+if show_lines and barstate.islast
+    if not na(live_ln_entry)
+        line.delete(live_ln_entry)
+    if not na(live_ln_sl)
+        line.delete(live_ln_sl)
+    if not na(live_ln_tp1)
+        line.delete(live_ln_tp1)
+    if not na(live_ln_tp2)
+        line.delete(live_ln_tp2)
+    if not na(live_ln_tp3)
+        line.delete(live_ln_tp3)
+
+    if not na(live_lbl_entry)
+        label.delete(live_lbl_entry)
+    if not na(live_lbl_sl)
+        label.delete(live_lbl_sl)
+    if not na(live_lbl_tp1)
+        label.delete(live_lbl_tp1)
+    if not na(live_lbl_tp2)
+        label.delete(live_lbl_tp2)
+    if not na(live_lbl_tp3)
+        label.delete(live_lbl_tp3)
+
+    live_x1 = bar_index - 8
+    live_x2 = bar_index + 16
+
+    live_ln_entry := line.new(live_x1, disp_entry, live_x2, disp_entry, color=#3b82f6, width=1, style=line.style_solid)
+    live_ln_sl    := line.new(live_x1, disp_sl, live_x2, disp_sl, color=#ef4444, width=1, style=line.style_dashed)
+    live_ln_tp1   := line.new(live_x1, disp_tp1, live_x2, disp_tp1, color=#22c55e, width=1, style=line.style_dotted)
+    live_ln_tp2   := line.new(live_x1, disp_tp2, live_x2, disp_tp2, color=#22c55e, width=2, style=line.style_dashed)
+    live_ln_tp3   := line.new(live_x1, disp_tp3, live_x2, disp_tp3, color=#10b981, width=2, style=line.style_solid)
+
+    live_lbl_entry := label.new(live_x2, disp_entry, (trade_active ? "ENTRY " : "PROJ ENTRY ") + str.tostring(disp_entry, "#.##"), xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(#3b82f6, 10), textcolor=color.white, size=size.tiny)
+    live_lbl_sl    := label.new(live_x2, disp_sl, (trade_active ? "⛔ SL " : "⛔ PROJ SL ") + sl_txt, xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(#ef4444, 10), textcolor=color.white, size=size.tiny)
+    live_lbl_tp1   := label.new(live_x2, disp_tp1, "🎯 TP1 " + tp1_txt, xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(#22c55e, 10), textcolor=color.white, size=size.tiny)
+    live_lbl_tp2   := label.new(live_x2, disp_tp2, "🎯 TP2 " + tp2_txt, xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(#22c55e, 10), textcolor=color.white, size=size.tiny)
+    live_lbl_tp3   := label.new(live_x2, disp_tp3, "🎯 TP3 " + tp3_txt, xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(#10b981, 10), textcolor=color.white, size=size.tiny)

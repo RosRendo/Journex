@@ -2,12 +2,30 @@
 
 import React, { useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Zap,
+  Layers,
+  Newspaper,
+  ShieldAlert,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
+  SlidersHorizontal,
+  Crosshair,
+  Maximize2,
+  Globe,
+} from "lucide-react";
+
 import CommandCenterHeader from "@/components/command-center/CommandCenterHeader";
 import WatchlistSidebar from "@/components/command-center/WatchlistSidebar";
 import ChartCanvas from "@/components/command-center/ChartCanvas";
 import MarketStateAndConfluence from "@/components/command-center/MarketStateAndConfluence";
 import SetupAndConfirmationHero from "@/components/command-center/SetupAndConfirmationHero";
 import ContextualNewsCard from "@/components/command-center/ContextualNewsCard";
+import MacroIntelligenceRadar from "@/components/command-center/MacroIntelligenceRadar";
 import TradeRiskCard from "@/components/command-center/TradeRiskCard";
 import StrategyBuilderModal from "@/components/command-center/StrategyBuilderModal";
 import SignalLabModal from "@/components/command-center/SignalLabModal";
@@ -103,6 +121,12 @@ export default function MacroPairPage() {
   const [activeStrategy, setActiveStrategy] = useState<StrategyProfile>(INITIAL_STRATEGIES[0]);
   const [activeWorkspace, setActiveWorkspace] = useState<"SCALPING" | "SWING" | "NEWS">("SCALPING");
   const [widgets, setWidgets] = useState<WorkspaceWidgets>(DEFAULT_WIDGETS);
+
+  // Layout & Workspace View State
+  const [viewMode, setViewMode] = useState<"TERMINAL" | "RESEARCH">("TERMINAL");
+  const [isLeftRailOpen, setIsLeftRailOpen] = useState<boolean>(true);
+  const [isRightRailOpen, setIsRightRailOpen] = useState<boolean>(true);
+  const [activeRightTab, setActiveRightTab] = useState<"setup" | "confluence" | "news">("setup");
 
   // Modals state
   const [isStrategyBuilderOpen, setIsStrategyBuilderOpen] = useState<boolean>(false);
@@ -206,34 +230,36 @@ export default function MacroPairPage() {
   }, [activeSymbol, confluenceScore, liveBid, activeStrategy]);
 
   // Execute 1-Click order directly to MT5 Bridge
-  const handleExecuteTrade = async () => {
+  const handleExecuteTrade = async (action: "buy" | "sell" = "buy", lotSize: number = 0.01) => {
     try {
       const res = await fetch("/api/bridge/api/trade", {
         method: "POST",
         headers: { "Content-Type": "application/json", "ngrok-skip-browser-warning": "true" },
         body: JSON.stringify({
-          action: "buy",
+          action,
           symbol: activeSymbol,
-          lotSize: 0.01,
+          lotSize,
           sl: signalData.slPrice,
           tp: signalData.tp2Price,
         }),
       });
       const data = await res.json();
       if (data.success) {
-        alert(`⚡ MT5 ORDER DISPATCHED!\nTicket: #${data.order?.ticket || "Confirmed"}\nSymbol: ${activeSymbol}\nVolume: 0.01 Lots\nEntry: ${liveAsk}\nStop Loss: ${signalData.slPrice}\nTake Profit: ${signalData.tp2Price}`);
+        alert(
+          `⚡ MT5 ORDER DISPATCHED!\nAction: ${action.toUpperCase()}\nTicket: #${data.order?.ticket || "Confirmed"}\nSymbol: ${activeSymbol}\nVolume: ${lotSize} Lots\nEntry: ${action === "buy" ? liveAsk : liveBid}\nStop Loss: ${signalData.slPrice}\nTake Profit: ${signalData.tp2Price}`
+        );
         refetch();
       } else {
         alert(`Order dispatch status: ${data.message || "Executed"}`);
         refetch();
       }
     } catch (e) {
-      alert(`⚡ 1-Click Order Placed for ${activeSymbol} (0.01L @ ${liveAsk})`);
+      alert(`⚡ 1-Click ${action.toUpperCase()} Order Placed for ${activeSymbol} (${lotSize}L)`);
     }
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#08080a] text-[#f4f4f5] flex flex-col font-mono text-[11px] selection:bg-amber-500/30 selection:text-amber-200">
+    <div className="h-screen w-screen bg-[#070709] text-[#f4f4f5] flex flex-col font-mono text-[11px] selection:bg-amber-500/30 selection:text-amber-200 overflow-hidden">
       
       {/* ── TOPBAR COMMAND CENTER HEADER ── */}
       <CommandCenterHeader
@@ -249,90 +275,296 @@ export default function MacroPairPage() {
         onOpenStrategyBuilder={() => setIsStrategyBuilderOpen(true)}
         onOpenSignalLab={() => setIsSignalLabOpen(true)}
         onOpenLayoutConfig={() => setIsLayoutConfigOpen(true)}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
       />
 
-      {/* ── MAIN WORKSPACE VIEWPORT ── */}
-      <div className="flex-1 w-full max-w-[1720px] mx-auto p-3 sm:p-4 lg:p-5 flex flex-col lg:flex-row gap-3.5 min-h-0">
-        
-        {/* LEFT RADAR: WATCHLIST SIDEBAR */}
-        {widgets.watchlist && (
-          <WatchlistSidebar
-            activeSymbol={activeSymbol}
-            onSelectSymbol={handleSelectSymbol}
-            activeStrategy={activeStrategy}
-          />
-        )}
-
-        {/* CENTER / MAIN STACK */}
-        <div className="flex-1 flex flex-col gap-3.5 min-w-0">
+      {/* ── MODE 1: FULL TERMINAL CHART WORKSTATION (PRIMARY) ── */}
+      {viewMode === "TERMINAL" ? (
+        <div className="flex-1 w-full flex flex-col lg:flex-row min-h-0 overflow-hidden bg-[#070709]">
           
-          {/* 1. TOP MAIN CHART (Live Real Candles & Structural Overlays) */}
-          {widgets.chart && (
-            <div className="w-full h-[380px] sm:h-[420px]">
-              <ChartCanvas
-                symbol={activeSymbol}
-                timeframe={timeframe}
-                currentPrice={liveBid}
-                bidPrice={liveBid}
-                askPrice={liveAsk}
-                spreadPips={liveSpread}
-                entryPrice={signalData.entryPrice}
-                slPrice={signalData.slPrice}
-                tp1Price={signalData.tp1Price}
-                tp2Price={signalData.tp2Price}
-                realCandles={candles}
-                levels={levels}
-                positions={positions}
-              />
-            </div>
-          )}
+          {/* LEFT RAIL: COLLAPSIBLE WATCHLIST */}
+          <aside
+            className={`border-b lg:border-r lg:border-b-0 border-white/[0.07] flex flex-col min-h-0 transition-all duration-300 overflow-hidden bg-[#09090d] shrink-0 ${
+              isLeftRailOpen ? "w-full lg:w-64 min-w-[250px]" : "w-11 min-w-[44px]"
+            }`}
+          >
+            {isLeftRailOpen ? (
+              <div className="flex flex-col h-full min-h-0">
+                <WatchlistSidebar
+                  activeSymbol={activeSymbol}
+                  onSelectSymbol={handleSelectSymbol}
+                  activeStrategy={activeStrategy}
+                  onCollapse={() => setIsLeftRailOpen(false)}
+                  embedded={true}
+                  activePrice={liveBid}
+                />
+              </div>
+            ) : (
+              <div className="flex flex-col items-center py-3 gap-3 h-full">
+                <button
+                  onClick={() => setIsLeftRailOpen(true)}
+                  className="p-1.5 rounded-lg bg-white/5 hover:bg-white/15 text-zinc-400 hover:text-white transition-colors"
+                  title="Open Watchlist"
+                >
+                  <PanelLeftOpen className="w-4 h-4 text-[#20e0b2]" />
+                </button>
+                <div className="[writing-mode:vertical-lr] rotate-180 text-[10px] uppercase font-bold tracking-widest text-zinc-500 py-2">
+                  Watchlist
+                </div>
+              </div>
+            )}
+          </aside>
 
-          {/* 2. MIDDLE SPLIT: MARKET STATE (Context) & CONFLUENCE (Model Rules) */}
-          {(widgets.marketState || widgets.confluence) && (
-            <MarketStateAndConfluence
-              marketState={marketState}
-              activeStrategy={activeStrategy}
-              confluenceScore={confluenceScore}
-              conditions={activeStrategy.conditions}
-              onOpenStrategyBuilder={() => setIsStrategyBuilderOpen(true)}
-            />
-          )}
-
-          {/* 3. SIGNAL & CONFIRMATION HERO */}
-          {widgets.setupHero && (
-            <SetupAndConfirmationHero
-              signal={signalData}
-              onOpenSignalLab={() => setIsSignalLabOpen(true)}
-              onOpenJournalConvert={() => setIsJournalConvertOpen(true)}
+          {/* CENTER: THE DOMINANT FULL TERMINAL CHART (100% NATIVE, ZERO IFRAME) */}
+          <main className="flex-1 flex flex-col min-h-0 h-full overflow-hidden bg-[#070709]">
+            <ChartCanvas
+              symbol={activeSymbol}
+              timeframe={timeframe}
+              onTimeframeChange={setTimeframe}
+              currentPrice={liveBid}
+              bidPrice={liveBid}
+              askPrice={liveAsk}
+              spreadPips={liveSpread}
+              entryPrice={signalData.entryPrice}
+              slPrice={signalData.slPrice}
+              tp1Price={signalData.tp1Price}
+              tp2Price={signalData.tp2Price}
+              realCandles={candles}
+              levels={levels}
+              positions={positions}
               onExecuteTrade={handleExecuteTrade}
+              className="h-full flex-1 rounded-none border-none"
+            />
+          </main>
+
+          {/* RIGHT RAIL: COLLAPSIBLE MACRO CONFLUENCE & EXECUTION HUB */}
+          <aside
+            className={`border-t lg:border-l lg:border-t-0 border-white/[0.07] flex flex-col min-h-0 transition-all duration-300 overflow-hidden bg-[#09090d] shrink-0 ${
+              isRightRailOpen ? "w-full lg:w-[380px] min-w-[340px]" : "w-11 min-w-[44px]"
+            }`}
+          >
+            {isRightRailOpen ? (
+              <div className="flex flex-col h-full min-h-0">
+                {/* Right Rail Header with Tabs & Collapse Button */}
+                <div className="h-10 px-3 border-b border-white/[0.07] bg-[#0c0c11] flex items-center justify-between shrink-0">
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setActiveRightTab("setup")}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[9.5px] font-mono transition-all ${
+                        activeRightTab === "setup"
+                          ? "bg-white/10 text-white border border-white/15 font-bold"
+                          : "text-zinc-500 hover:text-zinc-300 border border-transparent"
+                      }`}
+                    >
+                      <Zap className="w-3 h-3 text-zinc-400" />
+                      <span>Setup & Risk</span>
+                    </button>
+
+                    <button
+                      onClick={() => setActiveRightTab("confluence")}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[9.5px] font-mono transition-all ${
+                        activeRightTab === "confluence"
+                          ? "bg-white/10 text-white border border-white/15 font-bold"
+                          : "text-zinc-500 hover:text-zinc-300 border border-transparent"
+                      }`}
+                    >
+                      <Layers className="w-3 h-3 text-zinc-400" />
+                      <span>Confluence</span>
+                    </button>
+
+                    <button
+                      onClick={() => setActiveRightTab("news")}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[9.5px] font-mono transition-all ${
+                        activeRightTab === "news"
+                          ? "bg-white/10 text-white border border-white/15 font-bold"
+                          : "text-zinc-500 hover:text-zinc-300 border border-transparent"
+                      }`}
+                    >
+                      <Globe className="w-3 h-3 text-[#20e0b2]" />
+                      <span>Macro &amp; AI</span>
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => setIsRightRailOpen(false)}
+                    className="p-1 rounded bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
+                    title="Collapse Macro Hub"
+                  >
+                    <PanelRightClose className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {/* Tab Content Body */}
+                <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                  {activeRightTab === "setup" && (
+                    <div className="space-y-3">
+                      <SetupAndConfirmationHero
+                        signal={signalData}
+                        onOpenSignalLab={() => setIsSignalLabOpen(true)}
+                        onOpenJournalConvert={() => setIsJournalConvertOpen(true)}
+                        onExecuteTrade={() => handleExecuteTrade("buy", 0.01)}
+                        compact={true}
+                      />
+                      <TradeRiskCard
+                        symbol={activeSymbol}
+                        signal={signalData}
+                        strategy={activeStrategy}
+                        account={account}
+                        positions={positions}
+                        onExecute={() => handleExecuteTrade("buy", 0.01)}
+                        onMarkSetup={() => setIsJournalConvertOpen(true)}
+                      />
+                    </div>
+                  )}
+
+                  {activeRightTab === "confluence" && (
+                    <MarketStateAndConfluence
+                      marketState={marketState}
+                      activeStrategy={activeStrategy}
+                      confluenceScore={confluenceScore}
+                      conditions={activeStrategy.conditions}
+                      onOpenStrategyBuilder={() => setIsStrategyBuilderOpen(true)}
+                      compact={true}
+                    />
+                  )}
+
+                  {activeRightTab === "news" && (
+                    <MacroIntelligenceRadar activeSymbol={activeSymbol} realNews={news} />
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center py-3 gap-3 h-full">
+                <button
+                  onClick={() => setIsRightRailOpen(true)}
+                  className="p-1.5 rounded-lg bg-white/5 hover:bg-white/15 text-zinc-400 hover:text-white transition-colors"
+                  title="Open Macro Hub"
+                >
+                  <PanelRightOpen className="w-4 h-4 text-amber-400" />
+                </button>
+                <div className="flex flex-col gap-2 pt-2">
+                  <button
+                    onClick={() => {
+                      setIsRightRailOpen(true);
+                      setActiveRightTab("setup");
+                    }}
+                    className="p-1.5 rounded hover:bg-white/10 text-zinc-500 hover:text-amber-400 transition-colors"
+                    title="Setup & Risk"
+                  >
+                    <Zap className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsRightRailOpen(true);
+                      setActiveRightTab("confluence");
+                    }}
+                    className="p-1.5 rounded hover:bg-white/10 text-zinc-500 hover:text-purple-400 transition-colors"
+                    title="Confluence Rules"
+                  >
+                    <Layers className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsRightRailOpen(true);
+                      setActiveRightTab("news");
+                    }}
+                    className="p-1.5 rounded hover:bg-white/10 text-zinc-500 hover:text-cyan-400 transition-colors"
+                    title="News & Catalysts"
+                  >
+                    <Newspaper className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="[writing-mode:vertical-lr] rotate-180 text-[10px] uppercase font-bold tracking-widest text-zinc-500 py-2">
+                  Macro Desk
+                </div>
+              </div>
+            )}
+          </aside>
+        </div>
+      ) : (
+        /* ── MODE 2: CLASSIC SCROLLABLE MACRO RESEARCH DESK ── */
+        <div className="flex-1 w-full max-w-[1720px] mx-auto p-3 sm:p-4 lg:p-5 flex flex-col lg:flex-row gap-3.5 min-h-0 overflow-y-auto">
+          
+          {/* LEFT RADAR: WATCHLIST SIDEBAR */}
+          {widgets.watchlist && (
+            <WatchlistSidebar
+              activeSymbol={activeSymbol}
+              onSelectSymbol={handleSelectSymbol}
+              activeStrategy={activeStrategy}
             />
           )}
 
-          {/* 4. BOTTOM GRID: REAL NEWS & REAL ACCOUNT CAPITAL CHECK */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-            {widgets.news && (
-              <ContextualNewsCard
-                activeSymbol={activeSymbol}
-                realNews={news}
+          {/* CENTER / MAIN STACK */}
+          <div className="flex-1 flex flex-col gap-3.5 min-w-0">
+            
+            {/* 1. TOP MAIN CHART */}
+            {widgets.chart && (
+              <div className="w-full h-[540px]">
+                <ChartCanvas
+                  symbol={activeSymbol}
+                  timeframe={timeframe}
+                  onTimeframeChange={setTimeframe}
+                  currentPrice={liveBid}
+                  bidPrice={liveBid}
+                  askPrice={liveAsk}
+                  spreadPips={liveSpread}
+                  entryPrice={signalData.entryPrice}
+                  slPrice={signalData.slPrice}
+                  tp1Price={signalData.tp1Price}
+                  tp2Price={signalData.tp2Price}
+                  realCandles={candles}
+                  levels={levels}
+                  positions={positions}
+                  onExecuteTrade={handleExecuteTrade}
+                  className="h-full"
+                />
+              </div>
+            )}
+
+            {/* 2. MIDDLE SPLIT: MARKET STATE & CONFLUENCE */}
+            {(widgets.marketState || widgets.confluence) && (
+              <MarketStateAndConfluence
+                marketState={marketState}
+                activeStrategy={activeStrategy}
+                confluenceScore={confluenceScore}
+                conditions={activeStrategy.conditions}
+                onOpenStrategyBuilder={() => setIsStrategyBuilderOpen(true)}
               />
             )}
 
-            {widgets.riskCheck && (
-              <TradeRiskCard
-                symbol={activeSymbol}
+            {/* 3. SIGNAL & CONFIRMATION HERO */}
+            {widgets.setupHero && (
+              <SetupAndConfirmationHero
                 signal={signalData}
-                strategy={activeStrategy}
-                account={account}
-                positions={positions}
-                onExecute={handleExecuteTrade}
-                onMarkSetup={() => setIsJournalConvertOpen(true)}
+                onOpenSignalLab={() => setIsSignalLabOpen(true)}
+                onOpenJournalConvert={() => setIsJournalConvertOpen(true)}
+                onExecuteTrade={() => handleExecuteTrade("buy", 0.01)}
               />
             )}
+
+            {/* 4. BOTTOM GRID: REAL NEWS & RISK CHECK */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              {widgets.news && (
+                <MacroIntelligenceRadar activeSymbol={activeSymbol} realNews={news} />
+              )}
+
+              {widgets.riskCheck && (
+                <TradeRiskCard
+                  symbol={activeSymbol}
+                  signal={signalData}
+                  strategy={activeStrategy}
+                  account={account}
+                  positions={positions}
+                  onExecute={() => handleExecuteTrade("buy", 0.01)}
+                  onMarkSetup={() => setIsJournalConvertOpen(true)}
+                />
+              )}
+            </div>
+
           </div>
-
         </div>
-
-      </div>
+      )}
 
       {/* ── MODALS ── */}
       <StrategyBuilderModal

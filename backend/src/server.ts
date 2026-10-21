@@ -120,7 +120,9 @@ app.use("/api", (req, res, next) => {
     req.path.startsWith("/internal") || 
     req.path.startsWith("/terminal") || 
     req.path.startsWith("/calendar") ||
-    req.path.startsWith("/signals")
+    req.path.startsWith("/signals") ||
+    req.path.startsWith("/news") ||
+    req.path.startsWith("/telegram")
   ) {
     return next();
   }
@@ -243,23 +245,12 @@ const server = app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📊 Trading Journal API ready`);
 
-  // Start the news watcher background loop
+  // Start the automated Telegram broadcaster (News + Confluences on startup & background, deduplicated across restarts)
   try {
-    startNewsWatcher(
-      async () => {
-        const keys = getSettings().api_keys || {};
-        try {
-          const res = await getRealNews(keys, undefined, 15);
-          return res.items || [];
-        } catch (err: any) {
-          console.warn("[NEWS WATCHER] Failed fetching real news, using fallback mock news:", err.message);
-          return [];
-        }
-      },
-      () => getSettings().api_keys || {}
-    );
+    startAutoBroadcaster();
+    startTelegramBotListener();
   } catch (err) {
-    console.error("[NEWS WATCHER STARTUP ERROR]", err);
+    console.error("[AUTO-BROADCASTER / TELEGRAM-BOT STARTUP ERROR]", err);
   }
 });
 
@@ -285,7 +276,8 @@ import { WebSocketServer } from "ws";
 import url from "url";
 import { SYMBOLS } from "./routes/terminalRoutes";
 import { OandaPricingStream } from "./services/priceStreamService";
-import { startNewsWatcher } from "./services/newsWatcherService";
+import { startAutoBroadcaster } from "./services/autoBroadcastService";
+import { startTelegramBotListener } from "./services/telegramBotListenerService";
 import { getRealNews } from "./services/externalFeedsService";
 import { syncBrokerTrades } from "./services/syncService";
 

@@ -26,11 +26,11 @@ export default function TerminalHeader({ symbol, onSymbolChange, connected, symb
   if (now) {
     const h = now.getUTCHours();
     if (h >= 6 && h < 9) {
-      killzone = { name: "LONDON KILLZONE", color: "text-blue-500 border-blue-500 bg-blue-500/10" };
+      killzone = { name: "LONDON KILLZONE", color: "text-zinc-200 border-zinc-700 bg-zinc-900" };
     } else if (h >= 11 && h < 14) {
-      killzone = { name: "NY KILLZONE", color: "text-red-500 border-red-500 bg-red-500/10" };
+      killzone = { name: "NY KILLZONE", color: "text-zinc-200 border-zinc-700 bg-zinc-900" };
     } else if (h >= 23 || h < 4) {
-      killzone = { name: "ASIAN RANGE", color: "text-purple-500 border-purple-500 bg-purple-500/10" };
+      killzone = { name: "ASIAN RANGE", color: "text-zinc-200 border-zinc-700 bg-zinc-900" };
     } else {
       killzone = { name: "DEAD ZONE", color: "text-zinc-500 border-zinc-700 bg-zinc-900" };
     }
@@ -49,7 +49,7 @@ export default function TerminalHeader({ symbol, onSymbolChange, connected, symb
           <ArrowLeft size={10} />
           Back
         </button>
-        <div className="w-2 h-2 bg-amber-500 rounded-sm" />
+        <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full" />
         <span className="text-[11px] font-bold tracking-[0.18em] uppercase text-zinc-100">
           JOURNEX TERMINAL
         </span>
@@ -120,7 +120,7 @@ export default function TerminalHeader({ symbol, onSymbolChange, connected, symb
         <button
           data-testid="open-order-ticket"
           onClick={onOpenOrderTicket}
-          className="flex items-center gap-1 text-[10px] uppercase tracking-widest border border-amber-500 text-amber-500 hover:bg-amber-500/10 px-2 py-1 transition-colors"
+          className="flex items-center gap-1 text-[10px] uppercase tracking-widest border border-white/20 bg-white/10 hover:bg-white/15 text-white px-2.5 py-1 transition-colors"
         >
           <Plus size={12} />
           New Order
@@ -148,7 +148,7 @@ export default function TerminalHeader({ symbol, onSymbolChange, connected, symb
           className={`px-2 py-0.5 text-[9px] uppercase tracking-[0.2em] font-bold border ${
             isLive
               ? "border-emerald-500 text-emerald-500 bg-emerald-500/10"
-              : "border-amber-500/60 text-amber-500/80 bg-amber-500/5"
+              : "border-zinc-800 text-zinc-500 bg-zinc-900"
           }`}
         >
           {isLive ? `LIVE · ${(provider || "mock").toUpperCase()}` : "MOCK"}
@@ -162,7 +162,7 @@ export default function TerminalHeader({ symbol, onSymbolChange, connected, symb
           </span>
         </div>
         <div className="flex items-center gap-1.5 text-zinc-400">
-          <Activity size={12} className="text-amber-500" />
+          <Activity size={12} className="text-zinc-500" />
           <span className="tabular-nums">{now ? utcClock(now) : "--:--:--"}</span>
         </div>
       </div>

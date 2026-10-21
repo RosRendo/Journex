@@ -2,8 +2,8 @@ import {
   LayoutDashboard, Terminal, List, Radio, Bot, Code,
   BarChart3, LineChart, PieChart, Repeat,
   CalendarDays, Newspaper, Eye, Globe, Monitor, Activity, Bell,
-  BookOpen, CheckCircle2, Cpu, TrendingUp, ShieldAlert,
-  Calculator, Wallet, Settings, Users, CreditCard, Shield,
+  BookOpen, Cpu, ShieldAlert,
+  Calculator, Wallet, Settings, Users, CreditCard,
   Layers, DollarSign, Target, Sparkles, Compass
 } from "lucide-react";
 
@@ -46,7 +46,7 @@ export const TRADE_LIFECYCLE_STEPS: LifecycleStep[] = [
   { step: 3, label: "Decide", role: "What now?", id: "dashboard", href: "/dashboard", icon: LayoutDashboard, color: "#10b981" },
   { step: 4, label: "Size & Risk", role: "How much?", id: "risk", href: "/risk", icon: ShieldAlert, color: "#ef4444" },
   { step: 5, label: "Execute", role: "Do it", id: "terminal", href: "/terminal", icon: Terminal, color: "#3b82f6" },
-  { step: 6, label: "Manage", role: "Manage trade", id: "positions", href: "/positions", icon: List, color: "#06b6d4" },
+  { step: 6, label: "Manage", role: "Manage trade", id: "terminal", href: "/terminal", icon: List, color: "#06b6d4" },
   { step: 7, label: "Learn", role: "Audit & grow", id: "journal", href: "/journal", icon: BookOpen, color: "#a855f7" },
 ];
 
@@ -96,11 +96,9 @@ export const NAV_PILLARS: NavPillar[] = [
         id: "positions",
         label: "Positions",
         role: "Manage",
-        description: "Open positions manager: trailing stops, partial closes, and real-time floating PnL",
+        description: "Live open positions and pending tickets with inline PnL, partial close, and edit",
         href: "/positions",
         icon: List,
-        badge: "EXPOSURE",
-        isPrimaryCore: true,
         category: "execution",
       },
       {
@@ -144,40 +142,12 @@ export const NAV_PILLARS: NavPillar[] = [
       },
       {
         id: "calendar",
-        label: "Economic Calendar",
-        role: "Timing & events",
-        description: "High-impact news events (CPI, FOMC, NFP) and monthly PnL calendar breakdown",
+        label: "News & Calendar",
+        role: "Timing, news & sentiment",
+        description: "Unified economic calendar, breaking news wire, and retail sentiment ratios",
         href: "/calendar",
         icon: CalendarDays,
-        badge: "NEWS CLEAR",
-        category: "intel",
-      },
-      {
-        id: "news",
-        label: "Market News",
-        role: "Context & volatility",
-        description: "Institutional real-time headline feed with volatility impact indicators",
-        href: "/news",
-        icon: Newspaper,
-        badge: "LIVE FEED",
-        category: "intel",
-      },
-      {
-        id: "sentiment",
-        label: "Market Sentiment",
-        role: "Retail bias",
-        description: "Retail trader long/short positioning ratios and contrarian fade indicators",
-        href: "/sentiment",
-        icon: Eye,
-        category: "intel",
-      },
-      {
-        id: "notificationandmonitor",
-        label: "Market Monitor",
-        role: "Watch",
-        description: "Real-time symbol watchlist and continuous technical condition monitor",
-        href: "/notificationandmonitor",
-        icon: Monitor,
+        badge: "INTEL",
         category: "intel",
       },
       {
@@ -191,11 +161,12 @@ export const NAV_PILLARS: NavPillar[] = [
       },
       {
         id: "alerts",
-        label: "Alerts Manager",
-        role: "Notify",
-        description: "Price level breach triggers, drawdown threshold alerts, and audio notifications",
+        label: "Alerts & Monitor",
+        role: "Watch & notify",
+        description: "Live symbol price targets, breach triggers, Discord/Telegram webhooks, and push alerts",
         href: "/alerts",
         icon: Bell,
+        badge: "LIVE",
         category: "intel",
       },
     ],
@@ -210,21 +181,12 @@ export const NAV_PILLARS: NavPillar[] = [
     items: [
       {
         id: "analytics",
-        label: "Analytics",
-        role: "Verify edge",
-        description: "Deep win rate, profit factor, MAE/MFE payoff curves, and edge expectancy",
+        label: "Analytics & Performance",
+        role: "Edge & growth",
+        description: "Deep win rate, equity curve growth, drawdown telemetry, and strategy edge studio",
         href: "/analytics",
         icon: BarChart3,
         badge: "QUANT",
-        category: "analytics",
-      },
-      {
-        id: "performance",
-        label: "Performance",
-        role: "Track capital",
-        description: "Account growth trajectories, drawdown recoveries, and monthly benchmarks",
-        href: "/performance",
-        icon: LineChart,
         category: "analytics",
       },
       {
@@ -258,9 +220,9 @@ export const NAV_PILLARS: NavPillar[] = [
     items: [
       {
         id: "journal",
-        label: "Daily Journal",
+        label: "Trade Journal",
         role: "Learn",
-        description: "Structured trade diary: psychology tags, mistake tracking, and MT5 screenshots",
+        description: "Structured trade diary: psychology tags, mistake tracking, MT5 screenshots, and full review",
         href: "/journal",
         icon: BookOpen,
         badge: "CORE",
@@ -268,20 +230,11 @@ export const NAV_PILLARS: NavPillar[] = [
       },
       {
         id: "review",
-        label: "Trade Review",
+        label: "Session Review",
         role: "Audit",
-        description: "Post-session trade quality grading (A+, B, C, Tilt) and execution quality checks",
+        description: "Post-session execution review and mistake analysis",
         href: "/review",
-        icon: CheckCircle2,
-        category: "journal",
-      },
-      {
-        id: "review-daily",
-        label: "Daily Debrief",
-        role: "Reflect",
-        description: "End-of-day debrief questionnaire and discipline compliance audit",
-        href: "/review?tab=daily",
-        icon: CalendarDays,
+        icon: Eye,
         category: "journal",
       },
       {
@@ -292,15 +245,6 @@ export const NAV_PILLARS: NavPillar[] = [
         href: "/playbook",
         icon: Cpu,
         badge: "AI DESK",
-        category: "journal",
-      },
-      {
-        id: "progress",
-        label: "Progress Tracker",
-        role: "Milestones",
-        description: "Trader skill progression ladder and funded prop challenge compliance criteria",
-        href: "/review?tab=challenges",
-        icon: TrendingUp,
         category: "journal",
       },
     ],
@@ -315,21 +259,12 @@ export const NAV_PILLARS: NavPillar[] = [
     items: [
       {
         id: "risk",
-        label: "Risk Desk",
-        role: "Protect capital",
-        description: "Daily drawdown ceiling, prop rule protection, tilt lockout, and panic mode",
+        label: "Risk Desk & Sizing",
+        role: "Protect capital & size",
+        description: "Position lot sizing, daily drawdown ceiling, prop rule guard, and pre-trade validation",
         href: "/risk",
         icon: ShieldAlert,
         badge: "GUARD",
-        category: "risk_system",
-      },
-      {
-        id: "calculators",
-        label: "Risk Calculator",
-        role: "Size & calculate",
-        description: "Dynamic lot sizing calculators, pip contract values, and risk/reward simulator",
-        href: "/calculators",
-        icon: Calculator,
         category: "risk_system",
       },
       {
@@ -401,8 +336,8 @@ export const NAV_PILLARS: NavPillar[] = [
   },
 ];
 
-// 4 non-negotiable permanent core tools on My Desk (Cannot be unpinned)
-export const PRIMARY_CORE_IDS = ["dashboard", "signals", "terminal", "positions"];
+// 3 non-negotiable permanent core tools on My Desk (Cannot be unpinned)
+export const PRIMARY_CORE_IDS = ["dashboard", "signals", "terminal"];
 
 // Default quick-access tools pinned on My Desk
 export const DEFAULT_QUICK_ACCESS_IDS = ["macro", "calendar", "risk", "journal", "analytics"];

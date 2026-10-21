@@ -68,10 +68,10 @@ export default function TradeRiskCard({ symbol, signal, strategy, account, posit
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-          <span className="text-white font-bold text-[11px] uppercase tracking-widest">Risk Check</span>
+          <ShieldCheck className="w-3.5 h-3.5 text-zinc-400" />
+          <span className="text-white font-bold text-[11px] uppercase tracking-widest">Risk Allocation</span>
         </div>
-        <span className="text-[9px] px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold">
+        <span className="text-[9px] px-2 py-0.5 rounded-md bg-white/[0.04] border border-white/10 text-zinc-400 font-mono">
           {account?.server || "Exness Live"}
         </span>
       </div>
@@ -97,7 +97,7 @@ export default function TradeRiskCard({ symbol, signal, strategy, account, posit
       <div className="bg-black/20 border border-white/[0.05] rounded-xl p-2.5">
         <div className="flex items-center justify-between mb-2">
           <span className="text-zinc-400 text-[10px] flex items-center gap-1">
-            <Target className="w-3 h-3" /> Risk Allocation
+            <Target className="w-3 h-3 text-zinc-500" /> Risk Sizing
           </span>
           <div className="flex gap-1">
             {[0.25, 0.5, 1.0].map((r) => (
@@ -106,8 +106,8 @@ export default function TradeRiskCard({ symbol, signal, strategy, account, posit
                 onClick={() => setRiskPct(r)}
                 className={`px-2 py-0.5 rounded text-[9px] font-bold transition-all ${
                   riskPct === r
-                    ? "bg-emerald-500 text-black"
-                    : "bg-white/[0.05] text-zinc-400 hover:text-white"
+                    ? "bg-white/20 text-white border border-white/20"
+                    : "bg-white/[0.03] text-zinc-400 hover:text-white border border-transparent"
                 }`}
               >
                 {r}%
@@ -118,28 +118,28 @@ export default function TradeRiskCard({ symbol, signal, strategy, account, posit
 
         <div className="flex items-center justify-between">
           <div>
-            <span className="text-zinc-500 text-[9px] block">Dollar Risk</span>
-            <span className="text-rose-400 font-bold text-[11px]">${dollarRisk.toFixed(2)}</span>
+            <span className="text-zinc-500 text-[9px] block">Risk Amount</span>
+            <span className="text-zinc-200 font-bold text-[11px] tabular-nums">${dollarRisk.toFixed(2)}</span>
           </div>
           <div className="w-px h-6 bg-white/10" />
           <div>
-            <span className="text-zinc-500 text-[9px] block">Suggested Lots</span>
-            <span className="text-emerald-400 font-bold text-[13px] tabular-nums">{calcLots}L</span>
+            <span className="text-zinc-500 text-[9px] block">Calc Volume</span>
+            <span className="text-white font-bold text-[13px] tabular-nums">{calcLots} Lots</span>
           </div>
           <div className="w-px h-6 bg-white/10" />
           <div>
-            <span className="text-zinc-500 text-[9px] block">R:R Ratio</span>
-            <span className="text-amber-400 font-bold text-[11px]">{signal.rrRatio}</span>
+            <span className="text-zinc-500 text-[9px] block">Model R:R</span>
+            <span className="text-zinc-200 font-bold text-[11px] tabular-nums">{signal.rrRatio}</span>
           </div>
         </div>
       </div>
 
       {/* Active Position Panel */}
       {activePos ? (
-        <div className="bg-emerald-950/20 border border-emerald-500/25 rounded-xl p-2.5 flex flex-col gap-2">
+        <div className="bg-white/[0.03] border border-white/10 rounded-xl p-2.5 flex flex-col gap-2">
           <div className="flex items-center justify-between">
-            <span className="text-emerald-300 font-bold text-[10px] flex items-center gap-1.5">
-              <Shield className="w-3 h-3" /> #{activePos.ticket}
+            <span className="text-zinc-300 font-bold text-[10px] flex items-center gap-1.5 font-mono">
+              <Shield className="w-3 h-3 text-zinc-400" /> #{activePos.ticket}
             </span>
             <span className={`font-bold tabular-nums text-[11px] ${activePos.pnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
               {activePos.pnl >= 0 ? "+" : ""}${activePos.pnl.toFixed(2)}
@@ -164,9 +164,9 @@ export default function TradeRiskCard({ symbol, signal, strategy, account, posit
           </div>
         </div>
       ) : (
-        <div className="flex items-center justify-center py-3 text-[9.5px] text-zinc-600 gap-2 bg-white/[0.02] rounded-xl border border-white/[0.04]">
-          <DollarSign className="w-3.5 h-3.5" />
-          <span>No open exposure · Ready for entry</span>
+        <div className="flex items-center justify-center py-3 text-[9.5px] text-zinc-500 gap-2 bg-white/[0.02] rounded-xl border border-white/[0.04]">
+          <DollarSign className="w-3.5 h-3.5 text-zinc-600" />
+          <span>No open exposure · Risk cleared</span>
         </div>
       )}
 
@@ -174,15 +174,15 @@ export default function TradeRiskCard({ symbol, signal, strategy, account, posit
       <div className="flex gap-2 pt-1 border-t border-white/[0.05]">
         <button
           onClick={onMarkSetup}
-          className="flex-1 py-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.08] text-zinc-300 font-bold text-[10px] transition-colors"
+          className="flex-1 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-zinc-300 hover:text-white font-bold text-[10px] transition-colors"
         >
           Mark Setup
         </button>
         <button
           onClick={onExecute}
-          className="flex-1 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 font-bold text-[10px] transition-all flex items-center justify-center gap-1.5"
+          className="flex-1 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white font-bold text-[10px] transition-all flex items-center justify-center gap-1.5"
         >
-          <Zap className="w-3.5 h-3.5" />
+          <Zap className="w-3.5 h-3.5 text-zinc-300" />
           Execute {calcLots}L
         </button>
       </div>

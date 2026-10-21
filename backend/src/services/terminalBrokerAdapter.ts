@@ -15,7 +15,7 @@ export const SYMBOLS: Record<string, { price: number; digits: number; name: stri
   "NZDUSD": { price: 0.5890, digits: 5, name: "New Zealand / US Dollar" },
   "USDCHF": { price: 0.8920, digits: 5, name: "US Dollar / Swiss Franc" },
   "USDCAD": { price: 1.3850, digits: 5, name: "US Dollar / Canadian Dollar" },
-  "XAUUSD": { price: 4425.0, digits: 2, name: "Gold / US Dollar" },
+  "XAUUSD": { price: 4192.0, digits: 2, name: "Gold / US Dollar" },
   "XAGUSD": { price: 32.50, digits: 3, name: "Silver / US Dollar" },
   "BTCUSD": { price: 79500.0, digits: 2, name: "Bitcoin / US Dollar" },
   "AUDJPY": { price: 102.30, digits: 3, name: "Australian / Japanese Yen" },

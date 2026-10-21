@@ -6,9 +6,10 @@ import axios from "axios";
 import prisma from "../config/database";
 import { buildAdapter, SYMBOLS, generateCandles } from "../services/terminalBrokerAdapter";
 import { fetchTECalendar, fetchCommunityOutlook, getRealNews } from "../services/externalFeedsService";
-import { dispatchAlert, fmtTradeOpen, fmtTradeClose } from "../services/alertsService";
+import { dispatchAlert, fmtTradeOpen, fmtTradeClose, fmtSignal, fmtNews, fmtConfluenceRadar, fmtPairConfluenceAudit } from "../services/alertsService";
 import { syncBrokerTrades } from "../services/syncService";
 import { executeCopyTrade } from "../services/copyTrader";
+import { checkAndBroadcastNews, checkAndBroadcastSignals, getPostedSignals, getPostedNews, savePostedSignals, savePostedNews } from "../services/autoBroadcastService";
 
 const router = express.Router();
 
@@ -77,7 +78,7 @@ function timeframeSeconds(tf: string): number {
 // LOCAL JSON FILE PERSISTENCE FOR DRAWINGS & SETTINGS
 // ----------------------------------------------------
 
-const DATA_DIR = path.join(__dirname, "../data");
+const DATA_DIR = path.resolve(process.cwd(), "data");
 const DRAWINGS_FILE = path.join(DATA_DIR, "terminalDrawings.json");
 const SETTINGS_FILE = path.join(DATA_DIR, "terminalSettings.json");
 
@@ -1032,12 +1033,78 @@ function getEvents(days = 7) {
 export function getNews() {
   const now = new Date();
   return [
-    { time_iso: new Date(now.getTime() - 2 * 60 * 1000).toISOString(),  tag: "BREAKING", headline: "Lagarde signals pause after today's expected cut", impact: "high",   affects: ["EURUSD","EURJPY"], sentiment: "bearish" },
-    { time_iso: new Date(now.getTime() - 17 * 60 * 1000).toISOString(), tag: "FED",      headline: "Fed officials: more hikes possible if inflation sticky", impact: "high", affects: ["USDJPY","EURUSD"], sentiment: "bullish_usd" },
-    { time_iso: new Date(now.getTime() - 27 * 60 * 1000).toISOString(), tag: "ENERGY",   headline: "Oil rallies after surprise OPEC+ supply cut",          impact: "med",  affects: ["USDCAD","XAUUSD"], sentiment: "risk_on" },
-    { time_iso: new Date(now.getTime() - 44 * 60 * 1000).toISOString(), tag: "EQUITIES", headline: "DAX slips 1.8%, German factory orders disappoint",     impact: "med",  affects: ["EURUSD"],          sentiment: "bearish" },
-    { time_iso: new Date(now.getTime() - 65 * 60 * 1000).toISOString(), tag: "CRYPTO",   headline: "BTC holds 67k as ETF inflows continue",          impact: "low",  affects: ["BTCUSD"],          sentiment: "bullish" },
-    { time_iso: new Date(now.getTime() - 120 * 60 * 1000).toISOString(),tag: "ASIA",     headline: "Yen weakens as BOJ stays dovish on policy stance",     impact: "high", affects: ["USDJPY","AUDJPY"], sentiment: "bearish_jpy" },
+    {
+      time_iso: new Date(now.getTime() - 2 * 60 * 1000).toISOString(),
+      tag: "BREAKING",
+      headline: "Lagarde signals pause after today's expected cut",
+      impact: "high",
+      affects: ["EURUSD", "EURJPY"],
+      sentiment: "bearish",
+      source: "Bloomberg",
+      url: "https://www.bloomberg.com/markets",
+      tradingImpact: "ECB dovish guidance confirms rate cuts, keeping EURUSD and EUR crosses under persistent supply pressure.",
+      actionableNote: "Look for short EURUSD retests into M15 supply zones.",
+    },
+    {
+      time_iso: new Date(now.getTime() - 17 * 60 * 1000).toISOString(),
+      tag: "FED",
+      headline: "Fed officials: more hikes possible if inflation sticky",
+      impact: "high",
+      affects: ["USDJPY", "EURUSD"],
+      sentiment: "bullish_usd",
+      source: "Reuters",
+      url: "https://www.reuters.com/markets",
+      tradingImpact: "Hawkish Fed commentary lifts Treasury yields, keeping Dollar Index (DXY) well-bid against major pairs.",
+      actionableNote: "Favor USD longs on intraday pullbacks into Asian session lows.",
+    },
+    {
+      time_iso: new Date(now.getTime() - 27 * 60 * 1000).toISOString(),
+      tag: "ENERGY",
+      headline: "Oil rallies after surprise OPEC+ supply cut",
+      impact: "med",
+      affects: ["USDCAD", "XAUUSD"],
+      sentiment: "risk_on",
+      source: "CNBC",
+      url: "https://www.cnbc.com/oil",
+      tradingImpact: "Tightening supply outlook triggers commodity bounce; CAD supported while inflation expectations tick up.",
+      actionableNote: "Watch XAUUSD & USDCAD for safe-haven and commodity-correlated confluence.",
+    },
+    {
+      time_iso: new Date(now.getTime() - 44 * 60 * 1000).toISOString(),
+      tag: "EQUITIES",
+      headline: "DAX slips 1.8%, German factory orders disappoint",
+      impact: "med",
+      affects: ["EURUSD"],
+      sentiment: "bearish",
+      source: "Financial Times",
+      url: "https://www.ft.com/markets",
+      tradingImpact: "Industrial slump across core Europe weighs on equity sentiment and curbs Euro recovery attempts.",
+      actionableNote: "Avoid aggressive European equity longs until consolidation confirms.",
+    },
+    {
+      time_iso: new Date(now.getTime() - 65 * 60 * 1000).toISOString(),
+      tag: "CRYPTO",
+      headline: "BTC holds 67k as ETF inflows continue",
+      impact: "low",
+      affects: ["BTCUSD"],
+      sentiment: "bullish",
+      source: "CoinDesk",
+      url: "https://www.coindesk.com",
+      tradingImpact: "Sustained net ETF inflows provide strong liquidity baseline above key institutional support.",
+      actionableNote: "Monitor key psychological 68k resistance for breakout confirmation.",
+    },
+    {
+      time_iso: new Date(now.getTime() - 120 * 60 * 1000).toISOString(),
+      tag: "ASIA",
+      headline: "Yen weakens as BOJ stays dovish on policy stance",
+      impact: "high",
+      affects: ["USDJPY", "AUDJPY"],
+      sentiment: "bearish_jpy",
+      source: "ForexLive",
+      url: "https://www.forexlive.com",
+      tradingImpact: "Dovish Bank of Japan comments keep Yen carry-trades active, sustaining upward momentum on USDJPY.",
+      actionableNote: "Ride trend continuation with trailing stop below recent H1 liquidity sweep.",
+    },
   ];
 }
 
@@ -2367,7 +2434,7 @@ router.post("/terminal/sync", async (req, res) => {
   }
 
   try {
-    const insertedCount = await syncBrokerTrades(req.userId!);
+    const insertedCount = await syncBrokerTrades((req as any).userId || "default_user");
     res.json({ success: true, message: `Successfully synced ${insertedCount} new trades from broker.`, count: insertedCount });
   } catch (error: any) {
     console.error("Broker sync failed:", error);
@@ -2651,25 +2718,8 @@ router.get("/signals", async (req, res) => {
   } catch (error: any) {
     console.warn("[Bridge Warning] /api/signals bridge unavailable:", error.message);
   }
-  // Generate live setups centered on current market prices
-  const now = new Date();
-  const pairs = [
-    { sym: "XAUUSD", type: "BUY", p: SYMBOLS["XAUUSD"]?.price || 4425.0, digits: 2, atr: 10.0 },
-    { sym: "EURUSD", type: "SELL", p: SYMBOLS["EURUSD"]?.price || 1.1610, digits: 5, atr: 0.004 },
-    { sym: "BTCUSD", type: "BUY", p: SYMBOLS["BTCUSD"]?.price || 79500.0, digits: 2, atr: 800.0 },
-  ];
-  const signals = pairs.map((x, idx) => ({
-    id: `SIG-${x.sym.slice(0, 3)}-00${idx + 1}`,
-    symbol: x.sym,
-    type: x.type,
-    entry_price: x.p,
-    sl: Number((x.type === "BUY" ? x.p - 1.2 * x.atr : x.p + 1.2 * x.atr).toFixed(x.digits)),
-    tp: Number((x.type === "BUY" ? x.p + 2.5 * x.atr : x.p - 2.5 * x.atr).toFixed(x.digits)),
-    confidence: 85,
-    reason: `M15 Live Market Structure Shift + Key Liquidity Setup`,
-    timestamp: now.toISOString()
-  }));
-  res.json({ success: true, signals });
+  // No mock signals fallback - return empty list
+  res.json({ success: true, signals: [] });
 });
 
 let mockAlertsPaused = false;
@@ -2679,6 +2729,161 @@ router.get("/alert-config", (req, res) => {
 router.post("/alert-config", (req, res) => {
   mockAlertsPaused = req.body.alerts_paused;
   res.json({ success: true, alerts_paused: mockAlertsPaused });
+});
+
+// POST /api/signals/push - Push live scanner confluences to Telegram & Discord (with persistent deduplication)
+router.post("/signals/push", async (req, res) => {
+  try {
+    const force = req.body?.force !== false;
+    const result = await checkAndBroadcastSignals(force);
+    res.json({ success: true, count: result.count, dispatches: result.dispatches });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/news/push - Push live breaking & high-impact news to Telegram & Discord (with persistent deduplication)
+router.post("/news/push", async (req, res) => {
+  try {
+    const force = req.body?.force !== false;
+    const result = await checkAndBroadcastNews(force);
+    res.json({ success: true, count: result.count, dispatches: result.dispatches });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/telegram/broadcast-status - Check posted signals and news cache
+router.get("/telegram/broadcast-status", (req, res) => {
+  try {
+    const postedSignals = getPostedSignals();
+    const postedNews = getPostedNews();
+    res.json({
+      success: true,
+      posted_signals_count: Object.keys(postedSignals).length,
+      posted_signals: postedSignals,
+      posted_news_count: Object.keys(postedNews).length,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/telegram/broadcast-reset - Reset deduplication memory if needed
+router.post("/telegram/broadcast-reset", (req, res) => {
+  try {
+    const { type } = req.body || {};
+    if (!type || type === "all" || type === "signals") {
+      savePostedSignals({});
+    }
+    if (!type || type === "all" || type === "news") {
+      savePostedNews({});
+    }
+    res.json({ success: true, message: "Broadcast history reset successfully" });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/telegram/check-confluence - On-demand Confluence Radar check & Telegram broadcast
+router.post("/telegram/check-confluence", async (req, res) => {
+  try {
+    const keys = getSettings().api_keys || {};
+    const { symbol } = req.body || {};
+    const bridgeUrl = process.env.MT5_BRIDGE_URL || "http://127.0.0.1:5003";
+
+    let liveSignals: any[] = [];
+    try {
+      const bRes = await axios.get(`${bridgeUrl}/api/signals`, { timeout: 3500 });
+      if (Array.isArray(bRes.data?.signals)) {
+        liveSignals = bRes.data.signals;
+      }
+    } catch {
+      return res.status(503).json({
+        success: false,
+        error: "MT5 bridge is offline or unreachable. No live signals available."
+      });
+    }
+
+    if (!liveSignals.length) {
+      return res.json({
+        success: false,
+        message: "No live setups currently detected by MT5 scanner. No signals sent."
+      });
+    }
+
+    if (symbol) {
+      // Single pair audit
+      const symClean = String(symbol).toUpperCase().replace(/[^A-Z]/g, "") || "XAUUSD";
+      const found = liveSignals.find(s => s.symbol.toUpperCase() === symClean);
+      if (!found) {
+        return res.json({
+          success: false,
+          message: `No active MT5 ICT setup currently found for ${symClean}.`
+        });
+      }
+
+      const checklist = found.confluence_matrix
+        ? Object.entries(found.confluence_matrix).map(([k, v]: [string, any]) => ({
+            name: k,
+            points: v.points,
+            max: v.max || 25,
+            status: v.status
+          }))
+        : [];
+
+      const text = fmtPairConfluenceAudit({
+        symbol: found.symbol,
+        bias: found.type,
+        currentPrice: found.entry_price,
+        entryZone: found.entry_zone ? { low: found.entry_zone.entry_low, high: found.entry_zone.entry_high, preferred: found.entry_zone.preferred } : undefined,
+        sl: found.sl,
+        tp: found.tp,
+        tp1: found.tp1,
+        tp2: found.tp2,
+        tp3: found.tp3,
+        score: found.confidence,
+        grade: found.grade,
+        minScore: 70,
+        passed: (found.confidence || 0) >= 70,
+        timeframe: found.timeframe || "M15",
+        session: found.reason?.split(":")[0] || "Active MT5 Session",
+        checklist,
+        reason: found.reason
+      });
+
+      const dispatchRes = await dispatchAlert(keys, text, undefined, "signals");
+      return res.json({ success: true, symbol: symClean, dispatch: dispatchRes });
+    }
+
+    // All pairs overview from live MT5 signals
+    const overview = liveSignals.map(s => {
+      const factors = s.confluence_matrix
+        ? Object.entries(s.confluence_matrix).filter(([_, v]: any) => v.status === "valid").map(([k]) => k)
+        : [s.reason];
+      return {
+        symbol: s.symbol,
+        bias: s.type,
+        score: s.confidence,
+        grade: s.grade,
+        entry: s.entry_price,
+        sl: s.sl,
+        tp: s.tp,
+        tp1: s.tp1,
+        tp2: s.tp2,
+        tp3: s.tp3,
+        factors,
+        passed: (s.confidence || 0) >= 70
+      };
+    });
+
+    const text = fmtConfluenceRadar(overview, 70);
+    const dispatchRes = await dispatchAlert(keys, text, undefined, "signals");
+
+    res.json({ success: true, pairs_checked: overview.length, dispatch: dispatchRes });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 export default router;

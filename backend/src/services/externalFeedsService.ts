@@ -284,6 +284,62 @@ export async function fetchNewsAPI(apiKey: string, query = "forex OR currency OR
   return out;
 }
 
+export async function fetchLiveFinancialRSS(limit = 12): Promise<any[]> {
+  const feeds = [
+    { url: "https://www.cnbc.com/id/10000664/device/rss/rss.html", source: "CNBC" },
+    { url: "https://feeds.content.dowjones.io/public/rss/mw_topstories", source: "MarketWatch" }
+  ];
+
+  const results: any[] = [];
+  for (const f of feeds) {
+    try {
+      const res = await axios.get(f.url, {
+        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" },
+        timeout: 6000
+      });
+      const body = res.data;
+      if (typeof body === "string") {
+        const itemMatches = body.match(/<item>([\s\S]*?)<\/item>/g) || [];
+        for (const chunk of itemMatches.slice(0, 6)) {
+          const title = (chunk.match(/<title>([\s\S]*?)<\/title>/) || [])[1]
+            ?.replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1')
+            .replace(/&amp;/g, '&')
+            .replace(/&quot;/g, '"')
+            .replace(/&apos;/g, "'")
+            .replace(/&#39;/g, "'")
+            .replace(/&#x2019;/g, "'")
+            .replace(/&#x2018;/g, "'")
+            .replace(/&#x2014;/g, "—")
+            .replace(/&#x2013;/g, "–")
+            .trim();
+          const link = (chunk.match(/<link>([\s\S]*?)<\/link>/) || [])[1]
+            ?.replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1')
+            .trim();
+          const pubDate = (chunk.match(/<pubDate>([\s\S]*?)<\/pubDate>/) || [])[1]?.trim();
+          if (title && link) {
+            const tLower = title.toLowerCase();
+            const isHigh = tLower.includes("fed") || tLower.includes("inflation") || tLower.includes("rate") || tLower.includes("jobs") || tLower.includes("cpi") || tLower.includes("tariff") || tLower.includes("war");
+            results.push({
+              time_iso: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),
+              tag: isHigh ? "BREAKING" : f.source.toUpperCase(),
+              headline: title,
+              url: link,
+              impact: isHigh ? "high" : "med",
+              affects: ["USD", "DXY", "EQUITIES"],
+              sentiment: "neutral",
+              source: f.source
+            });
+          }
+        }
+      }
+    } catch (e: any) {
+      console.warn(`[RSS] Failed fetching from ${f.source}:`, e.message);
+    }
+  }
+
+  return results.slice(0, limit);
+}
+
 export async function getRealNews(apiKeys: Record<string, string>, symbol?: string, limit = 12): Promise<{ provider: string; items: any[]; cached?: boolean; errors?: string[] }> {
   const cacheKey = `news:${symbol || "all"}`;
   const now = Date.now();
@@ -324,6 +380,19 @@ export async function getRealNews(apiKeys: Record<string, string>, symbol?: stri
       errors.push(`newsapi: ${e.message}`);
       console.warn("NewsAPI failed:", e.message);
     }
+  }
+
+  // Live Financial RSS fallback (CNBC & MarketWatch)
+  try {
+    const rssItems = await fetchLiveFinancialRSS(limit);
+    if (rssItems && rssItems.length) {
+      const payload = { provider: "rss", items: rssItems };
+      newsCache[cacheKey] = { t: now, payload };
+      trimCache(newsCache, 50);
+      return { ...payload, cached: false };
+    }
+  } catch (rssErr: any) {
+    errors.push(`rss: ${rssErr.message}`);
   }
 
   return { provider: "none", items: [], errors, cached: false };

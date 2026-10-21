@@ -446,12 +446,10 @@ export default function JournalPage() {
                           const isWin = trade.profit > 0;
                           const isSelected = selectedTrade?.id === trade.id;
                           return (
-                            <tr
+                             <tr
                               key={trade.id}
-                              onClick={() => { setSelectedTrade(trade); setSelectedDay(null); }}
-                              className={`hover:bg-white/[0.01] border-b border-[rgba(255,255,255,0.04)] transition-colors cursor-pointer ${
-                                isSelected ? "bg-white/[0.03]" : ""
-                              }`}
+                              onClick={() => router.push(`/journal/trade/${trade.ticket || trade.id}`)}
+                              className={`hover:bg-white/[0.02] border-b border-[rgba(255,255,255,0.04)] transition-colors cursor-pointer`}
                             >
                               <td className="px-4 py-3">
                                 {trade.profit > 0 ? (

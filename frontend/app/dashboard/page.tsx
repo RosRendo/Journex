@@ -32,8 +32,10 @@ import {
   Wallet,
   Compass,
   Calendar as CalendarIcon,
+  ExternalLink,
 } from "lucide-react";
 import { useCsvTrades, TradeData } from "@/hooks/useCsvTrades";
+import { useJournalData } from "@/hooks/useJournalData";
 import { fetchWithAuth, getBackendUrl } from "@/lib/utils";
 import { usePositions } from "@/hooks/usePositions";
 import { useBridgeUrl } from "@/hooks/useBridgeUrl";
@@ -43,16 +45,8 @@ import CsvUploadComponent from "@/components/CsvUploadComponent";
 import { motion, AnimatePresence } from "framer-motion";
 
 // Cockpit Modular Rails
-import EcosystemPulseBar from "@/components/dashboard/cockpit/EcosystemPulseBar";
-import MarketRail from "@/components/dashboard/cockpit/MarketRail";
-import CockpitChart from "@/components/dashboard/cockpit/CockpitChart";
-import OpportunityRadar, { OpportunityItem } from "@/components/dashboard/cockpit/OpportunityRadar";
-import AccountExecutionHud from "@/components/dashboard/cockpit/AccountExecutionHud";
+import UnifiedAccountHub from "@/components/dashboard/cockpit/UnifiedAccountHub";
 import CockpitPeekDrawer from "@/components/dashboard/cockpit/CockpitPeekDrawer";
-import EcosystemContextLauncher from "@/components/dashboard/cockpit/EcosystemContextLauncher";
-
-// Classic Dashboard Widgets
-import { SessionTimeline } from "@/components/ui/SessionTimeline";
 import { OpenPositionsList } from "@/components/dashboard/widgets/OpenPositionsList";
 import { AllPairsGrid } from "@/components/dashboard/widgets/AllPairsGrid";
 import { MarketWatchWidget } from "@/components/dashboard/widgets/MarketWatchWidget";
@@ -370,7 +364,8 @@ export default function UnifiedDashboard() {
     });
   };
 
-  const handleStageOrder = (opp: OpportunityItem) => {
+  const handleStageOrder = (opp: any) => {
+    if (!opp) return;
     setActiveSymbol(opp.symbol);
     setPeekState({
       isOpen: true,
@@ -498,63 +493,14 @@ export default function UnifiedDashboard() {
         </div>
       </div>
 
-      {/* ── ZONE 1: ECOSYSTEM PULSE BAR & CONTEXT STRIP ───────── */}
-      <div className="px-5 pt-4 pb-2 bg-[#09090c] space-y-3">
-        <EcosystemPulseBar
-          accountData={mt5Data}
-          todayStats={todayStats}
-          positions={positions}
-          onOpenPeek={openPeek}
-        />
-        <EcosystemContextLauncher
-          onOpenPeek={openPeek}
-          activeSymbol={activeSymbol}
-        />
-      </div>
-
-      {/* Active Session Timing Ribbon */}
-      <div className="px-5 py-2.5 border-b border-[rgba(255,255,255,0.07)] bg-[#0e0e12]/60">
-        <SessionTimeline />
-      </div>
-
-      {/* ── ZONE 2: ECOSYSTEM RADAR + LIVE COCKPIT WORKSPACE ──────────────── */}
-      <div className="p-5 border-b border-[rgba(255,255,255,0.07)] space-y-4 bg-[#09090c]">
-        {/* Cockpit Grid: Multi-Asset Radar [1-5] (Left) + Pro Live Chart (Right) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-          <div className="lg:col-span-3 min-h-[440px]">
-            <MarketRail
-              selectedSymbol={activeSymbol}
-              onSelectSymbol={(sym) => setActiveSymbol(sym)}
-            />
-          </div>
-          <div className="lg:col-span-9 min-h-[440px]">
-            <CockpitChart
-              symbol={activeSymbol}
-              onOpenPeek={openPeek}
-            />
-          </div>
-        </div>
-
-        {/* ── ZONE 3: OPPORTUNITY MATRIX (TRIGGER PROXIMITY SCANNER) ──────── */}
-        <div>
-          <OpportunityRadar
-            onSelectSymbol={(sym) => setActiveSymbol(sym)}
-            onOpenPeek={openPeek}
-            onStageOrder={handleStageOrder}
-          />
-        </div>
-
-
-        {/* ── ZONE 4: ACCOUNT EXECUTION & LIVE POSITIONS DOCK ─────────────── */}
-        <div>
-          <AccountExecutionHud
-            accountData={mt5Data}
-            todayStats={todayStats}
-            positions={positions}
-            onOpenPeek={openPeek}
-          />
-        </div>
-      </div>
+      {/* ── UNIFIED ACCOUNT & EXECUTION HUB ────────────────────────────── */}
+      <UnifiedAccountHub
+        accountData={mt5Data}
+        todayStats={todayStats}
+        positions={positions}
+        activeSymbol={activeSymbol}
+        onOpenPeek={openPeek}
+      />
 
       {/* ── SECTION 3: REPORTS, CALENDAR & TRADES JOURNAL (MERGED IN ONE) ─── */}
       <div className="flex flex-col xl:flex-row gap-0 items-start flex-1 border-b border-[rgba(255,255,255,0.07)]">
@@ -1366,81 +1312,81 @@ export default function UnifiedDashboard() {
 
         {/* RIGHT SIDEBAR */}
         <div className="w-full xl:w-[300px] shrink-0 border-l border-[rgba(255,255,255,0.07)] flex flex-col bg-[#101014]/60">
-          {/* Tabs */}
-          <div className="flex border-b border-[rgba(255,255,255,0.07)]">
-            {(["watchlist", "ai_brief", "mistakes"] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setSidebarTab(tab)}
-                className={`flex-1 py-2.5 text-[8px] uppercase tracking-widest font-bold font-mono transition-all border-b-2 ${
-                  sidebarTab === tab
-                    ? "border-[#20e0b2] text-[#20e0b2]"
-                    : "border-transparent text-[#71717a] hover:text-[#a1a1aa]"
-                }`}
-              >
-                {tab === "watchlist" ? "Watch" : tab === "ai_brief" ? "AI Brief" : "Habits"}
-              </button>
-            ))}
-          </div>
+            {/* Tabs */}
+            <div className="flex border-b border-[rgba(255,255,255,0.07)]">
+              {(["watchlist", "ai_brief", "mistakes"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setSidebarTab(tab)}
+                  className={`flex-1 py-2.5 text-[8px] uppercase tracking-widest font-bold font-mono transition-all border-b-2 ${
+                    sidebarTab === tab
+                      ? "border-[#20e0b2] text-[#20e0b2]"
+                      : "border-transparent text-[#71717a] hover:text-[#a1a1aa]"
+                  }`}
+                >
+                  {tab === "watchlist" ? "Watch" : tab === "ai_brief" ? "AI Brief" : "Habits"}
+                </button>
+              ))}
+            </div>
 
-          <div className="p-4 flex-1 overflow-y-auto space-y-4">
-            {sidebarTab === "watchlist" && (
-              <>
-                <AllPairsGrid />
-                <MarketWatchWidget borderless={true} />
-              </>
-            )}
+            <div className="p-4 flex-1 overflow-y-auto space-y-4">
+              {sidebarTab === "watchlist" && (
+                <>
+                  <AllPairsGrid />
+                  <MarketWatchWidget borderless={true} />
+                </>
+              )}
 
-            {sidebarTab === "ai_brief" && (
-              <div className="flex flex-col gap-3">
-                <div className="border border-[rgba(255,255,255,0.07)] rounded p-3 bg-[#09090b]/40">
-                  <span className={`${labelCls} block mb-2`}>Coach Focus</span>
-                  <span className="text-xs text-[#f4f4f5] font-semibold flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-[#f5c451]" />
-                    Disciplined Risk Adherence
-                  </span>
+              {sidebarTab === "ai_brief" && (
+                <div className="flex flex-col gap-3">
+                  <div className="border border-[rgba(255,255,255,0.07)] rounded p-3 bg-[#09090b]/40">
+                    <span className={`${labelCls} block mb-2`}>Coach Focus</span>
+                    <span className="text-xs text-[#f4f4f5] font-semibold flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-[#f5c451]" />
+                      Disciplined Risk Adherence
+                    </span>
+                  </div>
+                  <div className="border border-[rgba(255,255,255,0.07)] rounded p-3 bg-[#09090b]/40">
+                    <span className={`${labelCls} block mb-2`}>Live News</span>
+                    <EconomicNewsTicker borderless={true} />
+                  </div>
+                  <div className="border border-[rgba(255,255,255,0.07)] rounded p-3 bg-[#09090b]/40">
+                    <span className={`${labelCls} block mb-2`}>AI Risk Coach</span>
+                    <AIDeskSummary borderless={true} />
+                  </div>
                 </div>
-                <div className="border border-[rgba(255,255,255,0.07)] rounded p-3 bg-[#09090b]/40">
-                  <span className={`${labelCls} block mb-2`}>Live News</span>
-                  <EconomicNewsTicker borderless={true} />
-                </div>
-                <div className="border border-[rgba(255,255,255,0.07)] rounded p-3 bg-[#09090b]/40">
-                  <span className={`${labelCls} block mb-2`}>AI Risk Coach</span>
-                  <AIDeskSummary borderless={true} />
-                </div>
-              </div>
-            )}
+              )}
 
-            {sidebarTab === "mistakes" && (
-              <div className="flex flex-col gap-3">
-                <span className={labelCls}>Habit Cost Analysis</span>
-                {mistakeData.slice(0, 6).map((item) => {
-                  const maxVal = Math.max(...mistakeData.map((d) => d.value)) || 1;
-                  const ratio = Math.min((item.value / maxVal) * 100, 100);
-                  return (
-                    <div key={item.name} className="flex flex-col gap-1">
-                      <div className="flex justify-between items-center">
-                        <span className="text-[9px] text-[#a1a1aa] font-mono lowercase italic">{item.name}</span>
-                        <span className="text-[9px] font-black font-mono text-[#ff5c73]">-${item.value.toFixed(2)}</span>
+              {sidebarTab === "mistakes" && (
+                <div className="flex flex-col gap-3">
+                  <span className={labelCls}>Habit Cost Analysis</span>
+                  {mistakeData.slice(0, 6).map((item) => {
+                    const maxVal = Math.max(...mistakeData.map((d) => d.value)) || 1;
+                    const ratio = Math.min((item.value / maxVal) * 100, 100);
+                    return (
+                      <div key={item.name} className="flex flex-col gap-1">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[9px] text-[#a1a1aa] font-mono lowercase italic">{item.name}</span>
+                          <span className="text-[9px] font-black font-mono text-[#ff5c73]">-${item.value.toFixed(2)}</span>
+                        </div>
+                        <div className="w-full h-0.5 bg-[rgba(255,255,255,0.06)] rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-[#ff5c73] transition-all duration-500"
+                            style={{ width: `${ratio}%` }}
+                          />
+                        </div>
                       </div>
-                      <div className="w-full h-0.5 bg-[rgba(255,255,255,0.06)] rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-[#ff5c73] transition-all duration-500"
-                          style={{ width: `${ratio}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
-          {/* Daily Risk Widget */}
-          <div className="border-t border-[rgba(255,255,255,0.07)]">
-            <DailyRiskWidget trades={trades || []} balance={mt5Data.balance} equity={mt5Data.equity} />
+            {/* Daily Risk Widget */}
+            <div className="border-t border-[rgba(255,255,255,0.07)]">
+              <DailyRiskWidget trades={trades || []} balance={mt5Data.balance} equity={mt5Data.equity} />
+            </div>
           </div>
-        </div>
       </div>
 
       {/* ── LEVEL 2: PROGRESSIVE DISCLOSURE SLIDE-OVER PEEK DRAWER ──────── */}
@@ -1486,17 +1432,31 @@ interface TradeReviewPanelProps {
 }
 
 function TradeReviewPanel({ trade, onUpdated }: TradeReviewPanelProps) {
-  const [notes, setNotes] = useState(trade.notes || "");
-  const [emotion, setEmotion] = useState(trade.emotion || "");
-  const [followedPlan, setFollowedPlan] = useState(trade.followedPlan ?? true);
-  const [planDeviationReason, setPlanDeviationReason] = useState(trade.planDeviationReason || "");
-  const [checklistPassed, setChecklistPassed] = useState(trade.checklistPassed ?? true);
-  const [imageUrl, setImageUrl] = useState(trade.imageUrl || "");
-  const [imageInput, setImageInput] = useState(trade.imageUrl || "");
+  const router = useRouter();
+  const tradeKey = trade.ticket || trade.id;
+  const { entry, saveEntry } = useJournalData(tradeKey ? String(tradeKey) : undefined);
+
+  const [notes, setNotes] = useState(entry.reason || trade.notes || "");
+  const [emotion, setEmotion] = useState(entry.emotion || trade.emotion || "");
+  const [followedPlan, setFollowedPlan] = useState(entry.followedPlan ?? trade.followedPlan ?? true);
+  const [planDeviationReason, setPlanDeviationReason] = useState(entry.planDeviationReason || trade.planDeviationReason || "");
+  const [checklistPassed, setChecklistPassed] = useState(entry.checklistPassed ?? trade.checklistPassed ?? true);
+  const [imageUrl, setImageUrl] = useState((entry.images && entry.images[0]) || trade.imageUrl || "");
+  const [imageInput, setImageInput] = useState((entry.images && entry.images[0]) || trade.imageUrl || "");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (entry.reason && !notes) setNotes(entry.reason);
+    if (entry.emotion && !emotion) setEmotion(entry.emotion);
+    if (entry.planDeviationReason && !planDeviationReason) setPlanDeviationReason(entry.planDeviationReason);
+    if (entry.images && entry.images.length > 0 && !imageUrl) {
+      setImageUrl(entry.images[0]);
+      setImageInput(entry.images[0]);
+    }
+  }, [entry]);
 
   const cleanTradingViewUrl = (url: string): string => {
     if (!url) return "";
@@ -1531,6 +1491,7 @@ function TradeReviewPanel({ trade, onUpdated }: TradeReviewPanelProps) {
         const fullUrl = `${getBackendUrl()}${data.data.url}`;
         setImageUrl(fullUrl);
         setImageInput(fullUrl);
+        saveEntry({ images: [fullUrl] });
       }
     } catch (err) {
       alert("Image upload failed");
@@ -1561,6 +1522,15 @@ function TradeReviewPanel({ trade, onUpdated }: TradeReviewPanelProps) {
   };
 
   const handleSave = async () => {
+    saveEntry({
+      reason: notes,
+      emotion,
+      followedPlan,
+      planDeviationReason: followedPlan ? "" : planDeviationReason,
+      checklistPassed,
+      images: imageUrl ? [imageUrl] : [],
+    });
+
     if (!trade.id) {
       await handleSyncTrade();
       return;
@@ -1598,8 +1568,16 @@ function TradeReviewPanel({ trade, onUpdated }: TradeReviewPanelProps) {
     <div className="flex flex-col xl:flex-row gap-5">
       <div className="flex-1 space-y-4">
         <div className="flex items-center justify-between border-b border-[rgba(255,255,255,0.07)] pb-3">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#f4f4f5]">Journal Details</span>
-          <span className="text-[9px] text-[#71717a] font-mono">#{trade.ticket || trade.id}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#f4f4f5]">Journal Details</span>
+            <span className="text-[9px] text-[#71717a] font-mono">#{trade.ticket || trade.id}</span>
+          </div>
+          <button
+            onClick={() => router.push(`/journal/trade/${trade.ticket || trade.id}`)}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-[9px] font-bold uppercase tracking-wider text-zinc-300 hover:text-white transition-all font-mono"
+          >
+            Full Desk <ExternalLink className="w-3 h-3" />
+          </button>
         </div>
 
         {!trade.id ? (

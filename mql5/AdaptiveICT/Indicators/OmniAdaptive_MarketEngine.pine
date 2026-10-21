@@ -1,0 +1,819 @@
+// ============================================================
+// OmniAdaptive Market Engine | Pine Script v5
+// Version: 1.00 (Multi-Strategy Router & Exhaustion Lifecycle)
+// ============================================================
+// An institutional-grade market operating system that:
+//   1. Classifies Market Regime dynamically (Trend, Range, Expansion, Exhaustion)
+//   2. Routes execution to the appropriate specialized engine:
+//      - Engine 8:  Reversal & Exhaustion Detector (Tops & Bottoms)
+//      - Engine 9:  Trend Continuation & Value Pullbacks
+//      - Engine 10: Breakout, Retest & Trap Detector
+//      - Engine 11: Adaptive Range & Mean Reversion (Sideways Specialist)
+//      - Engine 12: Volatility Regime & Transition Gatekeeper
+//   3. Arbitrates signal conflicts & handles MTF disagreement
+//   4. Manages the 5-phase trade lifecycle with 3-tier targets (1.2R / 2.5R / 4.0R)
+//   5. Features persistent forward-projecting execution lines and HUD telemetry.
+// ============================================================
+//@version=6
+indicator("OmniAdaptive Market Engine", shorttitle="OAME-RTR", overlay=true, max_lines_count=300, max_labels_count=300, max_boxes_count=100)
+
+// ============================================================
+// ── INPUT CONFIGURATION GROUPS
+// ============================================================
+var string G_ROUTE = "1. Strategy Router & Operating Mode"
+var string G_REG   = "2. Engine 12: Regime & Volatility Transitions"
+var string G_REV   = "3. Engine 8: Reversal & Exhaustion Detector"
+var string G_TREND = "4. Engine 9: Trend Continuation & Pullbacks"
+var string G_BRK   = "5. Engine 10: Breakout, Retest & Trap Engine"
+var string G_RANGE = "6. Engine 11: Adaptive Range & Mean Reversion"
+var string G_MTF   = "7. Multi-Timeframe Disagreement Engine"
+var string G_EXEC  = "8. Execution, Risk & 3-Tier Targets"
+var string G_DISP  = "9. Dashboard & Visualization"
+
+// Group 1: Router Settings
+router_mode     = input.string("Autonomous Adaptive", "Router Control", options=["Autonomous Adaptive", "Trend Pullback Only", "Reversal Sniper Only", "Mean Reversion Only", "Breakout Only"], group=G_ROUTE)
+min_engine_conf = input.int(70, "Minimum Engine Confidence (0-100)", minval=50, maxval=95, group=G_ROUTE)
+enable_arbitrate= input.bool(true, "Enable Signal Conflict Arbitration", group=G_ROUTE)
+
+// Group 2: Regime Classifier (Engine 12)
+adx_len         = input.int(14, "ADX Smoothing Period", minval=5, group=G_REG)
+adx_trend_level = input.float(22.0, "ADX Trend Threshold", minval=15.0, step=1.0, group=G_REG)
+er_len          = input.int(14, "Kaufman Efficiency Ratio Length", minval=5, group=G_REG)
+er_trend_thresh = input.float(0.40, "Efficiency Ratio Trend Threshold", minval=0.20, maxval=0.80, step=0.05, group=G_REG)
+atr_len         = input.int(14, "ATR Length", minval=5, group=G_REG)
+atr_pct_len     = input.int(100, "ATR Percentile Lookback Bars", minval=20, group=G_REG)
+
+// Group 3: Reversal & Exhaustion (Engine 8)
+rev_pivot_len   = input.int(5, "Swing Pivot Lookback (P1/P2)", minval=2, maxval=15, group=G_REV)
+rev_rsi_len     = input.int(14, "RSI Divergence Length", minval=5, group=G_REV)
+rev_wick_ratio  = input.float(0.35, "Min Rejection Wick Ratio (wick/range)", minval=0.20, maxval=0.60, step=0.05, group=G_REV)
+show_rev_warn   = input.bool(true, "Show Early Exhaustion Warnings (Phase 1)", group=G_REV)
+
+// Group 4: Trend Pullback (Engine 9)
+ema_fast_len    = input.int(20, "Fast Trend EMA", minval=5, group=G_TREND)
+ema_slow_len    = input.int(50, "Slow Trend EMA", minval=20, group=G_TREND)
+ema_base_len    = input.int(200, "Macro Baseline EMA", minval=50, group=G_TREND)
+pb_atr_buffer   = input.float(1.5, "Pullback ATR Dynamic Buffer", minval=0.5, step=0.25, group=G_TREND)
+
+// Group 5: Breakout & Trap (Engine 10)
+squeeze_bb_len  = input.int(20, "Bollinger Period", minval=10, group=G_BRK)
+squeeze_bb_mult = input.float(2.0, "Bollinger StdDev", minval=1.0, step=0.1, group=G_BRK)
+squeeze_kc_mult = input.float(1.5, "Keltner ATR Multiplier", minval=1.0, step=0.1, group=G_BRK)
+trap_lookback   = input.int(3, "Failed Breakout Trap Max Bars", minval=1, maxval=8, group=G_BRK)
+
+// Group 6: Adaptive Range & Mean Reversion (Engine 11)
+range_len       = input.int(30, "Donchian Range Channel Period", minval=10, maxval=100, group=G_RANGE)
+range_rsi_ob    = input.float(68.0, "Range Overbought RSI", minval=55.0, maxval=85.0, group=G_RANGE)
+range_rsi_os    = input.float(32.0, "Range Oversold RSI", minval=15.0, maxval=45.0, group=G_RANGE)
+show_range_box  = input.bool(true, "Draw Active Range Boxes", group=G_RANGE)
+
+// Group 7: Multi-Timeframe Engine
+use_mtf         = input.bool(true, "Enable MTF Context Filter", group=G_MTF)
+htf1_res        = input.timeframe("240", "Higher Timeframe 1 (Macro 4H)", group=G_MTF)
+htf2_res        = input.timeframe("60",  "Higher Timeframe 2 (Intermediate 1H)", group=G_MTF)
+htf3_res        = input.timeframe("15",  "Higher Timeframe 3 (Confirmation 15M)", group=G_MTF)
+
+// Group 8: Execution, Risk & 3-Tier Targets
+acct_size       = input.float(10000.0, "Account Balance ($)", minval=100.0, step=100.0, group=G_EXEC)
+risk_pct        = input.float(1.0, "Risk Per Trade (%)", minval=0.1, maxval=5.0, step=0.1, group=G_EXEC)
+sl_mode         = input.string("Structure Swing", "Stop Loss Mode", options=["Structure Swing", "ATR Volatility"], group=G_EXEC)
+sl_atr_mult     = input.float(1.5, "Stop Loss ATR Multiplier", minval=0.5, step=0.25, group=G_EXEC)
+tp1_rr          = input.float(1.2, "TP1 Target RR (Safety & BE Trigger)", minval=0.5, step=0.1, group=G_EXEC)
+tp2_rr          = input.float(2.5, "TP2 Target RR (Structural Target)", minval=1.0, step=0.1, group=G_EXEC)
+tp3_rr          = input.float(4.0, "TP3 Target RR (Macro Expansion Runner)", minval=1.5, step=0.1, group=G_EXEC)
+enable_be       = input.bool(true, "Move SL to Break-Even on TP1 Hit", group=G_EXEC)
+enable_trail    = input.bool(true, "Enable Adaptive Trailing Stop (Phase 3/4)", group=G_EXEC)
+trail_atr_mult  = input.float(2.0, "Trailing Stop ATR Multiplier", minval=1.0, step=0.25, group=G_EXEC)
+
+// Group 9: Display Settings
+hud_mode        = input.string("Compact HUD (10 Rows)", "Dashboard Mode", options=["Compact HUD (10 Rows)", "Full Analytics (28 Rows)", "Hidden"], group=G_DISP)
+hud_pos         = input.string("Top Right", "Dashboard Screen Position", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left"], group=G_DISP)
+show_live_lines = input.bool(true, "Show Live Projected Target Lines (Always Visible)", group=G_DISP)
+show_markers    = input.bool(true, "Show On-Chart Signal Markers", group=G_DISP)
+
+// ============================================================
+// ── HELPER: NON-REPAINTING HTF SECURITY
+// ============================================================
+f_htf(res, expr) =>
+    request.security(syminfo.tickerid, res, expr[1], barmerge.gaps_off, barmerge.lookahead_on)
+
+// ============================================================
+// ── CORE INDICATORS & BASELINE DATA
+// ============================================================
+atr_val   = ta.atr(atr_len)
+ema_fast  = ta.ema(close, ema_fast_len)
+ema_slow  = ta.ema(close, ema_slow_len)
+ema_base  = ta.ema(close, ema_base_len)
+rsi_val   = ta.rsi(close, rev_rsi_len)
+
+// Dynamic candle anatomy
+candle_range = high - low
+candle_body  = math.abs(close - open)
+upper_wick   = high - math.max(open, close)
+lower_wick   = math.min(open, close) - low
+
+// ============================================================
+// ── ENGINE 12: VOLATILITY REGIME & STRATEGY ROUTER
+// ============================================================
+// 1. Directional Movement & ADX
+[di_plus, di_minus, adx_val] = ta.dmi(adx_len, adx_len)
+
+// 2. Normalized EMA Slopes
+ema_fast_slope = (ema_fast - ema_fast[3]) / (3 * (atr_val > 0 ? atr_val : syminfo.mintick))
+ema_slow_slope = (ema_slow - ema_slow[5]) / (5 * (atr_val > 0 ? atr_val : syminfo.mintick))
+
+// 3. Kaufman Efficiency Ratio (ER)
+direction_change = math.abs(close - close[er_len])
+total_path       = math.sum(math.abs(close - close[1]), er_len)
+er_val           = total_path > 0 ? direction_change / total_path : 0.0
+
+// 4. ATR Historical Percentile
+atr_rank_sum = 0
+for i = 1 to atr_pct_len
+    if atr_val > atr_val[i]
+        atr_rank_sum := atr_rank_sum + 1
+atr_percentile = (float(atr_rank_sum) / float(atr_pct_len)) * 100.0
+
+// 5. Volatility Squeeze (Bollinger within Keltner)
+bb_basis = ta.sma(close, squeeze_bb_len)
+bb_dev   = squeeze_bb_mult * ta.stdev(close, squeeze_bb_len)
+bb_upper = bb_basis + bb_dev
+bb_lower = bb_basis - bb_dev
+
+kc_upper = bb_basis + (atr_val * squeeze_kc_mult)
+kc_lower = bb_basis - (atr_val * squeeze_kc_mult)
+in_squeeze = (bb_upper < kc_upper) and (bb_lower > kc_lower)
+squeeze_release = in_squeeze[1] and not in_squeeze
+
+// 6. Regime Classification
+string market_regime = "UNCERTAIN"
+string regime_color_str = "GRAY"
+int    active_route     = 0 // 1: Trend, 2: Range, 3: Breakout, 4: Reversal
+
+bool is_strong_trend = (adx_val >= adx_trend_level or er_val >= er_trend_thresh) and math.abs(ema_fast_slope) > 0.15
+bool is_ranging      = adx_val < adx_trend_level and er_val < er_trend_thresh and not in_squeeze and atr_percentile < 60.0
+bool is_expanding    = squeeze_release or (atr_percentile >= 75.0 and math.abs(close - close[1]) > atr_val * 1.4)
+
+if is_expanding
+    market_regime := "VOLATILITY_EXPANSION"
+    regime_color_str := "PURPLE"
+    active_route := 3 // Engine 10: Breakout
+else if is_strong_trend
+    if ema_fast > ema_slow and ema_fast_slope > 0
+        market_regime := "TRENDING_BULLISH"
+        regime_color_str := "GREEN"
+        active_route := 1 // Engine 9: Trend Pullback
+    else if ema_fast < ema_slow and ema_fast_slope < 0
+        market_regime := "TRENDING_BEARISH"
+        regime_color_str := "RED"
+        active_route := 1 // Engine 9: Trend Pullback
+    else
+        market_regime := "TREND_WEAKENING"
+        regime_color_str := "YELLOW"
+        active_route := 4 // Engine 8: Potential Reversal
+else if is_ranging
+    market_regime := "RANGING_SIDEWAYS"
+    regime_color_str := "BLUE"
+    active_route := 2 // Engine 11: Mean Reversion
+else
+    market_regime := "CONSOLIDATION_LOW_VOL"
+    regime_color_str := "GRAY"
+    active_route := 0
+
+// Router override if manual mode selected
+if router_mode == "Trend Pullback Only"
+    active_route := 1
+else if router_mode == "Mean Reversion Only"
+    active_route := 2
+else if router_mode == "Breakout Only"
+    active_route := 3
+else if router_mode == "Reversal Sniper Only"
+    active_route := 4
+
+// ============================================================
+// ── MULTI-TIMEFRAME (MTF) DISAGREEMENT DETECTOR
+// ============================================================
+htf1_close = f_htf(htf1_res, close)
+htf1_ema   = f_htf(htf1_res, ta.ema(close, 50))
+htf1_bias  = htf1_close > htf1_ema ? 1 : -1
+
+htf2_close = f_htf(htf2_res, close)
+htf2_ema   = f_htf(htf2_res, ta.ema(close, 50))
+htf2_bias  = htf2_close > htf2_ema ? 1 : -1
+
+htf3_close = f_htf(htf3_res, close)
+htf3_ema   = f_htf(htf3_res, ta.ema(close, 50))
+htf3_bias  = htf3_close > htf3_ema ? 1 : -1
+
+int mtf_score = (htf1_bias == 1 ? 1 : 0) + (htf2_bias == 1 ? 1 : 0) + (htf3_bias == 1 ? 1 : 0)
+string mtf_status = mtf_score == 3 ? "BULLISH FULL ALIGNED" : mtf_score == 0 ? "BEARISH FULL ALIGNED" : "MTF MIXED / PULLBACK"
+
+// ============================================================
+// ── ENGINE 8: REVERSAL & EXHAUSTION DETECTOR (Tops & Bottoms)
+// ============================================================
+// Swing Highs and Lows
+sw_hi = ta.pivothigh(high, rev_pivot_len, rev_pivot_len)
+sw_lo = ta.pivotlow(low, rev_pivot_len, rev_pivot_len)
+
+var float last_sw_hi_px  = na
+var float last_sw_lo_px  = na
+var int   last_sw_hi_bar = na
+var int   last_sw_lo_bar = na
+
+if not na(sw_hi)
+    last_sw_hi_px  := sw_hi
+    last_sw_hi_bar := bar_index - rev_pivot_len
+
+if not na(sw_lo)
+    last_sw_lo_px  := sw_lo
+    last_sw_lo_bar := bar_index - rev_pivot_len
+
+// 1. Failed Breakout beyond swings (Liquidity sweeps)
+bool swept_swing_hi = not na(last_sw_hi_px) and high > last_sw_hi_px and close < last_sw_hi_px
+bool swept_swing_lo = not na(last_sw_lo_px) and low < last_sw_lo_px and close > last_sw_lo_px
+
+// 2. Rejection Wicks
+bool bull_rejection = candle_range > 0 and (lower_wick / candle_range) >= rev_wick_ratio and close > open
+bool bear_rejection = candle_range > 0 and (upper_wick / candle_range) >= rev_wick_ratio and close < open
+
+// 3. RSI Exhaustion Divergence
+bool rsi_bull_div = not na(last_sw_lo_bar) and (bar_index - last_sw_lo_bar < 40) and low < last_sw_lo_px and rsi_val > rsi_val[math.max(1, bar_index - last_sw_lo_bar)]
+bool rsi_bear_div = not na(last_sw_hi_bar) and (bar_index - last_sw_hi_bar < 40) and high > last_sw_hi_px and rsi_val < rsi_val[math.max(1, bar_index - last_sw_hi_bar)]
+
+// Phase 1: Early Warning Output
+bool warn_potential_bottom = swept_swing_lo or (bull_rejection and rsi_val < 32) or rsi_bull_div
+bool warn_potential_top    = swept_swing_hi or (bear_rejection and rsi_val > 68) or rsi_bear_div
+
+// Phase 2: Confirmed Reversal Trigger (Reclaim + Momentum shift)
+bool eng8_reversal_long  = (swept_swing_lo and bull_rejection) or (rsi_bull_div and close > open and close > high[1])
+bool eng8_reversal_short = (swept_swing_hi and bear_rejection) or (rsi_bear_div and close < open and close < low[1])
+
+// ============================================================
+// ── ENGINE 9: TREND CONTINUATION & VALUE PULLBACKS
+// ============================================================
+bool trend_bull_aligned = ema_fast > ema_slow and close > ema_base and ema_fast_slope > 0
+bool trend_bear_aligned = ema_fast < ema_slow and close < ema_base and ema_fast_slope < 0
+
+// Pullback into Value Zone (between fast and slow EMA, or testing fast EMA with rejection)
+bool in_bull_value_zone = low <= ema_fast + (atr_val * 0.25) and low >= ema_slow - (atr_val * 0.50)
+bool in_bear_value_zone = high >= ema_fast - (atr_val * 0.25) and high <= ema_slow + (atr_val * 0.50)
+
+// Renewed Momentum Trigger after Pullback
+bool eng9_trend_long  = trend_bull_aligned and in_bull_value_zone[1] and close > open and close > high[1] and rsi_val > 50 and rsi_val < 70
+bool eng9_trend_short = trend_bear_aligned and in_bear_value_zone[1] and close < open and close < low[1] and rsi_val < 50 and rsi_val > 30
+
+// ============================================================
+// ── ENGINE 10: BREAKOUT, RETEST & TRAP ENGINE
+// ============================================================
+// Range identification for breakout
+range_hi = ta.highest(high, 20)[1]
+range_lo = ta.lowest(low, 20)[1]
+
+bool clean_breakout_long  = close > range_hi and candle_body > atr_val * 0.70 and volume > ta.sma(volume, 20) * 1.2
+bool clean_breakout_short = close < range_lo and candle_body > atr_val * 0.70 and volume > ta.sma(volume, 20) * 1.2
+
+// Retest confirmation
+bool retest_long  = ta.barssince(clean_breakout_long) <= 4 and low <= range_hi + (atr_val * 0.3) and close > range_hi and close > open
+bool retest_short = ta.barssince(clean_breakout_short) <= 4 and high >= range_lo - (atr_val * 0.3) and close < range_lo and close < open
+
+// Failed Breakout Trap (False Breakout Reversal)
+bool trap_bear = ta.barssince(high > range_hi) <= trap_lookback and close < range_hi and close < open and candle_body > atr_val * 0.5
+bool trap_bull = ta.barssince(low < range_lo) <= trap_lookback and close > range_lo and close > open and candle_body > atr_val * 0.5
+
+bool eng10_breakout_long  = clean_breakout_long or retest_long
+bool eng10_breakout_short = clean_breakout_short or retest_short
+bool eng10_trap_long      = trap_bull
+bool eng10_trap_short     = trap_bear
+
+// ============================================================
+// ── ENGINE 11: ADAPTIVE RANGE & MEAN REVERSION
+// ============================================================
+donch_hi  = ta.highest(high, range_len)
+donch_lo  = ta.lowest(low, range_len)
+donch_mid = (donch_hi + donch_lo) / 2.0
+
+// Active Range Box Coordinates
+var box active_range_box = na
+if show_range_box and is_ranging and barstate.islast
+    if not na(active_range_box)
+        box.delete(active_range_box)
+    active_range_box := box.new(bar_index - range_len, donch_hi, bar_index + 12, donch_lo, border_color=color.new(#3b82f6, 40), bgcolor=color.new(#3b82f6, 92), border_style=line.style_dashed)
+
+// Boundary touches with rejection in ranging regime
+bool touch_range_lo = low <= donch_lo + (atr_val * 0.25) and bull_rejection and rsi_val <= range_rsi_os
+bool touch_range_hi = high >= donch_hi - (atr_val * 0.25) and bear_rejection and rsi_val >= range_rsi_ob
+
+bool eng11_range_long  = is_ranging and touch_range_lo and close > open
+bool eng11_range_short = is_ranging and touch_range_hi and close < open
+
+// ============================================================
+// ── SIGNAL ARBITRATION & ROUTER SELECTION (Layer 3)
+// ============================================================
+int    signal_dir    = 0
+string signal_engine = "STANDBY"
+string setup_type    = "NONE"
+int    signal_conf   = 0
+
+if barstate.isconfirmed
+    // Priority 1: Trap Reversals (Highest Edge when smart money gets trapped)
+    if (eng10_trap_long or eng10_trap_short) and (active_route == 3 or active_route == 4 or active_route == 0)
+        signal_dir    := eng10_trap_long ? 1 : -1
+        signal_engine := "ENGINE 10 [TRAP]"
+        setup_type    := "FAILED BREAKOUT TRAP"
+        signal_conf   := 90
+    // Priority 2: Router says TRENDING -> Allow Engine 9 Trend Pullback
+    else if (active_route == 1 or router_mode == "Trend Pullback Only") and (eng9_trend_long or eng9_trend_short)
+        signal_dir    := eng9_trend_long ? 1 : -1
+        signal_engine := "ENGINE 9 [PULLBACK]"
+        setup_type    := "TREND CONTINUATION"
+        signal_conf   := mtf_score == (eng9_trend_long ? 3 : 0) ? 92 : 82
+    // Priority 3: Router says RANGING -> Allow Engine 11 Mean Reversion
+    else if (active_route == 2 or router_mode == "Mean Reversion Only") and (eng11_range_long or eng11_range_short)
+        signal_dir    := eng11_range_long ? 1 : -1
+        signal_engine := "ENGINE 11 [RANGE]"
+        setup_type    := "RANGE BOUNDARY REVERSION"
+        signal_conf   := 80
+    // Priority 4: Confirmed Reversal Tops & Bottoms (Engine 8)
+    else if (active_route == 4 or active_route == 1 or router_mode == "Reversal Sniper Only") and (eng8_reversal_long or eng8_reversal_short)
+        // If conflicting with strong trend without exhaustion, arbitrator suppresses it
+        bool trend_conflict = (eng8_reversal_long and trend_bear_aligned and not swept_swing_lo) or (eng8_reversal_short and trend_bull_aligned and not swept_swing_hi)
+        if not (enable_arbitrate and trend_conflict)
+            signal_dir    := eng8_reversal_long ? 1 : -1
+            signal_engine := "ENGINE 8 [REVERSAL]"
+            setup_type    := "EXTREME EXHAUSTION REVERSAL"
+            signal_conf   := swept_swing_hi or swept_swing_lo ? 88 : 78
+    // Priority 5: Breakout Expansion (Engine 10)
+    else if (active_route == 3 or router_mode == "Breakout Only") and (eng10_breakout_long or eng10_breakout_short)
+        signal_dir    := eng10_breakout_long ? 1 : -1
+        signal_engine := "ENGINE 10 [BREAKOUT]"
+        setup_type    := "VOLATILITY EXPANSION"
+        signal_conf   := 85
+
+// Filter by minimum confidence
+if signal_conf < min_engine_conf
+    signal_dir    := 0
+    signal_engine := "STANDBY"
+    setup_type    := "LOW CONFIDENCE"
+
+bool buy_trigger  = signal_dir == 1
+bool sell_trigger = signal_dir == -1
+
+// ============================================================
+// ── TRADE LIFECYCLE & 3-TIER EXECUTION TARGETS (Phase 1-5)
+// ============================================================
+var float trade_entry   = na
+var float trade_sl      = na
+var float trade_tp1     = na
+var float trade_tp2     = na
+var float trade_tp3     = na
+var int   trade_dir     = 0
+var int   trade_bar     = na
+var bool  tp1_hit       = false
+var bool  tp2_hit       = false
+var bool  tp3_hit       = false
+var string trade_eng_lbl= ""
+var float max_favorable = 0.0
+
+// Performance Trackers
+var int   total_trades = 0
+var int   wins_count   = 0
+var float net_r_profit = 0.0
+
+// Active Trade Flag
+trade_active = trade_dir != 0 and not na(trade_entry)
+
+// Global Calculation of Live / Projected Execution Targets
+float curr_sl_dist = atr_val * sl_atr_mult
+if sl_mode == "Structure Swing"
+    if buy_trigger or trade_dir == 1 or (trade_dir == 0 and ema_fast > ema_slow)
+        curr_sl_dist := not na(last_sw_lo_px) ? math.max(atr_val * 0.8, math.abs(close - last_sw_lo_px)) : atr_val * sl_atr_mult
+    else
+        curr_sl_dist := not na(last_sw_hi_px) ? math.max(atr_val * 0.8, math.abs(close - last_sw_hi_px)) : atr_val * sl_atr_mult
+
+curr_sl_dist := math.max(syminfo.mintick * 10, curr_sl_dist)
+
+// Dynamic Position Sizing
+lot_calc = (acct_size * (risk_pct / 100.0)) / (curr_sl_dist * syminfo.pointvalue)
+curr_lots = math.max(0.01, math.round(lot_calc * 100.0) / 100.0)
+
+// Reference Targets (Active if in trade, Projected if in standby)
+float disp_entry   = trade_active ? trade_entry : close
+float disp_sl      = trade_active ? trade_sl : (buy_trigger or ema_fast > ema_slow ? close - curr_sl_dist : close + curr_sl_dist)
+float disp_sl_dist = math.max(syminfo.mintick * 10, math.abs(disp_entry - disp_sl))
+int   disp_dir     = trade_active ? trade_dir : (buy_trigger or ema_fast > ema_slow ? 1 : -1)
+
+float disp_tp1     = trade_active and not na(trade_tp1) ? trade_tp1 : (disp_dir == 1 ? disp_entry + disp_sl_dist * tp1_rr : disp_entry - disp_sl_dist * tp1_rr)
+float disp_tp2     = trade_active and not na(trade_tp2) ? trade_tp2 : (disp_dir == 1 ? disp_entry + disp_sl_dist * tp2_rr : disp_entry - disp_sl_dist * tp2_rr)
+float disp_tp3     = trade_active and not na(trade_tp3) ? trade_tp3 : (disp_dir == 1 ? disp_entry + disp_sl_dist * tp3_rr : disp_entry - disp_sl_dist * tp3_rr)
+
+string tp1_txt = str.tostring(disp_tp1, "#.##") + (trade_active and tp1_hit ? " ✓" : "")
+string tp2_txt = str.tostring(disp_tp2, "#.##") + (trade_active and tp2_hit ? " ✓" : "")
+string tp3_txt = str.tostring(disp_tp3, "#.##") + (trade_active and tp3_hit ? " ✓" : "")
+string sl_txt  = str.tostring(disp_sl, "#.##") + (trade_active and trade_sl == trade_entry ? " (BE)" : "")
+
+// ── On Bar Close: Manage Lifecycle & Trailing
+if barstate.isconfirmed
+    // 1. Manage Active Trade
+    if trade_active
+        // Track favorable excursion
+        cur_fav = trade_dir == 1 ? (high - trade_entry) / disp_sl_dist : (trade_entry - low) / disp_sl_dist
+        if cur_fav > max_favorable
+            max_favorable := cur_fav
+
+        // Target 1 Hit
+        if not tp1_hit
+            if (trade_dir == 1 and high >= trade_tp1) or (trade_dir == -1 and low <= trade_tp1)
+                tp1_hit := true
+                if enable_be
+                    trade_sl := trade_entry // Move to Break-Even
+
+        // Target 2 Hit
+        if not tp2_hit
+            if (trade_dir == 1 and high >= trade_tp2) or (trade_dir == -1 and low <= trade_tp2)
+                tp2_hit := true
+
+        // Phase 4: Adaptive Trailing Stop
+        if enable_trail and tp1_hit
+            if trade_dir == 1
+                trail_level = high - (atr_val * trail_atr_mult)
+                if trail_level > trade_sl
+                    trade_sl := trail_level
+            else
+                trail_level = low + (atr_val * trail_atr_mult)
+                if trail_level < trade_sl
+                    trade_sl := trail_level
+
+        // Exit Checks (SL or TP3)
+        sl_hit  = (trade_dir == 1 and low <= trade_sl) or (trade_dir == -1 and high >= trade_sl)
+        tp3_hit_now = (trade_dir == 1 and high >= trade_tp3) or (trade_dir == -1 and low <= trade_tp3)
+
+        if sl_hit or tp3_hit_now
+            total_trades := total_trades + 1
+            float trade_r = 0.0
+            if tp3_hit_now
+                tp3_hit := true
+                trade_r := tp3_rr
+                wins_count := wins_count + 1
+            else if tp2_hit
+                trade_r := 1.5 // Blended partial profit
+                wins_count := wins_count + 1
+            else if tp1_hit
+                trade_r := 0.5 // Safety partial profit
+                wins_count := wins_count + 1
+            else
+                trade_r := -1.0 // Initial loss
+
+            net_r_profit := net_r_profit + trade_r
+
+            // Reset Trade State
+            trade_entry := na
+            trade_sl    := na
+            trade_tp1   := na
+            trade_tp2   := na
+            trade_tp3   := na
+            trade_dir   := 0
+            tp1_hit     := false
+            tp2_hit     := false
+            tp3_hit     := false
+            max_favorable := 0.0
+
+    // 2. Open New Trade on Confirmed Trigger
+    if not trade_active and (buy_trigger or sell_trigger)
+        trade_dir    := buy_trigger ? 1 : -1
+        trade_entry  := close
+        trade_sl     := buy_trigger ? close - curr_sl_dist : close + curr_sl_dist
+        trade_tp1    := buy_trigger ? close + curr_sl_dist * tp1_rr : close - curr_sl_dist * tp1_rr
+        trade_tp2    := buy_trigger ? close + curr_sl_dist * tp2_rr : close - curr_sl_dist * tp2_rr
+        trade_tp3    := buy_trigger ? close + curr_sl_dist * tp3_rr : close - curr_sl_dist * tp3_rr
+        trade_bar    := bar_index
+        tp1_hit      := false
+        tp2_hit      := false
+        tp3_hit      := false
+        trade_eng_lbl:= signal_engine
+        max_favorable:= 0.0
+
+// ============================================================
+// ── ON-CHART VISUAL MARKERS (Non-Repainting Signals)
+// ============================================================
+// Reversal Signals (Engine 8)
+plotshape(show_markers and barstate.isconfirmed and buy_trigger and signal_engine == "ENGINE 8 [REVERSAL]", "Reversal Long", shape.triangleup, location.belowbar, color=#22c55e, text="REV-BUY", size=size.normal)
+plotshape(show_markers and barstate.isconfirmed and sell_trigger and signal_engine == "ENGINE 8 [REVERSAL]", "Reversal Short", shape.triangledown, location.abovebar, color=#ef4444, text="REV-SELL", size=size.normal)
+
+// Trend Pullback Signals (Engine 9)
+plotshape(show_markers and barstate.isconfirmed and buy_trigger and signal_engine == "ENGINE 9 [PULLBACK]", "Pullback Long", shape.diamond, location.belowbar, color=#3b82f6, text="PB-BUY", size=size.small)
+plotshape(show_markers and barstate.isconfirmed and sell_trigger and signal_engine == "ENGINE 9 [PULLBACK]", "Pullback Short", shape.diamond, location.abovebar, color=#f97316, text="PB-SELL", size=size.small)
+
+// Breakout & Trap Signals (Engine 10)
+plotshape(show_markers and barstate.isconfirmed and buy_trigger and signal_engine == "ENGINE 10 [BREAKOUT]", "Breakout Long", shape.arrowup, location.belowbar, color=#a855f7, text="BRK-BUY", size=size.small)
+plotshape(show_markers and barstate.isconfirmed and sell_trigger and signal_engine == "ENGINE 10 [BREAKOUT]", "Breakout Short", shape.arrowdown, location.abovebar, color=#a855f7, text="BRK-SELL", size=size.small)
+plotshape(show_markers and barstate.isconfirmed and buy_trigger and signal_engine == "ENGINE 10 [TRAP]", "Trap Bull Reversal", shape.xcross, location.belowbar, color=#eab308, text="TRAP-REV", size=size.small)
+plotshape(show_markers and barstate.isconfirmed and sell_trigger and signal_engine == "ENGINE 10 [TRAP]", "Trap Bear Reversal", shape.xcross, location.abovebar, color=#eab308, text="TRAP-REV", size=size.small)
+
+// Range Signals (Engine 11)
+plotshape(show_markers and barstate.isconfirmed and buy_trigger and signal_engine == "ENGINE 11 [RANGE]", "Range Mean Reversion Long", shape.circle, location.belowbar, color=#06b6d4, text="RNG-BUY", size=size.small)
+plotshape(show_markers and barstate.isconfirmed and sell_trigger and signal_engine == "ENGINE 11 [RANGE]", "Range Mean Reversion Short", shape.circle, location.abovebar, color=#06b6d4, text="RNG-SELL", size=size.small)
+
+// Early Exhaustion Warnings (Phase 1)
+plotshape(show_rev_warn and warn_potential_bottom and not buy_trigger, "Early Bottom Warning", shape.cross, location.belowbar, color=color.new(#22c55e, 50), size=size.tiny)
+plotshape(show_rev_warn and warn_potential_top and not sell_trigger, "Early Top Warning", shape.cross, location.abovebar, color=color.new(#ef4444, 50), size=size.tiny)
+
+// Dynamic EMA Curves
+plot(ema_fast, "Fast EMA (20)", color=color.new(#38bdf8, 30), linewidth=1)
+plot(ema_slow, "Slow EMA (50)", color=color.new(#f59e0b, 30), linewidth=2)
+plot(ema_base, "Baseline EMA (200)", color=color.new(#94a3b8, 40), linewidth=2)
+
+// ============================================================
+// ── PERSISTENT LIVE PROJECTED TARGET LINES (Always Visible)
+// ============================================================
+var line live_ln_entry = na
+var line live_ln_sl    = na
+var line live_ln_tp1   = na
+var line live_ln_tp2   = na
+var line live_ln_tp3   = na
+
+var label live_lbl_entry = na
+var label live_lbl_sl    = na
+var label live_lbl_tp1   = na
+var label live_lbl_tp2   = na
+var label live_lbl_tp3   = na
+
+if show_live_lines and barstate.islast
+    if not na(live_ln_entry)
+        line.delete(live_ln_entry)
+    if not na(live_ln_sl)
+        line.delete(live_ln_sl)
+    if not na(live_ln_tp1)
+        line.delete(live_ln_tp1)
+    if not na(live_ln_tp2)
+        line.delete(live_ln_tp2)
+    if not na(live_ln_tp3)
+        line.delete(live_ln_tp3)
+
+    if not na(live_lbl_entry)
+        label.delete(live_lbl_entry)
+    if not na(live_lbl_sl)
+        label.delete(live_lbl_sl)
+    if not na(live_lbl_tp1)
+        label.delete(live_lbl_tp1)
+    if not na(live_lbl_tp2)
+        label.delete(live_lbl_tp2)
+    if not na(live_lbl_tp3)
+        label.delete(live_lbl_tp3)
+
+    lx1 = bar_index - 8
+    lx2 = bar_index + 16
+
+    live_ln_entry := line.new(lx1, disp_entry, lx2, disp_entry, color=#3b82f6, width=1, style=line.style_solid)
+    live_ln_sl    := line.new(lx1, disp_sl, lx2, disp_sl, color=#ef4444, width=1, style=line.style_dashed)
+    live_ln_tp1   := line.new(lx1, disp_tp1, lx2, disp_tp1, color=#22c55e, width=1, style=line.style_dotted)
+    live_ln_tp2   := line.new(lx1, disp_tp2, lx2, disp_tp2, color=#22c55e, width=2, style=line.style_dashed)
+    live_ln_tp3   := line.new(lx1, disp_tp3, lx2, disp_tp3, color=#10b981, width=2, style=line.style_solid)
+
+    live_lbl_entry := label.new(lx2, disp_entry, (trade_active ? "ENTRY " : "PROJ ENTRY ") + str.tostring(disp_entry, "#.##"), xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(#3b82f6, 10), textcolor=color.white, size=size.tiny)
+    live_lbl_sl    := label.new(lx2, disp_sl, (trade_active ? "⛔ SL " : "⛔ PROJ SL ") + sl_txt, xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(#ef4444, 10), textcolor=color.white, size=size.tiny)
+    live_lbl_tp1   := label.new(lx2, disp_tp1, "🎯 TP1 " + tp1_txt, xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(#22c55e, 10), textcolor=color.white, size=size.tiny)
+    live_lbl_tp2   := label.new(lx2, disp_tp2, "🎯 TP2 " + tp2_txt, xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(#22c55e, 10), textcolor=color.white, size=size.tiny)
+    live_lbl_tp3   := label.new(lx2, disp_tp3, "🎯 TP3 " + tp3_txt, xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(#10b981, 10), textcolor=color.white, size=size.tiny)
+
+// ============================================================
+// ── HUD DASHBOARD PANEL
+// ============================================================
+tbl_anchor = hud_pos == "Top Right" ? position.top_right : hud_pos == "Top Left" ? position.top_left : hud_pos == "Bottom Right" ? position.bottom_right : position.bottom_left
+
+var table hud_compact = na
+var table hud_full    = na
+
+if barstate.islast
+    if hud_mode == "Compact HUD (10 Rows)"
+        if not na(hud_full)
+            table.delete(hud_full)
+            hud_full := na
+        if na(hud_compact)
+            hud_compact := table.new(tbl_anchor, 4, 10, bgcolor=color.new(#0d1117, 10), border_color=color.new(#334155, 0), border_width=1, frame_color=color.new(#3b82f6, 0), frame_width=1)
+            table.merge_cells(hud_compact, 0, 0, 1, 0)
+            table.merge_cells(hud_compact, 2, 0, 3, 0)
+            table.merge_cells(hud_compact, 0, 7, 3, 7)
+    else if hud_mode == "Full Analytics (28 Rows)"
+        if not na(hud_compact)
+            table.delete(hud_compact)
+            hud_compact := na
+        if na(hud_full)
+            hud_full := table.new(tbl_anchor, 4, 28, bgcolor=color.new(#0d1117, 10), border_color=color.new(#334155, 0), border_width=1, frame_color=color.new(#3b82f6, 0), frame_width=1)
+            table.merge_cells(hud_full, 0, 0, 1, 0)
+            table.merge_cells(hud_full, 2, 0, 3, 0)
+            table.merge_cells(hud_full, 0, 1, 3, 1)
+            table.merge_cells(hud_full, 0, 7, 3, 7)
+            table.merge_cells(hud_full, 0, 14, 3, 14)
+            table.merge_cells(hud_full, 0, 20, 3, 20)
+    else
+        if not na(hud_compact)
+            table.delete(hud_compact)
+            hud_compact := na
+        if not na(hud_full)
+            table.delete(hud_full)
+            hud_full := na
+
+if hud_mode != "Hidden" and barstate.islast
+    c_hdr   = color.new(#1e1b4b, 0)
+    c_sub   = color.new(#1a1f35, 0)
+    c_txt   = color.white
+    c_green = #22c55e
+    c_red   = #ef4444
+    c_blue  = #3b82f6
+    c_purp  = #a855f7
+    c_gold  = #f59e0b
+
+    reg_col = regime_color_str == "GREEN" ? c_green : regime_color_str == "RED" ? c_red : regime_color_str == "PURPLE" ? c_purp : regime_color_str == "BLUE" ? c_blue : color.gray
+    sig_col = trade_active ? (trade_dir == 1 ? c_green : c_red) : (buy_trigger ? c_green : sell_trigger ? c_red : color.gray)
+    sig_txt = trade_active ? (trade_dir == 1 ? "▲ ACTIVE BUY" : "▼ ACTIVE SELL") : (buy_trigger ? "▲ BUY SIGNAL" : sell_trigger ? "▼ SELL SIGNAL" : "MONITORING")
+
+    if hud_mode == "Compact HUD (10 Rows)"
+        table.cell(hud_compact, 0, 0, "⚡ OMNI ADAPTIVE ENGINE", text_color=c_blue, text_size=size.small, bgcolor=c_hdr, text_halign="center")
+        table.cell(hud_compact, 2, 0, router_mode, text_color=color.new(c_blue, 30), text_size=size.tiny, bgcolor=c_hdr, text_halign="center")
+
+        table.cell(hud_compact, 0, 1, "  Regime", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 1, 1, market_regime + "  ", text_color=reg_col, text_size=size.tiny, text_halign="right")
+        table.cell(hud_compact, 2, 1, "  Active Route", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 3, 1, signal_engine + "  ", text_color=c_purp, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_compact, 0, 2, "  Signal", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 1, 2, sig_txt + "  ", text_color=sig_col, text_size=size.tiny, text_halign="right")
+        table.cell(hud_compact, 2, 2, "  Setup Type", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 3, 2, setup_type + "  ", text_color=c_gold, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_compact, 0, 3, "  ADX Trend", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 1, 3, str.tostring(adx_val, "#.#") + (is_strong_trend ? " [TREND]" : " [WEAK]") + "  ", text_color=is_strong_trend ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud_compact, 2, 3, "  Vol Squeeze", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 3, 3, (in_squeeze ? "SQUEEZE ACTIVE" : squeeze_release ? "EXPANSION FIRE" : "NORMAL") + "  ", text_color=in_squeeze ? c_red : squeeze_release ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_compact, 0, 4, "  MTF Status", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 1, 4, mtf_status + "  ", text_color=mtf_score == 3 ? c_green : mtf_score == 0 ? c_red : c_gold, text_size=size.tiny, text_halign="right")
+        table.cell(hud_compact, 2, 4, "  Dynamic Lots", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 3, 4, str.tostring(curr_lots, "#.##") + " Lots  ", text_color=c_txt, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_compact, 0, 5, "  Efficiency ER", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 1, 5, str.tostring(er_val, "#.##") + (er_val >= er_trend_thresh ? " [CLEAN]" : " [CHOPPY]") + "  ", text_color=er_val >= er_trend_thresh ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud_compact, 2, 5, "  ATR Rank", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 3, 5, str.tostring(atr_percentile, "#") + "% percentile  ", text_color=atr_percentile >= 75 ? c_purp : c_blue, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_compact, 0, 6, "  Win Rate", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        wr = total_trades > 0 ? (float(wins_count) / float(total_trades)) * 100.0 : 0.0
+        table.cell(hud_compact, 1, 6, str.tostring(total_trades) + " trades (" + str.tostring(wr, "#.#") + "%)  ", text_color=wr >= 50 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud_compact, 2, 6, "  Net R Gain", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 3, 6, str.tostring(net_r_profit, "#.##") + " R  ", text_color=net_r_profit >= 0 ? c_green : c_red, text_size=size.tiny, text_halign="right")
+
+        // Rows 7-9: Dedicated Execution Targets
+        table.cell(hud_compact, 0, 7, "🎯 MULTI-ENGINE TARGETS (1.2R / 2.5R / 4.0R)", text_color=color.white, text_size=size.tiny, bgcolor=c_sub, text_halign="center")
+
+        table.cell(hud_compact, 0, 8, "  TP1 (1.2R Safety)", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 1, 8, tp1_txt + "  ", text_color=c_green, text_size=size.tiny, text_halign="right")
+        table.cell(hud_compact, 2, 8, "  TP2 (2.5R Structural)", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 3, 8, tp2_txt + "  ", text_color=c_green, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_compact, 0, 9, "  TP3 (4.0R Runner)", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 1, 9, tp3_txt + "  ", text_color=#10b981, text_size=size.tiny, text_halign="right")
+        table.cell(hud_compact, 2, 9, "  Stop Loss", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 3, 9, sl_txt + "  ", text_color=c_red, text_size=size.tiny, text_halign="right")
+
+    else if hud_mode == "Full Analytics (28 Rows)"
+        table.cell(hud_full, 0, 0, "⚡ OMNI ADAPTIVE MARKET OPERATING SYSTEM", text_color=c_blue, text_size=size.small, bgcolor=c_hdr, text_halign="center")
+        table.cell(hud_full, 2, 0, "ROUTER: " + router_mode, text_color=color.new(c_blue, 30), text_size=size.tiny, bgcolor=c_hdr, text_halign="center")
+
+        table.cell(hud_full, 0, 1, "── REGIME & STRATEGY ROUTER ──", text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="center")
+        table.cell(hud_full, 0, 2, "  Market Regime", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 2, market_regime + "  ", text_color=reg_col, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 2, "  Active Engine Route", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 2, signal_engine + "  ", text_color=c_purp, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 3, "  ADX Trend Strength", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 3, str.tostring(adx_val, "#.1") + "  ", text_color=adx_val > 25 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 3, "  Efficiency Ratio", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 3, str.tostring(er_val, "#.##") + "  ", text_color=er_val > 0.4 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 4, "  EMA Fast Slope", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 4, str.tostring(ema_fast_slope, "#.##") + "  ", text_color=ema_fast_slope > 0 ? c_green : c_red, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 4, "  ATR Percentile", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 4, str.tostring(atr_percentile, "#") + "%  ", text_color=atr_percentile > 70 ? c_purp : c_blue, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 5, "  Volatility Squeeze", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 5, (in_squeeze ? "COMPRESSION" : squeeze_release ? "EXPANDING" : "OFF") + "  ", text_color=in_squeeze ? c_red : squeeze_release ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 5, "  MTF Status", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 5, mtf_status + "  ", text_color=mtf_score == 3 ? c_green : mtf_score == 0 ? c_red : c_gold, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 6, "  Arbitration Filter", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 6, (enable_arbitrate ? "ACTIVE [GUARDED]" : "DISABLED") + "  ", text_color=c_green, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 6, "  Engine Confidence", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 6, str.tostring(signal_conf) + " / 100  ", text_color=signal_conf >= 80 ? c_green : c_gold, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 7, "── ENGINE STATUS & EARLY WARNINGS ──", text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="center")
+        table.cell(hud_full, 0, 8, "  Engine 8: Reversal", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 8, (eng8_reversal_long ? "REV BUY" : eng8_reversal_short ? "REV SELL" : "WAIT") + "  ", text_color=eng8_reversal_long ? c_green : eng8_reversal_short ? c_red : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 8, "  Phase 1 Warning", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 8, (warn_potential_bottom ? "EXHAUST BOTTOM" : warn_potential_top ? "EXHAUST TOP" : "NONE") + "  ", text_color=(warn_potential_bottom or warn_potential_top) ? c_gold : color.gray, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 9, "  Engine 9: Pullback", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 9, (eng9_trend_long ? "PB BUY" : eng9_trend_short ? "PB SELL" : "STANDBY") + "  ", text_color=eng9_trend_long ? c_green : eng9_trend_short ? c_red : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 9, "  Value Zone", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 9, (in_bull_value_zone ? "BULL DISCOUNT" : in_bear_value_zone ? "BEAR PREMIUM" : "OUTSIDE") + "  ", text_color=(in_bull_value_zone or in_bear_value_zone) ? c_blue : color.gray, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 10, "  Engine 10: Breakout", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 10, (eng10_breakout_long ? "BRK BUY" : eng10_breakout_short ? "BRK SELL" : "NO BREAK") + "  ", text_color=eng10_breakout_long ? c_green : eng10_breakout_short ? c_red : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 10, "  Trap Reversal", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 10, (eng10_trap_long ? "BULL TRAP" : eng10_trap_short ? "BEAR TRAP" : "NONE") + "  ", text_color=(eng10_trap_long or eng10_trap_short) ? c_gold : color.gray, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 11, "  Engine 11: Range", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 11, (eng11_range_long ? "RNG BUY" : eng11_range_short ? "RNG SELL" : "WAIT") + "  ", text_color=eng11_range_long ? c_green : eng11_range_short ? c_red : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 11, "  Range Channel", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 11, str.tostring(donch_hi, "#.#") + " - " + str.tostring(donch_lo, "#.#") + "  ", text_color=c_blue, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 12, "  RSI Oscillator", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 12, str.tostring(rsi_val, "#.1") + "  ", text_color=rsi_val > 70 ? c_red : rsi_val < 30 ? c_green : c_txt, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 12, "  RSI Divergence", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 12, (rsi_bull_div ? "BULL DIV" : rsi_bear_div ? "BEAR DIV" : "NONE") + "  ", text_color=(rsi_bull_div or rsi_bear_div) ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 13, "  Liquidity Sweep", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 13, (swept_swing_lo ? "LOW SWEPT" : swept_swing_hi ? "HIGH SWEPT" : "IN RANGE") + "  ", text_color=(swept_swing_lo or swept_swing_hi) ? c_gold : color.gray, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 13, "  Rejection Wick", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 13, (bull_rejection ? "BULL REJECT" : bear_rejection ? "BEAR REJECT" : "NEUTRAL") + "  ", text_color=(bull_rejection or bear_rejection) ? c_blue : color.gray, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 14, "── ACTIVE POSITION & RISK MANAGEMENT ──", text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="center")
+        table.cell(hud_full, 0, 15, "  Current Signal", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 15, sig_txt + "  ", text_color=sig_col, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 15, "  Setup Pattern", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 15, setup_type + "  ", text_color=c_gold, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 16, "  Sized Lots (1% Risk)", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 16, str.tostring(curr_lots, "#.##") + " Lots  ", text_color=c_txt, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 16, "  Risk Capital", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 16, "$" + str.tostring(acct_size * (risk_pct / 100.0), "#.##") + "  ", text_color=c_txt, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 17, "  Target TP1 (1.2R)", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 17, tp1_txt + "  ", text_color=c_green, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 17, "  Target TP2 (2.5R)", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 17, tp2_txt + "  ", text_color=c_green, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 18, "  Target TP3 (4.0R)", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 18, tp3_txt + "  ", text_color=#10b981, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 18, "  Stop Loss", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 18, sl_txt + "  ", text_color=c_red, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 19, "  Trailing Mode", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 19, (enable_trail ? "ADAPTIVE ATR (" + str.tostring(trail_atr_mult, "#.#") + "x)" : "FIXED SL") + "  ", text_color=c_blue, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 19, "  BE Trigger", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 19, (enable_be ? "AT TP1 HIT [1.2R]" : "MANUAL") + "  ", text_color=c_green, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 20, "── PERFORMANCE & ENGINE ANALYTICS ──", text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="center")
+        wr_full = total_trades > 0 ? (float(wins_count) / float(total_trades)) * 100.0 : 0.0
+        table.cell(hud_full, 0, 21, "  Total Closed Trades", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 21, str.tostring(total_trades) + "  ", text_color=c_txt, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 21, "  Win Rate", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 21, str.tostring(wr_full, "#.1") + "%  ", text_color=wr_full >= 50 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 22, "  Net Realized R", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 22, str.tostring(net_r_profit, "#.##") + " R  ", text_color=net_r_profit >= 0 ? c_green : c_red, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 22, "  Max Excursion", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 22, "+" + str.tostring(max_favorable, "#.##") + " R  ", text_color=c_green, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 23, "  HTF 4H Trend", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 23, (htf1_bias == 1 ? "BULLISH" : "BEARISH") + "  ", text_color=htf1_bias == 1 ? c_green : c_red, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 23, "  HTF 1H Trend", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 23, (htf2_bias == 1 ? "BULLISH" : "BEARISH") + "  ", text_color=htf2_bias == 1 ? c_green : c_red, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 24, "  HTF 15M Trend", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 24, (htf3_bias == 1 ? "BULLISH" : "BEARISH") + "  ", text_color=htf3_bias == 1 ? c_green : c_red, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 24, "  Donchian Mid", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 24, str.tostring(donch_mid, "#.##") + "  ", text_color=c_txt, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 25, "  Pivot Swing High", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 25, (not na(last_sw_hi_px) ? str.tostring(last_sw_hi_px, "#.##") : "--") + "  ", text_color=c_red, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 25, "  Pivot Swing Low", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 25, (not na(last_sw_lo_px) ? str.tostring(last_sw_lo_px, "#.##") : "--") + "  ", text_color=c_green, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 26, "  Average True Range", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 26, str.tostring(atr_val, "#.####") + "  ", text_color=c_txt, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 26, "  Candle Body Ratio", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 26, str.tostring(candle_range > 0 ? (candle_body / candle_range) * 100 : 0, "#") + "%  ", text_color=c_txt, text_size=size.tiny, text_halign="right")
+
+        table.cell(hud_full, 0, 27, "  System Engine Version", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 1, 27, "v1.00 [Multi-Router]  ", text_color=c_purp, text_size=size.tiny, text_halign="right")
+        table.cell(hud_full, 2, 27, "  Execution Standard", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_full, 3, 27, "Zero-Repaint Confirmed  ", text_color=c_green, text_size=size.tiny, text_halign="right")
+
+// ============================================================
+// ── TRADINGVIEW ALERT CONDITIONS
+// ============================================================
+alertcondition(buy_trigger,
+     "🚀 OAME: BUY Signal Triggered",
+     "OmniAdaptive Engine: BUY entry triggered on {{ticker}} {{interval}} at price {{close}}.")
+
+alertcondition(sell_trigger,
+     "🔻 OAME: SELL Signal Triggered",
+     "OmniAdaptive Engine: SELL entry triggered on {{ticker}} {{interval}} at price {{close}}.")
+
+alertcondition(eng10_trap_long or eng10_trap_short,
+     "⚠️ OAME: Trap Reversal Alert",
+     "OmniAdaptive Engine: Failed Breakout Trap detected on {{ticker}} {{interval}} at price {{close}}.")
+
+alertcondition(warn_potential_bottom or warn_potential_top,
+     "🛰️ OAME: Exhaustion Warning (Phase 1)",
+     "OmniAdaptive Engine: Early top/bottom exhaustion warning detected on {{ticker}} {{interval}}.")

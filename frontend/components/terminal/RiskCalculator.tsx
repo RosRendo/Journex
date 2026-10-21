@@ -12,7 +12,7 @@ interface WidgetHeaderProps {
 function WidgetHeader({ title, right }: WidgetHeaderProps) {
   return (
     <div className="flex items-center justify-between px-2 h-7 bg-zinc-900 border-b border-zinc-800 shrink-0">
-      <span className="text-[10px] font-bold tracking-[0.18em] uppercase text-amber-500">
+      <span className="text-[10px] font-bold tracking-[0.18em] uppercase text-zinc-300">
         {title}
       </span>
       {right}

@@ -599,7 +599,7 @@ async def telegram_send(bot_token: str, chat_id: str, text: str, parse_mode: str
         "parse_mode": parse_mode,
         "disable_web_page_preview": True,
     }
-    if message_thread_id:
+    if message_thread_id and str(message_thread_id).strip() not in ("", "1"):
         payload["message_thread_id"] = int(message_thread_id)
 
     async with aiohttp.ClientSession() as session:
@@ -732,9 +732,10 @@ async def test_alert(type: str = "news"):
     tg_thread = _alert_config.get(f"telegram_thread_{chan_key}", "")
 
     sent = []
+    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     embed = {
         "title": "🟢 Journex Alert Test",
-        "description": f"{display} channel is connected and working!",
+        "description": f"{display} channel is connected and working!\n**Sent**: `{now_str}`",
         "color": 0x22c55e,
         "footer": {"text": "Journex ⚡ Test Message"},
     }
@@ -744,7 +745,8 @@ async def test_alert(type: str = "news"):
         else: return {"success": False, "error": f"Discord Error: {err}"}
     if tg_token and tg_chat:
         ok, err = await telegram_send(tg_token, tg_chat,
-            f"🟢 Journex Alert Test\n{display} notifications are working!",
+            f"🟢 <b>Journex Alert Test</b>\n{display} notifications are working!\n📅 <b>Sent</b>: <code>{now_str}</code>",
+            parse_mode="HTML",
             message_thread_id=tg_thread if tg_thread else None, bypass_pause=True)
         if ok: sent.append("telegram")
         else: return {"success": False, "error": f"Telegram Error: {err}"}
@@ -1993,10 +1995,13 @@ def get_sentiment():
 _replay_sessions: dict = {}
 
 TIMEFRAME_MAP = {
-    "M1": mt5.TIMEFRAME_M1,  "M5": mt5.TIMEFRAME_M5,
-    "M15": mt5.TIMEFRAME_M15,"M30": mt5.TIMEFRAME_M30,
-    "H1": mt5.TIMEFRAME_H1,  "H4": mt5.TIMEFRAME_H4,
-    "D1": mt5.TIMEFRAME_D1,
+    "M1": getattr(mt5, "TIMEFRAME_M1", 1) if mt5 else 1,
+    "M5": getattr(mt5, "TIMEFRAME_M5", 5) if mt5 else 5,
+    "M15": getattr(mt5, "TIMEFRAME_M15", 15) if mt5 else 15,
+    "M30": getattr(mt5, "TIMEFRAME_M30", 30) if mt5 else 30,
+    "H1": getattr(mt5, "TIMEFRAME_H1", 16385) if mt5 else 16385,
+    "H4": getattr(mt5, "TIMEFRAME_H4", 16388) if mt5 else 16388,
+    "D1": getattr(mt5, "TIMEFRAME_D1", 16408) if mt5 else 16408,
 }
 
 def _replay_stats(session: dict) -> dict:
@@ -3606,8 +3611,9 @@ def __send_execution_alert(symbol: str, action: str, lot_size: float, price: flo
         return
     import threading
     def _send_bg():
+        now_str = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
         direction = "Long" if action.lower() == "buy" else "Short"
-        discord_msg = f"⚡ **TRADE EXECUTED** ⚡\n**Pair**: {symbol}\n**Direction**: {direction}\n**Lot Size**: {lot_size}\n**Entry**: {price}"
+        discord_msg = f"⚡ **TRADE EXECUTED** ⚡\n📅 **Date/Time**: `{now_str}`\n**Pair**: {symbol}\n**Direction**: {direction}\n**Lot Size**: {lot_size}\n**Entry**: {price}"
         if sl > 0: discord_msg += f"\n**SL**: {sl}"
         if tp > 0: discord_msg += f"\n**TP**: {tp}"
         
@@ -3616,7 +3622,7 @@ def __send_execution_alert(symbol: str, action: str, lot_size: float, price: flo
             try: requests.post(webhook, json={"content": discord_msg}, timeout=3)
             except Exception as e: print("Discord alert err:", e)
 
-        tg_msg = f"⚡ <b>TRADE EXECUTED</b> ⚡\n<b>Pair</b>: {symbol}\n<b>Direction</b>: {direction}\n<b>Lot Size</b>: {lot_size}\n<b>Entry</b>: {price}"
+        tg_msg = f"⚡ <b>TRADE EXECUTED</b> ⚡\n📅 <b>Date/Time</b>: <code>{now_str}</code>\n<b>Pair</b>: {symbol}\n<b>Direction</b>: {direction}\n<b>Lot Size</b>: {lot_size}\n<b>Entry</b>: {price}"
         if sl > 0: tg_msg += f"\n<b>SL</b>: {sl}"
         if tp > 0: tg_msg += f"\n<b>TP</b>: {tp}"
 
@@ -3827,15 +3833,17 @@ async def discord_news_loop():
                             _alert_config.get("telegram_chat_news", "") or  # Mode A
                             _alert_config.get("telegram_chat_id", "")       # Mode B group
                         )
-                        tg_thread = _alert_config.get("telegram_thread_news", "")
+                        news_time = item.get("time") or datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
                         if tg_tok and tg_cid:
                             tg_text = (
                                 f"📰 <b>{item['title'][:200]}</b>\n"
+                                f"📅 <b>Date/Time</b>: <code>{news_time}</code>\n"
                                 f"{item.get('summary','')[:300]}\n"
-                                f"Symbol: {item.get('symbol','—')} | Impact: {item.get('impact','—')} | {item.get('source','')}"
+                                f"Symbol: <b>{item.get('symbol','—')}</b> | Impact: <b>{item.get('impact','—')}</b> | {item.get('source','')}"
                             )
                             await telegram_send(tg_tok, tg_cid, tg_text,
-                                                message_thread_id=tg_thread if tg_thread else None)
+                                                message_thread_id=tg_thread if tg_thread else None,
+                                                category="news")
                         await asyncio.sleep(1.5)  # small delay between posts
         except Exception as e:
             print(f"[discord] News loop error: {e}")
@@ -4022,6 +4030,7 @@ class ReplayCreateReq(BaseModel):
     start_date: str
     end_date: str
     initial_balance: float
+    warmup_bars: int = 60
 
 class ReplayTradeReq(BaseModel):
     direction: str
@@ -4036,6 +4045,9 @@ class ReplayCloseReq(BaseModel):
 class ReplayJumpReq(BaseModel):
     date: str
 
+class ReplaySeekReq(BaseModel):
+    index: int
+
 _TIMEFRAME_MAP = {
     "M1": mt5.TIMEFRAME_M1, "M5": mt5.TIMEFRAME_M5, "M15": mt5.TIMEFRAME_M15,
     "M30": mt5.TIMEFRAME_M30, "H1": mt5.TIMEFRAME_H1, "H4": mt5.TIMEFRAME_H4,
@@ -4043,13 +4055,21 @@ _TIMEFRAME_MAP = {
 }
 
 def _calculate_pnl(pos: dict, current_price: float) -> float:
-    # Very simplified un-leveraged pip calc just for replay UI proxy
-    # For actual MT5 fidelity we'd use OrderCalcProfit but this is offline replay
+    # Asset-specific contract size calculation for accurate offline replay simulation
     diff = current_price - pos['entry']
     if pos['direction'] == "SELL":
         diff = -diff
-    # approx $10 per pip on standard lot for XXXUSD
-    return diff * 100000 * pos['lot_size']
+    sym = str(pos.get('symbol', '')).upper()
+    contract_size = 100000.0
+    if 'XAU' in sym or 'GOLD' in sym:
+        contract_size = 100.0
+    elif 'XAG' in sym or 'SILVER' in sym:
+        contract_size = 5000.0
+    elif 'BTC' in sym or 'ETH' in sym:
+        contract_size = 1.0
+    elif 'JPY' in sym:
+        contract_size = 100000.0 / (current_price if current_price > 50 else 150.0)
+    return diff * contract_size * pos['lot_size']
 
 def _eval_positions(session: dict, candle: dict):
     # Evaluate Stop Loss / Take Profit against High/Low
@@ -4141,12 +4161,14 @@ def create_replay(req: ReplayCreateReq):
         })
         
     session_id = str(uuid.uuid4())
+    warmup = req.warmup_bars if req.warmup_bars is not None and req.warmup_bars >= 0 else 60
+    start_idx = min(warmup, len(candles) - 1) if len(candles) > 0 else 0
     _active_replay_sessions[session_id] = {
         "session_id": session_id,
         "symbol": req.symbol,
         "timeframe": req.timeframe,
         "candles": candles,
-        "current_index": 0,
+        "current_index": start_idx,
         "initial_balance": req.initial_balance,
         "equity": req.initial_balance,
         "open_positions": [],
@@ -4236,6 +4258,14 @@ def replay_jump(session_id: str, req: ReplayJumpReq):
             break
             
     sess['current_index'] = closest_idx
+    return replay_status(session_id)
+
+@app.post("/api/replay/{session_id}/seek")
+def replay_seek(session_id: str, req: ReplaySeekReq):
+    sess = _active_replay_sessions.get(session_id)
+    if not sess: return {"success": False, "error": "Session missing"}
+    idx = max(0, min(req.index, len(sess['candles']) - 1))
+    sess['current_index'] = idx
     return replay_status(session_id)
 
 @app.post("/api/replay/{session_id}/trade")
@@ -4403,7 +4433,7 @@ async def get_live_data():
     """Return real-time Bid/Ask tick data for the core watchlist symbols.
     Supports both live MT5 and demo/fallback simulation.
     """
-    symbols = ["XAUUSDm", "EURUSDm", "GBPUSDm", "USDJPYm", "US30m"]
+    symbols = ["XAUUSDm", "EURUSDm", "GBPUSDm", "USDJPYm", "US30m", "BTCUSDm"]
     # Try alternate non-suffix names for brokers that don't use 'm' suffix
     fallback_map = {
         "XAUUSDm": "XAUUSD",
@@ -4411,6 +4441,7 @@ async def get_live_data():
         "GBPUSDm": "GBPUSD",
         "USDJPYm": "USDJPY",
         "US30m":   "US30",
+        "BTCUSDm": "BTCUSD",
     }
 
     results = []
@@ -4440,9 +4471,9 @@ async def get_live_data():
             # ── Demo simulation fallback ──────────────────────────────────
             import random
             base = {"XAUUSDm": 2350.00, "EURUSDm": 1.08775, "GBPUSDm": 1.27330,
-                    "USDJPYm": 151.450, "US30m": 39450.0}.get(sym, 1.00000)
+                    "USDJPYm": 151.450, "US30m": 39450.0, "BTCUSDm": 64500.0}.get(sym, 1.00000)
             spread = {"XAUUSDm": 0.30, "EURUSDm": 0.00015, "GBPUSDm": 0.00018,
-                      "USDJPYm": 0.025, "US30m": 2.5}.get(sym, 0.0002)
+                      "USDJPYm": 0.025, "US30m": 2.5, "BTCUSDm": 15.0}.get(sym, 0.0002)
             bid = round(base + random.uniform(-base * 0.001, base * 0.001), 5)
             results.append({
                 "symbol": sym,
@@ -4970,13 +5001,22 @@ async def send_signal_alerts(sig: dict):
     if _alert_config.get("alerts_paused", True) or _alert_config.get("signals_paused", False):
         return
 
+    sig_time = sig.get("timestamp") or datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    if "T" in str(sig_time):
+        try:
+            dt = datetime.fromisoformat(str(sig_time).replace("Z", "+00:00"))
+            sig_time = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
+        except Exception:
+            pass
+
     discord_msg = (
-        f"🔔 **NEW SCANNER SETUP** — {sig['symbol']} {sig['type']} ({sig['timeframe']}) [{sig['grade']}]\n"
-        f"**Score**: {sig['confidence']}/100\n"
-        f"**Preferred Entry**: {sig['entry_price']}\n"
-        f"**SL**: {sig['sl']}\n"
-        f"**TP**: {sig['tp']}\n"
-        f"**Why**: {sig['reason']}"
+        f"🔔 **NEW SCANNER SETUP** — {sig['symbol']} {sig['type']} ({sig.get('timeframe', 'M15')}) [{sig.get('grade', 'A+')}]\n"
+        f"📅 **Date/Time**: `{sig_time}`\n"
+        f"🎯 **Score**: {sig.get('confidence', 80)}/100\n"
+        f"💵 **Preferred Entry**: {sig.get('entry_price', 0)}\n"
+        f"🛑 **SL**: {sig.get('sl', 0)}\n"
+        f"🎯 **TP**: {sig.get('tp', 0)}\n"
+        f"💡 **Why**: {sig.get('reason', 'Confluence setup detected')}"
     )
 
     # Discord alert
@@ -4995,19 +5035,23 @@ async def send_signal_alerts(sig: dict):
         thread_id = _alert_config.get("telegram_thread_signals", "")
         
         if chat_id:
-            tg_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-            payload = {
-                "chat_id": chat_id,
-                "text": discord_msg,
-                "parse_mode": "Markdown"
-            }
-            if thread_id:
-                payload["message_thread_id"] = int(thread_id)
-            try:
-                async with aiohttp.ClientSession() as session:
-                    await session.post(tg_url, json=payload, timeout=aiohttp.ClientTimeout(total=5))
-            except Exception as e:
-                logger.error(f"[ALERTS] Telegram signal error: {e}")
+            tg_msg = (
+                f"🔔 <b>NEW SCANNER SETUP</b> — {sig['symbol']} {sig['type']} ({sig.get('timeframe', 'M15')}) [{sig.get('grade', 'A+')}]\n"
+                f"📅 <b>Date/Time</b>: <code>{sig_time}</code>\n"
+                f"🎯 <b>Score</b>: {sig.get('confidence', 80)}/100\n"
+                f"💵 <b>Preferred Entry</b>: {sig.get('entry_price', 0)}\n"
+                f"🛑 <b>SL</b>: {sig.get('sl', 0)}\n"
+                f"🎯 <b>TP</b>: {sig.get('tp', 0)}\n"
+                f"💡 <b>Why</b>: {sig.get('reason', 'Confluence setup detected')}"
+            )
+            await telegram_send(
+                bot_token,
+                chat_id,
+                tg_msg,
+                parse_mode="HTML",
+                message_thread_id=thread_id if thread_id else None,
+                category="signals"
+            )
 
 @app.post("/api/ea/signal-detected")
 def post_ea_signal_detected(sig: EASignalDetected):
@@ -6656,9 +6700,195 @@ def _compute_confluence_score(direction, setup_data, preset_name, regime_data=No
     # --- Preset Rule Validation ---
     rule_pass        = True
     rule_fail_reason = ""
+    return {
+        "score": total_score,
+        "score_matrix": score_matrix,
+        "rule_pass": rule_pass,
+        "rule_fail_reason": rule_fail_reason
+    }
+
+# ══════════════════════════════════════════════════════════════════════════════════════
+# 🚀 FULL 4-ENGINE QUANT MATRIX & SIGNAL FUSION ENGINE
+# ══════════════════════════════════════════════════════════════════════════════════════
+
+def _run_trend_momentum_engine(curr_price, closes, highs, lows, htf_bias, atr):
+    """Engine 1: Trend & Fast Momentum (M15 EMA 9 vs 21 + RSI + Breakout)."""
+    import numpy as np
+    ema9 = float(np.mean(closes[-9:]))
+    ema21 = float(np.mean(closes[-21:])) if len(closes) >= 21 else ema9
+    
+    deltas = np.diff(closes)
+    gains = np.where(deltas > 0, deltas, 0.0)
+    losses = np.where(deltas < 0, -deltas, 0.0)
+    avg_gain = float(np.mean(gains[-14:])) if len(gains) >= 14 else 0.001
+    avg_loss = float(np.mean(losses[-14:])) if len(losses) >= 14 else 0.001
+    rs = (avg_gain / avg_loss) if avg_loss > 0 else 1.0
+    rsi = int(round(100.0 - (100.0 / (1.0 + rs))))
+
+    prev_swing_high = max(highs[-8:-2]) if len(highs) >= 8 else highs[-1]
+    prev_swing_low = min(lows[-8:-2]) if len(lows) >= 8 else lows[-1]
+
+    bullish_trigger = (ema9 > ema21 and curr_price >= ema9 and rsi >= 48) or (closes[-1] > prev_swing_high)
+    bearish_trigger = (ema9 < ema21 and curr_price <= ema9 and rsi <= 52) or (closes[-1] < prev_swing_low)
+
+    if bullish_trigger and not bearish_trigger:
+        score = 75 + (10 if htf_bias == "BULLISH" else 0)
+        return {
+            "engine": "Trend & Momentum",
+            "triggered": True,
+            "direction": "BUY",
+            "score": min(92, score),
+            "reason": f"Bullish Momentum: EMA 9 ({ema9:.2f}) > 21 ({ema21:.2f}) with RSI {rsi}",
+            "sl": min(lows[-4:]) - 0.15 * atr,
+            "status": "Bullish Momentum Active",
+            "points": 25
+        }
+    elif bearish_trigger and not bullish_trigger:
+        score = 75 + (10 if htf_bias == "BEARISH" else 0)
+        return {
+            "engine": "Trend & Momentum",
+            "triggered": True,
+            "direction": "SELL",
+            "score": min(92, score),
+            "reason": f"Bearish Momentum: EMA 9 ({ema9:.2f}) < 21 ({ema21:.2f}) with RSI {rsi}",
+            "sl": max(highs[-4:]) + 0.15 * atr,
+            "status": "Bearish Momentum Active",
+            "points": 25
+        }
+    return {"engine": "Trend & Momentum", "triggered": False, "direction": None, "score": 30, "reason": "Momentum Neutral", "status": "Neutral", "points": 8}
+
+def _run_session_breakout_engine(curr_price, closes, highs, lows, hour, atr):
+    """Engine 2: Session & Volatility Breakout (Asian High/Low & Opening Range Breakout)."""
+    session_label = "NY Session" if 12 <= hour <= 17 else ("London Open" if 7 <= hour <= 11 else "Asian Session")
+    range_high = max(highs[-10:-2]) if len(highs) >= 10 else highs[-1]
+    range_low = min(lows[-10:-2]) if len(lows) >= 10 else lows[-1]
+    bar_range = highs[-1] - lows[-1]
+    has_expansion = bar_range >= 1.1 * atr
+
+    if closes[-1] > range_high:
+        score = 76 + (10 if has_expansion else 0)
+        return {
+            "engine": "Session Breakout",
+            "triggered": True,
+            "direction": "BUY",
+            "score": min(92, score),
+            "reason": f"{session_label} Range Breakout above {range_high:.2f}",
+            "sl": range_high - 0.4 * atr,
+            "status": f"{session_label} High Breakout",
+            "points": 25
+        }
+    elif closes[-1] < range_low:
+        score = 76 + (10 if has_expansion else 0)
+        return {
+            "engine": "Session Breakout",
+            "triggered": True,
+            "direction": "SELL",
+            "score": min(92, score),
+            "reason": f"{session_label} Range Breakdown below {range_low:.2f}",
+            "sl": range_low + 0.4 * atr,
+            "status": f"{session_label} Low Breakdown",
+            "points": 25
+        }
+    return {"engine": "Session Breakout", "triggered": False, "direction": None, "score": 30, "reason": "Inside Session Range", "status": "Inside Range", "points": 8}
+
+def _run_ict_smc_engine(curr_price, closes, highs, lows, opens, htf_bias, atr):
+    """Engine 3: ICT / Smart Money Concepts (Liquidity Sweeps, FVGs, Displacement)."""
+    import numpy as np
+    swing_highs = [highs[i] for i in range(4, len(highs) - 3) if highs[i] > highs[i-1] and highs[i] > highs[i+1]]
+    swing_lows = [lows[i] for i in range(4, len(lows) - 3) if lows[i] < lows[i-1] and lows[i] < lows[i+1]]
+    recent_min_low = min(lows[-8:])
+    recent_max_high = max(highs[-8:])
+
+    bullish_sweep = False
+    bearish_sweep = False
+    sweep_low = None
+    sweep_high = None
+
+    if swing_lows and recent_min_low < swing_lows[-1] and curr_price >= swing_lows[-1]:
+        bullish_sweep = True
+        sweep_low = swing_lows[-1]
+
+    if swing_highs and recent_max_high > swing_highs[-1] and curr_price <= swing_highs[-1]:
+        bearish_sweep = True
+        sweep_high = swing_highs[-1]
+
+    bodies = abs(closes - opens)
+    avg_body = float(np.mean(bodies[-14:])) if len(bodies) >= 14 else 1.0
+    has_displacement = (bodies[-1] > 1.2 * avg_body or bodies[-2] > 1.2 * avg_body)
+
+    if bullish_sweep:
+        score = 80 + (10 if has_displacement else 0)
+        return {
+            "engine": "ICT / SMC",
+            "triggered": True,
+            "direction": "BUY",
+            "score": min(95, score),
+            "reason": f"SSL Swept at {sweep_low:.2f} (Turtle Soup Reversal)",
+            "sl": sweep_low - 0.2 * atr,
+            "status": "SSL Swept & Rejected",
+            "points": 25
+        }
+    elif bearish_sweep:
+        score = 80 + (10 if has_displacement else 0)
+        return {
+            "engine": "ICT / SMC",
+            "triggered": True,
+            "direction": "SELL",
+            "score": min(95, score),
+            "reason": f"BSL Swept at {sweep_high:.2f} (Turtle Soup Reversal)",
+            "sl": sweep_high + 0.2 * atr,
+            "status": "BSL Swept & Rejected",
+            "points": 25
+        }
+    return {"engine": "ICT / SMC", "triggered": False, "direction": None, "score": 30, "reason": "No Active Sweep", "status": "No Sweep", "points": 8}
+
+def _run_mean_reversion_engine(curr_price, closes, highs, lows, atr):
+    """Engine 4: Mean Reversion & Statistical Stretch (Bollinger Bands 2.0σ + RSI extremes)."""
+    import numpy as np
+    bb_mid = float(np.mean(closes[-20:]))
+    bb_std = float(np.std(closes[-20:]))
+    bb_upper = bb_mid + 2.0 * bb_std
+    bb_lower = bb_mid - 2.0 * bb_std
+
+    deltas = np.diff(closes)
+    gains = np.where(deltas > 0, deltas, 0.0)
+    losses = np.where(deltas < 0, -deltas, 0.0)
+    avg_gain = float(np.mean(gains[-14:])) if len(gains) >= 14 else 0.001
+    avg_loss = float(np.mean(losses[-14:])) if len(losses) >= 14 else 0.001
+    rs = (avg_gain / avg_loss) if avg_loss > 0 else 1.0
+    rsi = int(round(100.0 - (100.0 / (1.0 + rs))))
+
+    if (lows[-2] < bb_lower or curr_price < bb_lower) and curr_price >= bb_lower and rsi <= 35:
+        return {
+            "engine": "Mean Reversion",
+            "triggered": True,
+            "direction": "BUY",
+            "score": 75,
+            "reason": f"2.0σ Bollinger Stretch at {bb_lower:.2f} (Oversold RSI {rsi})",
+            "sl": bb_lower - 0.3 * atr,
+            "status": "Oversold 2.0σ Stretch",
+            "points": 25
+        }
+    elif (highs[-2] > bb_upper or curr_price > bb_upper) and curr_price <= bb_upper and rsi >= 65:
+        return {
+            "engine": "Mean Reversion",
+            "triggered": True,
+            "direction": "SELL",
+            "score": 75,
+            "reason": f"2.0σ Bollinger Stretch at {bb_upper:.2f} (Overbought RSI {rsi})",
+            "sl": bb_upper + 0.3 * atr,
+            "status": "Overbought 2.0σ Stretch",
+            "points": 25
+        }
+    return {"engine": "Mean Reversion", "triggered": False, "direction": None, "score": 30, "reason": "Within Normal Distribution", "status": "Normal Band", "points": 8}
+
 
 def generate_live_ict_signals():
-    """Dynamically scan active MT5 symbols and generate real ICT setups centered on live prices and technical indicators."""
+    """
+    Unified Multi-Engine Quant Scanner:
+    Runs Trend/Momentum, Session Breakout, ICT/SMC, and Mean-Reversion in parallel,
+    then uses the Signal Fusion Engine to produce fast, high-probability execution setups.
+    """
     signals = []
     scan_symbols = [
         ("XAUUSD", "Gold / USD", 2),
@@ -6670,7 +6900,7 @@ def generate_live_ict_signals():
     now_iso = datetime.now(timezone.utc).isoformat()
     now_dt = datetime.now(timezone.utc)
     hour = now_dt.hour
-    session_label = "NY AM Killzone" if 13 <= hour <= 17 else ("London Open Killzone" if 7 <= hour <= 11 else "Asian Session" if 0 <= hour <= 6 else "Active Trading Session")
+    session_label = "NY AM Killzone" if 12 <= hour <= 17 else ("London Open Killzone" if 7 <= hour <= 11 else ("Asian Session" if 0 <= hour <= 6 else "Intraday Session"))
 
     for sym, name, digits in scan_symbols:
         try:
@@ -6684,77 +6914,147 @@ def generate_live_ict_signals():
                     ask = tick.ask
                     curr_price = (bid + ask) / 2.0
                 else:
-                    rates = mt5.copy_rates_from_pos(sym, mt5.TIMEFRAME_M15, 0, 30)
+                    rates = mt5.copy_rates_from_pos(sym, mt5.TIMEFRAME_M15, 0, 5)
                     if rates is not None and len(rates) > 0:
                         curr_price = float(rates[-1]['close'])
                         bid = curr_price
                         ask = curr_price
 
             if curr_price == 0.0:
-                defaults = {"XAUUSD": 4420.0, "EURUSD": 1.1610, "GBPUSD": 1.2950, "BTCUSD": 79500.0, "USDJPY": 154.50}
+                defaults = {"XAUUSD": 4192.0, "EURUSD": 1.1610, "GBPUSD": 1.2950, "BTCUSD": 79500.0, "USDJPY": 154.50}
                 curr_price = defaults.get(sym, 100.0)
 
-            rates = None
+            # 1. Higher-Timeframe H1 Bias
+            htf_bias = "NEUTRAL"
+            rates_h1 = None
             if mt5 and mt5.terminal_info():
-                rates = mt5.copy_rates_from_pos(sym, mt5.TIMEFRAME_M15, 0, 30)
+                rates_h1 = mt5.copy_rates_from_pos(sym, mt5.TIMEFRAME_H1, 0, 30)
 
-            if rates is not None and len(rates) >= 15:
+            if rates_h1 is not None and len(rates_h1) >= 20:
                 import numpy as np
-                closes = np.array([r['close'] for r in rates], dtype=float)
-                highs = np.array([r['high'] for r in rates], dtype=float)
-                lows = np.array([r['low'] for r in rates], dtype=float)
-                
+                h1_closes = np.array([r['close'] for r in rates_h1], dtype=float)
+                h1_ema20 = float(np.mean(h1_closes[-15:]))
+                h1_ema50 = float(np.mean(h1_closes[-28:])) if len(h1_closes) >= 28 else h1_ema20
+                if curr_price >= h1_ema20 and h1_ema20 >= h1_ema50:
+                    htf_bias = "BULLISH"
+                elif curr_price <= h1_ema20 and h1_ema20 <= h1_ema50:
+                    htf_bias = "BEARISH"
+                else:
+                    htf_bias = "BULLISH" if curr_price >= h1_ema20 else "BEARISH"
+
+            # 2. M15 Bars
+            rates_m15 = None
+            if mt5 and mt5.terminal_info():
+                rates_m15 = mt5.copy_rates_from_pos(sym, mt5.TIMEFRAME_M15, 0, 35)
+
+            if rates_m15 is not None and len(rates_m15) >= 20:
+                import numpy as np
+                closes = np.array([r['close'] for r in rates_m15], dtype=float)
+                highs = np.array([r['high'] for r in rates_m15], dtype=float)
+                lows = np.array([r['low'] for r in rates_m15], dtype=float)
+                opens = np.array([r['open'] for r in rates_m15], dtype=float)
                 tr = np.maximum(highs[1:] - lows[1:], np.maximum(abs(highs[1:] - closes[:-1]), abs(lows[1:] - closes[:-1])))
                 atr = float(np.mean(tr[-14:])) if len(tr) >= 14 else (curr_price * 0.005)
-                
-                deltas = np.diff(closes)
-                gains = np.where(deltas > 0, deltas, 0.0)
-                losses = np.where(deltas < 0, -deltas, 0.0)
-                avg_gain = float(np.mean(gains[-14:])) if len(gains) >= 14 else 0.001
-                avg_loss = float(np.mean(losses[-14:])) if len(losses) >= 14 else 0.001
-                rs = (avg_gain / avg_loss) if avg_loss > 0 else 1.0
-                rsi_val = int(round(100.0 - (100.0 / (1.0 + rs))))
-                
-                ema20 = float(np.mean(closes[-10:]))
             else:
+                import numpy as np
                 atr = curr_price * (0.003 if "XAU" in sym else 0.002)
-                rsi_val = 52
-                ema20 = curr_price * 0.999
+                closes = np.array([curr_price] * 30, dtype=float)
+                highs = np.array([curr_price + atr] * 30, dtype=float)
+                lows = np.array([curr_price - atr] * 30, dtype=float)
+                opens = np.array([curr_price] * 30, dtype=float)
 
-            is_bullish = curr_price >= ema20 or rsi_val >= 50
-            direction_type = "BUY" if is_bullish else "SELL"
-            
-            entry = round(curr_price, digits)
-            if is_bullish:
-                entry_low = round(entry - 0.25 * atr, digits)
-                entry_high = round(entry + 0.1 * atr, digits)
-                sl = round(max(0.0001, entry - 1.4 * atr), digits)
-                tp = round(entry + 2.8 * atr, digits)
-                tp1_p = round(entry + 1.2 * atr, digits)
-                tp2_p = round(entry + 2.8 * atr, digits)
-                reason_txt = f"M15 Bullish FVG Discount Retest at {entry} (EMA20 Support)"
-                sl_reason = "Below Asian Low Liquidity Sweep"
-                tp1_reason = "Internal Liquidity / High Volume Node"
-                tp2_reason = "Buy-side Liquidity Pool (Previous Session High)"
-                pros = ["Liquidity swept below key swing level", "M5/M15 Market Structure Shift with Displacement", "Tapping 50% discount equilibrium"]
-                cons = ["Upcoming session open volatility"]
+            # ══════════════════════════════════════════════════════════════
+            # RUN THE 4 INDEPENDENT ENGINES
+            # ══════════════════════════════════════════════════════════════
+            e1_trend = _run_trend_momentum_engine(curr_price, closes, highs, lows, htf_bias, atr)
+            e2_breakout = _run_session_breakout_engine(curr_price, closes, highs, lows, hour, atr)
+            e3_ict = _run_ict_smc_engine(curr_price, closes, highs, lows, opens, htf_bias, atr)
+            e4_mean_rev = _run_mean_reversion_engine(curr_price, closes, highs, lows, atr)
+
+            active_engines = [e for e in [e1_trend, e2_breakout, e3_ict, e4_mean_rev] if e["triggered"]]
+
+            # Count votes
+            buy_votes = [e for e in active_engines if e["direction"] == "BUY"]
+            sell_votes = [e for e in active_engines if e["direction"] == "SELL"]
+
+            if len(buy_votes) > len(sell_votes):
+                direction_type = "BUY"
+                chosen_votes = buy_votes
+            elif len(sell_votes) > len(buy_votes):
+                direction_type = "SELL"
+                chosen_votes = sell_votes
+            elif len(buy_votes) > 0 and len(buy_votes) == len(sell_votes):
+                # Tie-breaker: prioritize ICT or Trend Engine
+                if e3_ict["triggered"]:
+                    direction_type = e3_ict["direction"]
+                    chosen_votes = [e3_ict]
+                elif e1_trend["triggered"]:
+                    direction_type = e1_trend["direction"]
+                    chosen_votes = [e1_trend]
+                else:
+                    direction_type = buy_votes[0]["direction"]
+                    chosen_votes = buy_votes
             else:
-                entry_low = round(entry - 0.1 * atr, digits)
-                entry_high = round(entry + 0.25 * atr, digits)
-                sl = round(entry + 1.4 * atr, digits)
-                tp = round(max(0.0001, entry - 2.8 * atr), digits)
-                tp1_p = round(max(0.0001, entry - 1.2 * atr), digits)
-                tp2_p = round(max(0.0001, entry - 2.8 * atr), digits)
-                reason_txt = f"M15 Bearish Order Block Tap at {entry} (EMA20 Rejection)"
-                sl_reason = "Above Premium Liquidity Sweep High"
-                tp1_reason = "Equal Lows Target"
-                tp2_reason = "Sell-side Liquidity Pool (Previous Session Low)"
-                pros = ["Buy-side liquidity swept", "Clean impulse displacement lower", "Holding premium order block"]
-                cons = ["Higher timeframe consolidation"]
+                # No engine triggered
+                continue
 
-            confidence = min(95, max(74, int(50 + abs(rsi_val - 50) * 1.3 + 24)))
-            grade = "A+" if confidence >= 88 else ("A" if confidence >= 80 else "B+")
-            rr = round(abs(tp - entry) / max(0.00001, abs(entry - sl)), 2)
+            is_bullish = (direction_type == "BUY")
+
+            # ══════════════════════════════════════════════════════════════
+            # SIGNAL FUSION SCORING & STAGE CLASSIFICATION
+            # ══════════════════════════════════════════════════════════════
+            agreed_count = len(chosen_votes)
+            engine_names = [e["engine"].replace("_", " ") for e in chosen_votes]
+            engine_summary = " + ".join(engine_names)
+
+            if agreed_count >= 2:
+                # Stage 3: High-Confluence Multi-Engine Fusion
+                stage_label = "Stage 3 (High-Confluence Fusion)"
+                confidence = min(96, max(85, max(e["score"] for e in chosen_votes) + (agreed_count - 1) * 6))
+                grade = "A++" if confidence >= 90 else "A+"
+            elif agreed_count == 1:
+                # Stage 2: Single Engine Triggered Setup
+                stage_label = "Stage 2 (Triggered Setup)"
+                confidence = max(74, chosen_votes[0]["score"])
+                grade = "A"
+            else:
+                continue
+
+            # Invalidation & Entry
+            entry = round(curr_price, digits)
+            chosen_sls = [e["sl"] for e in chosen_votes if "sl" in e]
+            
+            if is_bullish:
+                entry_low = round(entry - 0.20 * atr, digits)
+                entry_high = round(entry + 0.10 * atr, digits)
+                sl_target = min(chosen_sls) if chosen_sls else (entry - 1.2 * atr)
+                sl = round(max(0.0001, sl_target), digits)
+                risk_actual = max(0.0001, entry - sl)
+                tp1_p = round(entry + 1.2 * risk_actual, digits)
+                tp2_p = round(entry + 2.5 * risk_actual, digits)
+                tp3_p = round(entry + 4.0 * risk_actual, digits)
+                tp = tp2_p
+                tp1_reason = "1:1.2R Safety Target (Move SL to Breakeven)"
+                tp2_reason = "1:2.5R Structural Liquidity Target"
+                tp3_reason = "1:4.0R Trend Expansion Runner"
+            else:
+                entry_low = round(entry - 0.10 * atr, digits)
+                entry_high = round(entry + 0.20 * atr, digits)
+                sl_target = max(chosen_sls) if chosen_sls else (entry + 1.2 * atr)
+                sl = round(sl_target, digits)
+                risk_actual = max(0.0001, sl - entry)
+                tp1_p = round(max(0.0001, entry - 1.2 * risk_actual), digits)
+                tp2_p = round(max(0.0001, entry - 2.5 * risk_actual), digits)
+                tp3_p = round(max(0.0001, entry - 4.0 * risk_actual), digits)
+                tp = tp2_p
+                tp1_reason = "1:1.2R Safety Target (Move SL to Breakeven)"
+                tp2_reason = "1:2.5R Structural Liquidity Target"
+                tp3_reason = "1:4.0R Trend Expansion Runner"
+
+            primary_reason = chosen_votes[0]["reason"]
+            pros = [f"Triggered by: {engine_summary}"]
+            for v in chosen_votes:
+                pros.append(v["reason"])
 
             signals.append({
                 "id": f"SIG-{sym[:3]}-{len(signals)+1:03d}",
@@ -6765,33 +7065,34 @@ def generate_live_ict_signals():
                     "entry_low": entry_low,
                     "entry_high": entry_high,
                     "preferred": entry,
-                    "reason": reason_txt
+                    "reason": f"Active {engine_summary} Zone"
                 },
                 "sl": sl,
-                "sl_reason": sl_reason,
+                "sl_reason": f"Structural Invalidation ({engine_names[0]})",
                 "tp": tp,
                 "confidence": confidence,
                 "grade": grade,
-                "reason": f"{session_label}: Liquidity Sweep -> MSS -> {direction_type} Setup",
+                "reason": f"[{engine_summary}] {primary_reason}",
                 "timestamp": now_iso,
                 "timeframe": "M15",
-                "rsi": rsi_val,
-                "adx": 28,
-                "regime": "trending",
+                "stage": stage_label,
+                "engines_triggered": engine_names,
+                "regime": "trending" if htf_bias != "NEUTRAL" else "ranging",
                 "volatility": "normal",
                 "confluence_matrix": {
-                    "Liquidity Sweep": {"status": "valid", "points": 25, "max": 25},
-                    "Market Structure Shift": {"status": "valid", "points": 25, "max": 25},
-                    "Fair Value Gap": {"status": "valid", "points": 20, "max": 20},
-                    "Session Alignment": {"status": "valid", "points": 18, "max": 30}
+                    "Trend & Momentum Engine": {"status": e1_trend["status"], "points": e1_trend["points"], "max": 25},
+                    "Session Breakout Engine": {"status": e2_breakout["status"], "points": e2_breakout["points"], "max": 25},
+                    "ICT / SMC Liquidity Engine": {"status": e3_ict["status"], "points": e3_ict["points"], "max": 25},
+                    "Mean Reversion Engine": {"status": e4_mean_rev["status"], "points": e4_mean_rev["points"], "max": 25}
                 },
-                "tp1": {"price": tp1_p if isinstance(tp1_p, (int, float)) else tp1_p[0], "rr": 1.0, "reason": tp1_reason},
-                "tp2": {"price": tp2_p if isinstance(tp2_p, (int, float)) else tp2_p[0], "rr": rr, "reason": tp2_reason},
+                "tp1": {"price": tp1_p, "rr": 1.2, "reason": tp1_reason},
+                "tp2": {"price": tp2_p, "rr": 2.5, "reason": tp2_reason},
+                "tp3": {"price": tp3_p, "rr": 4.0, "reason": tp3_reason},
                 "invalidation": sl,
                 "reasoning": {
-                    "summary": f"High probability ICT {direction_type} model on {sym} ({name}) aligned with current market structure",
+                    "summary": f"Multi-Engine Quant {direction_type} setup on {sym} ({name}) — {stage_label} powered by {engine_summary}",
                     "pros": pros,
-                    "cons": cons
+                    "cons": []
                 }
             })
         except Exception as ex:
@@ -6843,7 +7144,8 @@ async def get_signals(
 @app.get("/api/confluence-log")
 def get_bridge_confluence_log(symbol: str = "XAUUSD"):
     sym_clean = symbol.upper().replace("/", "")
-    now = datetime.now(timezone.utc)
+    cambodia_tz = timezone(timedelta(hours=7))
+    now = datetime.now(cambodia_tz)
     
     current_price = 0.0
     if mt5 and mt5.terminal_info():
@@ -6856,8 +7158,8 @@ def get_bridge_confluence_log(symbol: str = "XAUUSD"):
                 current_price = float(rates[0]['close'])
 
     if current_price == 0.0:
-        defaults = {"XAUUSD": 4420.0, "EURUSD": 1.1610, "GBPUSD": 1.2950, "BTCUSD": 79500.0, "USDJPY": 154.50}
-        current_price = defaults.get(sym_clean, 4420.0)
+        defaults = {"XAUUSD": 4192.0, "EURUSD": 1.1610, "GBPUSD": 1.2950, "BTCUSD": 79500.0, "USDJPY": 154.50}
+        current_price = defaults.get(sym_clean, 4192.0)
 
     global ea_signals_db
     ea_match = None
@@ -6876,7 +7178,7 @@ def get_bridge_confluence_log(symbol: str = "XAUUSD"):
             "id": f"conf-{sym_clean.lower()}-01",
             "symbol": sym_clean,
             "timestamp": (now - timedelta(minutes=18)).isoformat(),
-            "time_formatted": (now - timedelta(minutes=18)).strftime("%H:%M UTC"),
+            "time_formatted": (now - timedelta(minutes=18)).strftime("%H:%M (UTC+7)"),
             "time_ago": "18m ago",
             "session": "New York AM Killzone" if 13 <= now.hour <= 17 else "Active Killzone",
             "timeframe": "M15",
@@ -6896,7 +7198,7 @@ def get_bridge_confluence_log(symbol: str = "XAUUSD"):
             "id": f"conf-{sym_clean.lower()}-02",
             "symbol": sym_clean,
             "timestamp": (now - timedelta(minutes=65)).isoformat(),
-            "time_formatted": (now - timedelta(minutes=65)).strftime("%H:%M UTC"),
+            "time_formatted": (now - timedelta(minutes=65)).strftime("%H:%M (UTC+7)"),
             "time_ago": "1h 5m ago",
             "session": "London / NY Overlap",
             "timeframe": "M5",
@@ -6916,7 +7218,7 @@ def get_bridge_confluence_log(symbol: str = "XAUUSD"):
             "id": f"conf-{sym_clean.lower()}-03",
             "symbol": sym_clean,
             "timestamp": (now - timedelta(minutes=210)).isoformat(),
-            "time_formatted": (now - timedelta(minutes=210)).strftime("%H:%M UTC"),
+            "time_formatted": (now - timedelta(minutes=210)).strftime("%H:%M (UTC+7)"),
             "time_ago": "3h 30m ago",
             "session": "London Open Killzone",
             "timeframe": "H1",
@@ -6936,7 +7238,7 @@ def get_bridge_confluence_log(symbol: str = "XAUUSD"):
             "id": f"conf-{sym_clean.lower()}-04",
             "symbol": sym_clean,
             "timestamp": (now - timedelta(minutes=395)).isoformat(),
-            "time_formatted": (now - timedelta(minutes=395)).strftime("%H:%M UTC"),
+            "time_formatted": (now - timedelta(minutes=395)).strftime("%H:%M (UTC+7)"),
             "time_ago": "6h 35m ago",
             "session": "Asian Session Lows Raid",
             "timeframe": "M15",
@@ -6955,14 +7257,14 @@ def get_bridge_confluence_log(symbol: str = "XAUUSD"):
     ]
 
     pairs_overview = [
-        {"symbol": "XAUUSD", "score": 93, "bias": "BULLISH", "grade": "A+", "state_label": "M15 Bullish FVG Active", "latest_time": (now - timedelta(minutes=18)).strftime("%H:%M UTC"), "active_factors": 4, "is_current": sym_clean == "XAUUSD"},
-        {"symbol": "EURUSD", "score": 82, "bias": "BEARISH", "grade": "A",  "state_label": "London High Swept / MSS", "latest_time": (now - timedelta(minutes=28)).strftime("%H:%M UTC"), "active_factors": 4, "is_current": sym_clean == "EURUSD"},
-        {"symbol": "GBPUSD", "score": 78, "bias": "BEARISH", "grade": "B+", "state_label": "Equal Lows Target Run",  "latest_time": (now - timedelta(minutes=44)).strftime("%H:%M UTC"), "active_factors": 3, "is_current": sym_clean == "GBPUSD"},
-        {"symbol": "BTCUSD", "score": 75, "bias": "BULLISH", "grade": "B+", "state_label": "H4 Demand Zone Bounce",  "latest_time": (now - timedelta(minutes=52)).strftime("%H:%M UTC"), "active_factors": 3, "is_current": sym_clean == "BTCUSD"},
-        {"symbol": "USDJPY", "score": 68, "bias": "NEUTRAL", "grade": "B",  "state_label": "BoJ Intervention Watch", "latest_time": (now - timedelta(minutes=75)).strftime("%H:%M UTC"), "active_factors": 2, "is_current": sym_clean == "USDJPY"}
+        {"symbol": "XAUUSD", "score": 93, "bias": "BULLISH", "grade": "A+", "state_label": "M15 Bullish FVG Active", "latest_time": (now - timedelta(minutes=18)).strftime("%H:%M (UTC+7)"), "active_factors": 4, "is_current": sym_clean == "XAUUSD"},
+        {"symbol": "EURUSD", "score": 82, "bias": "BEARISH", "grade": "A",  "state_label": "London High Swept / MSS", "latest_time": (now - timedelta(minutes=28)).strftime("%H:%M (UTC+7)"), "active_factors": 4, "is_current": sym_clean == "EURUSD"},
+        {"symbol": "GBPUSD", "score": 78, "bias": "BEARISH", "grade": "B+", "state_label": "Equal Lows Target Run",  "latest_time": (now - timedelta(minutes=44)).strftime("%H:%M (UTC+7)"), "active_factors": 3, "is_current": sym_clean == "GBPUSD"},
+        {"symbol": "BTCUSD", "score": 75, "bias": "BULLISH", "grade": "B+", "state_label": "H4 Demand Zone Bounce",  "latest_time": (now - timedelta(minutes=52)).strftime("%H:%M (UTC+7)"), "active_factors": 3, "is_current": sym_clean == "BTCUSD"},
+        {"symbol": "USDJPY", "score": 68, "bias": "NEUTRAL", "grade": "B",  "state_label": "BoJ Intervention Watch", "latest_time": (now - timedelta(minutes=75)).strftime("%H:%M (UTC+7)"), "active_factors": 2, "is_current": sym_clean == "USDJPY"}
     ]
 
-    scan_time_str = now.strftime("%H:%M:%S UTC")
+    scan_time_str = now.strftime("%H:%M:%S (UTC+7)")
     total_credit = sum(e["points"] for e in events)
 
     scanner_telemetry = {
@@ -6993,8 +7295,8 @@ def get_bridge_confluence_log(symbol: str = "XAUUSD"):
         "regime": "trending",
         "state": "EXECUTION_READY",
         "state_label": f"M15 {direction.capitalize()} Setup Active (Price: {current_price})",
-        "latest_confluence_time": f"{(now - timedelta(minutes=18)).strftime('%H:%M UTC')} (18m ago)",
-        "first_confluence_time": f"{(now - timedelta(minutes=395)).strftime('%H:%M UTC')} (6h 35m ago)",
+        "latest_confluence_time": f"{(now - timedelta(minutes=18)).strftime('%H:%M (UTC+7)')} (18m ago)",
+        "first_confluence_time": f"{(now - timedelta(minutes=395)).strftime('%H:%M (UTC+7)')} (6h 35m ago)",
         "summary": f"Live institutional ICT {direction.lower()} model on {sym_clean}. Liquidity swept followed by structural displacement.",
         "scanner_telemetry": scanner_telemetry,
         "events": events,

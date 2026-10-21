@@ -38,8 +38,8 @@ function TogglePill({ active, onClick, children, testId }: TogglePillProps) {
       onClick={onClick}
       className={`text-[10px] tracking-widest uppercase border px-2 py-0.5 transition-colors ${
         active
-          ? "border-amber-500 text-amber-500 bg-amber-500/10"
-          : "border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+          ? "border-white/20 text-white bg-white/15 font-bold"
+          : "border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
       }`}
     >
       {children}
