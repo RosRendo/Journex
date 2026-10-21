@@ -10,6 +10,8 @@ export const authConfig: NextAuthConfig = {
   session: { strategy: "jwt" },
   pages: { signIn: "/auth" },
   providers: [], // populated in auth.ts (Node runtime only)
+  // We run behind Railway proxy / Cloudflare in the unified server — trust the Host header
+  trustHost: true,
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;

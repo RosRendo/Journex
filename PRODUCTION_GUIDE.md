@@ -4,21 +4,20 @@
 
 ## 🗺️ Architecture at a Glance
 
-```
 ┌────────────────────────────────────────────────────────────────┐
-│  CLOUD (always on, accessible from anywhere)                   │
+│  ONE RAILWAY SERVICE (always on, accessible from anywhere)     │
 │                                                                │
-│   Vercel                    Railway                            │
-│   ┌──────────────┐          ┌─────────────────────────┐        │
-│   │ Next.js      │  HTTPS   │ Express Backend (Node)  │        │
-│   │ Frontend     │◄────────►│ + PostgreSQL Database   │        │
-│   │ (Vercel)     │          │ (Railway Postgres add-on)│        │
-│   └──────────────┘          └─────────────────────────┘        │
+│   ┌──────────────────────────────────────────────┐             │
+│   │  Journex Unified Server (frontend/server.js) │             │
+│   │  Next.js pages  +  Express /api  +  WS prices│             │
+│   │  + PostgreSQL Database (Railway add-on)      │             │
+│   └──────────────────────────────────────────────┘             │
+│        Auth gated (Google OAuth / credentials)                 │
+│        Calls Ngrok to reach your local MT5 (admin only)        │
 └────────────────────────────────────────────────────────────────┘
-              │                          │
-              │ Auth gated               │ Railway calls Ngrok
-              │ (Google OAuth)           │ to reach local MT5
-              ▼                          ▼
+                              │
+                              │ Ngrok tunnel (admin only)
+                              ▼
 ┌────────────────────────────────────────────────────────────────┐
 │  YOUR LAPTOP (only runs when you are trading)                  │
 │                                                                │
@@ -35,13 +34,13 @@
 └────────────────────────────────────────────────────────────────┘
 ```
 
-**Your friend** visits `https://dashboard-nine-flax-74.vercel.app` →  
+**Your friend** visits `https://YOUR-APP.up.railway.app` →  
 signs in with their Google account → gets **paper trading (mock)** only.  
 Your live MT5 data stays private — only your admin email sees it.
 
 ---
 
-## 🌐 PRODUCTION Mode (Daily Use — Vercel + Railway)
+## 🌐 PRODUCTION Mode (Daily Use — One Railway Service)
 
 This is how you access the dashboard after setup. **No Docker needed.**
 
@@ -59,7 +58,7 @@ Forwarding  https://abcd1234.ngrok-free.app -> http://localhost:5003
 ```
 
 Copy that HTTPS URL and update it in Railway:
-1. Go to [railway.app](https://railway.app) → Your Project → Backend service
+1. Go to [railway.app](https://railway.app) → Your Project → Service
 2. Click **Variables** tab
 3. Set `LOCAL_MT5_URL = https://abcd1234.ngrok-free.app`
 4. Railway will redeploy automatically (~30 seconds)
@@ -70,7 +69,7 @@ Copy that HTTPS URL and update it in Railway:
 
 ### That's it! Open your browser to:
 ```
-https://dashboard-nine-flax-74.vercel.app/dashboard
+https://YOUR-APP.up.railway.app/dashboard
 ```
 
 ---
@@ -98,71 +97,60 @@ This script automatically:
 
 ---
 
-## ☁️ Railway Backend Setup (One-Time)
+## ☁️ Railway Setup (One-Time) — UNIFIED SINGLE-SERVICE DEPLOY
 
-If Railway is not yet set up, follow these steps **once**:
+The whole app runs as ONE Railway service: Next.js pages + Express API + WebSocket
+on one port via frontend/server.js. No Vercel, no separate backend URL, no CORS.
 
 ### 1. Create Railway Project
-```bash
-# Install Railway CLI if you don't have it:
+
+`ash
 npm install -g @railway/cli
-
-# Login:
 railway login
-
-# Link your project:
-cd d:\Forex\journex
 railway init
-```
+`
 
 ### 2. Add PostgreSQL Database
+
 In the Railway dashboard:
+
 - Click **+ New** → **Database** → **PostgreSQL**
-- Railway auto-injects `DATABASE_URL` into your backend service
+- Railway auto-injects DATABASE_URL into your service
 
 ### 3. Set Environment Variables
-In Railway → Backend service → **Variables** tab, add:
 
-```env
-NODE_ENV=production
-PORT=5000
-FRONTEND_URL=https://dashboard-nine-flax-74.vercel.app
-LOCAL_MT5_URL=https://YOUR-NGROK-URL.ngrok-free.app
-DATABASE_URL=${{Postgres.DATABASE_URL}}
-```
+In Railway → Service → **Variables** tab, add:
 
-> `DATABASE_URL` is auto-filled by Railway when you link the Postgres add-on.
+| Variable | Value | Notes |
+|---|---|---|
+| NODE_ENV | production | ⚠️ MANDATORY — non-prod treats every request as admin |
+| PORT | 3000 | unified server port |
+| API_SECRET_KEY | random 32+ chars | signs admin JWTs — never keep dev fallback |
+| NEXTAUTH_SECRET | random 32+ chars | session signing — dev fallback fails in prod |
+| NEXTAUTH_URL | https://YOUR-RAILWAY-DOMAIN.up.railway.app | from Railway after deploy |
+| NEXT_PUBLIC_ADMIN_EMAIL | 
+ousrendo@gmail.com | admin sees MT5 tools |
+| LOCAL_MT5_URL | https://YOUR-NGROK-URL.ngrok-free.app | your laptop MT5 bridge |
+| DATABASE_URL | ${{Postgres.DATABASE_URL}} | auto-filled by Railway add-on |
+| GOOGLE_CLIENT_ID | from Google Cloud Console | OAuth sign-in |
+| GOOGLE_CLIENT_SECRET | from Google Cloud Console | OAuth sign-in |
+
+(Generate secrets: 
+ode -e "console.log(require('crypto').randomBytes(24).toString('hex'))")
 
 ### 4. Deploy
-```bash
-# From the project root (deploys backend subfolder):
+
+`ash
+# From the project root:
 railway up
-```
+`
 
-Or connect your GitHub repo and Railway deploys on every `git push`.
+Or connect the GitHub repo (RosRendo/Journex) and Railway redeploys on every git push.
 
----
-
-## ☁️ Vercel Frontend Setup (One-Time)
-
-```bash
-cd d:\Forex\journex\frontend
-npx vercel --prod
-```
-
-### Environment Variables on Vercel Dashboard:
-
-| Variable | Value |
-|---|---|
-| `NEXTAUTH_URL` | `https://dashboard-nine-flax-74.vercel.app` |
-| `NEXTAUTH_SECRET` | *(your secret from `.env.production`)* |
-| `NEXT_PUBLIC_BACKEND_URL` | `https://dashboard-production-f374.up.railway.app` |
-| `NEXT_PUBLIC_BRIDGE_URL` | `http://localhost:5003` *(frontend never calls this in prod)* |
-| `GOOGLE_CLIENT_ID` | *(from Google Cloud Console)* |
-| `GOOGLE_CLIENT_SECRET` | *(from Google Cloud Console)* |
+Local dev is unchanged: double-click start_local.bat (frontend, backend,
+Postgres, and MT5 bridge still run as separate processes with hot-reload).
 
 ---
-
 ## 🔒 Security: Admin vs Friend Access
 
 | Feature | You (admin) | Your Friend |
@@ -191,11 +179,11 @@ Before you share the link with your friend, verify:
 
 | Check | How to Test | Expected |
 |---|---|---|
-| 1. Auth Gate | Open Vercel URL in Incognito → go to `/dashboard` | Redirected to `/login` |
+| 1. Auth Gate | Open app URL in Incognito → go to `/dashboard` | Redirected to `/auth` |
 | 2. Friend Mock Mode | Sign in with a non-admin Google account | Shows mock data, $100k paper account |
 | 3. Admin Live Mode | Sign in as `rousrendo@gmail.com` | Shows real Oanda positions |
 | 4. HTTPS Encryption | Check browser address bar on Vercel URL | 🔒 padlock, `https://` |
-| 5. DB Persistence | Restart Railway backend | Past journals still show |
+| 5. DB Persistence | Restart Railway service | Past journals still show |
 | 6. MT5 Orders | Test a BUY on terminal as admin | Executes in MetaTrader 5 |
 
 **If all 6 pass — you are production-ready. Stop changing code.**

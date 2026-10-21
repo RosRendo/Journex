@@ -240,19 +240,31 @@ app.get("/health", (req, res) => {
 // Error handler
 app.use(errorHandler);
 
-// Start server
-const server = app.listen(Number(PORT), '0.0.0.0', () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📊 Trading Journal API ready`);
-
-  // Start the automated Telegram broadcaster (News + Confluences on startup & background, deduplicated across restarts)
+// Start server.
+// MOUNT_BACKEND=1 → frontend/server.js owns the HTTP server (merged deploy);
+// otherwise start standalone (Railway legacy mode, local backend-only dev).
+function startBackgroundJobs() {
   try {
     startAutoBroadcaster();
     startTelegramBotListener();
   } catch (err) {
     console.error("[AUTO-BROADCASTER / TELEGRAM-BOT STARTUP ERROR]", err);
   }
-});
+}
+
+if (process.env.MOUNT_BACKEND === "1") {
+  console.log("[BACKEND] Mounted into unified Next.js server — skipping listen");
+  // Background jobs are started by frontend/server.js via startBackgroundJobs()
+  // (the imports live further down the file, so calling now would hit a TDZ error)
+} else {
+  const server = app.listen(Number(PORT), '0.0.0.0', () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`📊 Trading Journal API ready`);
+    startBackgroundJobs();
+  });
+
+  attachWsUpgrade(server as any);
+}
 
 // --- INTERNAL BRIDGE WEBHOOK ---
 app.post("/api/internal/bridge-push", (req, res) => {
@@ -488,15 +500,23 @@ wss.on("connection", (ws, request) => {
   });
 });
 
-server.on("upgrade", (request, socket, head) => {
-  const pathname = url.parse(request.url || "").pathname;
-  if (pathname === "/api/ws/prices") {
-    wss.handleUpgrade(request, socket, head, (ws) => {
-      wss.emit("connection", ws, request);
-    });
-  } else {
-    socket.destroy();
-  }
-});
+// Attaches the pricing WebSocket upgrade handler to any HTTP server
+// (standalone app server or the merged Next.js server).
+export function attachWsUpgrade(server: import("http").Server) {
+  if ((server as any)._wsUpgradeAttached) return;
+  (server as any)._wsUpgradeAttached = true;
+  server.on("upgrade", (request: any, socket: any, head: any) => {
+    const pathname = url.parse(request.url || "").pathname;
+    if (pathname === "/api/ws/prices") {
+      wss.handleUpgrade(request, socket, head, (ws: any) => {
+        wss.emit("connection", ws, request);
+      });
+    } else {
+      socket.destroy();
+    }
+  });
+}
+
+export { app, startBackgroundJobs };
 
 export default app;

@@ -1,14 +1,15 @@
-# ═══════════════════════════════════════════════════════════════════
-# Railway deployment config — Root level
-# This deploys the Express TypeScript backend from /backend subfolder.
-# ═══════════════════════════════════════════════════════════════════
+# ============================================================
+# Railway deployment config — Unified single-service deploy
+# One process serves Next.js pages + Express /api + WebSocket
+# on the same port (frontend/server.js). One URL, one database.
+# ============================================================
 
 [build]
 builder = "NIXPACKS"
-buildCommand = "cd backend && npm install && npm run build"
+buildCommand = "npm install --prefix backend && npm run build --prefix backend && npm install --prefix frontend && npm run build --prefix frontend"
 
 [deploy]
-startCommand = "cd backend && npm run start"
+startCommand = "node frontend/server.js"
 restartPolicyType = "always"
 restartPolicyMaxRetries = 5
 healthcheckPath = "/health"

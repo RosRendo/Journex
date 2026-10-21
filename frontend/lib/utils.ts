@@ -106,14 +106,16 @@ export function getWebSocketUrl(path: string): string {
     }
   }
 
-  // 3. Local fallback: MUST go directly to the Express server port.
+  // 3. Fallback: MUST go directly to the Express server port.
   //    Next.js at :3000 cannot proxy WebSocket upgrade requests via rewrites.
   if (typeof window !== "undefined") {
     const isSecure = window.location.protocol === "https:";
     const proto = isSecure ? "wss:" : "ws:";
     const hostname = window.location.hostname; // e.g. "localhost" or "192.168.x.x"
-    // Use port 5000 (Express backend) — NOT window.location.host which is :3000
-    const port = isSecure ? "" : ":5000";
+    // Dev separates Next.js (:3000) from Express (:5000).
+    // Merged production runs BOTH on one origin — WS shares it directly.
+    const isLocalDev = hostname === "localhost" || hostname === "127.0.0.1";
+    const port = !isSecure && isLocalDev ? ":5000" : "";
     return `${proto}//${hostname}${port}/${cleanPath}`;
   }
 
