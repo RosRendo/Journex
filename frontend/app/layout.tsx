@@ -7,9 +7,9 @@ import { Syne, DM_Sans, JetBrains_Mono } from "next/font/google";
 
 export const dynamic = "force-dynamic";
 
-const syne = Syne({ subsets: ["latin"], variable: "--font-syne", weight: ["400", "600", "700", "800"] });
-const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans", weight: ["300", "400", "500", "600"] });
-const jetbrains = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains", weight: ["400", "500"] });
+const syne = Syne({ subsets: ["latin"], variable: "--font-syne", display: "swap" });
+const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans", display: "swap" });
+const jetbrains = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains", display: "swap" });
 
 export const metadata = {
   title: "Journex — Professional Trading Terminal",
