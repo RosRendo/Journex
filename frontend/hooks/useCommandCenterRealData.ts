@@ -129,7 +129,35 @@ export function useCommandCenterRealData(symbol: string, timeframe: string) {
         }
       } catch (_) {}
 
-      // Fallback to Terminal Snapshot API if bridge offline
+      // Fallback to Native Real Market Price API if MT5 bridge is offline (e.g. on Vercel)
+      if (!candlesLoaded) {
+        try {
+          const mRes = await fetch(`/api/market-price?symbol=${symbol}&timeframe=${tfMap[timeframe] || "M15"}`);
+          if (mRes.ok) {
+            const mJson = await mRes.json();
+            if (mJson.success) {
+              if (Array.isArray(mJson.candles) && mJson.candles.length > 0) {
+                setCandles(mJson.candles);
+                candlesLoaded = true;
+              }
+              if (mJson.bid && mJson.ask) {
+                setPrice({
+                  bid: mJson.bid,
+                  ask: mJson.ask,
+                  spreadPips: mJson.spreadPips || 1.8,
+                  digits: mJson.digits || (symbol === "XAUUSD" ? 2 : 5),
+                });
+              }
+              if (mJson.levels) {
+                setLevels(mJson.levels);
+              }
+              setConnected(true);
+            }
+          }
+        } catch (_) {}
+      }
+
+      // Secondary fallback to Terminal Snapshot API if available
       if (!candlesLoaded) {
         try {
           const snapRes = await fetch(

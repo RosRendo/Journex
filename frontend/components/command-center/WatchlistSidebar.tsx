@@ -26,7 +26,7 @@ interface Props {
 
 const DEFAULT_WATCHLIST: WatchlistItem[] = [
   // ── Metals ──────────────────────────────────────────────
-  { symbol: "XAUUSD", name: "Gold / USD",      price: 4425.00, changePct:  0.85, score: 82, bias: "LONG",     spread: 1.8 },
+  { symbol: "XAUUSD", name: "Gold / USD",      price: 4152.00, changePct:  0.85, score: 82, bias: "LONG",     spread: 1.8 },
   { symbol: "XAGUSD", name: "Silver / USD",    price:   32.50, changePct: -0.40, score: 58, bias: "NO_SETUP", spread: 2.2 },
 
   // ── Majors ──────────────────────────────────────────────

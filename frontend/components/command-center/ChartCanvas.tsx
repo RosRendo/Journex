@@ -250,7 +250,7 @@ export default function ChartCanvas({
     );
   }, [livePrices, normalizedSymbol, symbol]);
 
-  const [livePrice, setLivePrice] = useState<number>(bidPrice || currentPrice || 4424.26);
+  const [livePrice, setLivePrice] = useState<number>(bidPrice || currentPrice || (symbol === "XAUUSD" ? 4152.2 : 1.085));
   const [tickFlash, setTickFlash] = useState<"up" | "down" | null>(null);
   const [tickCount, setTickCount] = useState<number>(0);
   const lastPriceRef = useRef<number>(livePrice);
@@ -269,7 +269,7 @@ export default function ChartCanvas({
     if (realCandles && realCandles.length >= 5) {
       return [...realCandles].sort((a, b) => a.time - b.time);
     }
-    const base = currentPrice || 4378.1;
+    const base = currentPrice || (symbol === "XAUUSD" ? 4152.2 : 1.085);
     const items: RealCandle[] = [];
     let p = base * 0.992;
     const now = Math.floor(Date.now() / 1000);

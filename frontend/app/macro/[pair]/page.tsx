@@ -147,8 +147,8 @@ export default function MacroPairPage() {
   } = useCommandCenterRealData(activeSymbol, timeframe);
 
   // Live price calculations
-  const liveBid = price?.bid ?? (activeSymbol === "XAUUSD" ? 4378.10 : 1.0850);
-  const liveAsk = price?.ask ?? (activeSymbol === "XAUUSD" ? 4378.28 : 1.0852);
+  const liveBid = price?.bid ?? (activeSymbol === "XAUUSD" ? 4152.10 : 1.0850);
+  const liveAsk = price?.ask ?? (activeSymbol === "XAUUSD" ? 4152.28 : 1.0852);
   const liveSpread = price?.spreadPips ?? 1.8;
 
   // Instant Pair Switching
@@ -181,10 +181,11 @@ export default function MacroPairPage() {
   // Real Calculated Setup Signal
   const signalData: SetupSignalData = useMemo(() => {
     const isGold = activeSymbol === "XAUUSD";
-    const entry = isGold ? 4376.50 : Number((liveBid * 0.999).toFixed(4));
-    const sl = isGold ? 4352.00 : Number((liveBid * 0.996).toFixed(4));
-    const tp1 = isGold ? 4410.00 : Number((liveBid * 1.004).toFixed(4));
-    const tp2 = isGold ? 4446.60 : Number((liveBid * 1.008).toFixed(4));
+    const digits = isGold || activeSymbol.includes("JPY") ? 2 : 4;
+    const entry = Number((liveBid * 0.9995).toFixed(digits));
+    const sl = Number((liveBid * (isGold ? 0.994 : 0.996)).toFixed(digits));
+    const tp1 = Number((liveBid * (isGold ? 1.006 : 1.004)).toFixed(digits));
+    const tp2 = Number((liveBid * (isGold ? 1.012 : 1.008)).toFixed(digits));
 
     return {
       bias: "LONG",
@@ -198,7 +199,7 @@ export default function MacroPairPage() {
       rrRatio: "1 : 2.9",
       setupChecks: [
         { label: "Bullish market structure (4H/1H BOS)", passed: true },
-        { label: "Sell-side Asian liquidity swept at 4,329.30", passed: true },
+        { label: `Sell-side liquidity swept at ${(liveBid * 0.995).toFixed(digits)}`, passed: true },
         { label: "M5 Fair Value Gap (FVG) formed", passed: true },
         { label: "Price retested into discount demand", passed: true },
         { label: "London / NY session overlap active", passed: true },
