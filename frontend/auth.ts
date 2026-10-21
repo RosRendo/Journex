@@ -31,6 +31,9 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
   );
 }
 
+import { prisma } from "./lib/prisma";
+import bcrypt from "bcryptjs";
+
 // Always add credentials provider
 providers.push(
   Credentials({
@@ -46,58 +49,72 @@ providers.push(
       
       const email = (credentials.email as string).toLowerCase().trim();
       const password = credentials.password as string;
+      const isReg = credentials.isRegister === "true" || credentials.isRegister === true || String(credentials.isRegister) === "true";
 
       try {
-        const baseUrl = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
-        const isReg = credentials.isRegister === "true" || credentials.isRegister === true || String(credentials.isRegister) === "true";
-        const endpoint = isReg ? "/api/backend-auth/register" : "/api/backend-auth/login";
-        
-        console.log(`[AUTH-DIAGNOSTIC] Attempting ${isReg ? 'registration' : 'login'} at: ${baseUrl}${endpoint} for email: ${email}`);
+        if (isReg) {
+          // Check if user already exists
+          const existingUser = await prisma.user.findUnique({
+            where: { email },
+          });
 
-        const bodyPayload: any = { email, password };
-        if (isReg && credentials.name) {
-          bodyPayload.name = credentials.name;
-        }
-
-        console.log(`[AUTH-DIAGNOSTIC] Sending payload:`, JSON.stringify({ ...bodyPayload, password: "***" }));
-
-        const res = await fetch(`${baseUrl}${endpoint}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(bodyPayload),
-        });
-
-        console.log(`[AUTH-DIAGNOSTIC] Response status: ${res.status}`);
-
-        let responseData;
-        try {
-          responseData = await res.json();
-          console.log(`[AUTH-DIAGNOSTIC] Response body:`, JSON.stringify(responseData));
-        } catch (e) {
-          console.error(`[AUTH-DIAGNOSTIC] Failed to parse response JSON:`, e);
-        }
-
-        if (res.ok && responseData) {
-          const user = isReg ? responseData.user : responseData;
-          if (!user) {
-            console.error(`[AUTH-DIAGNOSTIC] User object is missing from responseData!`);
+          if (existingUser) {
+            console.warn(`[AUTH] User already exists with email: ${email}`);
             return null;
           }
-          console.log(`[AUTH-DIAGNOSTIC] Authentication successful. User:`, JSON.stringify(user));
+
+          // Hash password
+          const salt = await bcrypt.genSalt(10);
+          const hashedPassword = await bcrypt.hash(password, salt);
+          const role = email === ADMIN_EMAIL ? "admin" : "user";
+
+          const user = await prisma.user.create({
+            data: {
+              email,
+              password: hashedPassword,
+              name: (credentials.name as string) || "",
+              role,
+            },
+          });
+
+          console.log(`[AUTH] Successfully registered new user: ${email} (${role})`);
           return {
-            id: String(user.id || user._id),
+            id: String(user.id),
             name: user.name,
             email: user.email,
             image: null,
-            role: user.role || "user",
+            role: user.role,
           };
         } else {
-          console.warn(`[AUTH-DIAGNOSTIC] Request failed or invalid. Status: ${res.status}`);
+          // Login existing user
+          const user = await prisma.user.findUnique({
+            where: { email },
+          });
+
+          if (!user) {
+            console.warn(`[AUTH] User not found: ${email}`);
+            return null;
+          }
+
+          const isMatch = await bcrypt.compare(password, user.password);
+          if (!isMatch) {
+            console.warn(`[AUTH] Password mismatch for: ${email}`);
+            return null;
+          }
+
+          console.log(`[AUTH] Successfully authenticated user: ${email} (${user.role})`);
+          return {
+            id: String(user.id),
+            name: user.name,
+            email: user.email,
+            image: null,
+            role: user.role,
+          };
         }
       } catch (error) {
-        console.error("[AUTH-DIAGNOSTIC] Exception in authorize:", error);
+        console.error("[AUTH] Direct database authentication error:", error);
+        return null;
       }
-      return null;
     },
   }),
 );
