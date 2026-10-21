@@ -106,19 +106,19 @@ export function getWebSocketUrl(path: string): string {
     }
   }
 
-  // 3. Fallback: MUST go directly to the Express server port.
-  //    Next.js at :3000 cannot proxy WebSocket upgrade requests via rewrites.
+  // 3. Fallback:
   if (typeof window !== "undefined") {
-    const isSecure = window.location.protocol === "https:";
-    const proto = isSecure ? "wss:" : "ws:";
-    const hostname = window.location.hostname; // e.g. "localhost" or "192.168.x.x"
-    // Dev separates Next.js (:3000) from Express (:5000).
-    // Merged production runs BOTH on one origin — WS shares it directly.
+    const hostname = window.location.hostname;
     const isLocalDev = hostname === "localhost" || hostname === "127.0.0.1";
-    const port = !isSecure && isLocalDev ? ":5000" : "";
-    return `${proto}//${hostname}${port}/${cleanPath}`;
+    // Only connect locally if running on localhost development with Express
+    if (isLocalDev) {
+      return `ws://${hostname}:5000/${cleanPath}`;
+    }
+    // On Vercel / serverless cloud hosting without a dedicated NEXT_PUBLIC_WS_URL:
+    // WebSockets are NOT hosted on Vercel serverless. Return empty string so clients gracefully bypass WS.
+    return "";
   }
 
-  return `ws://localhost:5000/${cleanPath}`;
+  return "";
 }
 

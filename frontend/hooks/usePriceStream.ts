@@ -26,6 +26,10 @@ export function usePriceStream(symbol: string) {
 
     const open = () => {
       const url = getWebSocketUrl(`api/ws/prices?symbol=${encodeURIComponent(symbol)}&token=${encodeURIComponent(apiToken)}`);
+      if (!url) {
+        setStatus("closed");
+        return;
+      }
       try {
         const ws = new WebSocket(url);
         wsRef.current = ws;

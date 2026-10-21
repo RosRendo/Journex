@@ -51,6 +51,7 @@ export function AllPairsGrid() {
   // Connect to live WebSocket price feeds
   useEffect(() => {
     const wsUrl = getWebSocketUrl("api/ws/prices");
+    if (!wsUrl) return;
     const socket = new WebSocket(wsUrl);
 
     socket.onmessage = (event) => {

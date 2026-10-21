@@ -31,8 +31,12 @@ export const authConfig: NextAuthConfig = {
         return true;
       }
 
-      // NextAuth API endpoints (sign-in callbacks, session polling) must stay public
-      if (pathname.startsWith("/api/auth")) return true;
+      // NextAuth & API endpoints (sign-in callbacks, session polling, ws) must stay public
+      if (
+        pathname.startsWith("/api/auth") ||
+        pathname.startsWith("/api/backend-auth") ||
+        pathname.startsWith("/api/ws")
+      ) return true;
 
       if (isPublicPage) return true;
 

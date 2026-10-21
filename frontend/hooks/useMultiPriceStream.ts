@@ -34,6 +34,10 @@ export function useMultiPriceStream(symbols: string[], { tapeLimit = 60 } = {}) 
 
     const open = () => {
       const url = getWebSocketUrl(`api/ws/prices?symbols=${encodeURIComponent(key)}&token=${encodeURIComponent(userEmail)}`);
+      if (!url) {
+        setStatus("closed");
+        return;
+      }
       try {
         const ws = new WebSocket(url);
         wsRef.current = ws;

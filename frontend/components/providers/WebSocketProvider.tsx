@@ -43,17 +43,25 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
     let ws: WebSocket;
     let reconnectTimeout: NodeJS.Timeout;
 
+    let retryCount = 0;
+
     const connect = async () => {
       try {
         const session = await getSession();
         const token = (session?.user as any)?.apiToken || "";
         const wsUrl = getWebSocketUrl(`api/ws/prices?token=${token}`);
         
+        if (!wsUrl) {
+          // No live WebSocket streaming server configured on this host
+          return;
+        }
+
         ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {
           console.log("[WebSocket] Connected to live data stream");
           setIsConnected(true);
+          retryCount = 0;
         };
 
         ws.onmessage = (event) => {
@@ -79,13 +87,16 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
         };
 
         ws.onclose = () => {
-          console.log("[WebSocket] Disconnected. Reconnecting in 3s...");
           setIsConnected(false);
-          reconnectTimeout = setTimeout(connect, 3000);
+          const delay = retryCount >= 3 ? 30000 : 5000;
+          if (retryCount < 3) {
+            console.log(`[WebSocket] Disconnected. Reconnecting in ${delay / 1000}s...`);
+          }
+          reconnectTimeout = setTimeout(connect, delay);
         };
 
         ws.onerror = (err) => {
-          console.error("[WebSocket] Error:", err);
+          retryCount++;
           ws.close();
         };
       } catch (e) {
