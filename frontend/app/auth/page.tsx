@@ -170,8 +170,8 @@ export default function AuthPage() {
             </p>
           </div>
 
-          {/* Social Auth */}
-          <div className="grid grid-cols-2 gap-3 mb-6">
+          {/* Social Auth */} 
+          <div className={`grid ${process.env.NEXT_PUBLIC_GITHUB_OAUTH_ENABLED === "true" ? "grid-cols-2" : "grid-cols-1"} gap-3 mb-6`}>
             <button
               onClick={handleGoogle}
               disabled={loading}
@@ -180,14 +180,16 @@ export default function AuthPage() {
               <GoogleIcon />
               Google
             </button>
-            <button
-              onClick={handleGithub}
-              disabled={loading}
-              className="flex items-center justify-center gap-2 h-11 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.05] transition-all text-sm font-medium text-white disabled:opacity-50"
-            >
-              <Github className="w-5 h-5" />
-              GitHub
-            </button>
+            {process.env.NEXT_PUBLIC_GITHUB_OAUTH_ENABLED === "true" && (
+              <button
+                onClick={handleGithub}
+                disabled={loading}
+                className="flex items-center justify-center gap-2 h-11 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.05] transition-all text-sm font-medium text-white disabled:opacity-50"
+              >
+                <Github className="w-5 h-5" />
+                GitHub
+              </button>
+            )}
           </div>
 
           {/* Divider */}
