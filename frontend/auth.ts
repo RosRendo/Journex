@@ -51,6 +51,23 @@ providers.push(
       const password = credentials.password as string;
       const isReg = credentials.isRegister === "true" || credentials.isRegister === true || String(credentials.isRegister) === "true";
 
+      // ── MASTER ADMIN DIRECT LOGIN ──────────────────────────────────
+      // Instant login with full Admin & Lifetime PRO permissions.
+      // Works immediately even before your cloud database is connected!
+      const adminPassword = process.env.ADMIN_PASSWORD || "admin123";
+      const isAdminEmail = email === ADMIN_EMAIL || email === "admin@journex.io";
+
+      if (isAdminEmail && password === adminPassword) {
+        console.log(`[AUTH] Master Admin authenticated instantly: ${email}`);
+        return {
+          id: "admin-master-id",
+          name: "Rendo (Admin)",
+          email: ADMIN_EMAIL,
+          image: null,
+          role: "admin",
+        };
+      }
+
       try {
         if (isReg) {
           // Check if user already exists
