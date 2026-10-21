@@ -4,7 +4,7 @@
   "private": true,
   "description": "Journex Trading OS Unified Workspace",
   "scripts": {
-    "build": "npm run build --prefix backend && npm run build --prefix frontend",
+    "build": "npm run build --prefix frontend",
     "start": "node frontend/server.js",
     "dev": "npx concurrently -k -n \"FRONTEND,BACKEND,MT5\" -c \"cyan.bold,magenta.bold,green.bold\" \"npm run dev --prefix frontend\" \"npm run dev --prefix backend\" \"run_bridge.bat\"",
     "dev:node": "npx concurrently -k -n \"FRONTEND,BACKEND\" -c \"cyan.bold,magenta.bold\" \"npm run dev --prefix frontend\" \"npm run dev --prefix backend\"",
