@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
-const nextConfig: any = {
+const nextConfig: NextConfig = {
   reactStrictMode: true,
+  compress: true,
+  poweredByHeader: false,
   typescript: {
     ignoreBuildErrors: false,
   },
@@ -46,24 +48,36 @@ const nextConfig: any = {
             key: "X-XSS-Protection",
             value: "1; mode=block",
           },
+          {
+            key: "Referrer-Policy",
+            value: "strict-origin-when-cross-origin",
+          },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=()",
+          },
         ],
       },
     ];
   },
   async rewrites() {
+    const isVercel = Boolean(process.env.VERCEL);
+    const bridgeUrl = process.env.BRIDGE_URL || process.env.NEXT_PUBLIC_BRIDGE_URL || (isVercel ? "https://python.dashboardkiller.online" : "http://127.0.0.1:5003");
+    const apiUrl = process.env.INTERNAL_API_URL || (isVercel ? "https://api.dashboardkiller.online" : "http://127.0.0.1:5000");
+
     return {
       fallback: [
         {
           source: "/api/bridge/:path*",
-          destination: `${process.env.BRIDGE_URL || "http://127.0.0.1:5003"}/:path*`, // Proxy to MT5 Bridge
+          destination: `${bridgeUrl}/:path*`, // Proxy to MT5 Bridge
         },
         {
           source: "/api/:path*",
-          destination: `${process.env.INTERNAL_API_URL || "http://127.0.0.1:5000"}/api/:path*`, // Proxy to Express backend
+          destination: `${apiUrl}/api/:path*`, // Proxy to Express backend
         },
         {
           source: "/uploads/:path*",
-          destination: `${process.env.INTERNAL_API_URL || "http://127.0.0.1:5000"}/uploads/:path*`, // Proxy to Express backend for uploads
+          destination: `${apiUrl}/uploads/:path*`, // Proxy to Express backend for uploads
         },
       ]
     };

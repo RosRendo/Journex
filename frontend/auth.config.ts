@@ -1,12 +1,18 @@
 import type { NextAuthConfig } from "next-auth";
 
+export const AUTH_SHARED_SECRET =
+  process.env.AUTH_SECRET ||
+  process.env.NEXTAUTH_SECRET ||
+  "journex-super-secret-auth-key-2026-production-ready-98214";
+
 /**
  * Edge-compatible auth config.
  * NO providers here — providers use Node.js APIs (bcrypt, etc.)
  * that cannot run in the Edge runtime.
- * This is used ONLY by middleware.ts.
+ * This is used ONLY by middleware/proxy.
  */
 export const authConfig: NextAuthConfig = {
+  secret: AUTH_SHARED_SECRET,
   session: { strategy: "jwt" },
   pages: { signIn: "/auth" },
   providers: [], // populated in auth.ts (Node runtime only)
@@ -22,20 +28,29 @@ export const authConfig: NextAuthConfig = {
       const isPublicPage =
         isAuthPage ||
         pathname.startsWith("/subscription") ||
+        pathname.startsWith("/pricing") ||
+        pathname === "/robots.txt" ||
+        pathname === "/sitemap.xml" ||
+        pathname === "/manifest.webmanifest" ||
         pathname === "/";
 
       if (isAuthPage) {
-        // Redirect logged-in users away from auth pages
-        if (isLoggedIn)
-          return Response.redirect(new URL("/dashboard", nextUrl));
+        // Redirect logged-in users away from auth pages to their intended callbackUrl or /dashboard
+        if (isLoggedIn) {
+          const callbackUrl = nextUrl.searchParams.get("callbackUrl");
+          const target =
+            callbackUrl && !callbackUrl.startsWith("/auth")
+              ? callbackUrl
+              : "/dashboard";
+          return Response.redirect(new URL(target, nextUrl));
+        }
         return true;
       }
 
-      // NextAuth & API endpoints (sign-in callbacks, session polling, ws) must stay public
+      // API endpoints (NextAuth, bridge, backend, ws) must stay public to return JSON instead of HTML redirect
       if (
-        pathname.startsWith("/api/auth") ||
-        pathname.startsWith("/api/backend-auth") ||
-        pathname.startsWith("/api/ws")
+        pathname.startsWith("/api/") ||
+        pathname.startsWith("/uploads/")
       ) return true;
 
       if (isPublicPage) return true;
@@ -46,6 +61,34 @@ export const authConfig: NextAuthConfig = {
         return Response.redirect(
           new URL(`/auth?callbackUrl=${encodeURIComponent(from)}`, nextUrl),
         );
+      }
+
+      // ── Admin-Only Routes Gate ──────────────────────────────
+      // Sensitive owner tools: Live Execution Terminal, FX Terminal & Macro Desk,
+      // Playbook learning notes, MT5 scripts, bot EA, custom indicators are strictly restricted
+      const normalizedPath = pathname.toLowerCase();
+      const isAdminRoute =
+        normalizedPath.startsWith("/script") ||
+        normalizedPath.startsWith("/playbook") ||
+        normalizedPath.startsWith("/bot") ||
+        normalizedPath.startsWith("/indicator") ||
+        normalizedPath.startsWith("/terminal") ||
+        normalizedPath.startsWith("/macro");
+
+      const userEmail = (user?.email || "").toLowerCase().trim();
+      const envAdmins = (process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL || "")
+        .split(",")
+        .map((e) => e.toLowerCase().trim())
+        .filter(Boolean);
+      const defaultAdmins = ["rousrendo@gmail.com", "admin@journex.io"];
+      const allowedAdmins = new Set([...defaultAdmins, ...envAdmins]);
+
+      const isAdmin =
+        user?.role === "admin" ||
+        allowedAdmins.has(userEmail);
+
+      if (isAdminRoute && !isAdmin) {
+        return Response.redirect(new URL("/dashboard?denied=admin_only", nextUrl));
       }
 
       // ── Trial Gate ──────────────────────────────────────────
