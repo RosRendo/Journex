@@ -1,3 +1,4 @@
+import AdminOnly from "@/components/AdminOnly";
 ﻿"use client";
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
@@ -20,7 +21,7 @@ import type { TradeData } from "@/hooks/useCsvTrades";
 import { WhiteboardModal } from "@/components/WhiteboardModal";
 
 // --- MAIN PLAYBOOK CONTAINER ---
-export default function PlaybookPage() {
+function PlaybookInner() {
   const [activeTab, setActiveTab] = useState<"ai_coach" | "performance" | "lessons" | "plan">("ai_coach");
 
   return (
@@ -1149,3 +1150,12 @@ function PlanForge() {
 }
 
 
+
+
+export default function PlaybookPage() {
+  return (
+    <AdminOnly pageName="Playbook & AI Coach">
+      <PlaybookInner />
+    </AdminOnly>
+  );
+}

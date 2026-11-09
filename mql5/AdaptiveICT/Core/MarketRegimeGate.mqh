@@ -39,6 +39,26 @@ public:
          return false;
         }
 
+      // Swing Trend (Phase 4): trend-following engine.
+      // Trades pullbacks inside established trends only.
+      if(StringFind(strat, "SWING") >= 0)
+        {
+         if(reg == "TRENDING_BULLISH" || reg == "TRENDING_BEARISH" || reg == "TRENDING")
+           {
+            return true;
+           }
+         return false; // Blocks RANGING, LOW_VOLATILITY, TRANSITION, etc.
+        }
+
+      // Zone Sniper (Pine v2.11 port): range-bound premium/discount entries.
+      // DESIGNED for RANGING markets — must be checked BEFORE the generic
+      // "SNIPER" branch, which blocks ranging for trend strategies.
+      if(StringFind(strat, "ZONE") >= 0)
+        {
+         // Block only unknown / high volatility (Pine: no entries in extreme vol)
+         return true;
+        }
+
       // ICT Sniper and ICT Scalper (Trend & Structure-based strategies)
       // Accept: TRENDING_BULLISH, TRENDING_BEARISH, TRENDING, TRANSITION
       // Block: RANGING, LOW_VOLATILITY, HIGH_VOLATILITY, UNKNOWN

@@ -1,5 +1,7 @@
 "use client";
 
+import { sanitizeChartData } from "@/lib/chartSanitizer";
+
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { createChart, IChartApi, ISeriesApi, IPriceLine, Time, LineStyle } from "lightweight-charts";
 import { fetchWithAuth, getBackendUrl } from "@/lib/utils";
@@ -312,7 +314,7 @@ export default function TradeDetailChart({
       close: c.close,
     }));
 
-    seriesRef.current.setData(chartData);
+    try { seriesRef.current.setData(sanitizeChartData(chartData) as any); } catch (_) {}
     updatePriceLines();
 
     const markers: any[] = [];

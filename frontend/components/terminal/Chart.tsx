@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { createChart } from "lightweight-charts";
 import { useWebSocket } from "../providers/WebSocketProvider";
+import { sanitizeChartData } from "@/lib/chartSanitizer";
 
 const COLORS = {
   bg: "#000000",
@@ -87,6 +88,34 @@ function computeRSI(data: any[], period = 14) {
   return out;
 }
 
+function updateIndicatorsData(s: any, cleanCandles: any[], indicators: any) {
+  if (!s || cleanCandles.length === 0) return;
+  if (s.ma20) s.ma20.setData(indicators?.ma20 ? sma(cleanCandles, 20) : []);
+  if (s.ma50) s.ma50.setData(indicators?.ma50 ? sma(cleanCandles, 50) : []);
+  if (s.ma200) s.ma200.setData(indicators?.ma200 ? sma(cleanCandles, 200) : []);
+
+  if (s.rsi) {
+    if (indicators?.rsi) {
+      s.rsi.setData(computeRSI(cleanCandles));
+    } else {
+      s.rsi.setData([]);
+    }
+  }
+
+  if (s.macd && s.macdSignal && s.macdHist) {
+    if (indicators?.macd) {
+      const { macd, signal, hist } = computeMACD(cleanCandles);
+      s.macd.setData(macd);
+      s.macdSignal.setData(signal);
+      s.macdHist.setData(hist);
+    } else {
+      s.macd.setData([]);
+      s.macdSignal.setData([]);
+      s.macdHist.setData([]);
+    }
+  }
+}
+
 interface Point {
   time: number;
   price: number;
@@ -116,8 +145,30 @@ export default function Chart({ candles, indicators, drawingMode, drawings, onDr
   const pendingPointsRef = useRef<any[]>([]);
   const modeRef = useRef<string | null>(drawingMode);
   const lastCandleRef = useRef<any>(null);
+  const isInitialFitDoneRef = useRef(false);
+  const lastSymbolRef = useRef(symbol);
   const { livePrices, isConnected } = useWebSocket();
   const lastTick = livePrices[symbol] ?? null;
+
+  // Reset viewport fit lock and clear stale series when symbol changes
+  useEffect(() => {
+    if (lastSymbolRef.current !== symbol) {
+      lastSymbolRef.current = symbol;
+      isInitialFitDoneRef.current = false;
+      lastCandleRef.current = null;
+      try {
+        seriesRef.current.candle?.setData([]);
+        seriesRef.current.vol?.setData([]);
+        seriesRef.current.ma20?.setData([]);
+        seriesRef.current.ma50?.setData([]);
+        seriesRef.current.ma200?.setData([]);
+        seriesRef.current.rsi?.setData([]);
+        seriesRef.current.macd?.setData([]);
+        seriesRef.current.macdSignal?.setData([]);
+        seriesRef.current.macdHist?.setData([]);
+      } catch (_) {}
+    }
+  }, [symbol]);
 
   useEffect(() => {
     modeRef.current = drawingMode;
@@ -279,71 +330,92 @@ export default function Chart({ candles, indicators, drawingMode, drawings, onDr
     };
   }, [onDrawingComplete]);
 
-  // Update data when candles change — but only do a full setData when the
-  // chart's last-bar time is different from incoming. Otherwise the streaming
-  // WS updates would be overwritten by every snapshot poll and the chart would
-  // "snap back" every second.
+  // ── ZERO-GLITCH DATA PIPELINE ──
+  // 1. Initial load / symbol change: setData once + fitContent once.
+  // 2. Intra-bar ticks: update(last) without full setData or resetting zoom.
+  // 3. New bar formation: update(newBar) without snapping zoom.
   useEffect(() => {
     if (!chartRef.current || !candles || candles.length === 0) return;
+    const cleanCandles = sanitizeChartData(candles);
+    if (cleanCandles.length === 0) return;
     const s = seriesRef.current;
-    const incomingLast = candles[candles.length - 1];
-    const currentLast = lastCandleRef.current;
-    const sameBar =
-      currentLast &&
-      incomingLast &&
-      currentLast.time === incomingLast.time &&
-      // Heuristic: keep WS-driven state if streaming is open (we already have
-      // ticks flowing). Only refresh when a new bar appears or on first load.
-      isConnected;
+    if (!s.candle) return;
 
-    if (!sameBar) {
-      s.candle.setData(candles);
-      s.vol.setData(
-        candles.map((c: any) => ({
+    const incomingLast = cleanCandles[cleanCandles.length - 1];
+    const currentLast = lastCandleRef.current;
+
+    // 1. Initial Load or Symbol Switch: Load full dataset and fit content ONCE
+    if (!isInitialFitDoneRef.current || !currentLast) {
+      try {
+        s.candle.setData(cleanCandles);
+        s.vol?.setData(
+          cleanCandles.map((c: any) => ({
+            time: c.time,
+            value: c.volume,
+            color: c.close >= c.open ? "rgba(16,185,129,0.35)" : "rgba(239,68,68,0.35)",
+          }))
+        );
+        updateIndicatorsData(s, cleanCandles, indicators);
+        chartRef.current.timeScale().fitContent();
+      } catch (_) {}
+
+      isInitialFitDoneRef.current = true;
+      lastCandleRef.current = incomingLast;
+      return;
+    }
+
+    // 2. Intra-bar update (same timestamp): Smoothly update the active candle, NEVER call fitContent or full setData!
+    if (currentLast.time === incomingLast.time) {
+      try {
+        s.candle.update(incomingLast);
+        s.vol?.update({
+          time: incomingLast.time,
+          value: incomingLast.volume,
+          color: incomingLast.close >= incomingLast.open ? "rgba(16,185,129,0.35)" : "rgba(239,68,68,0.35)",
+        });
+      } catch (_) {}
+      lastCandleRef.current = incomingLast;
+      return;
+    }
+
+    // 3. New bar formed (incoming time > current time): Append cleanly via update, never snap zoom!
+    if (incomingLast.time > currentLast.time) {
+      try {
+        s.candle.update(incomingLast);
+        s.vol?.update({
+          time: incomingLast.time,
+          value: incomingLast.volume,
+          color: incomingLast.close >= incomingLast.open ? "rgba(16,185,129,0.35)" : "rgba(239,68,68,0.35)",
+        });
+        updateIndicatorsData(s, cleanCandles, indicators);
+      } catch (_) {
+        try { s.candle.setData(cleanCandles); } catch (_) {}
+      }
+      lastCandleRef.current = incomingLast;
+      return;
+    }
+
+    // 4. Timeframe change or historical reload: full setData without jerking if already fit
+    try {
+      s.candle.setData(cleanCandles);
+      s.vol?.setData(
+        cleanCandles.map((c: any) => ({
           time: c.time,
           value: c.volume,
           color: c.close >= c.open ? "rgba(16,185,129,0.35)" : "rgba(239,68,68,0.35)",
         }))
       );
-      s.ma20.setData(indicators?.ma20 ? sma(candles, 20) : []);
-      s.ma50.setData(indicators?.ma50 ? sma(candles, 50) : []);
-      s.ma200.setData(indicators?.ma200 ? sma(candles, 200) : []);
-      
-      if (indicators?.rsi) {
-        s.rsi.setData(computeRSI(candles));
-        // Add RSI 30/70 levels if possible, or just let users view it
-      } else {
-        s.rsi.setData([]);
-      }
-      
-      if (indicators?.macd) {
-        const { macd, signal, hist } = computeMACD(candles);
-        s.macd.setData(macd);
-        s.macdSignal.setData(signal);
-        s.macdHist.setData(hist);
-      } else {
-        s.macd.setData([]);
-        s.macdSignal.setData([]);
-        s.macdHist.setData([]);
-      }
+      updateIndicatorsData(s, cleanCandles, indicators);
+    } catch (_) {}
+    lastCandleRef.current = incomingLast;
+  }, [candles]);
 
-      const last = candles[candles.length - 1];
-      if (last) {
-        s.candle.setMarkers([
-          {
-            time: last.time,
-            position: "belowBar" as any,
-            color: COLORS.up,
-            shape: "arrowUp" as any,
-            text: "ENTRY",
-          },
-        ]);
-      }
-
-      chartRef.current.timeScale().fitContent();
-      lastCandleRef.current = incomingLast;
-    }
-  }, [candles, indicators, isConnected]);
+  // Separate effect for indicator toggles: Updating indicators NEVER resets candles or zoom!
+  useEffect(() => {
+    if (!chartRef.current || !candles || candles.length === 0) return;
+    const cleanCandles = sanitizeChartData(candles);
+    updateIndicatorsData(seriesRef.current, cleanCandles, indicators);
+  }, [indicators]);
 
   // Render persisted drawings
   useEffect(() => {
@@ -408,19 +480,46 @@ export default function Chart({ candles, indicators, drawingMode, drawings, onDr
 
   return (
     <div
-      data-testid="chart-container"
-      ref={containerRef}
-      className="w-full h-full relative"
+      data-testid="chart-wrapper"
+      className="w-full h-full relative overflow-hidden"
     >
       <div
+        data-testid="chart-container"
+        ref={containerRef}
+        className="w-full h-full"
+      />
+      
+      {(!candles || candles.length === 0) && (
+        <div className="absolute inset-0 bg-black/90 backdrop-blur-sm z-20 flex flex-col items-center justify-center p-6 text-center select-none">
+          <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mb-3 shadow-lg">
+            <svg className="w-6 h-6 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <div className="text-sm font-semibold text-zinc-100 tracking-wider font-mono uppercase">
+            No Real Broker Feed — {symbol}
+          </div>
+          <p className="text-xs text-zinc-400 max-w-sm mt-1 mb-4 leading-relaxed font-sans">
+            Waiting for live candlestick telemetry from MetaTrader 5 bridge. Synthetic mock fallback has been disabled to prevent misleading setups.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-xs font-mono font-bold text-zinc-200 transition-all flex items-center gap-1.5 shadow-sm"
+          >
+            Retry Feed
+          </button>
+        </div>
+      )}
+
+      <div
         data-testid="stream-status"
-        className={`absolute top-1 right-1 z-10 text-[9px] font-mono uppercase tracking-widest px-1.5 py-0.5 ${
+        className={`absolute top-1 right-1 z-10 text-[9px] font-mono uppercase tracking-widest px-1.5 py-0.5 pointer-events-none rounded ${
           isConnected
-            ? "text-emerald-500 border border-emerald-500/50"
-            : "text-amber-500 border border-amber-500/50"
+            ? "text-emerald-500 border border-emerald-500/50 bg-black/60"
+            : "text-amber-500 border border-amber-500/50 bg-black/60"
         }`}
       >
-        {isConnected ? "● Streaming" : "○ Connecting"}
+        {isConnected ? "● Streaming" : "○ Polling 5s"}
       </div>
     </div>
   );

@@ -132,7 +132,10 @@ export default function EcosystemMapModal({ open, onClose }: EcosystemMapModalPr
               return (
                 <React.Fragment key={step.id}>
                   <button
-                    onClick={() => handleNavigate(step.href)}
+                    onClick={() => {
+                      const target = !isAdmin && step.id === "terminal" ? "/practice" : step.href;
+                      handleNavigate(target);
+                    }}
                     className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-white/5 hover:border-white/20 bg-zinc-900/80 hover:bg-zinc-800 transition-all group flex-shrink-0"
                   >
                     <span className="text-[10px] font-mono font-bold text-zinc-500 group-hover:text-white">

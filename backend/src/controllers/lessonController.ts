@@ -6,9 +6,23 @@ const prisma = new PrismaClient();
 // Get all lessons for the logged-in user
 export const getLessons = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.id || 'default-user'; // using fallback for dev if needed
+    const userId = req.userId || (req as any).user?.id;
+    if (!userId) {
+      res.json({ success: true, lessons: [] });
+      return;
+    }
+
+    const isAdmin =
+      userId === "rousrendo@gmail.com" ||
+      userId === "admin@journex.io" ||
+      userId === "admin-master-id";
+
+    const where: any = isAdmin
+      ? { userId: { in: [userId, "default-user", "admin-master-id", "rousrendo@gmail.com"] } }
+      : { userId };
+
     const lessons = await prisma.lesson.findMany({
-      where: { userId },
+      where,
       orderBy: [
         { orderIndex: 'asc' },
         { createdAt: 'desc' }
@@ -24,7 +38,11 @@ export const getLessons = async (req: Request, res: Response): Promise<void> => 
 // Create a new lesson
 export const createLesson = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.id || 'default-user';
+    const userId = req.userId || (req as any).user?.id;
+    if (!userId) {
+      res.status(401).json({ success: false, message: 'Authentication required' });
+      return;
+    }
     const { title, concept, notes, images } = req.body;
     let imagesData: any = [];
 
@@ -93,12 +111,26 @@ export const reorderLessons = async (req: Request, res: Response): Promise<void>
 // Delete a lesson
 export const deleteLesson = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.id || 'default-user';
+    const userId = req.userId || (req as any).user?.id;
+    if (!userId) {
+      res.status(401).json({ success: false, message: 'Authentication required' });
+      return;
+    }
     const { id } = req.params;
 
+    const isAdmin =
+      userId === "rousrendo@gmail.com" ||
+      userId === "admin@journex.io" ||
+      userId === "admin-master-id";
+
     const lesson = await prisma.lesson.findUnique({ where: { id: Number(id) } });
-    if (!lesson || lesson.userId !== userId) {
+    if (!lesson) {
       res.status(404).json({ success: false, message: 'Lesson not found' });
+      return;
+    }
+
+    if (!isAdmin && lesson.userId !== userId) {
+      res.status(403).json({ success: false, message: 'Access denied' });
       return;
     }
 
@@ -113,13 +145,27 @@ export const deleteLesson = async (req: Request, res: Response): Promise<void> =
 // Update a lesson
 export const updateLesson = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.id || 'default-user';
+    const userId = req.userId || (req as any).user?.id;
+    if (!userId) {
+      res.status(401).json({ success: false, message: 'Authentication required' });
+      return;
+    }
     const { id } = req.params;
     const { title, concept, notes, images } = req.body;
 
+    const isAdmin =
+      userId === "rousrendo@gmail.com" ||
+      userId === "admin@journex.io" ||
+      userId === "admin-master-id";
+
     const lesson = await prisma.lesson.findUnique({ where: { id: Number(id) } });
-    if (!lesson || lesson.userId !== userId) {
+    if (!lesson) {
       res.status(404).json({ success: false, message: 'Lesson not found' });
+      return;
+    }
+
+    if (!isAdmin && lesson.userId !== userId) {
+      res.status(403).json({ success: false, message: 'Access denied' });
       return;
     }
 

@@ -35,6 +35,10 @@ api.interceptors.request.use(async (config) => {
 export const fetchSnapshot = (symbol: string, timeframe: string) =>
   api.get("/terminal/snapshot", { params: { symbol, timeframe } }).then((r) => r.data);
 
+// COMEX Gold Futures & Institutional Confirmation Intel
+export const fetchComexGoldIntel = (symbol = "XAUUSD") =>
+  api.get("/terminal/comex-gold", { params: { symbol } }).then((r) => r.data);
+
 // Heatmap & sentiment
 export const fetchHeatmap = () => api.get("/heatmap").then((r) => r.data);
 export const fetchSentimentGauge = () => api.get("/sentiment-gauge").then((r) => r.data);

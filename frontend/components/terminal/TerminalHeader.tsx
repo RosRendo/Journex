@@ -15,11 +15,16 @@ import {
 
 const POPULAR = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "NZDUSD", "USDCHF", "USDCAD", "XAUUSD", "AUDJPY", "EURJPY"];
 
-export default function TerminalHeader({ symbol, onSymbolChange, connected, symbols, onOpenOrderTicket, onOpenBrokerSettings, onOpenApiKeys, isLive, provider, onPresetChange }: any) {
+export default function TerminalHeader({ symbol, onSymbolChange, connected, symbols, onOpenOrderTicket, onOpenBrokerSettings, onOpenApiKeys, isLive, provider, onPresetChange, onToggleView }: any) {
   const { data: session } = useSession();
   const isPro = (session?.user as any)?.isPro === true;
   const now = useUtcClock();
   const list = symbols && symbols.length > 0 ? symbols.map((s) => s.symbol) : POPULAR;
+
+  const utcHour = now ? now.getUTCHours() : 0;
+  const isAsianOpen = utcHour >= 0 && utcHour < 9;
+  const isLondonOpen = utcHour >= 8 && utcHour < 17;
+  const isNyOpen = utcHour >= 13 && utcHour < 21;
 
   // Killzone Logic (using UTC)
   let killzone: any = null;
@@ -99,11 +104,39 @@ export default function TerminalHeader({ symbol, onSymbolChange, connected, symb
            <button onClick={() => onPresetChange?.("Focus")} className="px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-zinc-400 hover:text-amber-500 hover:bg-zinc-800 transition-colors">Focus</button>
         </div>
 
+        {/* Terminal View Switcher & Macro Desk Link */}
+        <div className="flex items-center gap-1 bg-zinc-900 border border-zinc-700 p-0.5 rounded-sm">
+          <button
+            onClick={() => onToggleView?.("INSTITUTIONAL")}
+            className="flex items-center gap-1 px-2.5 py-1 text-[9.5px] font-mono text-zinc-300 hover:text-[#20e0b2] hover:bg-zinc-800 transition-colors font-bold cursor-pointer"
+            title="Switch to Bloomberg Institutional FX Terminal"
+          >
+            <span className="text-[#20e0b2]">🌐</span>
+            <span>FX Terminal</span>
+          </button>
+          <button
+            className="flex items-center gap-1 px-2.5 py-1 text-[9.5px] font-mono bg-zinc-800 text-white font-bold border border-zinc-600 rounded-sm"
+            title="Current View: Classic Multi-Panel"
+          >
+            <span>🔲</span>
+            <span>Classic Panels</span>
+          </button>
+        </div>
+
+        <a
+          href={`/macro/${symbol}`}
+          className="flex items-center gap-1 px-2.5 py-1 rounded-sm text-[9.5px] font-mono text-amber-400 hover:text-amber-300 bg-amber-500/10 border border-amber-500/30 transition-colors font-bold"
+          title="Open Dedicated Macro Desk"
+        >
+          <span>📑</span>
+          <span>Macro Desk ➔</span>
+        </a>
+
         {!isPro && (
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-              <span className="text-[10px] font-bold tracking-widest uppercase text-amber-500">Mock Data (Free Tier)</span>
+              <span className="text-[10px] font-bold tracking-widest uppercase text-amber-500">MT5 Telemetry (Free Tier)</span>
             </div>
             <button
               onClick={() => (window.location.href = "/subscription")}
@@ -137,6 +170,24 @@ export default function TerminalHeader({ symbol, onSymbolChange, connected, symb
       </div>
 
       <div className="flex items-center gap-4 text-[11px] font-mono">
+        {/* Global Sessions Ribbon */}
+        <div className="hidden xl:flex items-center gap-2 text-[9px] font-mono pr-2 border-r border-zinc-800">
+          <span className="flex items-center gap-1 font-semibold">
+            <span className={`w-1.5 h-1.5 rounded-full ${isAsianOpen ? "bg-emerald-400 animate-pulse" : "bg-zinc-600"}`} />
+            <span className={isAsianOpen ? "text-emerald-400" : "text-zinc-500"}>Asian</span>
+          </span>
+          <span className="text-zinc-700">•</span>
+          <span className="flex items-center gap-1 font-semibold">
+            <span className={`w-1.5 h-1.5 rounded-full ${isLondonOpen ? "bg-emerald-400 animate-pulse" : "bg-zinc-600"}`} />
+            <span className={isLondonOpen ? "text-emerald-400" : "text-zinc-500"}>London</span>
+          </span>
+          <span className="text-zinc-700">•</span>
+          <span className="flex items-center gap-1 font-semibold">
+            <span className={`w-1.5 h-1.5 rounded-full ${isNyOpen ? "bg-emerald-400 animate-pulse" : "bg-zinc-600"}`} />
+            <span className={isNyOpen ? "text-emerald-400" : "text-zinc-500"}>New York</span>
+          </span>
+        </div>
+
         {killzone && (
           <div className={`flex items-center gap-1.5 px-2 py-0.5 border text-[9px] font-bold tracking-widest ${killzone.color}`}>
             <Crosshair size={10} />
@@ -151,7 +202,7 @@ export default function TerminalHeader({ symbol, onSymbolChange, connected, symb
               : "border-zinc-800 text-zinc-500 bg-zinc-900"
           }`}
         >
-          {isLive ? `LIVE · ${(provider || "mock").toUpperCase()}` : "MOCK"}
+          {isLive ? `LIVE · ${(provider || "MT5").toUpperCase()}` : "STANDBY"}
         </div>
         <div className="flex items-center gap-1.5">
           <span

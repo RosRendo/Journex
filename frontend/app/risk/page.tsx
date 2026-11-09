@@ -10,6 +10,7 @@ import {
 import { toast } from "sonner";
 import { getBackendUrl } from "@/lib/utils";
 import { getSession } from "@/lib/useSession";
+import { useCsvTrades } from "@/hooks/useCsvTrades";
 
 // Widget Imports
 import { DrawdownVisualization } from "@/components/dashboard/widgets/DrawdownVisualization";
@@ -101,7 +102,7 @@ export default function RiskDeskPage() {
 type InputKeys = "balance" | "leverage" | "riskPercent" | "stopLossPips" | "pipValue" | "sl" | "tp" | "rewardRatio";
 type Inputs = Record<InputKeys, number>;
 
-const defaultInput: Inputs = { balance: 6000, leverage: 30, riskPercent: 1, stopLossPips: 50, pipValue: 10, sl: 0, tp: 0, rewardRatio: 2 };
+const defaultInput: Inputs = { balance: 0, leverage: 30, riskPercent: 1, stopLossPips: 50, pipValue: 10, sl: 0, tp: 0, rewardRatio: 2 };
 
 function FieldInput({ label, value, onChange, suffix, highlighted = "none" }: {
   label: string; value: number; onChange: (v: string) => void;
@@ -152,7 +153,9 @@ function CalculatorSubDesk() {
   const { balance, leverage, riskPercent, stopLossPips, pipValue, sl, tp, rewardRatio } = input;
   const riskAmount = (riskPercent / 100) * balance;
   const lotSize = stopLossPips * pipValue === 0 ? 0 : riskAmount / (stopLossPips * pipValue);
-  const marginRequired = leverage === 0 ? 0 : 100000 / leverage;
+  const contractMultiplier = symbol.includes("XAU") ? 100 : (symbol.includes("BTC") || symbol.includes("US30") || symbol.includes("US100")) ? 1 : 100000;
+  const currentAssetPrice = livePrice ? (direction === "BUY" ? livePrice.ask : livePrice.bid) : (symbol.includes("XAU") ? 2000 : 1.0);
+  const marginRequired = leverage === 0 ? 0 : Math.round(((lotSize > 0 ? lotSize : 0) * contractMultiplier * currentAssetPrice) / leverage);
   const targetProfit = riskAmount * rewardRatio;
 
   const handleChange = (key: InputKeys, value: string) => {
@@ -348,6 +351,10 @@ function CalculatorSubDesk() {
                     <span className="text-zinc-500">Target Protocol Yield</span>
                     <span className="font-bold text-[#20e0b2]">+${targetProfit.toLocaleString(undefined, { minimumFractionDigits: 0 })}</span>
                   </div>
+                  <div className="flex justify-between items-end">
+                    <span className="text-zinc-500">Estimated Margin</span>
+                    <span className="font-bold text-amber-400">${marginRequired.toLocaleString(undefined, { minimumFractionDigits: 0 })}</span>
+                  </div>
                   <div className="flex justify-between items-end pt-3 border-t border-zinc-850">
                     <span className="text-[9px] font-black uppercase text-[#20e0b2]">Lot Sizing</span>
                     <span className="text-2xl font-black text-white leading-none">{lotSize.toFixed(2)}</span>
@@ -427,6 +434,25 @@ function CalculatorSubDesk() {
 
 // ── SUB-COMPONENT 2: DRAWDOWN GUARD DESK ──
 function DrawdownGuardDesk() {
+  const { trades = [] } = useCsvTrades();
+  const [interactiveLoss, setInteractiveLoss] = useState<number>(10);
+
+  const calcRecovery = (loss: number) => {
+    if (loss <= 0) return 0;
+    if (loss >= 100) return 9999;
+    const l = loss / 100;
+    return Math.round((l / (1 - l)) * 1000) / 10;
+  };
+
+  const recoveryRows = [5, 10, 15, 20, 25, 30, 40, 50, 75, 90].map((lossPct) => {
+    const gainPct = calcRecovery(lossPct);
+    const twoRWins = Math.ceil(gainPct / 2);
+    const threeRWins = Math.ceil(gainPct / 3);
+    return { lossPct, gainPct, twoRWins, threeRWins };
+  });
+
+  const liveRequiredGain = calcRecovery(interactiveLoss);
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -478,9 +504,80 @@ function DrawdownGuardDesk() {
         </div>
       </div>
 
+      {/* ── ASYMMETRIC DRAWDOWN RECOVERY MATRIX ── */}
+      <div className="bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-lg p-6 font-mono">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-zinc-850 gap-4 mb-6">
+          <div>
+            <div className="flex items-center gap-2">
+              <TrendingDown className="w-4 h-4 text-[#ff5c73]" />
+              <h2 className="text-xs font-black uppercase tracking-wider text-white">Asymmetric Drawdown Recovery Engine</h2>
+            </div>
+            <p className="text-[10px] text-zinc-500 mt-0.5">
+              Exact mathematical law: Gain required to break even = Loss% / (100% - Loss%). Non-linear capital recovery.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 bg-black/35 px-3.5 py-2 rounded-xl border border-white/5 shrink-0">
+            <span className="text-[10px] text-zinc-400 font-bold uppercase">Custom Drawdown:</span>
+            <input
+              type="number"
+              min="1"
+              max="95"
+              step="1"
+              value={interactiveLoss}
+              onChange={(e) => setInteractiveLoss(Math.max(1, Math.min(95, parseFloat(e.target.value) || 0)))}
+              className="w-16 bg-zinc-900 border border-zinc-700 px-2 py-0.5 rounded text-white text-xs font-bold text-center outline-none focus:border-[#20e0b2]"
+            />
+            <span className="text-zinc-500 text-xs">%</span>
+            <span className="text-zinc-500">→</span>
+            <span className="text-xs font-black text-[#20e0b2]">+{liveRequiredGain}% Gain</span>
+          </div>
+        </div>
+
+        {/* Matrix Grid */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-[11px]">
+            <thead>
+              <tr className="border-b border-zinc-850 text-[9px] uppercase tracking-wider text-zinc-500 font-bold">
+                <th className="py-2.5 px-4">Account Drawdown</th>
+                <th className="py-2.5 px-4 text-[#20e0b2]">Required Recovery Gain</th>
+                <th className="py-2.5 px-4 text-center">2.0R Consecutive Wins Needed</th>
+                <th className="py-2.5 px-4 text-center">3.0R Consecutive Wins Needed</th>
+                <th className="py-2.5 px-4 text-right">Risk Severity</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-850/40">
+              {recoveryRows.map((r) => {
+                const isSelected = r.lossPct === interactiveLoss;
+                const severity = r.lossPct <= 10 ? "Controlled" : r.lossPct <= 25 ? "Elevated" : r.lossPct <= 50 ? "Severe" : "Catastrophic";
+                const severityColor = r.lossPct <= 10 ? "text-[#20e0b2]" : r.lossPct <= 25 ? "text-amber-400" : "text-[#ff5c73]";
+
+                return (
+                  <tr
+                    key={r.lossPct}
+                    onClick={() => setInteractiveLoss(r.lossPct)}
+                    className={`transition-colors cursor-pointer hover:bg-white/[0.02] ${
+                      isSelected ? "bg-white/[0.04] font-bold" : ""
+                    }`}
+                  >
+                    <td className="py-3 px-4 text-[#ff5c73] font-bold">-{r.lossPct}% Loss</td>
+                    <td className="py-3 px-4 text-[#20e0b2] font-black">+{r.gainPct}%</td>
+                    <td className="py-3 px-4 text-center text-zinc-300">{r.twoRWins} trades</td>
+                    <td className="py-3 px-4 text-center text-zinc-300">{r.threeRWins} trades</td>
+                    <td className={`py-3 px-4 text-right font-bold text-[10px] uppercase ${severityColor}`}>
+                      {severity}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div className="bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-lg p-6 relative overflow-hidden">
         <h2 className="text-xs font-black uppercase tracking-wider text-white mb-4">Drawdown Heatmaps</h2>
-        <DrawdownVisualization trades={[]} />
+        <DrawdownVisualization trades={trades} />
       </div>
     </div>
   );
@@ -488,16 +585,17 @@ function DrawdownGuardDesk() {
 
 // ── SUB-COMPONENT 3: COMPLIANCE & TARGETS DESK ──
 const DEFAULT_ACCOUNT = {
-  id: "WAITING-ACCOUNT",
-  size: 100000,
-  balance: 100000,
-  equity: 100000,
-  daily_start_balance: 100000,
+  id: "OFFLINE",
+  size: 0,
+  balance: 0,
+  equity: 0,
+  daily_start_balance: 0,
   max_daily_loss_pct: 5,
   max_overall_loss_pct: 10,
   profit_target_pct: 10,
   days_traded: 0,
   min_days: 0,
+  connected: false,
 };
 
 function PropComplianceDesk() {
@@ -519,7 +617,7 @@ function PropComplianceDesk() {
         if (data.login) {
           setAcc({
             id: `MT5-${data.login}`,
-            size: data.balance > 0 ? (Math.ceil(data.balance / 10000) * 10000) : 100000,
+            size: data.balance > 0 ? (Math.ceil(data.balance / 10000) * 10000) : 0,
             balance: data.balance,
             equity: data.equity,
             daily_start_balance: data.balance,
@@ -527,10 +625,13 @@ function PropComplianceDesk() {
             max_overall_loss_pct: 10,
             profit_target_pct: 10,
             days_traded: 0,
-            min_days: 0
+            min_days: 0,
+            connected: true,
           });
         }
-      } catch (e) {}
+      } catch (e) {
+        setAcc((prev) => ({ ...prev, connected: false }));
+      }
     };
     fetchAccount();
     const t = setInterval(fetchAccount, 5000);
@@ -565,52 +666,62 @@ function PropComplianceDesk() {
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 animate-fade-in">
-      <div className="border border-[rgba(255,255,255,0.07)] bg-[#101014] rounded-lg flex flex-col overflow-hidden">
-        <div className="p-5 border-b border-zinc-850 bg-black/10 flex justify-between items-start font-mono">
-          <div>
-            <h2 className="text-[10px] font-black uppercase tracking-wider text-zinc-500">Active Challenge</h2>
-            <div className="text-sm font-bold text-white mt-1 flex items-center gap-2">
-              {acc.id} <span className="text-[9px] px-1.5 py-0.5 rounded border border-[rgba(255,255,255,0.07)] bg-black/25">PHASE 1</span>
+      {!acc.connected || acc.size === 0 ? (
+        <div className="border border-[rgba(255,255,255,0.07)] bg-[#101014] rounded-lg p-8 flex flex-col items-center justify-center text-center font-mono space-y-2">
+          <ShieldAlert className="w-8 h-8 text-amber-400 mb-1" />
+          <h2 className="text-sm font-bold text-white uppercase tracking-wider">MT5 Prop Telemetry Offline</h2>
+          <p className="text-xs text-zinc-500 max-w-sm font-sans">
+            Connect your MetaTrader 5 terminal through the bridge to stream live challenge metrics, daily drawdown thresholds, and profit target progression.
+          </p>
+        </div>
+      ) : (
+        <div className="border border-[rgba(255,255,255,0.07)] bg-[#101014] rounded-lg flex flex-col overflow-hidden">
+          <div className="p-5 border-b border-zinc-850 bg-black/10 flex justify-between items-start font-mono">
+            <div>
+              <h2 className="text-[10px] font-black uppercase tracking-wider text-zinc-500">Active Challenge</h2>
+              <div className="text-sm font-bold text-white mt-1 flex items-center gap-2">
+                {acc.id} <span className="text-[9px] px-1.5 py-0.5 rounded border border-[rgba(255,255,255,0.07)] bg-black/25">PHASE 1</span>
+              </div>
+            </div>
+            <div className="text-right">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-550 block">Live Equity</span>
+              <span className="text-lg font-black font-mono text-[#20e0b2]">{`$${acc.equity.toLocaleString()}`}</span>
             </div>
           </div>
-          <div className="text-right">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-550 block">Live Equity</span>
-            <span className="text-lg font-black font-mono text-[#20e0b2]">{`$${acc.equity.toLocaleString()}`}</span>
+
+          <div className="p-6 space-y-6 flex-1">
+            <div>
+              <div className="flex justify-between items-end mb-1 font-mono text-xs">
+                <h3 className="font-bold text-zinc-400">Profit Target ({acc.profit_target_pct}%)</h3>
+                <span className="text-[#20e0b2] font-bold">${currentProfit.toFixed(0)} / ${targetProfitAmount.toFixed(0)}</span>
+              </div>
+              <div className="h-1.5 w-full bg-black/35 rounded-full overflow-hidden border border-zinc-850">
+                <div className="h-full bg-[#20e0b2] rounded-full" style={{ width: `${profitProgress}%` }} />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between items-end mb-1 font-mono text-xs">
+                <h3 className="font-bold text-zinc-400">Daily Loss Limit ({acc.max_daily_loss_pct}%)</h3>
+                <span className="text-white font-bold">${currentDailyLoss.toFixed(0)} / ${maxDailyLossAmount.toFixed(0)}</span>
+              </div>
+              <div className="h-1.5 w-full bg-black/35 rounded-full overflow-hidden border border-zinc-850">
+                <div className="h-full bg-[#ff5c73] rounded-full" style={{ width: `${dailyLossProgress}%` }} />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between items-end mb-1 font-mono text-xs">
+                <h3 className="font-bold text-zinc-400">Max Overall Loss ({acc.max_overall_loss_pct}%)</h3>
+                <span className="text-white font-bold">${currentOverallLoss.toFixed(0)} / ${maxOverallLossAmount.toFixed(0)}</span>
+              </div>
+              <div className="h-1.5 w-full bg-black/35 rounded-full overflow-hidden border border-zinc-850">
+                <div className="h-full bg-[#ff5c73] rounded-full" style={{ width: `${overallLossProgress}%` }} />
+              </div>
+            </div>
           </div>
         </div>
-
-        <div className="p-6 space-y-6 flex-1">
-          <div>
-            <div className="flex justify-between items-end mb-1 font-mono text-xs">
-              <h3 className="font-bold text-zinc-400">Profit Target ({acc.profit_target_pct}%)</h3>
-              <span className="text-[#20e0b2] font-bold">${currentProfit.toFixed(0)} / ${targetProfitAmount.toFixed(0)}</span>
-            </div>
-            <div className="h-1.5 w-full bg-black/35 rounded-full overflow-hidden border border-zinc-850">
-              <div className="h-full bg-[#20e0b2] rounded-full" style={{ width: `${profitProgress}%` }} />
-            </div>
-          </div>
-
-          <div>
-            <div className="flex justify-between items-end mb-1 font-mono text-xs">
-              <h3 className="font-bold text-zinc-400">Daily Loss Limit ({acc.max_daily_loss_pct}%)</h3>
-              <span className="text-white font-bold">${currentDailyLoss.toFixed(0)} / ${maxDailyLossAmount.toFixed(0)}</span>
-            </div>
-            <div className="h-1.5 w-full bg-black/35 rounded-full overflow-hidden border border-zinc-850">
-              <div className="h-full bg-[#ff5c73] rounded-full" style={{ width: `${dailyLossProgress}%` }} />
-            </div>
-          </div>
-
-          <div>
-            <div className="flex justify-between items-end mb-1 font-mono text-xs">
-              <h3 className="font-bold text-zinc-400">Max Overall Loss ({acc.max_overall_loss_pct}%)</h3>
-              <span className="text-white font-bold">${currentOverallLoss.toFixed(0)} / ${maxOverallLossAmount.toFixed(0)}</span>
-            </div>
-            <div className="h-1.5 w-full bg-black/35 rounded-full overflow-hidden border border-zinc-850">
-              <div className="h-full bg-[#ff5c73] rounded-full" style={{ width: `${overallLossProgress}%` }} />
-            </div>
-          </div>
-        </div>
-      </div>
+      )}
 
       <div className="border border-[rgba(255,255,255,0.07)] bg-[#101014] rounded-lg flex flex-col overflow-hidden">
         <div className="p-5 border-b border-zinc-850 bg-black/10">

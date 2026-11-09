@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import {
-  LogOut, User, Settings, Bell, X, Flame, TrendingUp, TrendingDown, CreditCard, ChevronDown, Palette, Menu, Clock
+  LogOut, User, Settings, Bell, X, Flame, TrendingUp, TrendingDown, CreditCard, ChevronDown, Palette, Menu, Clock, Globe, Users, Terminal, Wallet, Plus
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSession, signOut, getSession } from "@/lib/useSession";
@@ -10,9 +10,10 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { HEADER_GROUPS } from "@/components/layout/navigation";
 import { useTheme } from "next-themes";
-import { getBackendUrl } from "@/lib/utils";
+import { getBackendUrl, clearSessionCache } from "@/lib/utils";
 import { useWorkspace, WorkspaceType } from "@/src/context/WorkspaceContext";
 import { getBroker } from "@/lib/terminalApi";
+import { useIsAdmin } from "@/lib/role";
 
 function DualClock() {
   const [now, setNow] = useState(new Date());
@@ -82,16 +83,58 @@ function AccountSelector() {
   const [accounts, setAccounts] = useState<any[]>([]);
   const [activeId, setActiveId] = useState<string>("");
   const [isOpen, setIsOpen] = useState(false);
+  const [bridgeConnected, setBridgeConnected] = useState(false);
+  const [bridgeAccount, setBridgeAccount] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
+    // 1. Fetch configured accounts from broker settings
     getBroker()
       .then((res: any) => {
+        if (cancelled) return;
         setAccounts(res.accounts || []);
         const savedActive = localStorage.getItem("active_account_id") || res.activeAccountId || "";
         setActiveId(savedActive);
       })
       .catch(() => {});
+
+    // 2. Fetch live bridge account state
+    fetch("/api/bridge/api/account", { headers: { "ngrok-skip-browser-warning": "true" } })
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        if (d.success && d.account) {
+          setBridgeConnected(true);
+          setBridgeAccount(d.account);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen]);
 
   const handleSelect = async (id: string) => {
     setActiveId(id);
@@ -101,36 +144,110 @@ function AccountSelector() {
   };
 
   const activeAccount = accounts.find(a => a.id === activeId) || accounts[0];
+  const isConnected = bridgeConnected || accounts.length > 0;
 
-  if (accounts.length <= 1) return null;
+  // If no account is connected yet:
+  if (!isConnected && !loading) {
+    return (
+      <Link
+        href="/accounts"
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-500/35 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-amber-200 text-[11px] font-bold font-mono transition-all shadow-sm group"
+        title="Connect your personal MT5 or prop firm broker account"
+      >
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+        <Wallet className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform" />
+        <span>Connect Account</span>
+      </Link>
+    );
+  }
+
+  const displayName = bridgeAccount?.login
+    ? `#${bridgeAccount.login}`
+    : activeAccount?.name || activeAccount?.accountNumber || (isConnected ? "Connected" : "Connect");
 
   return (
-    <div className="relative">
+    <div className="relative" ref={dropdownRef}>
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[11px] font-bold uppercase tracking-widest transition-colors animate-in"
-        style={{ borderColor: "var(--border)", background: "var(--bg-elevated)", color: "var(--accent)" }}
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[11px] font-bold uppercase tracking-widest transition-all cursor-pointer shadow-sm"
+        style={{
+          borderColor: "rgba(32, 224, 178, 0.3)",
+          background: "rgba(32, 224, 178, 0.08)",
+          color: "#20e0b2"
+        }}
+        title="Active Broker Account Hub"
       >
-        <span className="text-[--text-secondary]">ACC:</span> {activeAccount?.name || "Select"}
-        <ChevronDown className="w-3 h-3 text-[--text-tertiary]" />
+        <span className="w-1.5 h-1.5 rounded-full bg-[#20e0b2] animate-pulse" />
+        <span className="text-zinc-400 font-mono">ACC:</span>
+        <span className="font-mono">{displayName}</span>
+        <ChevronDown className={`w-3 h-3 text-zinc-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
       </button>
 
       {isOpen && (
         <div 
-          className="absolute top-full left-0 mt-2 w-48 rounded-xl shadow-2xl border py-2 z-50 animate-in fade-in"
-          style={{ background: "var(--bg-card)", borderColor: "var(--border-strong)" }}
+          className="absolute top-full left-0 mt-2 w-60 rounded-xl shadow-2xl border py-1.5 z-50 animate-in fade-in backdrop-blur-md font-mono"
+          style={{ background: "#0f0f16", borderColor: "rgba(255, 255, 255, 0.15)" }}
         >
-          {accounts.map(acc => (
-            <button
-              key={acc.id}
-              onClick={() => handleSelect(acc.id)}
-              className={`w-full text-left px-4 py-2 text-[11px] font-bold uppercase tracking-wider transition-colors ${
-                activeId === acc.id ? "text-[--accent] bg-[--bg-elevated]" : "text-[--text-secondary] hover:text-[--text-primary] hover:bg-[--bg-elevated]"
-              }`}
-            >
-              {acc.name}
-            </button>
-          ))}
+          <div className="px-3 py-1 text-[8.5px] font-bold uppercase text-zinc-500 tracking-wider border-b border-white/5 flex items-center justify-between">
+            <span>Broker Account</span>
+            <span className="text-[#20e0b2] text-[8px]">Live</span>
+          </div>
+
+          {bridgeAccount && (
+            <div className="px-3 py-2 border-b border-white/5 bg-white/[0.02]">
+              <div className="text-[10px] text-zinc-300 font-bold truncate">
+                {bridgeAccount.server || "MT5 Bridge Node"}
+              </div>
+              <div className="flex items-center justify-between text-[9.5px] text-zinc-400 mt-1">
+                <span>Balance:</span>
+                <span className="text-white font-bold">${Number(bridgeAccount.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div className="flex items-center justify-between text-[9.5px] text-zinc-400">
+                <span>Equity:</span>
+                <span className="text-emerald-400 font-bold">${Number(bridgeAccount.equity || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              </div>
+            </div>
+          )}
+
+          {accounts.length > 0 && (
+            <div className="max-h-40 overflow-y-auto py-1">
+              {accounts.map(acc => (
+                <button
+                  key={acc.id}
+                  onClick={() => handleSelect(acc.id)}
+                  className={`w-full text-left px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-between cursor-pointer ${
+                    activeId === acc.id ? "text-[#20e0b2] bg-[#20e0b2]/10" : "text-zinc-300 hover:text-white hover:bg-white/5"
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span className={`w-1.5 h-1.5 rounded-full ${activeId === acc.id ? "bg-[#20e0b2]" : "bg-zinc-600"}`} />
+                    <span className="truncate">{acc.name || acc.accountNumber || `Acc #${acc.id}`}</span>
+                  </div>
+                  {acc.balance && (
+                    <span className="text-[9.5px] text-zinc-400 font-mono">${Number(acc.balance).toLocaleString()}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="my-1 border-t border-white/5" />
+          <Link
+            href="/accounts"
+            onClick={() => setIsOpen(false)}
+            className="flex items-center gap-2 px-3 py-1.5 text-[10px] text-[#20e0b2] hover:bg-white/5 transition-colors font-bold"
+          >
+            <Plus className="w-3 h-3" />
+            <span>Connect Another Account...</span>
+          </Link>
+          <Link
+            href="/accounts"
+            onClick={() => setIsOpen(false)}
+            className="flex items-center gap-2 px-3 py-1.5 text-[10px] text-zinc-400 hover:text-white hover:bg-white/5 transition-colors font-medium"
+          >
+            <Settings className="w-3 h-3" />
+            <span>Manage Accounts ➔</span>
+          </Link>
         </div>
       )}
     </div>
@@ -182,6 +299,7 @@ function HeaderNavDropdown({ group }: { group: typeof HEADER_GROUPS[0] }) {
 
 export default function Navbar({ onMenuToggle }: { onMenuToggle?: () => void }) {
   const { data: session } = useSession();
+  const isAdmin = useIsAdmin();
   const { theme, setTheme } = useTheme();
   const user = session?.user;
   const router = useRouter();
@@ -303,6 +421,7 @@ export default function Navbar({ onMenuToggle }: { onMenuToggle?: () => void }) 
 
   const handleLogout = async () => {
     setShowProfileMenu(false);
+    clearSessionCache();
     await signOut({ redirect: false });
     router.push("/auth");
   };
@@ -331,11 +450,15 @@ export default function Navbar({ onMenuToggle }: { onMenuToggle?: () => void }) 
           </span>
         </div>
 
+
+
         {/* Dynamic Header Nav Groups */}
         <div className="hidden lg:flex items-center gap-1">
-          {HEADER_GROUPS.map(group => (
-            <HeaderNavDropdown key={group.id} group={group} />
-          ))}
+          {HEADER_GROUPS.map(group => {
+            const visibleItems = group.items.filter(item => !item.adminOnly || isAdmin);
+            if (visibleItems.length === 0) return null;
+            return <HeaderNavDropdown key={group.id} group={{ ...group, items: visibleItems }} />;
+          })}
         </div>
       </div>
 
@@ -431,8 +554,23 @@ export default function Navbar({ onMenuToggle }: { onMenuToggle?: () => void }) 
                 </div>
               </div>
               <div className="px-4 py-2.5 border-b" style={{ borderColor: "var(--border)" }}>
-                <p className="text-[12px] font-bold text-[--text-primary]">{user?.name || "Trader"}</p>
-                <p className="text-[11px] text-[--text-tertiary]">{user?.email || ""}</p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[12px] font-bold text-[--text-primary] truncate">{user?.name || "Trader"}</p>
+                  {isAdmin ? (
+                    <span className="px-1.5 py-0.2 rounded text-[8px] font-mono font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 shrink-0">
+                      👑 ADMIN
+                    </span>
+                  ) : (user as any)?.isPro ? (
+                    <span className="px-1.5 py-0.2 rounded text-[8px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0">
+                      ⚡ PRO
+                    </span>
+                  ) : (
+                    <span className="px-1.5 py-0.2 rounded text-[8px] font-mono font-bold bg-sky-500/15 text-sky-400 border border-sky-500/30 shrink-0">
+                      FREE TRIAL
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-[--text-tertiary] truncate">{user?.email || ""}</p>
               </div>
               {[
                 { icon: User, label: "My Profile", fn: () => { setShowProfileMenu(false); router.push("/profile"); } },
@@ -445,6 +583,16 @@ export default function Navbar({ onMenuToggle }: { onMenuToggle?: () => void }) 
                 </button>
               ))}
               <div className="my-1.5 border-t" style={{ borderColor: "var(--border)" }} />
+              <button
+                onClick={() => {
+                  setShowProfileMenu(false);
+                  clearSessionCache();
+                  router.push("/auth");
+                }}
+                className="w-full flex items-center gap-3 px-4 py-2 text-[12px] text-[#20e0b2] hover:bg-[#20e0b2]/10 transition-colors font-semibold"
+              >
+                <Users className="w-4 h-4" />Switch Test Role
+              </button>
               <button onClick={handleLogout}
                 className="w-full flex items-center gap-3 px-4 py-2 text-[12px] text-[--bear] hover:bg-[--bear]/10 transition-colors">
                 <LogOut className="w-4 h-4" />Logout

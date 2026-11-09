@@ -160,6 +160,12 @@
     scroll-behavior: smooth;
   }
 
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+
   body {
     @apply bg-bg-base text-text-primary font-sans;
     -webkit-font-smoothing: antialiased;
@@ -171,6 +177,12 @@
 /* ── Scrollbar styling ───────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 4px;
+  height: 0px;
+}
+
+::-webkit-scrollbar:horizontal {
+  height: 0px !important;
+  display: none !important;
 }
 
 ::-webkit-scrollbar-track {
@@ -184,6 +196,32 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--neutral);
+}
+
+/* Universal Scrollbar Hiding Utilities */
+.rfm-marquee-container,
+.rfm-marquee-container *,
+.rfm-marquee,
+.rfm-marquee *,
+.no-scrollbar,
+.no-scrollbar *,
+.scrollbar-none,
+.scrollbar-none * {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.rfm-marquee-container::-webkit-scrollbar,
+.rfm-marquee-container *::-webkit-scrollbar,
+.rfm-marquee::-webkit-scrollbar,
+.rfm-marquee *::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar,
+.no-scrollbar *::-webkit-scrollbar,
+.scrollbar-none::-webkit-scrollbar,
+.scrollbar-none *::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 /* ── Animations ───────────────────────────────────── */

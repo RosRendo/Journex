@@ -2,6 +2,7 @@
 
 import { getBackendUrl, fetchWithAuth } from "@/lib/utils";
 import AdminOnly from "@/components/AdminOnly";
+import { useIsAdmin } from "@/lib/role";
 import { useBrokerAccounts } from "@/hooks/useCsvTrades";
 import { useCsvTrades } from "@/hooks/useCsvTrades";
 import {
@@ -25,6 +26,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSession } from "@/lib/useSession";
 import { useBridgeUrl } from "@/hooks/useBridgeUrl";
+import BrokerArchitectureSelector from "@/components/accounts/BrokerArchitectureSelector";
 
 function AccountCard({
   account,
@@ -132,6 +134,7 @@ function AccountCard({
 
 function AccountsInner() {
   const { data: session } = useSession();
+  const isAdmin = useIsAdmin();
   const userEmail = session?.user?.email ?? undefined;
   const [activeTab, setActiveTab] = useState<"mt5" | "csv">("mt5");
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
@@ -199,7 +202,7 @@ function AccountsInner() {
   }, []);
 
   useEffect(() => {
-    if (!BRIDGE) return;
+    if (!BRIDGE || !isAdmin) return;
     const fetchPulse = async () => {
       try {
         setPulseLoading(true);
@@ -413,6 +416,11 @@ function AccountsInner() {
       {/* --- MT5 LIVE TAB --- */}
       {activeTab === "mt5" && (
         <div className="space-y-4 animate-fade-in flex flex-col gap-4">
+          {/* Option A & Option B Broker Architecture Selector */}
+          <BrokerArchitectureSelector
+            currentBridgeUrl={BRIDGE}
+            isProUser={(session?.user as any)?.isPro || (session?.user as any)?.plan === "lifetime"}
+          />
           
           {/* Aggregate Stats Strip */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -507,7 +515,9 @@ function AccountsInner() {
             </div>
           </div>
 
-          {/* Node Counts Strip */}
+          {/* Node Counts Strip (Admin Copier Only) */}
+          {isAdmin ? (
+            <>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-xl p-4 flex items-center justify-between shadow-sm">
               <div>
@@ -962,6 +972,18 @@ function AccountsInner() {
               )}
             </>
           )}
+            </>
+          ) : (
+            <div className="bg-[#101014] border border-[rgba(255,255,255,0.07)] rounded-xl p-5 font-mono text-xs space-y-2">
+              <div className="flex items-center gap-2 text-[#20e0b2] font-bold uppercase tracking-wider text-[11px]">
+                <CheckCircle2 className="w-4 h-4" /> Personal Broker Hub Active
+              </div>
+              <p className="text-zinc-400 text-[11px] leading-relaxed">
+                Your account routes trade telemetry directly through your selected architecture above.
+                Multi-broker copier nodes and server-wide slave routing are managed exclusively by system administrators.
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -1071,9 +1093,5 @@ function AccountsInner() {
 
 
 export default function Accounts() {
-  return (
-    <AdminOnly pageName="MT5 Accounts">
-      <AccountsInner />
-    </AdminOnly>
-  );
+  return <AccountsInner />;
 }

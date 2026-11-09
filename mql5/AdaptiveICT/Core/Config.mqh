@@ -17,7 +17,9 @@ enum ENUM_STRATEGY_TYPE
    STRATEGY_ICT_SCALPER,  // ICT Scalper (Fast structural scalp)
    STRATEGY_MEAN_REVERSION, // Mean Reversion (Session boundary reversal)
    STRATEGY_BREAKOUT,     // Breakout (Session range breakout)
-   STRATEGY_MOMENTUM_SCALPER // Momentum Scalper (High-frequency Tick Data)
+   STRATEGY_MOMENTUM_SCALPER, // Momentum Scalper (High-frequency Tick Data)
+   STRATEGY_ZONE_SNIPER,  // Zone Sniper (Pine v2.11: Buy Low / Sell High)
+   STRATEGY_SWING_TREND   // Swing Trend (HTF trend + pullback, wide trail)
   };
 
 //+------------------------------------------------------------------+
@@ -26,7 +28,8 @@ enum ENUM_STRATEGY_TYPE
 enum ENUM_POSITION_MODE
   {
    MODE_SINGLE,       // Single Position (Multi-TP + ATR Trail)
-   MODE_PARTIAL_EXIT  // Partial Exit (Close % at RR, BE, trail remainder)
+   MODE_PARTIAL_EXIT, // Partial Exit (Close % at RR, BE, trail remainder)
+   MODE_SWING         // Swing (No time decay, BE lock, wide ATR trail)
    // MODE_GRID removed: Constitution violation — grid/martingale permanently disabled (v0.1+)
   };
 
@@ -41,7 +44,10 @@ input string   InpBridgeURL         = "http://127.0.0.1:5003"; // Bridge URL (No
 //| === Strategy Selection ===                                       |
 //+------------------------------------------------------------------+
 input group "=== Strategy Selection ==="
-input ENUM_STRATEGY_TYPE InpStrategyType = STRATEGY_ICT_SNIPER; // Strategy Type
+input ENUM_STRATEGY_TYPE InpStrategyType = STRATEGY_ICT_SNIPER; // Strategy Type (ignored when Auto Strategy = true)
+input bool     InpAutoStrategy       = false;          // Auto Strategy Selection by Market Regime
+input int      InpSelMinRegimeConfidence = 60;         // Auto-Sel: Min Regime Confidence (%)
+input int      InpSelMinDwellMin     = 30;             // Auto-Sel: Min Dwell Between Switches (Min)
 input string   InpSignalTimeframe   = "H1";           // Signal Timeframe (M1/M5/M15/H1/H4/ALL)
 input string   InpContextTimeframe  = "H4";           // Context Timeframe (H4/D1)
 input string   InpSession           = "both";         // Active Sessions (london/ny/both/all)
@@ -103,7 +109,8 @@ input double   InpMRRSIOS           = 30.0;           // RSI Oversold Level
 //+------------------------------------------------------------------+
 input group "=== Momentum Scalper Parameters ==="
 input int      InpMomLookbackSec    = 30;             // Momentum Lookback (Seconds)
-input double   InpMomThresholdPips  = 5.0;            // Required Tick Movement (Pips)
+input double   InpMomThresholdPips  = 5.0;            // Required Tick Movement (Pips, per 1 bar)
+input bool     InpMomAdaptiveThreshold = true;        // Scale Momentum Threshold by sqrt(lookback bars)
 input double   InpMomSLATRMult      = 1.5;            // Momentum SL ATR Multiplier (Scalp SL)
 input int      InpMomMaxHoldingSec  = 120;            // Max Holding Time (Seconds)
 input int      InpPyramidCooldownSec = 5;             // Pyramid Entry Cooldown (Seconds)
@@ -135,12 +142,37 @@ input double   InpBEOffsetPips      = 0.0;            // Break-Even offset (pips
 //| === Risk ===                                                     |
 //+------------------------------------------------------------------+
 input group "=== Risk ==="
-input double   InpRiskPercent       = 3.0;            // Risk Per Trade (%)
+input double   InpRiskPercent       = 1.0;            // Risk Per Trade (%) - tier engine caps entries at 1% anyway
 input double   InpMaxDailyLossPct   = 3.0;            // Max Daily Loss (%)
 input double   InpMaxDrawdownPct    = 10.0;           // Max Account Drawdown % (Kill Switch)
 input int      InpMaxOpenTrades     = 3;              // Max Concurrent Open Trades
 input double   InpMinRR             = 2.5;            // Minimum Risk Reward Ratio
 input double   InpMaxBalanceCompounding = 0.0;        // Max Balance for Lot Sizing (0 = unlimited)
+
+// === Loss-Streak Cooldown (anti revenge-trading) ===
+input group "=== Loss-Streak Cooldown ==="
+input bool     InpUseLossStreakCooldown = true;     // Enable Consecutive-Loss Entry Freeze
+input int      InpLossStreakThreshold   = 3;        // Consecutive Losses Before Cooldown
+input int      InpLossStreakCooldownMin = 60;       // Cooldown Duration (Minutes)
+
+// === Zone Sniper (Pine v2.11 port) ===
+input group "=== Zone Sniper (Pine v2.11) ==="
+input int      InpZoneRangeBars     = 50;             // Premium/Discount Range Bars
+input double   InpZoneSLAtrMult     = 2.0;            // Stop Loss ATR Multiple
+input double   InpZoneTP1AtrMult    = 1.0;            // TP1 ATR Multiple (Volatility Scalp)
+input double   InpZoneMinVel        = 0.30;           // Mid Scalp Min Momentum (price delta / ATR)
+
+// === Swing Trend Engine (Phase 4) ===
+input group "=== Swing Trend Engine ==="
+input ENUM_TIMEFRAMES InpSwingHTF    = PERIOD_H4;      // Swing HTF Bias Timeframe (informational; bias uses H4)
+input int      InpSwingRangeBars    = 50;             // Swing Pullback Range Bars
+input double   InpSwingPullbackPct  = 35.0;           // Discount/Premium Pullback Band (%)
+input double   InpSwingSLAtrMult    = 2.5;            // Swing SL ATR Fallback Multiple
+input bool     InpSwingUseBE        = true;           // Swing: Move SL to BE+0.1R
+input double   InpSwingBE_RR        = 1.0;            // Swing: BE Lock Trigger (RR)
+input double   InpSwingPartialRR    = 2.0;            // Swing: Partial Exit RR (0 = disabled)
+input double   InpSwingPartialPct   = 50.0;           // Swing: Partial Exit Size (%)
+input double   InpSwingTrailATRMult = 4.0;            // Swing: ATR Trail Multiple (H1 ATR)
 
 //+------------------------------------------------------------------+
 //| === Execution & Spread Filters ===                               |
@@ -149,6 +181,12 @@ input group "=== Execution & Spread Filters ==="
 input int      InpMaxSpreadPoints   = 300;            // Maximum Spread (points)
 input int      InpMaxSlippagePoints = 30;             // Maximum Slippage (points)
 input int      InpMinSLPips         = 15;             // Minimum Stop Loss (Pips)
+
+// === Regime Detector Calibration (relative volatility) ===
+input group "=== Regime Detector Calibration ==="
+input int      InpRegimeBaselineBars    = 100;        // ATR Baseline Window (bars)
+input double   InpRegimeVolSpikeRatio   = 2.0;        // ATR vs Baseline Ratio -> HIGH Volatility
+input double   InpRegimeVolDeadRatio    = 0.5;        // ATR vs Baseline Ratio -> LOW Volatility
 input bool     InpAllowMonday       = true;           // Allow Monday Trading
 input bool     InpAllowFriday       = true;           // Allow Friday Trading
 input int      InpFridayCloseHour   = 16;             // Friday Close Hour (Server time)

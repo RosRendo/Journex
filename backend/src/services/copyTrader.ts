@@ -28,7 +28,7 @@ export async function executeCopyTrade(
     if (!account.active) continue;
 
     // Calculate scaled volume (e.g., if master is 50k and prop1 is 100k, volume is 2x)
-    const ratio = account.balance / masterAccount.balance;
+    const ratio = masterAccount.balance > 0 ? account.balance / masterAccount.balance : 1.0;
     const scaledVolume = Math.max(0.01, Number((volume * ratio * account.riskMultiplier).toFixed(2)));
 
     console.log(`[CopyTrader] Preparing execution for ${account.name} (Balance: $${account.balance})`);

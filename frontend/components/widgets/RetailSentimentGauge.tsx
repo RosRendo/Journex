@@ -71,17 +71,18 @@ export function RetailSentimentGauge() {
     return () => clearInterval(timer);
   }, [fetchAllSentiments]);
 
+  const hasRealData = Boolean(allSentiments[selectedSymbol]);
   const activeData = allSentiments[selectedSymbol] || {
     symbol: selectedSymbol,
-    long_pct: 50,
-    short_pct: 50,
-    source: "Connecting to broker...",
+    long_pct: 0,
+    short_pct: 0,
+    source: "Broker Feed Offline",
   };
 
   const longPct = activeData.long_pct;
   const shortPct = activeData.short_pct;
-  const isExtremeLong = longPct >= 70;
-  const isExtremeShort = shortPct >= 70;
+  const isExtremeLong = hasRealData && longPct >= 70;
+  const isExtremeShort = hasRealData && shortPct >= 70;
   const isExtreme = isExtremeLong || isExtremeShort;
 
   return (
@@ -177,68 +178,82 @@ export function RetailSentimentGauge() {
           )}
         </div>
 
-        {/* Big Percentage Counters */}
-        <div className="flex justify-between items-end">
-          <div>
-            <div className="text-[9px] font-bold uppercase tracking-widest text-[#20e0b2]">
-              Retail Buyers
-            </div>
-            <div className="text-2xl font-black text-[#20e0b2] tabular-nums mt-0.5">
-              {longPct.toFixed(1)}%
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="text-[9px] font-bold uppercase tracking-widest text-[#ff5c73]">
-              Retail Sellers
-            </div>
-            <div className="text-2xl font-black text-[#ff5c73] tabular-nums mt-0.5">
-              {shortPct.toFixed(1)}%
-            </div>
-          </div>
-        </div>
-
-        {/* Bi-Directional Animated Bar */}
-        <div className="h-3.5 w-full rounded-full flex overflow-hidden border border-white/10 bg-black">
-          <motion.div
-            initial={{ width: "50%" }}
-            animate={{ width: `${longPct}%` }}
-            transition={{ type: "spring", stiffness: 60 }}
-            className="h-full bg-[#20e0b2] relative"
-          />
-          <motion.div
-            initial={{ width: "50%" }}
-            animate={{ width: `${shortPct}%` }}
-            transition={{ type: "spring", stiffness: 60 }}
-            className="h-full bg-[#ff5c73] relative"
-          />
-        </div>
-
-        {/* Contrarian Signal Output */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between pt-2 border-t border-white/[0.05] text-[9.5px] gap-2">
-          <div>
-            <span className="text-zinc-500 uppercase tracking-wider">Institutional Bias: </span>
-            <span
-              className={`font-black uppercase tracking-wider ${
-                longPct > 55
-                  ? "text-rose-400"
-                  : shortPct > 55
-                  ? "text-emerald-400"
-                  : "text-zinc-300"
-              }`}
-            >
-              {longPct >= 70
-                ? "⚡ High Liquidity Fade: Look for Short Sweeps"
-                : shortPct >= 70
-                ? "⚡ High Liquidity Fade: Look for Long Bounces"
-                : longPct > 55
-                ? "Slight Bearish Fade Bias"
-                : shortPct > 55
-                ? "Slight Bullish Fade Bias"
-                : "Balanced / Neutral Positioning"}
+        {!hasRealData ? (
+          <div className="py-6 flex flex-col items-center justify-center text-center font-mono space-y-2">
+            <ShieldAlert className="w-6 h-6 text-amber-400" />
+            <span className="text-xs font-bold text-white uppercase tracking-wider">
+              Sentiment Telemetry Offline ({selectedSymbol})
             </span>
+            <p className="text-[10px] text-zinc-500 max-w-xs font-sans">
+              Live broker order book positioning is currently unavailable. Mock ratios disabled to protect decision integrity.
+            </p>
           </div>
-          <span className="text-[8px] text-zinc-600">Updated: Real-Time Stream</span>
-        </div>
+        ) : (
+          <>
+            {/* Big Percentage Counters */}
+            <div className="flex justify-between items-end">
+              <div>
+                <div className="text-[9px] font-bold uppercase tracking-widest text-[#20e0b2]">
+                  Retail Buyers
+                </div>
+                <div className="text-2xl font-black text-[#20e0b2] tabular-nums mt-0.5">
+                  {longPct.toFixed(1)}%
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-[9px] font-bold uppercase tracking-widest text-[#ff5c73]">
+                  Retail Sellers
+                </div>
+                <div className="text-2xl font-black text-[#ff5c73] tabular-nums mt-0.5">
+                  {shortPct.toFixed(1)}%
+                </div>
+              </div>
+            </div>
+
+            {/* Bi-Directional Animated Bar */}
+            <div className="h-3.5 w-full rounded-full flex overflow-hidden border border-white/10 bg-black">
+              <motion.div
+                initial={{ width: "50%" }}
+                animate={{ width: `${longPct}%` }}
+                transition={{ type: "spring", stiffness: 60 }}
+                className="h-full bg-[#20e0b2] relative"
+              />
+              <motion.div
+                initial={{ width: "50%" }}
+                animate={{ width: `${shortPct}%` }}
+                transition={{ type: "spring", stiffness: 60 }}
+                className="h-full bg-[#ff5c73] relative"
+              />
+            </div>
+
+            {/* Contrarian Signal Output */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pt-2 border-t border-white/[0.05] text-[9.5px] gap-2">
+              <div>
+                <span className="text-zinc-500 uppercase tracking-wider">Institutional Bias: </span>
+                <span
+                  className={`font-black uppercase tracking-wider ${
+                    longPct > 55
+                      ? "text-rose-400"
+                      : shortPct > 55
+                      ? "text-emerald-400"
+                      : "text-zinc-300"
+                  }`}
+                >
+                  {longPct >= 70
+                    ? "⚡ High Liquidity Fade: Look for Short Sweeps"
+                    : shortPct >= 70
+                    ? "⚡ High Liquidity Fade: Look for Long Bounces"
+                    : longPct > 55
+                    ? "Slight Bearish Fade Bias"
+                    : shortPct > 55
+                    ? "Slight Bullish Fade Bias"
+                    : "Balanced / Neutral Positioning"}
+                </span>
+              </div>
+              <span className="text-[8px] text-zinc-600">Updated: Real-Time Stream</span>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

@@ -17,5 +17,9 @@ public:
    virtual void ManagePositions() = 0;
    virtual void RegisterPosition(ulong ticket, double original_sl, double tp1, double tp2, double tp3) {}
    
+   // Position-state persistence (no-op unless overridden by a manager)
+   virtual void SaveState() {}
+   virtual void RestoreState() {}
+   
    virtual ~BasePositionManager() {}
-  };
+   };

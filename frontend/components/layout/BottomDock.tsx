@@ -5,23 +5,27 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { 
   LayoutDashboard, Terminal, BookOpen, TrendingUp, Globe, 
-  GraduationCap, User, Plus, Compass
+  GraduationCap, User, Plus, Compass, Radio
 } from "lucide-react";
+import { useIsAdmin } from "@/lib/role";
 
 export function BottomDock({ onOpenCommandPalette }: { onOpenCommandPalette: () => void }) {
   const pathname = usePathname();
   const [hovered, setHovered] = useState<string | null>(null);
+  const isAdmin = useIsAdmin();
 
   const navItems = [
     { id: "dashboard", href: "/dashboard", icon: LayoutDashboard, tooltip: "Dashboard" },
-    { id: "terminal", href: "/terminal", icon: Terminal, tooltip: "Terminal" },
+    ...(isAdmin
+      ? [{ id: "terminal", href: "/terminal", icon: Terminal, tooltip: "Terminal" }]
+      : [{ id: "signals", href: "/signals", icon: Radio, tooltip: "Signals" }]),
     { id: "journal", href: "/journal", icon: BookOpen, tooltip: "Journal" },
   ];
 
   const secondaryItems: Array<{ id: string; href?: string; icon: any; tooltip: string; action?: () => void }> = [
     { id: "macro", href: "/macro/XAUUSD", icon: TrendingUp, tooltip: "Macro Desk" },
     { id: "markets", href: "/calendar", icon: Globe, tooltip: "Markets" },
-    { id: "education", href: "/playbook", icon: GraduationCap, tooltip: "Lessons" },
+    ...(isAdmin ? [{ id: "education", href: "/playbook", icon: GraduationCap, tooltip: "Lessons" }] : []),
     { 
       id: "ecosystem", 
       icon: Compass, 

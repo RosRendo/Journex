@@ -1,4 +1,6 @@
 "use client";
+
+import { sanitizeChartData } from "@/lib/chartSanitizer";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -293,7 +295,7 @@ export function TradeReplayModal({ tradeId, onClose }: TradeReplayModalProps) {
       close: c.close,
     }));
 
-    seriesRef.current.setData(visibleData);
+    try { seriesRef.current.setData(sanitizeChartData(visibleData) as any); } catch (_) {}
 
     // Update Price Lines (Entry, SL, TP, Exit)
     updatePriceLines();

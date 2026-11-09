@@ -19,11 +19,32 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   CheckCircle2,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import { createChart, LineStyle } from "lightweight-charts";
 import { RealCandle, RealLevels, RealPosition } from "@/hooks/useCommandCenterRealData";
 import { useWebSocket } from "@/components/providers/WebSocketProvider";
 import { listDrawings, addDrawing, clearDrawings } from "@/lib/terminalApi";
+import { sanitizeChartData } from "@/lib/chartSanitizer";
+import TradingViewWidgetComponent from "@/components/ui/TradingViewWidget";
+
+function mapTfToTvInterval(tf: string): string {
+  const t = (tf || "").toUpperCase();
+  if (t === "1M" || t === "M1") return "1";
+  if (t === "3M" || t === "M3") return "3";
+  if (t === "5M" || t === "M5") return "5";
+  if (t === "15M" || t === "M15") return "15";
+  if (t === "30M" || t === "M30") return "30";
+  if (t === "1H" || t === "H1" || t === "60") return "60";
+  if (t === "2H" || t === "H2") return "120";
+  if (t === "4H" || t === "H4" || t === "240") return "240";
+  if (t === "8H" || t === "H8") return "240";
+  if (t === "D1" || t === "1D" || t === "D") return "D";
+  if (t === "W1" || t === "1W" || t === "W") return "W";
+  if (t === "MN" || t === "1MN" || t === "M") return "M";
+  return "15";
+}
 
 interface Props {
   symbol: string;
@@ -44,13 +65,34 @@ interface Props {
   className?: string;
 }
 
-const TIMEFRAMES = ["M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1"];
+const TIMEFRAMES = ["1m", "3m", "5m", "15m", "30m", "1H", "2H", "4H", "8H", "D", "W", "M"];
+
+const normalizeTf = (tf: string) => {
+  const t = (tf || "").toUpperCase();
+  if (t === "M1" || t === "1M") return "1m";
+  if (t === "M3" || t === "3M") return "3m";
+  if (t === "M5" || t === "5M") return "5m";
+  if (t === "M15" || t === "15M") return "15m";
+  if (t === "M30" || t === "30M") return "30m";
+  if (t === "H1" || t === "1H") return "1H";
+  if (t === "H2" || t === "2H") return "2H";
+  if (t === "H4" || t === "4H") return "4H";
+  if (t === "H8" || t === "8H") return "8H";
+  if (t === "D1" || t === "1D" || t === "D") return "D";
+  if (t === "W1" || t === "1W" || t === "W") return "W";
+  if (t === "MN" || t === "1MN" || t === "M") return "M";
+  return tf;
+};
 
 const DRAWING_TOOLS = [
-  { key: "trendline", label: "Trendline", hint: "Click 2 points on chart" },
-  { key: "fib", label: "Fibonacci", hint: "Click High and Low points" },
-  { key: "zone", label: "Order Block", hint: "Click Top and Bottom bounds" },
-  { key: "hline", label: "Horizontal Ray", hint: "Click price level to place" },
+  { key: "hline", label: "HL", title: "Horizontal Line", hint: "Click price level to place" },
+  { key: "vline", label: "VL", title: "Vertical Line", hint: "Click time bar to place" },
+  { key: "trendline", label: "T", title: "Trendline", hint: "Click 2 points on chart" },
+  { key: "ray", label: "R", title: "Ray Line", hint: "Click 2 points to extend ray" },
+  { key: "zone", label: "QZ", title: "Quant Zone", hint: "Click Top and Bottom bounds" },
+  { key: "fib", label: "FR", title: "Fib Retracement", hint: "Click High and Low points" },
+  { key: "long", label: "LP", title: "Long Position", hint: "Click entry & stop loss" },
+  { key: "short", label: "SP", title: "Short Position", hint: "Click entry & stop loss" },
 ];
 
 const CHART_COLORS = {
@@ -181,6 +223,7 @@ export default function ChartCanvas({
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
   const [tradeLotSize, setTradeLotSize] = useState<number>(0.01);
   const [showOrderStrip, setShowOrderStrip] = useState<boolean>(true);
+  const [chartEngine, setChartEngine] = useState<"auto" | "mt5" | "cloud">("auto");
 
   // Indicators State
   const [indicators, setIndicators] = useState({
@@ -250,12 +293,46 @@ export default function ChartCanvas({
     );
   }, [livePrices, normalizedSymbol, symbol]);
 
-  const [livePrice, setLivePrice] = useState<number>(bidPrice || currentPrice || (symbol === "XAUUSD" ? 4152.2 : 1.085));
+  const [livePrice, setLivePrice] = useState<number>(bidPrice || currentPrice || 4424.26);
   const [tickFlash, setTickFlash] = useState<"up" | "down" | null>(null);
   const [tickCount, setTickCount] = useState<number>(0);
   const lastPriceRef = useRef<number>(livePrice);
   const lastTickTimeRef = useRef<number>(Date.now());
   const lastCandleRef = useRef<any>(null);
+  const isInitialFitDoneRef = useRef<boolean>(false);
+  const lastSymbolRef = useRef<string>(symbol);
+  const lastTimeframeRef = useRef<string>(timeframe);
+
+  // Reset viewport fit lock and clear stale data when symbol or timeframe changes
+  useEffect(() => {
+    if (lastSymbolRef.current !== symbol || lastTimeframeRef.current !== timeframe) {
+      lastSymbolRef.current = symbol;
+      lastTimeframeRef.current = timeframe;
+      isInitialFitDoneRef.current = false;
+      lastCandleRef.current = null;
+      try {
+        if (candleSeriesRef.current) candleSeriesRef.current.setData([]);
+        if (lineSeriesRef.current) lineSeriesRef.current.setData([]);
+        if (areaSeriesRef.current) areaSeriesRef.current.setData([]);
+        if (volumeSeriesRef.current) volumeSeriesRef.current.setData([]);
+        if (ma20SeriesRef.current) ma20SeriesRef.current.setData([]);
+        if (ma50SeriesRef.current) ma50SeriesRef.current.setData([]);
+        if (ma200SeriesRef.current) ma200SeriesRef.current.setData([]);
+        if (bbUpperSeriesRef.current) bbUpperSeriesRef.current.setData([]);
+        if (bbLowerSeriesRef.current) bbLowerSeriesRef.current.setData([]);
+        if (rsiSeriesRef.current) rsiSeriesRef.current.setData([]);
+        if (macdLineRef.current) macdLineRef.current.setData([]);
+        if (macdSignalRef.current) macdSignalRef.current.setData([]);
+        if (macdHistRef.current) macdHistRef.current.setData([]);
+        priceLinesRef.current.forEach((pl) => {
+          try {
+            candleSeriesRef.current?.removePriceLine(pl);
+          } catch (_) {}
+        });
+        priceLinesRef.current = [];
+      } catch (_) {}
+    }
+  }, [symbol, timeframe]);
 
   const digits = symbol === "XAUUSD" || symbol.includes("JPY") ? 2 : 5;
 
@@ -264,36 +341,16 @@ export default function ChartCanvas({
     return positions.find((p) => p.pair.toUpperCase().replace("/", "") === symbol.replace("/", ""));
   }, [positions, symbol]);
 
-  // Synthetic candles fallback if realCandles is empty
+  // Real candles only — strictly zero synthetic data to avoid confusing trading decisions
   const displayCandles = useMemo(() => {
     if (realCandles && realCandles.length >= 5) {
-      return [...realCandles].sort((a, b) => a.time - b.time);
+      return sanitizeChartData(realCandles);
     }
-    const base = currentPrice || (symbol === "XAUUSD" ? 4152.2 : 1.085);
-    const items: RealCandle[] = [];
-    let p = base * 0.992;
-    const now = Math.floor(Date.now() / 1000);
-    const stepSeconds = timeframe === "M1" ? 60 : timeframe === "M5" ? 300 : timeframe === "H1" ? 3600 : 900;
+    return [];
+  }, [realCandles]);
 
-    for (let i = 90; i >= 0; i--) {
-      const open = p;
-      const vol = base * 0.0016;
-      const change = (Math.sin(i * 0.35) + (Math.random() - 0.48)) * vol;
-      const close = open + change;
-      const high = Math.max(open, close) + Math.random() * vol * 0.45;
-      const low = Math.min(open, close) - Math.random() * vol * 0.45;
-      p = close;
-      items.push({
-        time: now - i * stepSeconds,
-        open: +open.toFixed(digits),
-        high: +high.toFixed(digits),
-        low: +low.toFixed(digits),
-        close: +close.toFixed(digits),
-        volume: Math.floor(1400 + Math.random() * 2600),
-      });
-    }
-    return items;
-  }, [realCandles, currentPrice, timeframe, digits]);
+  // Determine active chart engine mode
+  const isCloudMode = chartEngine === "cloud" || (chartEngine === "auto" && displayCandles.length === 0);
 
   // Load Persisted Drawings for this symbol
   useEffect(() => {
@@ -355,6 +412,9 @@ export default function ChartCanvas({
         borderColor: CHART_COLORS.border,
         timeVisible: true,
         secondsVisible: false,
+        rightOffset: 12,
+        barSpacing: 6,
+        minBarSpacing: 2,
       },
       autoSize: true,
     });
@@ -519,7 +579,35 @@ export default function ChartCanvas({
     };
     chart.subscribeCrosshairMove(handleCrosshairMove);
 
+    // Initial data hydration if already available
+    if (displayCandles.length > 0) {
+      if (candleSeriesRef.current) candleSeriesRef.current.setData(displayCandles);
+      if (lineSeriesRef.current) lineSeriesRef.current.setData(displayCandles.map((c) => ({ time: c.time, value: c.close })));
+      if (areaSeriesRef.current) areaSeriesRef.current.setData(displayCandles.map((c) => ({ time: c.time, value: c.close })));
+      if (volumeSeriesRef.current) {
+        volumeSeriesRef.current.setData(
+          displayCandles.map((c) => ({
+            time: c.time,
+            value: c.volume,
+            color: c.close >= c.open ? CHART_COLORS.volUp : CHART_COLORS.volDown,
+          }))
+        );
+      }
+      chart.timeScale().fitContent();
+    }
+
+    // Resize observer to ensure zero-glitch layout responsiveness
+    const resizeObserver = new ResizeObserver((entries) => {
+      if (!entries || entries.length === 0 || !chartRef.current) return;
+      const { width, height } = entries[0].contentRect;
+      if (width > 0 && height > 0) {
+        chartRef.current.resize(width, height);
+      }
+    });
+    resizeObserver.observe(containerRef.current);
+
     return () => {
+      resizeObserver.disconnect();
       chart.unsubscribeClick(handleChartClick);
       chart.unsubscribeCrosshairMove(handleCrosshairMove);
       chart.remove();
@@ -527,95 +615,205 @@ export default function ChartCanvas({
     };
   }, [digits, handleDrawingComplete]);
 
-  // Update Data and Visibility
+  // Handle visibility & resize transition when switching between MT5 and Cloud
+  useEffect(() => {
+    if (!isCloudMode && chartRef.current && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        chartRef.current.resize(rect.width, rect.height);
+      }
+      chartRef.current.timeScale().fitContent();
+    }
+  }, [isCloudMode]);
+
+  // Handle fullscreen / theater mode resize
+  useEffect(() => {
+    if (chartRef.current && containerRef.current) {
+      const timer = setTimeout(() => {
+        if (containerRef.current && chartRef.current) {
+          const w = containerRef.current.clientWidth;
+          const h = containerRef.current.clientHeight;
+          if (w > 0 && h > 0) {
+            chartRef.current.resize(w, h);
+            chartRef.current.timeScale().fitContent();
+          }
+        }
+      }, 60);
+      return () => clearTimeout(timer);
+    }
+  }, [isExpanded]);
+
+  // Helper to sync all indicator sub-series cleanly without touching candle series
+  const updateCanvasIndicators = useCallback(
+    (candlesList: RealCandle[]) => {
+      if (!candlesList || candlesList.length === 0) return;
+
+      if (ma20SeriesRef.current) {
+        ma20SeriesRef.current.applyOptions({ visible: indicators.ma20 });
+        ma20SeriesRef.current.setData(indicators.ma20 ? computeSMA(candlesList, 20) : []);
+      }
+
+      if (ma50SeriesRef.current) {
+        ma50SeriesRef.current.applyOptions({ visible: indicators.ma50 });
+        ma50SeriesRef.current.setData(indicators.ma50 ? computeSMA(candlesList, 50) : []);
+      }
+
+      if (ma200SeriesRef.current) {
+        ma200SeriesRef.current.applyOptions({ visible: indicators.ma200 });
+        ma200SeriesRef.current.setData(indicators.ma200 ? computeSMA(candlesList, 200) : []);
+      }
+
+      if (bbUpperSeriesRef.current && bbLowerSeriesRef.current) {
+        if (indicators.bb) {
+          const bb = computeBollingerBands(candlesList, 20, 2);
+          bbUpperSeriesRef.current.applyOptions({ visible: true });
+          bbLowerSeriesRef.current.applyOptions({ visible: true });
+          bbUpperSeriesRef.current.setData(bb.upper);
+          bbLowerSeriesRef.current.setData(bb.lower);
+        } else {
+          bbUpperSeriesRef.current.applyOptions({ visible: false });
+          bbLowerSeriesRef.current.applyOptions({ visible: false });
+          bbUpperSeriesRef.current.setData([]);
+          bbLowerSeriesRef.current.setData([]);
+        }
+      }
+
+      if (rsiSeriesRef.current) {
+        rsiSeriesRef.current.applyOptions({ visible: indicators.rsi });
+        rsiSeriesRef.current.setData(indicators.rsi ? computeRSI(candlesList) : []);
+      }
+
+      if (macdLineRef.current && macdSignalRef.current && macdHistRef.current) {
+        if (indicators.macd) {
+          const macd = computeMACD(candlesList);
+          macdLineRef.current.applyOptions({ visible: true });
+          macdSignalRef.current.applyOptions({ visible: true });
+          macdHistRef.current.applyOptions({ visible: true });
+          macdLineRef.current.setData(macd.macd);
+          macdSignalRef.current.setData(macd.signal);
+          macdHistRef.current.setData(macd.hist);
+        } else {
+          macdLineRef.current.applyOptions({ visible: false });
+          macdSignalRef.current.applyOptions({ visible: false });
+          macdHistRef.current.applyOptions({ visible: false });
+          macdLineRef.current.setData([]);
+          macdSignalRef.current.setData([]);
+          macdHistRef.current.setData([]);
+        }
+      }
+    },
+    [indicators]
+  );
+
+  // ── ZERO-GLITCH DATA & VIEWPORT PIPELINE ──
+  // 1. Initial load or symbol/timeframe switch: setData once + fitContent once.
+  // 2. Intra-bar ticks: update(last) without full setData or resetting zoom.
+  // 3. New bar formation: update(newBar) without snapping zoom.
   useEffect(() => {
     if (!chartRef.current || displayCandles.length === 0) return;
 
-    if (candleSeriesRef.current) {
-      candleSeriesRef.current.applyOptions({ visible: chartType === "candles" });
-      candleSeriesRef.current.setData(displayCandles);
-    }
+    const incomingLast = displayCandles[displayCandles.length - 1];
+    const currentLast = lastCandleRef.current;
+    const isSameActiveBar = currentLast && incomingLast && currentLast.time === incomingLast.time;
 
-    if (lineSeriesRef.current) {
-      lineSeriesRef.current.applyOptions({ visible: chartType === "line" });
-      lineSeriesRef.current.setData(displayCandles.map((c) => ({ time: c.time, value: c.close })));
-    }
-
-    if (areaSeriesRef.current) {
-      areaSeriesRef.current.applyOptions({ visible: chartType === "area" });
-      areaSeriesRef.current.setData(displayCandles.map((c) => ({ time: c.time, value: c.close })));
-    }
-
-    if (volumeSeriesRef.current) {
-      volumeSeriesRef.current.applyOptions({ visible: indicators.volume });
-      volumeSeriesRef.current.setData(
-        displayCandles.map((c) => ({
-          time: c.time,
-          value: c.volume,
-          color: c.close >= c.open ? CHART_COLORS.volUp : CHART_COLORS.volDown,
-        }))
-      );
-    }
-
-    if (ma20SeriesRef.current) {
-      ma20SeriesRef.current.applyOptions({ visible: indicators.ma20 });
-      ma20SeriesRef.current.setData(indicators.ma20 ? computeSMA(displayCandles, 20) : []);
-    }
-
-    if (ma50SeriesRef.current) {
-      ma50SeriesRef.current.applyOptions({ visible: indicators.ma50 });
-      ma50SeriesRef.current.setData(indicators.ma50 ? computeSMA(displayCandles, 50) : []);
-    }
-
-    if (ma200SeriesRef.current) {
-      ma200SeriesRef.current.applyOptions({ visible: indicators.ma200 });
-      ma200SeriesRef.current.setData(indicators.ma200 ? computeSMA(displayCandles, 200) : []);
-    }
-
-    // Bollinger Bands
-    if (bbUpperSeriesRef.current && bbLowerSeriesRef.current) {
-      if (indicators.bb) {
-        const bb = computeBollingerBands(displayCandles, 20, 2);
-        bbUpperSeriesRef.current.applyOptions({ visible: true });
-        bbLowerSeriesRef.current.applyOptions({ visible: true });
-        bbUpperSeriesRef.current.setData(bb.upper);
-        bbLowerSeriesRef.current.setData(bb.lower);
-      } else {
-        bbUpperSeriesRef.current.applyOptions({ visible: false });
-        bbLowerSeriesRef.current.applyOptions({ visible: false });
-        bbUpperSeriesRef.current.setData([]);
-        bbLowerSeriesRef.current.setData([]);
+    try {
+      // 1. Initial Load or Symbol/Timeframe switch: full setData + fitContent once
+      if (!isInitialFitDoneRef.current || !currentLast) {
+        if (candleSeriesRef.current) candleSeriesRef.current.setData(displayCandles);
+        if (lineSeriesRef.current) lineSeriesRef.current.setData(displayCandles.map((c) => ({ time: c.time, value: c.close })));
+        if (areaSeriesRef.current) areaSeriesRef.current.setData(displayCandles.map((c) => ({ time: c.time, value: c.close })));
+        if (volumeSeriesRef.current) {
+          volumeSeriesRef.current.setData(
+            displayCandles.map((c) => ({
+              time: c.time,
+              value: c.volume,
+              color: c.close >= c.open ? CHART_COLORS.volUp : CHART_COLORS.volDown,
+            }))
+          );
+        }
+        updateCanvasIndicators(displayCandles);
+        if (displayCandles.length < 60) {
+          chartRef.current.timeScale().applyOptions({
+            barSpacing: 18,
+            rightOffset: 12,
+          });
+          chartRef.current.timeScale().scrollToRealtime();
+        } else {
+          chartRef.current.timeScale().applyOptions({
+            barSpacing: 6,
+            rightOffset: 12,
+          });
+          chartRef.current.timeScale().fitContent();
+        }
+        isInitialFitDoneRef.current = true;
+        lastCandleRef.current = incomingLast;
+        return;
       }
-    }
 
-    // RSI
-    if (rsiSeriesRef.current) {
-      rsiSeriesRef.current.applyOptions({ visible: indicators.rsi });
-      rsiSeriesRef.current.setData(indicators.rsi ? computeRSI(displayCandles) : []);
-    }
-
-    // MACD
-    if (macdLineRef.current && macdSignalRef.current && macdHistRef.current) {
-      if (indicators.macd) {
-        const macd = computeMACD(displayCandles);
-        macdLineRef.current.applyOptions({ visible: true });
-        macdSignalRef.current.applyOptions({ visible: true });
-        macdHistRef.current.applyOptions({ visible: true });
-        macdLineRef.current.setData(macd.macd);
-        macdSignalRef.current.setData(macd.signal);
-        macdHistRef.current.setData(macd.hist);
-      } else {
-        macdLineRef.current.applyOptions({ visible: false });
-        macdSignalRef.current.applyOptions({ visible: false });
-        macdHistRef.current.applyOptions({ visible: false });
-        macdLineRef.current.setData([]);
-        macdSignalRef.current.setData([]);
-        macdHistRef.current.setData([]);
+      // 2. Intra-bar update (same timestamp): Smoothly update the current bar, NEVER call fitContent or setData!
+      if (isSameActiveBar) {
+        if (chartType === "candles" && candleSeriesRef.current) {
+          candleSeriesRef.current.update(incomingLast);
+        } else if (chartType === "line" && lineSeriesRef.current) {
+          lineSeriesRef.current.update({ time: incomingLast.time, value: incomingLast.close });
+        } else if (chartType === "area" && areaSeriesRef.current) {
+          areaSeriesRef.current.update({ time: incomingLast.time, value: incomingLast.close });
+        }
+        if (volumeSeriesRef.current) {
+          volumeSeriesRef.current.update({
+            time: incomingLast.time,
+            value: incomingLast.volume,
+            color: incomingLast.close >= incomingLast.open ? CHART_COLORS.volUp : CHART_COLORS.volDown,
+          });
+        }
+        lastCandleRef.current = incomingLast;
+        return;
       }
-    }
 
-    chartRef.current.timeScale().fitContent();
-  }, [displayCandles, chartType, indicators]);
+      // 3. New bar formation (incoming > current): Append smoothly without resetting zoom
+      if (incomingLast.time > currentLast.time) {
+        if (chartType === "candles" && candleSeriesRef.current) {
+          candleSeriesRef.current.update(incomingLast);
+        } else if (chartType === "line" && lineSeriesRef.current) {
+          lineSeriesRef.current.update({ time: incomingLast.time, value: incomingLast.close });
+        } else if (chartType === "area" && areaSeriesRef.current) {
+          areaSeriesRef.current.update({ time: incomingLast.time, value: incomingLast.close });
+        }
+        if (volumeSeriesRef.current) {
+          volumeSeriesRef.current.update({
+            time: incomingLast.time,
+            value: incomingLast.volume,
+            color: incomingLast.close >= incomingLast.open ? CHART_COLORS.volUp : CHART_COLORS.volDown,
+          });
+        }
+        updateCanvasIndicators(displayCandles);
+        lastCandleRef.current = incomingLast;
+        return;
+      }
+
+      // 4. Data reload
+      if (candleSeriesRef.current) candleSeriesRef.current.setData(displayCandles);
+      if (lineSeriesRef.current) lineSeriesRef.current.setData(displayCandles.map((c) => ({ time: c.time, value: c.close })));
+      if (areaSeriesRef.current) areaSeriesRef.current.setData(displayCandles.map((c) => ({ time: c.time, value: c.close })));
+      updateCanvasIndicators(displayCandles);
+      lastCandleRef.current = incomingLast;
+    } catch (err) {
+      console.warn("ChartCanvas smooth update error:", err);
+    }
+  }, [displayCandles, chartType, updateCanvasIndicators]);
+
+  // Separate effect for indicator toggle: never touches candles or zoom
+  useEffect(() => {
+    if (!chartRef.current || displayCandles.length === 0) return;
+    updateCanvasIndicators(displayCandles);
+  }, [indicators, displayCandles, updateCanvasIndicators]);
+
+  // Separate effect for chartType visibility: never calls fitContent
+  useEffect(() => {
+    if (candleSeriesRef.current) candleSeriesRef.current.applyOptions({ visible: chartType === "candles" });
+    if (lineSeriesRef.current) lineSeriesRef.current.applyOptions({ visible: chartType === "line" });
+    if (areaSeriesRef.current) areaSeriesRef.current.applyOptions({ visible: chartType === "area" });
+  }, [chartType]);
 
   // Render Persisted & Active Drawings on the Chart
   useEffect(() => {
@@ -723,8 +921,15 @@ export default function ChartCanvas({
     });
     priceLinesRef.current = [];
 
+    // Only draw price lines if candles are present and price matches chart scale
+    const hasCandles = displayCandles.length > 0;
+    const minP = hasCandles ? Math.min(...displayCandles.map((c) => c.low)) : 0;
+    const maxP = hasCandles ? Math.max(...displayCandles.map((c) => c.high)) : 0;
+    const range = (maxP - minP) || maxP * 0.1;
+    const isPriceCompatible = (p: number) => !hasCandles || (p >= minP - range * 0.5 && p <= maxP + range * 0.5);
+
     // 1. Entry Line
-    if (entryPrice && entryPrice > 0) {
+    if (entryPrice && entryPrice > 0 && isPriceCompatible(entryPrice)) {
       const pl = series.createPriceLine({
         price: entryPrice,
         color: "#94a3b8",
@@ -737,7 +942,7 @@ export default function ChartCanvas({
     }
 
     // 2. Stop Loss Line
-    if (slPrice && slPrice > 0) {
+    if (slPrice && slPrice > 0 && isPriceCompatible(slPrice)) {
       const pl = series.createPriceLine({
         price: slPrice,
         color: "#f43f5e",
@@ -750,7 +955,7 @@ export default function ChartCanvas({
     }
 
     // 3. Take Profit 1 Line
-    if (tp1Price && tp1Price > 0) {
+    if (tp1Price && tp1Price > 0 && isPriceCompatible(tp1Price)) {
       const pl = series.createPriceLine({
         price: tp1Price,
         color: "#10b981",
@@ -763,7 +968,7 @@ export default function ChartCanvas({
     }
 
     // 4. Take Profit 2 Line
-    if (tp2Price && tp2Price > 0) {
+    if (tp2Price && tp2Price > 0 && isPriceCompatible(tp2Price)) {
       const pl = series.createPriceLine({
         price: tp2Price,
         color: "#059669",
@@ -776,7 +981,7 @@ export default function ChartCanvas({
     }
 
     // 5. Active Live Position Line
-    if (activePosition && activePosition.entry > 0) {
+    if (activePosition && activePosition.entry > 0 && isPriceCompatible(activePosition.entry)) {
       const isProfitable = activePosition.pnl >= 0;
       const pl = series.createPriceLine({
         price: activePosition.entry,
@@ -836,43 +1041,6 @@ export default function ChartCanvas({
       } catch (_) {}
     }
   }, [activeWsTick, displayCandles, chartType]);
-
-  // Live Heartbeat Flutter (Ensures active candle wick and price flutter continuously if stream pauses)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const elapsed = Date.now() - lastTickTimeRef.current;
-      if (elapsed > 1200 && candleSeriesRef.current && lastCandleRef.current) {
-        const pipUnit = symbol === "XAUUSD" ? 0.05 : symbol.includes("JPY") ? 0.01 : 0.0001;
-        const delta = (Math.random() - 0.495) * pipUnit;
-        const newPrice = +(lastCandleRef.current.close + delta).toFixed(digits);
-
-        const updated = {
-          ...lastCandleRef.current,
-          close: newPrice,
-          high: Math.max(lastCandleRef.current.high, newPrice),
-          low: Math.min(lastCandleRef.current.low, newPrice),
-        };
-        lastCandleRef.current = updated;
-
-        try {
-          if (chartType === "candles") {
-            candleSeriesRef.current.update(updated);
-          } else if (lineSeriesRef.current) {
-            lineSeriesRef.current.update({ time: updated.time, value: updated.close });
-          } else if (areaSeriesRef.current) {
-            areaSeriesRef.current.update({ time: updated.time, value: updated.close });
-          }
-        } catch (_) {}
-
-        const prev = lastPriceRef.current;
-        lastPriceRef.current = newPrice;
-        setLivePrice(newPrice);
-        setTickFlash(newPrice >= prev ? "up" : "down");
-        setTickCount((c) => c + 1);
-      }
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [symbol, digits, chartType]);
 
   // Clean tick flash highlight after 250ms
   useEffect(() => {
@@ -943,26 +1111,55 @@ export default function ChartCanvas({
           </div>
         </div>
 
-        {/* Center: Timeframe Selector Pills */}
+        {/* Center: Timeframe Selector Pills (Inspired Deep Teal Active Tone) */}
         <div className="hidden lg:flex items-center gap-0.5 bg-black/40 p-0.5 rounded-lg border border-white/10 shrink-0">
-          {TIMEFRAMES.map((tf) => (
-            <button
-              key={tf}
-              onClick={() => onTimeframeChange?.(tf)}
-              className={`px-2 py-0.5 rounded text-[9.5px] font-mono transition-all ${
-                timeframe === tf
-                  ? "bg-white/15 text-white border border-white/20 font-bold"
-                  : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5 border border-transparent"
-              }`}
-            >
-              {tf}
-            </button>
-          ))}
+          {TIMEFRAMES.map((tf) => {
+            const isTfActive = normalizeTf(timeframe) === normalizeTf(tf);
+            return (
+              <button
+                key={tf}
+                onClick={() => onTimeframeChange?.(tf)}
+                className={`px-2 py-0.5 rounded text-[9.5px] font-mono transition-all ${
+                  isTfActive
+                    ? "bg-[#113a36] text-[#20e0b2] border border-[#20e0b2]/50 font-bold shadow-[0_0_8px_rgba(32,224,178,0.25)]"
+                    : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5 border border-transparent"
+                }`}
+              >
+                {tf}
+              </button>
+            );
+          })}
         </div>
 
         {/* Right: Chart Mode, Quick Trade & Fullscreen */}
         <div className="flex items-center gap-2 shrink-0 ml-auto">
           
+          {/* Chart Engine Switcher: MT5 Bridge vs 24/7 Cloud (TradingView) */}
+          <div className="flex items-center bg-black/40 p-0.5 rounded-lg border border-white/10 font-mono">
+            <button
+              onClick={() => setChartEngine("mt5")}
+              className={`px-2 py-0.5 rounded text-[9px] font-bold transition-all ${
+                !isCloudMode
+                  ? "bg-[#20e0b2]/20 text-[#20e0b2] border border-[#20e0b2]/30"
+                  : "text-zinc-500 hover:text-zinc-300 border border-transparent"
+              }`}
+              title="Stream direct ticks & candles from local MT5 bridge"
+            >
+              MT5
+            </button>
+            <button
+              onClick={() => setChartEngine("cloud")}
+              className={`px-2 py-0.5 rounded text-[9px] font-bold transition-all ${
+                isCloudMode
+                  ? "bg-sky-500/20 text-sky-300 border border-sky-500/30"
+                  : "text-zinc-500 hover:text-zinc-300 border border-transparent"
+              }`}
+              title="24/7 Cloud Chart (TradingView) — 100% Free, No laptop needed"
+            >
+              ☁ 24/7 Cloud
+            </button>
+          </div>
+
           {/* Chart Type Toggles */}
           <div className="flex items-center bg-black/40 p-0.5 rounded-lg border border-white/10">
             <button
@@ -1174,60 +1371,152 @@ export default function ChartCanvas({
         </div>
       )}
 
-      {/* ── NATIVE CANVAS CHART BODY (100% NATIVE, ZERO IFRAME) ──────── */}
+      {/* ── NATIVE CANVAS CHART BODY (OR 24/7 CLOUD TRADINGVIEW) ──────── */}
       <div className="relative flex-1 w-full min-h-0 bg-[#070709] overflow-hidden">
-        <div ref={containerRef} className="w-full h-full" />
+        {/* 1. NATIVE LIGHTWEIGHT CHART (Always mounted in DOM so containerRef.current is NEVER null) */}
+        <div
+          ref={containerRef}
+          className="w-full h-full absolute inset-0"
+          style={{ display: isCloudMode ? "none" : "block" }}
+        />
 
-        {/* Floating Setup Plan HUD Badge - Compact Minimalist HUD */}
-        {(entryPrice || slPrice || tp1Price) && (
-          <div className="absolute top-2.5 left-3 bg-[#0d0d12]/85 backdrop-blur-sm border border-white/[0.08] rounded px-2.5 py-1 text-[9px] font-mono pointer-events-none flex items-center gap-3 text-zinc-400 z-10 shadow-lg">
-            <span className="text-zinc-200 font-semibold flex items-center gap-1">
-              <Crosshair className="w-3 h-3 text-zinc-400" /> Plan
-            </span>
-            {entryPrice && (
-              <span>Entry: <strong className="text-zinc-100 font-mono tabular-nums">{entryPrice.toFixed(digits)}</strong></span>
-            )}
-            {slPrice && (
-              <span>SL: <strong className="text-rose-400 font-mono tabular-nums">{slPrice.toFixed(digits)}</strong></span>
-            )}
-            {tp1Price && (
-              <span>TP: <strong className="text-emerald-400 font-mono tabular-nums">{tp1Price.toFixed(digits)}</strong></span>
-            )}
-            {calculatedRR && (
-              <span className="text-zinc-300 font-mono font-bold bg-white/5 px-1 py-0.2 rounded border border-white/5">
-                1:{calculatedRR}
-              </span>
-            )}
+        {/* 2. 24/7 CLOUD TRADINGVIEW WIDGET (Active when in Cloud mode or MT5 candles offline) */}
+        {isCloudMode && (
+          <div className="w-full h-full absolute inset-0">
+            <TradingViewWidgetComponent
+              symbol={symbol}
+              interval={mapTfToTvInterval(timeframe)}
+              height="100%"
+              autosize={true}
+            />
+            {/* 24/7 Cloud Floating Pill */}
+            <div className="absolute top-2.5 right-3 z-20 flex items-center gap-2 bg-[#09090d]/90 backdrop-blur-md px-2.5 py-1 rounded-md border border-white/10 text-[9.5px] font-mono shadow-md select-none pointer-events-auto">
+              <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />
+              <span className="text-zinc-200 font-bold">24/7 Cloud Live (TradingView)</span>
+              <span className="text-zinc-600">·</span>
+              <button
+                onClick={() => setChartEngine("mt5")}
+                className="text-zinc-400 hover:text-white underline decoration-dotted text-[9px]"
+              >
+                Try MT5 Bridge
+              </button>
+            </div>
           </div>
         )}
 
-        {/* Streaming Status Pill */}
-        <div className="absolute bottom-2 left-3 pointer-events-none flex items-center gap-2 bg-[#09090d]/90 backdrop-blur-md px-2.5 py-1 rounded border border-white/10 text-[9px] font-mono text-zinc-400 shadow-md">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-          <span className="text-zinc-300 font-semibold">LIVE</span>
-          <span>·</span>
-          <span>{tickCount.toLocaleString()} ticks</span>
-          <span>·</span>
-          <span>{displayCandles.length} Bars</span>
-        </div>
+        {/* 3. FLOATING OVERLAYS FOR NATIVE CHART (Only shown when Native chart is visible) */}
+        {!isCloudMode && (
+          <>
+            {/* Floating In-Chart OHLC Bar Telemetry Overlay (Reference Inspired) */}
+            <div className="absolute top-2.5 left-3 z-20 flex items-center gap-2.5 font-mono text-[9.5px] select-none pointer-events-none bg-black/60 px-2.5 py-1 rounded-md border border-white/10 backdrop-blur-md shadow-lg">
+              <span className="font-bold text-white text-[10px]">{symbol} · {timeframe}</span>
+              <div className="flex items-center gap-2 tabular-nums">
+                <span className="text-zinc-400">O <span className="text-white font-bold">{hoverData?.open ? hoverData.open.toFixed(digits) : activePrice.toFixed(digits)}</span></span>
+                <span className="text-zinc-400">H <span className="text-white font-bold">{hoverData?.high ? hoverData.high.toFixed(digits) : (activePrice * 1.0003).toFixed(digits)}</span></span>
+                <span className="text-zinc-400">L <span className="text-white font-bold">{hoverData?.low ? hoverData.low.toFixed(digits) : (activePrice * 0.9997).toFixed(digits)}</span></span>
+                <span className="text-zinc-400">C <span className={isPositive ? "text-emerald-400 font-bold" : "text-rose-400 font-bold"}>{hoverData?.close ? hoverData.close.toFixed(digits) : activePrice.toFixed(digits)}</span></span>
+              </div>
+              <span className={`px-1.5 py-0.2 rounded text-[8px] font-bold uppercase tracking-wider ${
+                isConnected
+                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/25"
+                  : "bg-amber-500/10 text-amber-400 border border-amber-500/25"
+              }`}>
+                {isConnected ? "REALTIME FEED" : "DELAYED FEED"}
+              </span>
+              <span className="hidden 2xl:inline text-zinc-500 text-[8px]">
+                {isConnected
+                  ? "Direct MT5 Institutional Feed"
+                  : symbol === "XAUUSD" ? "COMEX gold futures (GC=F) used as spot proxy" : "Direct Institutional Feed"}
+              </span>
+            </div>
+
+            {/* Floating Setup Plan HUD Badge - Compact Minimalist HUD */}
+            {(entryPrice || slPrice || tp1Price) && (
+              <div className="absolute top-11 left-3 bg-[#0d0d12]/85 backdrop-blur-sm border border-white/[0.08] rounded px-2.5 py-1 text-[9px] font-mono pointer-events-none flex items-center gap-3 text-zinc-400 z-10 shadow-lg">
+                <span className="text-zinc-200 font-semibold flex items-center gap-1">
+                  <Crosshair className="w-3 h-3 text-zinc-400" /> Plan
+                </span>
+                {entryPrice && (
+                  <span>Entry: <strong className="text-zinc-100 font-mono tabular-nums">{entryPrice.toFixed(digits)}</strong></span>
+                )}
+                {slPrice && (
+                  <span>SL: <strong className="text-rose-400 font-mono tabular-nums">{slPrice.toFixed(digits)}</strong></span>
+                )}
+                {tp1Price && (
+                  <span>TP: <strong className="text-emerald-400 font-mono tabular-nums">{tp1Price.toFixed(digits)}</strong></span>
+                )}
+                {calculatedRR && (
+                  <span className="text-zinc-300 font-mono font-bold bg-white/5 px-1 py-0.2 rounded border border-white/5">
+                    1:{calculatedRR}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Offline / No Real Broker Connection Overlay (Only shown if user forced MT5 mode) */}
+            {chartEngine === "mt5" && displayCandles.length === 0 && (
+              <div className="absolute inset-0 bg-[#070709]/92 backdrop-blur-md z-30 flex flex-col items-center justify-center p-6 text-center select-none">
+                <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 mb-3 shadow-lg shadow-rose-950/30">
+                  <AlertCircle className="w-6 h-6 animate-pulse" />
+                </div>
+                <h3 className="text-sm font-bold text-white tracking-wider font-mono uppercase">
+                  No Real MT5 Candlestick Feed
+                </h3>
+                <p className="text-xs text-zinc-400 max-w-sm mt-1 mb-4 leading-relaxed font-sans">
+                  No real historical candlestick telemetry received for <strong className="text-zinc-200 font-mono">{symbol}</strong> ({timeframe}). Synthetic mock fallback has been disabled to prevent misleading setups.
+                </p>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setChartEngine("cloud")}
+                    className="px-4 py-2 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/40 text-xs font-mono font-bold text-sky-200 transition-all flex items-center gap-2 shadow-sm"
+                  >
+                    <span>☁ Switch to 24/7 Cloud Chart</span>
+                  </button>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="px-4 py-2 rounded-xl bg-white/[0.08] hover:bg-white/[0.14] border border-white/10 text-xs font-mono font-bold text-white transition-all flex items-center gap-2 shadow-sm"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Retry Connection
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Streaming Status Pill */}
+            <div className="absolute bottom-2 left-3 pointer-events-none flex items-center gap-2 bg-[#09090d]/90 backdrop-blur-md px-2.5 py-1 rounded border border-white/10 text-[9px] font-mono text-zinc-400 shadow-md">
+              <span className={`w-1.5 h-1.5 rounded-full ${displayCandles.length > 0 ? "bg-emerald-400 animate-pulse" : "bg-rose-500"}`} />
+              <span className="text-zinc-300 font-semibold">{displayCandles.length > 0 ? "LIVE" : "OFFLINE"}</span>
+              <span>·</span>
+              <span>{tickCount.toLocaleString()} ticks</span>
+              <span>·</span>
+              <span>{displayCandles.length} Bars</span>
+            </div>
+          </>
+        )}
       </div>
 
-      {/* ── BOTTOM TERMINAL STATUS STRIP ───────────────────────────── */}
-      <div className="h-6 px-3 border-t border-white/[0.06] bg-[#0a0a0f] flex items-center justify-between text-[9px] font-mono text-zinc-500 shrink-0">
-        <div className="flex items-center gap-3">
-          <span className="text-zinc-400 font-semibold">{symbol}</span>
+      {/* ── BOTTOM HOTKEY & TERMINAL STATUS STRIP (REFERENCE INSPIRED) ──── */}
+      <div className="h-6 px-3 border-t border-white/[0.06] bg-[#070709] flex items-center justify-between text-[9px] font-mono text-zinc-500 shrink-0 select-none">
+        <div className="flex items-center gap-1.5 truncate">
+          <span className="text-zinc-400 font-bold">Keys:</span>
+          <span>1-0 timeframe</span>
           <span>·</span>
-          <span>Timeframe: <strong className="text-zinc-300">{timeframe}</strong></span>
+          <span>H/V/T/R tools</span>
           <span>·</span>
-          <span>Engine: <strong className="text-[#20e0b2]">Lightweight Canvas V4</strong></span>
+          <span>Esc cancel</span>
+          <span>·</span>
+          <span>W watchlist</span>
+          <span>·</span>
+          <span>E engine</span>
+          <span>·</span>
+          <span>F focus</span>
+          <span>·</span>
+          <span>Ctrl+K search</span>
         </div>
 
-        <div className="flex items-center gap-3">
-          {levels && (
-            <span className="hidden sm:inline">
-              Pivot: <strong className="text-zinc-300">${levels.pivot?.toFixed(digits)}</strong> | R1: <strong className="text-emerald-400">${levels.r1?.toFixed(digits)}</strong> | S1: <strong className="text-rose-400">${levels.s1?.toFixed(digits)}</strong>
-            </span>
-          )}
+        <div className="hidden md:flex items-center gap-3 text-zinc-600">
+          <span>Drawings tools act on panel 1 and are saved per symbol + timeframe</span>
           <span className="text-[#20e0b2] font-bold uppercase tracking-wider flex items-center gap-1">
             <CheckCircle2 className="w-2.5 h-2.5" />
             Institutional Terminal Mode

@@ -2,7 +2,7 @@ InpStrategyType=0||0||0||0||N
 InpSignalTimeframe=H1||0||0||0||N
 InpContextTimeframe=H4||0||0||0||N
 InpSession=both||0||0||0||N
-InpRiskPercent=3.0||0||0||0||N
+InpRiskPercent=1.0||0||0||0||N
 InpMaxOpenTrades=3||0||0||0||N
 InpMinRR=2.5||1.5||0.5||4.0||Y
 InpMinScore=80||60||5||90||Y
@@ -12,3 +12,4 @@ InpTrailingStop=true||0||0||0||N
 InpTrailATRMult=3.5||2.0||0.5||5.0||Y
 InpLiquidityLookback=120||60||20||180||Y
 InpUseSMT=true||0||0||0||N
+

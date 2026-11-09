@@ -55,6 +55,7 @@ interface Signal {
 export default function SignalsPage() {
   const [signals, setSignals] = useState<Signal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
   // Scanning Configuration State
@@ -122,11 +123,15 @@ export default function SignalsPage() {
 
       const res = await api.get(`/terminal/signals?${queryParams.toString()}`);
       if (res.data && res.data.success) {
-        setSignals(res.data.signals);
+        setSignals(res.data.signals || []);
+        setError(null);
         setLastUpdated(new Date());
+      } else {
+        setError(res.data?.error || "Signal engine returned unsuccessful response");
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("Failed to load signals", e);
+      setError(e?.message || "Signal scanner offline");
     } finally {
       setLoading(false);
     }
@@ -388,12 +393,27 @@ export default function SignalsPage() {
             Scanning Markets...
           </p>
         </div>
+      ) : error && signals.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center min-h-[400px] border border-dashed border-red-500/20 rounded-xl bg-red-950/10 p-6 text-center select-none font-mono">
+          <AlertTriangle className="w-10 h-10 text-rose-500 mb-3 animate-pulse" />
+          <h3 className="text-white font-bold mb-1 text-sm uppercase tracking-wider">Scanner Engine Offline</h3>
+          <p className="text-zinc-400 text-xs max-w-sm text-center mb-4 font-sans">
+            Unable to communicate with the signal analysis engine. Check backend server and MT5 bridge status.
+          </p>
+          <button
+            onClick={() => fetchSignals()}
+            className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/15 border border-white/20 text-xs font-mono font-bold text-white transition-all flex items-center gap-1.5"
+          >
+            <Zap className="w-3.5 h-3.5 text-[#20e0b2]" />
+            Retry Scan
+          </button>
+        </div>
       ) : signals.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center min-h-[400px] border border-dashed border-[rgba(255,255,255,0.07)] rounded-xl bg-zinc-950/20">
           <Activity className="w-10 h-10 text-zinc-700 mb-3" />
-          <h3 className="text-zinc-300 font-bold mb-1 text-sm">No Active Signals</h3>
-          <p className="text-zinc-550 text-xs max-w-sm text-center">
-            The market scanner is actively monitoring but hasn't found any high-probability setups meeting your criteria right now.
+          <h3 className="text-zinc-300 font-bold mb-1 text-sm">No Active Setups Found</h3>
+          <p className="text-zinc-500 text-xs max-w-sm text-center">
+            The market scanner is actively monitoring but hasn't detected any setups meeting your score (≥{minScore}) and R:R (≥{minRr}) thresholds.
           </p>
         </div>
       ) : (

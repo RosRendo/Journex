@@ -13,9 +13,14 @@ router.get("/coach", requireAuth, async (req, res) => {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    // Fetch the last 50 closed trades to analyze patterns
+    // Strict multi-tenant isolation for AI Coach
+    const isAdmin = userId === "rousrendo@gmail.com" || userId === "admin@journex.io" || userId === "admin-master-id";
+    const tradeWhere: any = isAdmin
+      ? { userId: { in: [userId, "default-user", "admin-master-id", "rousrendo@gmail.com"] }, NOT: { outcome: "Open" } }
+      : { userId, NOT: { outcome: "Open" } };
+
     const recentTrades = await prisma.trade.findMany({
-      where: { userId: { in: [userId, "default-user"] }, NOT: { outcome: "Open" } },
+      where: tradeWhere,
       orderBy: { closeTime: "desc" },
       take: 50,
     });

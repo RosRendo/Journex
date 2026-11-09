@@ -7,6 +7,18 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await auth();
+    const user = session?.user as any;
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const userEmail = (user.email || "").toLowerCase();
+    const userId = user.id || userEmail;
+    const isAdmin =
+      user.role === "admin" ||
+      userEmail === "rousrendo@gmail.com" ||
+      userEmail === "admin@journex.io";
+
     const { id } = await params;
     const tradeId = parseInt(id, 10);
     if (isNaN(tradeId)) {
@@ -22,6 +34,10 @@ export async function GET(
       return NextResponse.json({ error: "Trade not found" }, { status: 404 });
     }
 
+    if (!isAdmin && trade.userId !== userId) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
+
     return NextResponse.json({ success: true, data: trade });
   } catch (error: any) {
     console.error("[API TRADE GET BY ID ERROR]", error);
@@ -34,10 +50,31 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await auth();
+    const user = session?.user as any;
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const userEmail = (user.email || "").toLowerCase();
+    const userId = user.id || userEmail;
+    const isAdmin =
+      user.role === "admin" ||
+      userEmail === "rousrendo@gmail.com" ||
+      userEmail === "admin@journex.io";
+
     const { id } = await params;
     const tradeId = parseInt(id, 10);
     if (isNaN(tradeId)) {
       return NextResponse.json({ error: "Invalid trade ID" }, { status: 400 });
+    }
+
+    const existing = await prisma.trade.findUnique({ where: { id: tradeId } });
+    if (!existing) {
+      return NextResponse.json({ error: "Trade not found" }, { status: 404 });
+    }
+
+    if (!isAdmin && existing.userId !== userId) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 
     const body = await req.json();
@@ -79,10 +116,31 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await auth();
+    const user = session?.user as any;
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const userEmail = (user.email || "").toLowerCase();
+    const userId = user.id || userEmail;
+    const isAdmin =
+      user.role === "admin" ||
+      userEmail === "rousrendo@gmail.com" ||
+      userEmail === "admin@journex.io";
+
     const { id } = await params;
     const tradeId = parseInt(id, 10);
     if (isNaN(tradeId)) {
       return NextResponse.json({ error: "Invalid trade ID" }, { status: 400 });
+    }
+
+    const existing = await prisma.trade.findUnique({ where: { id: tradeId } });
+    if (!existing) {
+      return NextResponse.json({ error: "Trade not found" }, { status: 404 });
+    }
+
+    if (!isAdmin && existing.userId !== userId) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 
     await prisma.trade.delete({

@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "sonner";
+
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -39,7 +41,8 @@ import { useJournalData } from "@/hooks/useJournalData";
 import { fetchWithAuth, getBackendUrl } from "@/lib/utils";
 import { usePositions } from "@/hooks/usePositions";
 import { useBridgeUrl } from "@/hooks/useBridgeUrl";
-import { getSession } from "@/lib/useSession";
+import { useSession, getSession } from "@/lib/useSession";
+import { useIsAdmin } from "@/lib/role";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from "recharts";
 import CsvUploadComponent from "@/components/CsvUploadComponent";
 import { motion, AnimatePresence } from "framer-motion";
@@ -56,9 +59,24 @@ import { DailyRiskWidget } from "@/components/dashboard/widgets/DailyRiskWidget"
 
 export default function UnifiedDashboard() {
   const router = useRouter();
+  const { data: session } = useSession();
+  const isAdmin = useIsAdmin();
+  const user = session?.user as any;
+  const displayName = user?.name?.split(" ")[0] || "Trader";
   const { trades, analytics, loading, error, refresh } = useCsvTrades();
   const { positions } = usePositions();
   const { bridgeUrl } = useBridgeUrl();
+
+  // Listen for admin_only access rejection from middleware
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("denied") === "admin_only") {
+        toast.error("Access Restricted: That area is reserved for the system owner.");
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+    }
+  }, []);
 
   // Active Symbol & Workspace States
   const [activeSymbol, setActiveSymbol] = useState<string>("XAUUSD");
@@ -77,21 +95,21 @@ export default function UnifiedDashboard() {
     data: null,
   });
 
-  // MT5 Live Pulse Data (Defaulting to real Exness values)
+  // MT5 Live Pulse Data (strictly real values; null if disconnected)
   const [mt5Data, setMt5Data] = useState<{
-    balance: number;
-    equity: number;
-    profit: number;
-    margin_free: number;
+    balance: number | null;
+    equity: number | null;
+    profit: number | null;
+    margin_free: number | null;
     server: string;
     connected: boolean;
   }>({
-    balance: 35.18,
-    equity: 35.18,
-    profit: 0.0,
-    margin_free: 35.18,
-    server: "Exness-MT5Trial17",
-    connected: true,
+    balance: null,
+    equity: null,
+    profit: null,
+    margin_free: null,
+    server: "",
+    connected: false,
   });
 
   // Calendar State
@@ -138,34 +156,76 @@ export default function UnifiedDashboard() {
 
   const [sidebarTab, setSidebarTab] = useState<"watchlist" | "ai_brief" | "mistakes">("watchlist");
 
-  // Fetch real MT5 account pulse
+  // Fetch real MT5 account pulse (Role-aware: Admin gets MT5 Bridge; Users get their own DB accounts)
   useEffect(() => {
+    let cancelled = false;
     const fetchPulse = async () => {
       try {
-        const backend = getBackendUrl();
-        const res = await fetchWithAuth(`${backend}/api/bridge/api/account`);
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && (json.account || json.balance !== undefined)) {
-            const acc = json.account || json;
-            setMt5Data({
-              balance: acc.balance ?? 35.18,
-              equity: acc.equity ?? 35.18,
-              profit: acc.profit ?? 0.0,
-              margin_free: acc.margin_free ?? 35.18,
-              server: acc.server ?? "Exness-MT5Trial17",
-              connected: true,
-            });
+        if (isAdmin) {
+          // Admin connects directly to the local MT5 bridge
+          const res = await fetchWithAuth(`/api/bridge/api/account`);
+          if (res.ok) {
+            const json = await res.json();
+            if (json.success && (json.account || json.balance !== undefined)) {
+              const acc = json.account || json;
+              if (!cancelled) {
+                setMt5Data({
+                  balance: typeof acc.balance === "number" ? acc.balance : null,
+                  equity: typeof acc.equity === "number" ? acc.equity : null,
+                  profit: typeof acc.profit === "number" ? acc.profit : 0.0,
+                  margin_free: typeof acc.margin_free === "number" ? acc.margin_free : null,
+                  server: acc.server || "MT5 Connected",
+                  connected: true,
+                });
+              }
+              return;
+            }
+          }
+        } else {
+          // Standard / Pro User: Query their OWN accounts from database
+          const res = await fetchWithAuth(`/api/accounts`);
+          if (res.ok) {
+            const json = await res.json();
+            const accounts = json.data || [];
+            const primaryAcc = accounts.find((a: any) => a.isMaster) || accounts[0];
+            if (primaryAcc && !cancelled) {
+              setMt5Data({
+                balance: typeof primaryAcc.balance === "number" ? primaryAcc.balance : 0,
+                equity: typeof primaryAcc.equity === "number" ? primaryAcc.equity : (primaryAcc.balance || 0),
+                profit: typeof primaryAcc.profit === "number" ? primaryAcc.profit : 0.0,
+                margin_free: primaryAcc.marginFree || null,
+                server: primaryAcc.server || primaryAcc.broker || "MT5 Server Connected",
+                connected: true,
+              });
+              return;
+            }
           }
         }
+
+        if (!cancelled) {
+          setMt5Data((prev) => ({
+            ...prev,
+            connected: false,
+            server: isAdmin ? "MT5 Offline · Disconnected" : "No Broker Connected",
+          }));
+        }
       } catch (e) {
-        // Keep live connected state
+        if (!cancelled) {
+          setMt5Data((prev) => ({
+            ...prev,
+            connected: false,
+            server: isAdmin ? "MT5 Offline · Disconnected" : "No Broker Connected",
+          }));
+        }
       }
     };
     fetchPulse();
     const id = setInterval(fetchPulse, 8000);
-    return () => clearInterval(id);
-  }, [bridgeUrl]);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [bridgeUrl, isAdmin]);
 
   // Filtered Trades Calculation
   const filteredTrades = useMemo(() => {
@@ -383,11 +443,11 @@ export default function UnifiedDashboard() {
       <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-3 border-b border-[rgba(255,255,255,0.07)] bg-[#09090b] sticky top-0 z-30 shadow-md">
         <div className="flex items-center gap-4">
           <div>
-            <h1 className="text-sm font-bold tracking-tight text-[#f4f4f5]">{greeting}, Ros</h1>
+            <h1 className="text-sm font-bold tracking-tight text-[#f4f4f5]">{greeting}, {displayName}</h1>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#20e0b2] animate-pulse" />
-              <span className="text-[9px] font-bold uppercase tracking-widest text-[#71717a] font-mono">
-                MT5 Connected · {mt5Data.server}
+              <span className={`w-1.5 h-1.5 rounded-full ${mt5Data.connected ? "bg-[#20e0b2] animate-pulse" : "bg-rose-500"}`} />
+              <span className={`text-[9px] font-bold uppercase tracking-widest font-mono ${mt5Data.connected ? "text-[#71717a]" : "text-rose-400"}`}>
+                {mt5Data.connected ? `MT5 Connected · ${mt5Data.server}` : "MT5 Offline · Disconnected"}
               </span>
             </div>
           </div>
@@ -510,7 +570,7 @@ export default function UnifiedDashboard() {
           <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(255,255,255,0.07)] bg-[#09090b]">
             <span className={labelCls}>Deep Reports &amp; Trade Analytics</span>
             <span className="text-[9px] text-[#71717a] font-mono">
-              Account #{mt5Data.server ? "Exness Live" : "Unlinked"}
+              Account #{mt5Data.connected && mt5Data.server ? mt5Data.server : "Unlinked / Offline"}
             </span>
           </div>
 
@@ -1384,7 +1444,7 @@ export default function UnifiedDashboard() {
 
             {/* Daily Risk Widget */}
             <div className="border-t border-[rgba(255,255,255,0.07)]">
-              <DailyRiskWidget trades={trades || []} balance={mt5Data.balance} equity={mt5Data.equity} />
+              <DailyRiskWidget trades={trades || []} balance={mt5Data.balance ?? 0} equity={mt5Data.equity ?? 0} />
             </div>
           </div>
       </div>
@@ -1395,8 +1455,8 @@ export default function UnifiedDashboard() {
         onClose={() => setPeekState((prev) => ({ ...prev, isOpen: false }))}
         type={peekState.type}
         data={peekState.data}
-        accountEquity={mt5Data.equity}
-        accountData={mt5Data}
+        accountEquity={mt5Data.equity ?? 0}
+        accountData={mt5Data as any}
         positions={positions}
         todayStats={todayStats}
       />

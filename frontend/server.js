@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 /**
  * Journex unified production server.
  * ONE process, ONE port, ONE deployment:

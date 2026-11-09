@@ -13,7 +13,7 @@ export function AIDeskSummary({ borderless = false }: { borderless?: boolean }) 
   useEffect(() => {
     Promise.all([
       fetchWithAuth(`${getBackendUrl()}/api/ai/coach`).then(r => r.json()),
-      fetchWithAuth(`${getBackendUrl()}/api/bridge/api/dailybias`).then(r => r.json())
+      fetchWithAuth(`/api/bridge/api/dailybias`).then(r => r.json())
     ]).then(([aiData, biasData]) => {
       if (aiData.success && aiData.insights && aiData.insights.length > 0) {
         setInsight(aiData.insights[0]);

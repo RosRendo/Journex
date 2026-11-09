@@ -1,0 +1,24 @@
+; ==============================================================
+; XAUUSD M15 ZONE SNIPER — Pine v2.11 port (Buy Low / Sell High)
+; Discounts (bottom 30%) buy / Premiums (top 30%) sell on a 50-bar
+// range; middle = momentum scalp. Evaluates on CLOSED candles only.
+; Use on ranging or gently-trending markets. Attach to XAUUSD M15.
+; MODE_PARTIAL_EXIT: 1R scale-out + ATR trail.
+; ==============================================================
+InpStrategyType=5||0||0||0||N
+InpSignalTimeframe=M15||0||0||0||N
+InpPositionMode=1||0||0||0||N
+InpZoneRangeBars=50||0||0||0||N
+InpZoneSLAtrMult=2.0||0||0||0||N
+InpZoneTP1AtrMult=1.0||0||0||0||N
+InpZoneMinVel=0.30||0||0||0||N
+InpRiskPercent=1.0||0||0||0||N
+InpMinScore=80||0||0||0||N
+InpMaxOpenTrades=3||0||0||0||N
+InpTrailingStop=true||0||0||0||N
+InpTrailATRMult=3.5||0||0||0||N
+InpMaxSpreadPoints=300||0||0||0||N
+InpUseNewsFilter=true||0||0||0||N
+InpUseLossStreakCooldown=true||0||0||0||N
+InpLossStreakThreshold=3||0||0||0||N
+InpLossStreakCooldownMin=60||0||0||0||N

@@ -28,16 +28,17 @@ function StatTile({ label, value, sub, color = "text-white" }: { label: string; 
 export default function TradeRiskCard({ symbol, signal, strategy, account, positions, onExecute, onMarkSetup }: Props) {
   const [riskPct, setRiskPct] = useState(0.5);
 
-  const balance = account?.balance ?? 865.65;
-  const equity = account?.equity ?? 914.44;
-  const floating = account?.profit ?? 48.79;
-  const dollarRisk = (balance * riskPct) / 100;
+  const hasAccount = account !== null && account !== undefined && account.balance > 0;
+  const balance = hasAccount ? account.balance : null;
+  const equity = hasAccount ? account.equity : null;
+  const floating = hasAccount ? account.profit : null;
+  const dollarRisk = balance !== null ? (balance * riskPct) / 100 : null;
   const slDist = Math.max(1, Math.abs(signal.entryPrice - signal.slPrice));
   const tickValue = symbol === "XAUUSD" ? 1.0 : 10.0;
-  const calcLots = Math.max(0.01, Number((dollarRisk / (slDist * tickValue)).toFixed(2)));
+  const calcLots = dollarRisk !== null ? Math.max(0.01, Number((dollarRisk / (slDist * tickValue)).toFixed(2))) : null;
 
   const activePos = positions.find((p) => p.pair.toUpperCase().includes(symbol.replace("/", "")));
-  const equityPct = balance > 0 ? ((equity / balance - 1) * 100).toFixed(2) : "0.00";
+  const equityPct = (balance && balance > 0 && equity !== null) ? ((equity / balance - 1) * 100).toFixed(2) : "--";
 
   const handleCloseTrade = async (ticket: number) => {
     try {
@@ -71,25 +72,47 @@ export default function TradeRiskCard({ symbol, signal, strategy, account, posit
           <ShieldCheck className="w-3.5 h-3.5 text-zinc-400" />
           <span className="text-white font-bold text-[11px] uppercase tracking-widest">Risk Allocation</span>
         </div>
-        <span className="text-[9px] px-2 py-0.5 rounded-md bg-white/[0.04] border border-white/10 text-zinc-400 font-mono">
-          {account?.server || "Exness Live"}
+        <span className={`text-[9px] px-2 py-0.5 rounded-md border font-mono ${
+          hasAccount
+            ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400"
+            : "bg-rose-500/10 border-rose-500/25 text-rose-400"
+        }`}>
+          {hasAccount ? (account?.server || "MT5 Connected") : "MT5 Offline"}
         </span>
       </div>
 
+      {/* Disconnected Alert Banner */}
+      {!hasAccount && (
+        <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-2.5 flex items-center justify-between text-[10px]">
+          <span className="text-rose-300">Broker Disconnected · No Account Telemetry</span>
+          <button
+            onClick={() => window.location.reload()}
+            className="text-white bg-rose-500/20 hover:bg-rose-500/30 px-2 py-0.5 rounded border border-rose-500/30 font-bold transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Account Stats Grid */}
       <div className="grid grid-cols-3 gap-2">
-        <StatTile label="Balance" value={`$${balance.toFixed(0)}`} sub="USD" color="text-white" />
+        <StatTile
+          label="Balance"
+          value={balance !== null ? `$${balance.toFixed(0)}` : "--"}
+          sub={hasAccount ? (account?.currency || "USD") : "NO FEED"}
+          color="text-white"
+        />
         <StatTile
           label="Equity"
-          value={`$${equity.toFixed(0)}`}
-          sub={`${equityPct}%`}
-          color={floating >= 0 ? "text-emerald-400" : "text-rose-400"}
+          value={equity !== null ? `$${equity.toFixed(0)}` : "--"}
+          sub={hasAccount ? `${equityPct}%` : "OFFLINE"}
+          color={floating !== null ? (floating >= 0 ? "text-emerald-400" : "text-rose-400") : "text-zinc-500"}
         />
         <StatTile
           label="Floating"
-          value={`${floating >= 0 ? "+" : ""}$${floating.toFixed(2)}`}
+          value={floating !== null ? `${floating >= 0 ? "+" : ""}$${floating.toFixed(2)}` : "--"}
           sub="Open P&L"
-          color={floating >= 0 ? "text-emerald-400" : "text-rose-400"}
+          color={floating !== null ? (floating >= 0 ? "text-emerald-400" : "text-rose-400") : "text-zinc-500"}
         />
       </div>
 
@@ -119,12 +142,16 @@ export default function TradeRiskCard({ symbol, signal, strategy, account, posit
         <div className="flex items-center justify-between">
           <div>
             <span className="text-zinc-500 text-[9px] block">Risk Amount</span>
-            <span className="text-zinc-200 font-bold text-[11px] tabular-nums">${dollarRisk.toFixed(2)}</span>
+            <span className="text-zinc-200 font-bold text-[11px] tabular-nums">
+              {dollarRisk !== null ? `$${dollarRisk.toFixed(2)}` : "--"}
+            </span>
           </div>
           <div className="w-px h-6 bg-white/10" />
           <div>
             <span className="text-zinc-500 text-[9px] block">Calc Volume</span>
-            <span className="text-white font-bold text-[13px] tabular-nums">{calcLots} Lots</span>
+            <span className="text-white font-bold text-[13px] tabular-nums">
+              {calcLots !== null ? `${calcLots} Lots` : "--"}
+            </span>
           </div>
           <div className="w-px h-6 bg-white/10" />
           <div>
@@ -180,10 +207,15 @@ export default function TradeRiskCard({ symbol, signal, strategy, account, posit
         </button>
         <button
           onClick={onExecute}
-          className="flex-1 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white font-bold text-[10px] transition-all flex items-center justify-center gap-1.5"
+          disabled={!hasAccount}
+          className={`flex-1 py-2 rounded-xl border font-bold text-[10px] transition-all flex items-center justify-center gap-1.5 ${
+            hasAccount
+              ? "bg-white/10 hover:bg-white/15 border-white/15 text-white cursor-pointer"
+              : "bg-zinc-800/40 border-white/5 text-zinc-500 cursor-not-allowed"
+          }`}
         >
           <Zap className="w-3.5 h-3.5 text-zinc-300" />
-          Execute {calcLots}L
+          {hasAccount ? `Execute ${calcLots}L` : "Execute (MT5 Required)"}
         </button>
       </div>
     </div>

@@ -36,8 +36,10 @@ export async function runNewsAlertsLoop(
 
       const impact = (h.impact || "").toLowerCase();
       const tag = (h.tag || "").toUpperCase();
+      const hLower = headline.toLowerCase();
+      const isCatalyst = hLower.includes("gold") || hLower.includes("xau") || hLower.includes("election") || hLower.includes("trump") || hLower.includes("harris");
 
-      if (impact === "high" || tag === "BREAKING") {
+      if (impact === "high" || tag === "BREAKING" || isCatalyst) {
         if (hasChannel) {
           try {
             const details = {

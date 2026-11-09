@@ -318,15 +318,29 @@ export async function fetchLiveFinancialRSS(limit = 12): Promise<any[]> {
           const pubDate = (chunk.match(/<pubDate>([\s\S]*?)<\/pubDate>/) || [])[1]?.trim();
           if (title && link) {
             const tLower = title.toLowerCase();
-            const isHigh = tLower.includes("fed") || tLower.includes("inflation") || tLower.includes("rate") || tLower.includes("jobs") || tLower.includes("cpi") || tLower.includes("tariff") || tLower.includes("war");
+            const isElection = tLower.includes("election") || tLower.includes("president") || tLower.includes("trump") || tLower.includes("harris") || tLower.includes("vote") || tLower.includes("ballot") || tLower.includes("congress");
+            const isGold = tLower.includes("gold") || tLower.includes("xau") || tLower.includes("bullion");
+            const isHigh = isElection || isGold || tLower.includes("fed") || tLower.includes("inflation") || tLower.includes("rate") || tLower.includes("jobs") || tLower.includes("cpi") || tLower.includes("tariff") || tLower.includes("war") || tLower.includes("deficit");
+            
+            let detectedSentiment: "bullish" | "bearish" | "neutral" = "neutral";
+            if (isGold || (isElection && (tLower.includes("surge") || tLower.includes("record") || tLower.includes("buy")))) {
+              detectedSentiment = "bullish";
+            }
+
+            const affectedAssets = isGold
+              ? ["XAUUSD", "GOLD", "USD"]
+              : isElection
+              ? ["XAUUSD", "DXY", "NAS100", "USD"]
+              : ["USD", "DXY", "EQUITIES"];
+
             results.push({
               time_iso: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),
               tag: isHigh ? "BREAKING" : f.source.toUpperCase(),
               headline: title,
               url: link,
               impact: isHigh ? "high" : "med",
-              affects: ["USD", "DXY", "EQUITIES"],
-              sentiment: "neutral",
+              affects: affectedAssets,
+              sentiment: detectedSentiment,
               source: f.source
             });
           }

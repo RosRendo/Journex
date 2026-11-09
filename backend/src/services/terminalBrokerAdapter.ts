@@ -8,18 +8,41 @@ import MetaApi from "metaapi.cloud-sdk";
 // SYMBOLS & CONSTANTS (Shared for Mocks & Fallbacks)
 // ----------------------------------------------------
 export const SYMBOLS: Record<string, { price: number; digits: number; name: string }> = {
-  "EURUSD": { price: 1.1610, digits: 5, name: "Euro / US Dollar" },
-  "GBPUSD": { price: 1.3510, digits: 5, name: "Pound / US Dollar" },
-  "USDJPY": { price: 156.10, digits: 3, name: "US Dollar / Japanese Yen" },
+  // Metals & Commodities
+  "XAUUSD": { price: 2748.50, digits: 2, name: "Gold / US Dollar" },
+  "XAGUSD": { price: 32.50, digits: 3, name: "Silver / US Dollar" },
+  "USOIL":  { price: 71.40, digits: 2, name: "WTI Crude Oil / USD" },
+
+  // Forex Majors
+  "EURUSD": { price: 1.0850, digits: 5, name: "Euro / US Dollar" },
+  "GBPUSD": { price: 1.2950, digits: 5, name: "Pound / US Dollar" },
+  "USDJPY": { price: 153.80, digits: 3, name: "US Dollar / Japanese Yen" },
   "AUDUSD": { price: 0.6550, digits: 5, name: "Australian / US Dollar" },
   "NZDUSD": { price: 0.5890, digits: 5, name: "New Zealand / US Dollar" },
-  "USDCHF": { price: 0.8920, digits: 5, name: "US Dollar / Swiss Franc" },
+  "USDCHF": { price: 0.8840, digits: 5, name: "US Dollar / Swiss Franc" },
   "USDCAD": { price: 1.3850, digits: 5, name: "US Dollar / Canadian Dollar" },
-  "XAUUSD": { price: 4192.0, digits: 2, name: "Gold / US Dollar" },
-  "XAGUSD": { price: 32.50, digits: 3, name: "Silver / US Dollar" },
-  "BTCUSD": { price: 79500.0, digits: 2, name: "Bitcoin / US Dollar" },
-  "AUDJPY": { price: 102.30, digits: 3, name: "Australian / Japanese Yen" },
-  "EURJPY": { price: 181.20, digits: 3, name: "Euro / Japanese Yen" },
+
+  // Forex Crosses
+  "GBPJPY": { price: 198.50, digits: 3, name: "Pound / Japanese Yen" },
+  "EURJPY": { price: 166.80, digits: 3, name: "Euro / Japanese Yen" },
+  "EURGBP": { price: 0.8350, digits: 5, name: "Euro / British Pound" },
+  "AUDJPY": { price: 101.20, digits: 3, name: "Australian / Japanese Yen" },
+  "CADJPY": { price: 110.70, digits: 3, name: "Canadian Dollar / Japanese Yen" },
+  "GBPCHF": { price: 1.1320, digits: 5, name: "British Pound / Swiss Franc" },
+  "EURCHF": { price: 0.9420, digits: 5, name: "Euro / Swiss Franc" },
+  "EURAUD": { price: 1.6350, digits: 5, name: "Euro / Australian Dollar" },
+  "CADCHF": { price: 0.6380, digits: 5, name: "Canadian Dollar / Swiss Franc" },
+
+  // Crypto
+  "BTCUSD": { price: 72500.0, digits: 2, name: "Bitcoin / US Dollar" },
+  "ETHUSD": { price: 2640.0, digits: 2, name: "Ethereum / US Dollar" },
+  "SOLUSD": { price: 182.50, digits: 2, name: "Solana / US Dollar" },
+
+  // Global Indices
+  "NAS100": { price: 20150.0, digits: 2, name: "Nasdaq 100 / US Tech" },
+  "US30":   { price: 42200.0, digits: 2, name: "Dow Jones 30" },
+  "US500":  { price: 5810.0, digits: 2, name: "S&P 500 Index" },
+  "GER40":  { price: 19380.0, digits: 2, name: "Germany 40 / DAX" },
 };
 
 // Seeded Random Generator for deterministic mock candle walk
@@ -122,7 +145,7 @@ export class MockAdapter implements BrokerAdapter {
   }
 
   async getCandles(symbol: string, timeframe: string, limit: number) {
-    return generateCandles(symbol, timeframe, limit);
+    return [];
   }
 
   async getPricing(symbols: string[]) {
@@ -141,36 +164,18 @@ export class MockAdapter implements BrokerAdapter {
   }
 
   async getAccount() {
-    const closedTrades = await prisma.trade.findMany({
-      where: { NOT: { outcome: "Open" } },
-    });
-
-    const pnls = closedTrades.map(t => Number(t.profit));
-    const wins = pnls.filter(p => p > 0);
-    const losses = pnls.filter(p => p < 0);
-    const total_pnl = pnls.reduce((a, b) => a + b, 0);
-
-    const win_rate = pnls.length ? Math.round((wins.length / pnls.length) * 1000) / 10 : 72.3;
-    const totalWins = wins.reduce((a, b) => a + b, 0);
-    const totalLosses = Math.abs(losses.reduce((a, b) => a + b, 0));
-    const profit_factor = totalLosses > 0 ? Math.round((totalWins / totalLosses) * 100) / 100 : 2.14;
-
-    const balance = 100000.0 + total_pnl;
-    const positions = await this.getPositions();
-    const floatPnl = positions.reduce((sum, p) => sum + p.pnl, 0);
-    const equity = balance + floatPnl;
-
+    // ZERO FALLBACK DATA POLICY: Return pure zeroes when unlinked, never simulate fake balances
     return {
-      balance: Math.round(balance * 100) / 100,
-      equity: Math.round(equity * 100) / 100,
-      free_margin: Math.round((equity - 1500) * 100) / 100,
-      used_margin_pct: 12.5,
-      drawdown_pct: -1.8,
-      win_rate: win_rate,
-      trades_today: 3,
-      profit_factor: profit_factor,
-      avg_win: wins.length ? Math.round((totalWins / wins.length) * 100) / 100 : 412.0,
-      avg_loss: losses.length ? Math.round((losses.reduce((a, b) => a + b, 0) / losses.length) * 100) / 100 : -192.0,
+      balance: 0,
+      equity: 0,
+      free_margin: 0,
+      used_margin_pct: 0,
+      drawdown_pct: 0,
+      win_rate: 0,
+      trades_today: 0,
+      profit_factor: 0,
+      avg_win: 0,
+      avg_loss: 0,
     };
   }
 
@@ -342,8 +347,8 @@ export class Mt5BridgeAdapter implements BrokerAdapter {
     } catch (err: any) {
       console.warn(`[Mt5BridgeAdapter] getCandles failed for ${symbol} ${timeframe}:`, err.message);
     }
-    // fallback to mock candles if MT5 fails or no data
-    return generateCandles(symbol, timeframe, limit);
+    // Return empty array on failure — never fabricate synthetic candles
+    return [];
   }
 
   async getPricing(symbols: string[]) {
@@ -363,17 +368,7 @@ export class Mt5BridgeAdapter implements BrokerAdapter {
         }
       }
     } catch {
-      // bridge unreachable — fall through to SYMBOLS defaults
-    }
-    // Fill any missing symbols with the last known SYMBOLS mock price
-    for (const s of symbols) {
-      if (!out[s]) {
-        const data = SYMBOLS[s];
-        if (data) {
-          const tick = Math.pow(10, -data.digits);
-          out[s] = { bid: data.price - tick, ask: data.price + tick, mid: data.price };
-        }
-      }
+      // bridge unreachable — return real data collected so far or empty
     }
     return out;
   }
@@ -576,7 +571,7 @@ export class OandaAdapter implements BrokerAdapter {
         volume: parseInt(c.volume)
       }));
     } catch {
-      return generateCandles(symbol, timeframe, limit);
+      return [];
     }
   }
 
@@ -751,7 +746,7 @@ export class AlpacaAdapter implements BrokerAdapter {
   }
 
   async getCandles(symbol: string, timeframe: string, limit: number) {
-    return generateCandles(symbol, timeframe, limit);
+    return [];
   }
 
   async getPricing(symbols: string[]) {
@@ -895,7 +890,7 @@ export class MetaApiAdapter implements BrokerAdapter {
       }));
     } catch (err) {
       console.warn("MetaApi getCandles failed, returning mock:", err);
-      return generateCandles(symbol, timeframe, limit);
+      return [];
     }
   }
 

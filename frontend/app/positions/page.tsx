@@ -1,5 +1,7 @@
 "use client";
 
+import AdminOnly from "@/components/AdminOnly";
+
 import { useEffect, useState } from "react";
 import {
   Activity, AlertCircle, TrendingUp, TrendingDown, Clock, Target,
@@ -39,7 +41,7 @@ interface Toast {
   text: string;
 }
 
-export default function PositionsPage() {
+function PositionsPageInner() {
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -418,3 +420,12 @@ export default function PositionsPage() {
   );
 }
 
+
+
+export default function PositionsPage() {
+  return (
+    <AdminOnly pageName="Live MT5 Positions">
+      <PositionsPageInner />
+    </AdminOnly>
+  );
+}

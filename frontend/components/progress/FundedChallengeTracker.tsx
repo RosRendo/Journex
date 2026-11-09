@@ -29,9 +29,9 @@ export default function FundedChallengeTracker() {
   const { snapshot } = useTerminalData("XAUUSD", "M15");
   const { trades = [], analytics } = useCsvTrades();
 
-  const balance = snapshot?.account?.balance || 35.18;
-  const equity = snapshot?.account?.equity || 35.18;
-  const server = snapshot?.status?.provider || "Exness MT5";
+  const balance = snapshot?.account?.balance ?? 0;
+  const equity = snapshot?.account?.equity ?? 0;
+  const server = snapshot?.status?.provider || "MT5 Disconnected";
 
   const liveChallenges: Challenge[] = [
     {
@@ -46,7 +46,9 @@ export default function FundedChallengeTracker() {
       profitTarget: 10,
       currentProfit: balance > 0 ? +(((equity - balance) / balance) * 100).toFixed(1) : 0,
       maxDrawdown: 10,
-      currentDrawdown: +(snapshot?.account?.margin_level ? (100 - snapshot.account.margin_level) : 0).toFixed(1),
+      currentDrawdown: balance > 0 && equity < balance
+        ? +(((balance - equity) / balance) * 100).toFixed(1)
+        : 0,
       dailyLossLimit: 5,
       currentDailyLoss: 0.0,
       tradingDays: trades.length,

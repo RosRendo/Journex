@@ -31,6 +31,8 @@ import {
   RotateCcw
 } from "lucide-react";
 import { toast } from "sonner";
+import { useIsAdmin } from "@/lib/role";
+import AdminOnly from "@/components/AdminOnly";
 
 const BRIDGE = process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge";
 
@@ -157,6 +159,7 @@ const inputCls = "w-full rounded-xl border px-3 py-2.5 text-xs font-mono focus:o
 const inputStyle = { background: "var(--bg-base)", borderColor: "var(--border)", color: "var(--text-primary)" };
 
 export default function AlertsDeskPage() {
+  const isAdmin = useIsAdmin();
   const [activeTab, setActiveTab] = useState<"targets" | "integrations" | "history">("targets");
   const [config, setConfig] = useState<AlertConfig>(DEFAULT_CONFIG);
   const [loading, setLoading] = useState(true);
@@ -244,15 +247,21 @@ export default function AlertsDeskPage() {
       }
     }
 
-    // Fetch central alert config from bridge
-    fetch(`${BRIDGE}/api/alert-config`, { headers: { "ngrok-skip-browser-warning": "true" } })
+    setLoading(false);
+  }, []);
+
+  // Load broadcast credentials only if verified admin
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetch("/api/alert-config")
       .then((r) => r.json())
       .then((data) => {
-        setConfig((prev) => ({ ...prev, ...data }));
-        setLoading(false);
+        if (data && !data.error) {
+          setConfig((prev) => ({ ...prev, ...data }));
+        }
       })
-      .catch(() => setLoading(false));
-  }, []);
+      .catch(() => {});
+  }, [isAdmin]);
 
   // Save targets to local storage whenever changed
   const persistTargets = (newTargets: PriceTarget[]) => {
@@ -545,9 +554,13 @@ export default function AlertsDeskPage() {
 
   // Save backend config
   const saveConfig = async () => {
+    if (!isAdmin) {
+      toast.error("Admin privileges required to save integration settings");
+      return;
+    }
     setSaving(true);
     try {
-      const res = await fetch(`${BRIDGE}/api/alert-config`, {
+      const res = await fetch("/api/alert-config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(config),
@@ -572,11 +585,14 @@ export default function AlertsDeskPage() {
 
   // Test webhook
   const testChannel = async (type: "news" | "calendar" | "signals" | "executions") => {
+    if (!isAdmin) {
+      toast.error("Admin privileges required to dispatch test alerts");
+      return;
+    }
     setTesting(type);
     await saveConfig();
     try {
-      const res = await fetch(`${BRIDGE}/api/alert-config/test?type=${type}`, {
-        headers: { "ngrok-skip-browser-warning": "true" },
+      const res = await fetch(`/api/alert-config/test?type=${type}`, {
         method: "POST",
       });
       const data = await res.json();
@@ -677,7 +693,7 @@ export default function AlertsDeskPage() {
       <div className="flex items-center gap-2 border-b pb-1" style={{ borderColor: "var(--border)" }}>
         {[
           { id: "targets", label: "Live Watcher & Price Targets", icon: TargetIcon, badge: activeTargetsCount > 0 ? activeTargetsCount : undefined },
-          { id: "integrations", label: "Channels & Webhooks", icon: Radio, badge: undefined },
+          ...(isAdmin ? [{ id: "integrations", label: "Channels & Webhooks", icon: Radio, badge: undefined }] : []),
           { id: "history", label: "Alert History & Logs", icon: History, badge: history.length > 0 ? history.length : undefined },
         ].map((tab) => {
           const Icon = tab.icon;
@@ -1137,6 +1153,13 @@ export default function AlertsDeskPage() {
       {/* ── TAB 2: CHANNELS & WEBHOOKS (INTEGRATIONS) ── */}
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {activeTab === "integrations" && (
+        !isAdmin ? (
+          <AdminOnly pageName="Channels & Broadcast Webhooks">
+            <div className="p-8 text-center text-xs text-[--text-secondary]">
+              External broadcast channels (Telegram bot tokens and Discord webhooks) are restricted to system administrators.
+            </div>
+          </AdminOnly>
+        ) : (
         <div className="space-y-6">
           {/* Master Killswitch & Status */}
           <div
@@ -1410,6 +1433,7 @@ export default function AlertsDeskPage() {
             </button>
           </div>
         </div>
+        )
       )}
 
       {/* ══════════════════════════════════════════════════════════════════════ */}

@@ -1,0 +1,27 @@
+; ==============================================================
+; XAUUSD H1 SWING TREND — ride established trends
+; HTF (H4) bias filter + discount/premium pullback entry; no time
+; decay; BE lock at 1R; optional 50% partial at 2R; wide ATR trail.
+; Use in CLEAR trending gold markets (strong 4h trend days).
+; Not for chop. Attach to XAUUSD H1 chart. MODE_SWING is mandatory.
+; ==============================================================
+InpStrategyType=6||0||0||0||N
+InpSignalTimeframe=H1||0||0||0||N
+InpPositionMode=2||0||0||0||N
+InpSwingRangeBars=50||0||0||0||N
+InpSwingPullbackPct=35||0||0||0||N
+InpSwingSLAtrMult=2.5||0||0||0||N
+InpSwingUseBE=true||0||0||0||N
+InpSwingBE_RR=1.0||0||0||0||N
+InpSwingPartialRR=2.0||0||0||0||N
+InpSwingPartialPct=50||0||0||0||N
+InpSwingTrailATRMult=4.0||0||0||0||N
+InpTrailingStop=true||0||0||0||N
+InpRiskPercent=1.0||0||0||0||N
+InpMinScore=75||0||0||0||N
+InpMaxOpenTrades=2||0||0||0||N
+InpMaxSpreadPoints=300||0||0||0||N
+InpUseNewsFilter=true||0||0||0||N
+InpUseLossStreakCooldown=true||0||0||0||N
+InpLossStreakThreshold=3||0||0||0||N
+InpLossStreakCooldownMin=60||0||0||0||N

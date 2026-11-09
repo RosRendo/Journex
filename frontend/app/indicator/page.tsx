@@ -1,8 +1,7 @@
-﻿
-
 "use client";
 
 import React, { useState, useEffect } from "react";
+import AdminOnly from "@/components/AdminOnly";
 import { 
   Sliders, Cpu, Activity, Zap, Shield, Target, 
   RefreshCw, AlertCircle, CheckCircle2, TrendingUp, HelpCircle 
@@ -37,7 +36,7 @@ const categoryColors: Record<string, string> = {
   "Risk/Reward": "text-[#20e0b2] border-green-500/20 bg-green-500/5",
 };
 
-export default function IndicatorPage() {
+function IndicatorPageInner() {
   const [enabled, setEnabled] = useState<Record<string, boolean>>(
     Object.fromEntries(indicatorRows.map((r) => [r.category, r.defaultOn]))
   );
@@ -49,8 +48,7 @@ export default function IndicatorPage() {
 
   // Dynamic Bridge URLs setup
   const BRIDGE_URLS = [
-    "http://192.168.100.171:5003",
-    "http://localhost:5003",
+    process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge",
     "http://127.0.0.1:5003"
   ];
 
@@ -99,10 +97,10 @@ export default function IndicatorPage() {
   const getSession = () => report?.session || "LONDON";
   const getSymbol = () => report?.symbol || "XAUUSD";
 
-  // Real indicator telemetry with fallbacks
-  const rsiVal = report?.momentum_score ?? 58.4;
-  const adxVal = report?.execution_score ?? 78.0;
-  const spreadPts = report?.spread_points ?? (report ? 12 : 8);
+  // Real indicator telemetry: strictly null if no active EA report
+  const rsiVal = report?.momentum_score ?? null;
+  const adxVal = report?.execution_score ?? null;
+  const spreadPts = report?.spread_points ?? null;
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-20 text-zinc-300 font-sans px-4">
@@ -180,8 +178,8 @@ export default function IndicatorPage() {
           <div className="space-y-1">
             <span className="text-[10px] text-zinc-450 block">Confluence Momentum</span>
             <div className="flex items-baseline gap-1.5">
-              <span className="text-2xl font-black text-sky-400">{rsiVal} / 100</span>
-              <span className="text-[10px] text-zinc-550 font-bold">{rsiVal >= 75 ? "STRONG" : rsiVal >= 50 ? "NORMAL" : "WEAK"}</span>
+              <span className="text-2xl font-black text-sky-400">{rsiVal !== null ? `${rsiVal} / 100` : "--"}</span>
+              <span className="text-[10px] text-zinc-550 font-bold">{rsiVal !== null ? (rsiVal >= 75 ? "STRONG" : rsiVal >= 50 ? "NORMAL" : "WEAK") : "OFFLINE"}</span>
             </div>
           </div>
           <div className="space-y-1.5 border-t border-[rgba(255,255,255,0.04)] pt-2.5">
@@ -204,7 +202,7 @@ export default function IndicatorPage() {
           </div>
           <div className="space-y-1">
             <span className="text-[10px] text-zinc-450 block">Execution Score</span>
-            <span className="text-2xl font-black text-[#a1a1aa]">{adxVal} / 100</span>
+            <span className="text-2xl font-black text-[#a1a1aa]">{adxVal !== null ? `${adxVal} / 100` : "--"}</span>
           </div>
           <div className="text-[10px] text-zinc-505 flex justify-between border-t border-[rgba(255,255,255,0.04)] pt-2.5">
             <span>Active Session</span>
@@ -225,7 +223,7 @@ export default function IndicatorPage() {
           </div>
           <div className="text-[10px] text-zinc-550 flex justify-between border-t border-[rgba(255,255,255,0.04)] pt-2.5">
             <span>Live Terminal Spread</span>
-            <span className="text-amber-455 font-bold">{spreadPts} pts</span>
+            <span className="text-amber-455 font-bold">{spreadPts !== null ? `${spreadPts} pts` : "--"}</span>
           </div>
         </div>
 
@@ -346,3 +344,10 @@ export default function IndicatorPage() {
   );
 }
 
+export default function IndicatorPage() {
+  return (
+    <AdminOnly pageName="Indicator Calibration Desk">
+      <IndicatorPageInner />
+    </AdminOnly>
+  );
+}

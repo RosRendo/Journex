@@ -53,7 +53,7 @@ public:
       MqlRates rates[];
       int copied = GetRates(tf, 5, rates);
       if(copied < 2) return false;
-      double current_price = rates[copied - 1].close;
+      double current_price = rates[0].close;
 
       // Scenario A: Liquidity Sweep followed by MSS (Strong SMC Reversal setup)
       if(mss == "BULLISH" && has_sweep && sweep.type == "SSL")
@@ -128,8 +128,10 @@ public:
       GetFVGs(tf, InpLiquidityLookback, fvgs);
       bool recent_fvg = false;
       int fvg_size = ArraySize(fvgs);
+      // Last 10 detected FVGs, but only those formed within the last 15 bars
       for(int i = MathMax(0, fvg_size - 10); i < fvg_size; i++)
         {
+         if(iBarShift(_Symbol, tf, fvgs[i].time) > 15) continue;
          if(candidate.type == "BUY" && fvgs[i].is_bullish) recent_fvg = true;
          if(candidate.type == "SELL" && !fvgs[i].is_bullish) recent_fvg = true;
         }
@@ -138,8 +140,10 @@ public:
       GetOrderBlocks(tf, InpLiquidityLookback, obs);
       bool recent_ob = false;
       int ob_size = ArraySize(obs);
+      // Last 15 detected OBs, but only those formed within the last 20 bars
       for(int i = MathMax(0, ob_size - 15); i < ob_size; i++)
         {
+         if(iBarShift(_Symbol, tf, obs[i].time) > 20) continue;
          if(candidate.type == "BUY" && obs[i].is_bullish) recent_ob = true;
          if(candidate.type == "SELL" && !obs[i].is_bullish) recent_ob = true;
         }
@@ -206,7 +210,8 @@ public:
       if(sess_upper == "ALL" || sess_upper == "BOTH") sess_ok = true;
       else if(sess_upper == "LONDON" && (current_session == "LONDON" || current_session == "LONDON & NY")) sess_ok = true;
       else if(sess_upper == "NY"     && (current_session == "NEW YORK" || current_session == "LONDON & NY")) sess_ok = true;
-      else if(current_session != "NONE" && current_session != "ASIAN") sess_ok = true;
+      else if(current_session != "NONE" && current_session != "ASIA") sess_ok = true;
+      else if(sess_upper == "ASIA" && current_session == "ASIA") sess_ok = true;
       if(sess_ok) score += 5.0;
 
       // Multi-Timeframe Confirmation

@@ -171,12 +171,13 @@ public:
         }
 
       // 9. Session Window (Max InpScoreWeightSession)
+      // GetCurrentSession() returns "LONDON" / "NEW YORK" / "ASIA" / "NONE"
       string current_session = GetCurrentSession();
-      if(StringFind(current_session, "London") >= 0 || StringFind(current_session, "New York") >= 0 || StringFind(current_session, "NY") >= 0)
+      if(StringFind(current_session, "LONDON") >= 0 || StringFind(current_session, "NEW YORK") >= 0 || StringFind(current_session, "NY") >= 0)
         {
          b.session_pts = InpScoreWeightSession;
         }
-      else if(StringFind(current_session, "Asian") >= 0)
+      else if(StringFind(current_session, "ASIA") >= 0)
         {
          b.session_pts = (int)MathRound(InpScoreWeightSession * 0.4);
         }

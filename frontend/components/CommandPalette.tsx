@@ -41,7 +41,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const commands = useMemo<CommandItem[]>(() => {
     // Action layer (DO)
     const actionLayer: CommandItem[] = [
-      {
+      ...(isAdmin ? [{
         id: "act-trade",
         label: "Execute Order / Open Terminal",
         description: "Direct MT5 institutional execution desk",
@@ -49,7 +49,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         category: "ACTIONS (DO)",
         action: () => navigate("/terminal"),
         keywords: ["buy", "sell", "order", "execute", "trade", "mt5", "terminal"],
-      },
+      }] : []),
       {
         id: "act-scan",
         label: "Scan for A+ Confluences & Setups",

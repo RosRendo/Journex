@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import React, { useState, useEffect, useCallback } from "react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -45,7 +45,10 @@ export default function FlexibleTradingSimulator() {
   const firstRisk = (startingBalance * riskPerTrade) / 100;
   const firstPos = riskPerUnit > 0 ? firstRisk / riskPerUnit : 0;
   const firstLot = firstPos / contractSize;
-  const takeProfitPrice = entryPrice + (riskPerUnit * rewardRiskRatio * (entryPrice > stopLossPrice ? -1 : 1));
+  const isLong = entryPrice >= stopLossPrice;
+  const takeProfitPrice = isLong
+    ? entryPrice + (riskPerUnit * rewardRiskRatio)
+    : entryPrice - (riskPerUnit * rewardRiskRatio);
   const marginRequired = (firstLot * entryPrice * contractSize) / leverage;
 
   const simulate = useCallback(() => {

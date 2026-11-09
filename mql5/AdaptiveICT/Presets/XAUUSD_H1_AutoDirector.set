@@ -1,0 +1,24 @@
+; ==============================================================
+; XAUUSD H1 AUTO DIRECTOR — lets the market pick the engine
+; Regime -> engine: Trending -> Swing/ZoneSniper/Sniper, Ranging ->
+; ZoneSniper/MeanReversion, Transition -> Scalper, High-Vol -> stand down.
+; REQUIRES: news bridge running (mt5_bridge.py) for the news filter.
+; Attach to XAUUSD H1 chart.
+; ==============================================================
+InpAutoStrategy=true||0||0||0||N
+InpSignalTimeframe=H1||0||0||0||N
+InpPositionMode=1||0||0||0||N
+InpSelMinRegimeConfidence=60||0||0||0||N
+InpSelMinDwellMin=30||0||0||0||N
+InpStrategyType=0||0||0||0||N
+InpRiskPercent=1.0||0||0||0||N
+InpMaxOpenTrades=3||0||0||0||N
+InpMinScore=80||0||0||0||N
+InpMaxSpreadPoints=300||0||0||0||N
+InpUseNewsFilter=true||0||0||0||N
+InpUseLossStreakCooldown=true||0||0||0||N
+InpLossStreakThreshold=3||0||0||0||N
+InpLossStreakCooldownMin=60||0||0||0||N
+InpMaxDailyLossPct=3.0||0||0||0||N
+InpMaxDrawdownPct=10.0||0||0||0||N
+		

@@ -1,0 +1,15 @@
+InpMagic=77001
+InpOperatingMode=1
+InpSetupTF=16385
+InpEntryTF=15
+InpRiskPerTradePct=0.25
+InpMaxAggregateRiskPct=1.0
+InpMaxOpenPositions=3
+InpMaxDailyLossPct=1.5
+InpMaxDrawdownPct=6.0
+InpMaxConsecutiveLosses=3
+InpConsecLossCooldownMin=120
+InpMinRR=1.5
+InpMaxTradesPerDay=3
+InpMaxSpreadPoints=400
+InpLogLevel=1

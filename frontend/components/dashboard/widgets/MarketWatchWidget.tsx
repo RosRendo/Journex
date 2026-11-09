@@ -11,7 +11,7 @@ export function MarketWatchWidget({ borderless = false }: { borderless?: boolean
 
   useEffect(() => {
     // Fetch Heatmap
-    fetchWithAuth(`${getBackendUrl()}/api/bridge/api/heatmap`)
+    fetchWithAuth(`/api/bridge/api/heatmap`)
       .then(res => res.json())
       .then(json => {
         if (json.success && json.data) {
@@ -20,7 +20,7 @@ export function MarketWatchWidget({ borderless = false }: { borderless?: boolean
       }).catch(() => {});
 
     // Fetch Bias
-    fetchWithAuth(`${getBackendUrl()}/api/bridge/api/dailybias`)
+    fetchWithAuth(`/api/bridge/api/dailybias`)
       .then(res => res.json())
       .then(data => {
         if (data.success && data.bias) {

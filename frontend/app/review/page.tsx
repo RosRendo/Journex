@@ -80,8 +80,8 @@ function ReviewContent() {
     "FOMO Entry": 0,
     "Revenge Trade": 0,
   });
-  const [notes, setNotes] = useState("Disciplined session. Followed liquidity sweep setup. Waited patiently for M5 MSS.");
-  const [tomorrowGoal, setTomorrowGoal] = useState("Maintain strict 1% risk and wait for London OTE expansion only.");
+  const [notes, setNotes] = useState("");
+  const [tomorrowGoal, setTomorrowGoal] = useState("");
 
   // Pre-Trade Modal Checkbox State
   const [gatekeeperChecked, setGatekeeperChecked] = useState<Record<number, boolean>>({});
@@ -132,22 +132,14 @@ function ReviewContent() {
 
     return {
       streakData: streakList,
-      currentStreak: Math.max(consecutive, trades && trades.length > 0 ? 1 : 14),
+      currentStreak: consecutive,
     };
   }, [trades]);
 
-  // Emotion vs Net PnL Data
+  // Emotion vs Net PnL Data (Strictly Derived from Actual Trades)
   const emotionPerformanceData = useMemo(() => {
     if (!trades || trades.length === 0) {
-      return [
-        { day: "Mon", pnl: 450, emotion: 8, label: "Focused" },
-        { day: "Tue", pnl: -120, emotion: 4, label: "Anxious" },
-        { day: "Wed", pnl: 890, emotion: 9, label: "Flow State" },
-        { day: "Thu", pnl: 210, emotion: 7, label: "Calm" },
-        { day: "Fri", pnl: -450, emotion: 3, label: "Tilted" },
-        { day: "Mon", pnl: 340, emotion: 8, label: "Focused" },
-        { day: "Tue", pnl: 650, emotion: 8, label: "Focused" },
-      ];
+      return [];
     }
 
     const recent = [...trades].slice(-7);
@@ -476,31 +468,39 @@ function ReviewContent() {
               </div>
             </div>
 
-            <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={emotionPerformanceData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="pnlGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#20e0b2" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#20e0b2" stopOpacity={0.0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                  <XAxis dataKey="day" stroke="#71717a" fontSize={10} fontVariant="mono" />
-                  <YAxis stroke="#71717a" fontSize={10} fontVariant="mono" />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#101014",
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      borderRadius: "8px",
-                      fontFamily: "monospace",
-                      fontSize: "11px",
-                    }}
-                  />
-                  <Area type="monotone" dataKey="pnl" stroke="#20e0b2" strokeWidth={2} fill="url(#pnlGrad)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+            {emotionPerformanceData.length > 0 ? (
+              <div className="h-64 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={emotionPerformanceData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="pnlGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#20e0b2" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#20e0b2" stopOpacity={0.0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                    <XAxis dataKey="day" stroke="#71717a" fontSize={10} fontVariant="mono" />
+                    <YAxis stroke="#71717a" fontSize={10} fontVariant="mono" />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#101014",
+                        border: "1px solid rgba(255,255,255,0.1)",
+                        borderRadius: "8px",
+                        fontFamily: "monospace",
+                        fontSize: "11px",
+                      }}
+                    />
+                    <Area type="monotone" dataKey="pnl" stroke="#20e0b2" strokeWidth={2} fill="url(#pnlGrad)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="h-44 w-full flex flex-col items-center justify-center text-center font-mono border border-dashed border-white/5 rounded-xl bg-black/20">
+                <Brain className="w-8 h-8 text-zinc-600 mb-2" />
+                <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">No Execution Telemetry</span>
+                <span className="text-[10px] text-zinc-600 mt-0.5">Journal trades with emotional state tags to unlock psychological drawdown correlation.</span>
+              </div>
+            )}
           </div>
 
           {/* Trade Quality & Mistake Audit Modules */}

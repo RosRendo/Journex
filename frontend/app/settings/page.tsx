@@ -6,9 +6,11 @@ import { User, DollarSign, ShieldAlert, LogOut, Settings2, MonitorSmartphone, Be
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import ApiKeysSettings from "@/components/terminal/ApiKeysSettings";
+import { useIsAdmin } from "@/lib/role";
 
 export default function EnvironmentSettings() {
   const { data: session } = useSession();
+  const isAdmin = useIsAdmin();
   const user = session?.user;
   const router = useRouter();
   
@@ -315,19 +317,21 @@ export default function EnvironmentSettings() {
                     </div>
                   )}
 
-                  <div className="pt-4 border-t border-[rgba(255,255,255,0.07)] flex flex-col gap-1.5">
-                     <h4 className="text-[11px] font-bold text-white mb-2">Internal Webhooks</h4>
-                     <p className="text-[10px] text-zinc-500 leading-relaxed mb-2">Go to <span className="text-emerald-450">Alerts & Monitors</span> module to inject external destination URLs via the active console matrix.</p>
-                     
-                     <div className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-[rgba(255,255,255,0.07)] bg-black/15">
-                       <Key className="w-4 h-4 text-zinc-600" />
-                       <div>
-                         <p className="text-[11px] font-bold text-white">External Data Sources</p>
-                         <p className="text-[8px] font-mono text-zinc-650 mt-0.5">Marketaux, NewsAPI, TradingEconomics, MyFXBook</p>
+                  {isAdmin && (
+                    <div className="pt-4 border-t border-[rgba(255,255,255,0.07)] flex flex-col gap-1.5">
+                       <h4 className="text-[11px] font-bold text-white mb-2">Internal Webhooks & Feeds (Admin)</h4>
+                       <p className="text-[10px] text-zinc-500 leading-relaxed mb-2">Manage server-wide news, calendar, and market alert dispatch destinations.</p>
+                       
+                       <div className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-[rgba(255,255,255,0.07)] bg-black/15">
+                         <Key className="w-4 h-4 text-zinc-600" />
+                         <div>
+                           <p className="text-[11px] font-bold text-white">External Data Sources</p>
+                           <p className="text-[8px] font-mono text-zinc-650 mt-0.5">Marketaux, NewsAPI, TradingEconomics, MyFXBook</p>
+                         </div>
+                         <button onClick={() => setApiKeysOpen(true)} className="ml-auto text-[10px] font-bold text-emerald-405 uppercase tracking-wider">Configure Keys</button>
                        </div>
-                       <button onClick={() => setApiKeysOpen(true)} className="ml-auto text-[10px] font-bold text-emerald-405 uppercase tracking-wider">Configure Keys</button>
-                     </div>
-                  </div>
+                    </div>
+                  )}
 
                   <div className="pt-4 border-t border-[rgba(255,255,255,0.07)] space-y-4">
                      <h4 className="text-[11px] font-bold text-white">AI Engine Provider</h4>
@@ -367,7 +371,7 @@ export default function EnvironmentSettings() {
 
         </div>
       </div>
-      <ApiKeysSettings open={apiKeysOpen} onOpenChange={setApiKeysOpen} />
+      {isAdmin && <ApiKeysSettings open={apiKeysOpen} onOpenChange={setApiKeysOpen} />}
     </div>
   </div>
   );

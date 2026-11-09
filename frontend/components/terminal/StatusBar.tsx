@@ -43,7 +43,7 @@ export default function StatusBar({ status, symbol, timeframe }) {
       ))}
       <div className="flex-1" />
       <span className="uppercase tracking-widest text-zinc-600">
-        © Bloomberg Terminal — Mock Data Stream
+        Journex Terminal — MT5 Real Telemetry Stream
       </span>
     </div>
   );

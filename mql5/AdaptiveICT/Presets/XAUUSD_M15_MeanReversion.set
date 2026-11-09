@@ -9,7 +9,7 @@ InpMRBBStdDev=2.0||1.5||0.1||2.5||Y
 InpMRRSIPeriod=14||7||1||14||Y
 InpMRRSIOB=70.0||0||0||0||N
 InpMRRSIOS=30.0||0||0||0||N
-InpRiskPercent=2.0||0||0||0||N
+InpRiskPercent=1.0||0||0||0||N
 InpMaxDailyLossPct=4.0||0||0||0||N
 InpMaxDrawdownPct=10.0||0||0||0||N
 InpUseNewsFilter=true||0||0||0||N
@@ -17,3 +17,4 @@ InpPartialExitRR=1.0||0||0||0||N
 InpPartialExitPct=50.0||0||0||0||N
 InpMoveSLToBE=true||0||0||0||N
 InpShowDashboard=true||0||0||0||N
+

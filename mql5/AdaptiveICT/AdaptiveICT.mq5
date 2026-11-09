@@ -18,7 +18,7 @@
 //|         Added Model Status validation & risk capping.            |
 //|         Hardened edge cases (ATR=0, manual exit, min lot).       |
 //+------------------------------------------------------------------+
-#property version   "0.50"
+#property version   "1.000"
 #property description "Professional Smart Money Concepts (SMC) & ICT Scanner EA"
 
 #include "Core/EAController.mqh"
@@ -56,3 +56,4 @@ void OnTimer()
   {
    controller.OnTimer();
   }
+

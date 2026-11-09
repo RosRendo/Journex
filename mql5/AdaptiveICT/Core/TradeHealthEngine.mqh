@@ -194,11 +194,12 @@ public:
       else                vol_act_pts = 2;
 
       // 8. Session Alignment (Max 5 pts)
+      // GetCurrentSession() returns "LONDON" / "NEW YORK" / "ASIA" / "NONE"
       int sess_pts = 0;
       string cur_sess = GetCurrentSession();
-      if(StringFind(cur_sess, "London") >= 0 || StringFind(cur_sess, "New York") >= 0 || StringFind(cur_sess, "NY") >= 0)
+      if(StringFind(cur_sess, "LONDON") >= 0 || StringFind(cur_sess, "NEW YORK") >= 0 || StringFind(cur_sess, "NY") >= 0)
          sess_pts = 5;
-      else if(StringFind(cur_sess, "Asian") >= 0)
+      else if(StringFind(cur_sess, "ASIA") >= 0)
          sess_pts = 3;
       else
          sess_pts = 1;

@@ -1,9 +1,10 @@
-﻿"use client";
+"use client";
 import React, { useState } from "react";
 import { Settings, RefreshCw, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { getBackendUrl } from "@/lib/utils";
 import { useSession } from "@/lib/useSession";
+import { useIsAdmin } from "@/lib/role";
 
 type Bias = "BULLISH" | "BEARISH" | "NEUTRAL";
 
@@ -28,50 +29,7 @@ const PAIR_NAMES: Record<string, string> = {
   "US100": "Nasdaq 100"
 };
 
-const FALLBACK_PAIRS: PairCard[] = [
-  {
-    pair: "XAUUSD", fullName: "Gold / US Dollar", change: "−0.86%", bias: "NEUTRAL",
-    confidence: 64,
-    lastUpdate: "Bridge Offline",
-    analysis: "MT5 Bridge Offline. Start the Python backend to get live analysis. Gold is consolidating near key resistance.",
-    bullets: ["Bridge Offline — start mt5_bridge.py", "Resistance: $2,320", "Support: $2,290"],
-  },
-  {
-    pair: "GBPUSD", fullName: "British Pound / US Dollar", change: "+0.12%", bias: "BULLISH",
-    confidence: 71,
-    lastUpdate: "Bridge Offline",
-    analysis: "MT5 Bridge Offline. Cable is showing bullish momentum above the 1.2700 level.",
-    bullets: ["Bridge Offline — start mt5_bridge.py", "Target: 1.2780", "Key risk: US PCE data"],
-  },
-  {
-    pair: "EURUSD", fullName: "Euro / US Dollar", change: "+0.05%", bias: "NEUTRAL",
-    confidence: 58,
-    lastUpdate: "Bridge Offline",
-    analysis: "MT5 Bridge Offline. EURUSD is ranging between key support and resistance levels. Start the bridge for live analysis.",
-    bullets: ["Bridge Offline — start mt5_bridge.py", "Support: 1.0820", "Resistance: 1.0920"],
-  },
-  {
-    pair: "USDJPY", fullName: "US Dollar / Yen", change: "−0.22%", bias: "NEUTRAL",
-    confidence: 55,
-    lastUpdate: "Bridge Offline",
-    analysis: "MT5 Bridge Offline. USDJPY is consolidating. BoJ policy and US yields are the key drivers to watch.",
-    bullets: ["Bridge Offline — start mt5_bridge.py", "Support: 148.00", "Resistance: 151.00"],
-  },
-  {
-    pair: "GBPJPY", fullName: "British Pound / Yen", change: "−0.10%", bias: "NEUTRAL",
-    confidence: 52,
-    lastUpdate: "Bridge Offline",
-    analysis: "MT5 Bridge Offline. GBPJPY is a high-volatility cross — live analysis requires the MT5 bridge to be running.",
-    bullets: ["Bridge Offline — start mt5_bridge.py", "Support: 188.00", "Resistance: 192.50"],
-  },
-  {
-    pair: "XAGUSD", fullName: "Silver / US Dollar", change: "−0.43%", bias: "NEUTRAL",
-    confidence: 50,
-    lastUpdate: "Bridge Offline",
-    analysis: "MT5 Bridge Offline. Silver is tracking Gold with some industrial demand underpinning. Start the bridge for live signals.",
-    bullets: ["Bridge Offline — start mt5_bridge.py", "Support: $27.50", "Resistance: $29.00"],
-  },
-];
+const FALLBACK_PAIRS: PairCard[] = [];
 
 function ConfidenceBar({ value, delay = 0 }: { value: number; delay?: number }) {
   return (
@@ -98,6 +56,7 @@ function ConfidenceBar({ value, delay = 0 }: { value: number; delay?: number }) 
 
 export function MacroDeskCard({ data, delay = 0 }: { data: PairCard; delay?: number }) {
   const [expanded, setExpanded] = useState(false);
+  const isAdmin = useIsAdmin();
 
   const biasColor = data.bias === "BULLISH" ? "var(--bull)" : data.bias === "BEARISH" ? "var(--bear)" : "var(--neutral)";
   const biasBg = data.bias === "BULLISH" ? "rgba(0,200,150,0.1)" : data.bias === "BEARISH" ? "rgba(255,77,106,0.1)" : "rgba(160,160,184,0.1)";

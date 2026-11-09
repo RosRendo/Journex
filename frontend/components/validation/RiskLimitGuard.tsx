@@ -19,7 +19,7 @@ export default function RiskLimitGuard() {
   const { snapshot } = useTerminalData("XAUUSD", "M15");
   const { trades = [] } = useCsvTrades();
 
-  const balance = snapshot?.account?.balance || 35.18;
+  const balance = snapshot?.account?.balance ?? 0;
 
   // Real calculations
   const todayStr = new Date().toISOString().split("T")[0];

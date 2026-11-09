@@ -92,7 +92,10 @@ export default function SetupAndConfirmationHero({
                 {signal.headline.replace(/LONG|SHORT|SETUP DETECTED/gi, "").trim()}
               </span>
             </div>
-            <div className="text-zinc-500 text-[8.5px] truncate">ICT · Smart Money Concept</div>
+            <div className="text-[#20e0b2] text-[8.5px] font-bold tracking-wider flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#20e0b2] animate-pulse" />
+              Quantitative Decision Engine
+            </div>
           </div>
         </div>
 

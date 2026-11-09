@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState } from "react";
 import { Calculator } from "lucide-react";
@@ -6,8 +6,10 @@ import { Calculator } from "lucide-react";
 export function VisualPositionSizer({ balance }: { balance?: number }) {
   const [riskPct, setRiskPct] = useState(1.0);
   const [stopLossPips, setStopLossPips] = useState(20);
+  const [customBalance, setCustomBalance] = useState<number>(10000);
 
-  const currentBalance = balance || 10000; // default to 10k if unconnected
+  const hasBrokerBalance = Boolean(balance && balance > 0);
+  const currentBalance = hasBrokerBalance ? balance! : customBalance;
   const riskAmount = currentBalance * (riskPct / 100);
   
   // Standard approximation: 1 lot = $10 per pip for most major pairs
@@ -16,10 +18,34 @@ export function VisualPositionSizer({ balance }: { balance?: number }) {
 
   return (
     <div className="bg-[#0c0c0d]/90 border border-white/5 rounded-xl p-5 h-full flex flex-col">
-      <div className="flex items-center gap-2 mb-4">
-         <Calculator className="w-5 h-5 text-blue-400" />
-         <h3 className="text-sm font-bold text-gray-200 tracking-wide uppercase">Position Sizer</h3>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Calculator className="w-5 h-5 text-blue-400" />
+          <h3 className="text-sm font-bold text-gray-200 tracking-wide uppercase">Position Sizer</h3>
+        </div>
+        <span className={`text-[9px] font-mono px-2 py-0.5 rounded border ${
+          hasBrokerBalance
+            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+            : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+        }`}>
+          {hasBrokerBalance ? "Broker Sync" : "Manual Input"}
+        </span>
       </div>
+
+      {!hasBrokerBalance && (
+        <div className="mb-3 p-2 rounded bg-black/40 border border-white/5 flex items-center justify-between text-[11px] font-mono">
+          <span className="text-zinc-500">Test Balance:</span>
+          <div className="flex items-center gap-1">
+            <span className="text-zinc-500">$</span>
+            <input
+              type="number"
+              value={customBalance}
+              onChange={(e) => setCustomBalance(Math.max(1, parseFloat(e.target.value) || 0))}
+              className="w-24 bg-zinc-900 border border-zinc-700 px-1.5 py-0.5 rounded text-white text-right outline-none"
+            />
+          </div>
+        </div>
+      )}
 
       <div className="space-y-4 flex-1">
          <div>

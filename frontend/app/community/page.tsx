@@ -1,10 +1,11 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect } from "react";
 import { resolveLocalUrl } from "@/lib/utils";
 import { Menu, Zap, TrendingUp, Compass, Users, Clock, Filter, Sparkles, MessageSquare, Play, RefreshCw, BarChart2, Briefcase, Plus, Send, Heart, Reply, Share, Activity, Search, AlertCircle, Bookmark, Eye, CornerDownRight, ThumbsUp, ChevronDown, User, Edit3, Image as ImageIcon, Share2, TrendingDown, Crosshair, Target, Trash2, Save, X, MoreHorizontal, UserCheck, UserPlus, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "@/lib/useSession";
+import { isAdminEmail } from "@/lib/role";
 
 interface Comment {
     id: string;
@@ -260,9 +261,9 @@ export default function CommunityPage() {
             if (res.ok) {
                 const created = await res.json();
 
-                if (session?.user?.email === "rousrendo@gmail.com" && !activeCommunityId && isSignal) {
+                if (isAdminEmail(session?.user?.email) && !activeCommunityId && isSignal) {
                     try {
-                        const message = `🚨 **NEW SIGNAL ALERT: ${signalPair.toUpperCase()}** 🚨\n\n**Direction:** ${signalDirection}\n**Entry Target:** ${signalEntry || "Market Price"}\n**Take Profit:** ${signalTP || "Open"}\n**Stop Loss:** ${signalSL || "Open"}\n\n📝 **Notes:** ${newPostContent}\n\n⚡ Execute this exact trade instantly with auto-calculated risk on Journex Pro:\nhttps://tradekiller.com/community`;
+                        const message = `🚨 **NEW SIGNAL ALERT: ${signalPair.toUpperCase()}** 🚨\n\n**Direction:** ${signalDirection}\n**Entry Target:** ${signalEntry || "Market Price"}\n**Take Profit:** ${signalTP || "Open"}\n**Stop Loss:** ${signalSL || "Open"}\n\n📝 **Notes:** ${newPostContent}\n\n⚡ Execute this exact trade instantly with auto-calculated risk on Journex Pro:\nhttps://journex.io/community`;
                         fetch(`${BRIDGE_URL}/api/notify`, {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },

@@ -100,9 +100,25 @@ export const getAllTrades = async (req: Request, res: Response, next: NextFuncti
 
     const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
     const take = parseInt(limit as string);
-    const where: any = { 
-      userId: { in: [req.userId, "default-user"] } 
-    };
+
+    // Strict multi-tenant isolation:
+    // If not authenticated, return empty trades
+    if (!req.userId) {
+      return res.json({
+        success: true,
+        data: [],
+        pagination: { page: parseInt(page as string), limit: take, total: 0, pages: 0 },
+      });
+    }
+
+    const isAdmin =
+      req.userId === "rousrendo@gmail.com" ||
+      req.userId === "admin@journex.io" ||
+      req.userId === "admin-master-id";
+
+    const where: any = isAdmin
+      ? { userId: { in: [req.userId, "default-user", "admin-master-id", "rousrendo@gmail.com"] } }
+      : { userId: req.userId };
 
     // Filter by account number if provided (e.g. ?accountNumber=279260598)
     if (req.query.accountNumber) {
@@ -130,20 +146,7 @@ export const getAllTrades = async (req: Request, res: Response, next: NextFuncti
       prisma.trade.count({ where }),
     ]);
 
-    if (total === 0) {
-      const { seedDemoTradesIfEmpty } = require('../routes/terminalRoutes');
-      await seedDemoTradesIfEmpty();
-      
-      const [newTrades, newTotal] = await Promise.all([
-        prisma.trade.findMany({ where, skip, take, orderBy: { [sortBy as string]: sortOrder } }),
-        prisma.trade.count({ where }),
-      ]);
-      return res.json({
-        success: true,
-        data: newTrades,
-        pagination: { page: parseInt(page as string), limit: parseInt(limit as string), total: newTotal, pages: Math.ceil(newTotal / take) },
-      });
-    }
+    // Clean zero-fallback: new accounts with 0 trades remain at 0
 
     res.json({
       success: true,

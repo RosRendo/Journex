@@ -5,6 +5,8 @@ import { useWebSocket } from "../providers/WebSocketProvider";
 import Chart from "./Chart";
 import VolumeProfile from "./VolumeProfile";
 import MultiChartCompare from "./MultiChartCompare";
+import ComexGoldPanel from "./ComexGoldPanel";
+import TerminalConfirmationCockpit from "./TerminalConfirmationCockpit";
 import { listDrawings, addDrawing, clearDrawings } from "../../lib/terminalApi";
 
 const TIMEFRAMES = ["M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1"];
@@ -52,9 +54,10 @@ interface CenterPanelProps {
   timeframe: string;
   onTimeframeChange: (tf: string) => void;
   snapshot: any;
+  onOpenOrder?: (initialData?: any) => void;
 }
 
-export default function CenterPanel({ symbol, timeframe, onTimeframeChange, snapshot }: CenterPanelProps) {
+export default function CenterPanel({ symbol, timeframe, onTimeframeChange, snapshot, onOpenOrder }: CenterPanelProps) {
   const [chartType, setChartType] = useState("Candles");
   const [indicators, setIndicators] = useState<any>({
     ma20: true,
@@ -73,6 +76,16 @@ export default function CenterPanel({ symbol, timeframe, onTimeframeChange, snap
   // Phase B: compare + volume profile
   const [compareMode, setCompareMode] = useState(false);
   const [showVP, setShowVP] = useState(false);
+  const [showCockpit, setShowCockpit] = useState(true);
+  const isGoldSymbol = symbol.toUpperCase().includes("XAU") || symbol.toUpperCase().includes("GOLD");
+  const [showComexGold, setShowComexGold] = useState(isGoldSymbol);
+
+  // Auto-sync COMEX dock when switching to/from Gold
+  useEffect(() => {
+    if (isGoldSymbol) {
+      setShowComexGold(true);
+    }
+  }, [isGoldSymbol]);
 
   useEffect(() => {
     let cancelled = false;
@@ -187,6 +200,28 @@ export default function CenterPanel({ symbol, timeframe, onTimeframeChange, snap
             >
               Vol Profile
             </TogglePill>
+            <TogglePill
+              testId="toggle-cockpit"
+              active={showCockpit}
+              onClick={() => setShowCockpit((v) => !v)}
+            >
+              <span className="flex items-center gap-1 text-[#20e0b2] font-bold">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#20e0b2] animate-pulse" />
+                Cockpit HUD
+              </span>
+            </TogglePill>
+            {isGoldSymbol && (
+              <TogglePill
+                testId="toggle-comex-gold"
+                active={showComexGold}
+                onClick={() => setShowComexGold((v) => !v)}
+              >
+                <span className="flex items-center gap-1 text-amber-400 font-bold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                  COMEX Flow (GC)
+                </span>
+              </TogglePill>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-3 px-3 min-h-8 py-1 flex-wrap border-t border-zinc-900">
@@ -227,52 +262,90 @@ export default function CenterPanel({ symbol, timeframe, onTimeframeChange, snap
         </div>
       </div>
 
-      {/* Chart body */}
-      <div className="flex-1 min-h-0 relative bg-black" data-testid="chart-body">
+      {/* ── VISUAL CONFIRMATION COCKPIT HUD ── */}
+      {showCockpit && (
+        <TerminalConfirmationCockpit
+          symbol={symbol}
+          timeframe={timeframe}
+          candles={candles}
+          watchlist={snapshot?.watchlist || []}
+          account={snapshot?.account}
+          news={snapshot?.news || []}
+          onStageTrade={(trade) => onOpenOrder?.(trade)}
+        />
+      )}
+
+      {/* Chart body with Side-by-Side COMEX Gold Flow Dock */}
+      <div className="flex-1 min-h-0 flex flex-col xl:flex-row relative bg-black overflow-hidden" data-testid="chart-body">
         {compareMode ? (
           <MultiChartCompare symbol={symbol} />
         ) : (
           <>
-            <Chart
-              candles={candles}
-              indicators={indicators}
-              drawingMode={drawMode}
-              drawings={drawings}
-              onDrawingComplete={handleDrawingComplete}
-              symbol={symbol}
-            />
-            {showVP && <VolumeProfile candles={candles} />}
+            <div className="flex-1 min-h-0 min-w-0 relative h-full">
+              <Chart
+                candles={candles}
+                indicators={indicators}
+                drawingMode={drawMode}
+                drawings={drawings}
+                onDrawingComplete={handleDrawingComplete}
+                symbol={symbol}
+              />
+              {showVP && <VolumeProfile candles={candles} />}
+
+              {/* Floating legend / trade plan overlay */}
+              <div className="absolute top-2 left-2 text-[10px] font-mono space-y-0.5 pointer-events-none z-10 bg-black/60 px-2 py-1 rounded border border-white/5 backdrop-blur-sm">
+                <div className="flex items-center gap-2">
+                  <span className="inline-block w-3 h-px bg-cyan-400" />
+                  <span className="text-zinc-400">MA20</span>
+                  <span className="inline-block w-3 h-px bg-amber-500 ml-2" />
+                  <span className="text-zinc-400">MA50</span>
+                  <span className="inline-block w-3 h-px bg-violet-400 ml-2" />
+                  <span className="text-zinc-400">MA200</span>
+                </div>
+                <div className="text-zinc-500 text-[9px]">Exchange Volume Profile & MT5 Ticks Active</div>
+              </div>
+            </div>
+
+            {/* COMEX Gold Futures (GC) Institutional Flow Dock Alongside Chart */}
+            {showComexGold && (
+              <div className="w-full xl:w-[410px] 2xl:w-[440px] border-t xl:border-t-0 xl:border-l border-zinc-800 bg-[#07070a] flex flex-col shrink-0 h-[420px] xl:h-full overflow-hidden transition-all duration-300 z-20">
+                <ComexGoldPanel
+                  symbol={symbol}
+                  onClose={() => setShowComexGold(false)}
+                  className="h-full border-none rounded-none"
+                />
+              </div>
+            )}
           </>
         )}
-        {/* Floating legend / trade plan overlay */}
-        <div className="absolute top-2 left-2 text-[10px] font-mono space-y-0.5 pointer-events-none">
-          <div className="flex items-center gap-2">
-            <span className="inline-block w-3 h-px bg-cyan-400" />
-            <span className="text-zinc-400">MA20</span>
-            <span className="inline-block w-3 h-px bg-amber-500 ml-2" />
-            <span className="text-zinc-400">MA50</span>
-            <span className="inline-block w-3 h-px bg-violet-400 ml-2" />
-            <span className="text-zinc-400">MA200</span>
-          </div>
-          <div className="text-zinc-500">Vol shown beneath</div>
-        </div>
       </div>
 
       {/* Chart notes */}
       <div className="shrink-0 border-t border-zinc-800 bg-zinc-950 px-3 py-1.5 text-[11px] font-mono">
         <div className="grid grid-cols-2 gap-x-6 gap-y-0.5">
           <span className="text-zinc-500">
-            Trade Plan: <span className="text-zinc-200">SELL @ 1.0950 · SL 1.0980 · TP 1.0850</span>{" "}
-            <span className="text-emerald-500">R:R 1:3.33</span>
+            {isGoldSymbol ? (
+              <>
+                Instrument: <span className="text-amber-300 font-bold">XAUUSD Spot (Execution)</span> ⇄{" "}
+                <span className="text-emerald-400 font-bold">COMEX GC (Order Flow)</span>
+              </>
+            ) : (
+              <>
+                Active Pair: <span className="text-zinc-200 font-bold">{symbol}</span> · {timeframe} MT5 Live Feed
+              </>
+            )}
           </span>
           <span className="text-zinc-500">
-            RSI: <span className="text-amber-500">35 oversold</span> · MACD:{" "}
-            <span className="text-red-500">bearish ✓</span>
+            Order Flow: <span className="text-emerald-400 font-bold">CVD Delta Active</span> · VWAP:{" "}
+            <span className="text-amber-400 font-bold">Aligned ✓</span>
           </span>
           <span className="text-zinc-500">
-            Levels: <span className="text-zinc-200">S1 1.0850 · S2 1.0800 · R1 1.1050</span>
+            Telemetry: <span className="text-zinc-200">Real MT5 Ticks + CME Globex GC Depth</span>
           </span>
-          <span className="text-amber-500">⚠ ECB rate decision in 47 min — expect spike to 1.0920</span>
+          <span className="text-emerald-400 flex items-center gap-1 font-bold">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+            Institutional Confirmation Framework Active
+          </span>
         </div>
       </div>
     </div>

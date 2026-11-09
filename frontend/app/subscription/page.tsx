@@ -1,17 +1,20 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useSession } from "@/lib/useSession";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
   Zap,
   ArrowRight,
+  ArrowLeft,
   ShieldCheck,
   CreditCard,
   Sparkles,
   Gem,
   AlertCircle,
+  TrendingUp,
 } from "lucide-react";
 
 type Plan = "Starter" | "Pro" | "Lifetime";
@@ -132,12 +135,37 @@ export default function SubscriptionPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8 bg-background min-h-[80vh] flex flex-col justify-center">
+    <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8 bg-background min-h-[85vh] flex flex-col justify-center">
+      {/* Top Bar Navigation */}
+      <div className="flex items-center justify-between w-full mb-12 pb-4 border-b border-border">
+        <Link
+          href="/"
+          className="flex items-center gap-2 group text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+          <span>Back to Home</span>
+        </Link>
+        <div className="flex items-center gap-4">
+          <Link href="/" className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
+              <TrendingUp className="w-4 h-4 text-primary-foreground" />
+            </div>
+            <span className="font-bold text-sm tracking-tight text-foreground">Journex Pro</span>
+          </Link>
+          <Link
+            href="/auth?mode=login"
+            className="text-xs font-semibold px-3.5 py-1.5 rounded-lg border border-border hover:bg-card transition-colors text-foreground"
+          >
+            Sign In
+          </Link>
+        </div>
+      </div>
+
       {/* Header */}
       <div className="text-center mb-16">
         <h1 className="text-4xl md:text-5xl font-extrabold text-foreground mb-4 tracking-tight">
           Upgrade to{" "}
-          <span className="bg-gradient-to-r from-violet-500 to-indigo-500 bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-[#20e0b2] via-emerald-400 to-teal-300 bg-clip-text text-transparent">
             Journex Pro
           </span>
         </h1>
@@ -168,7 +196,7 @@ export default function SubscriptionPage() {
           >
             {/* Top gradient bar on featured */}
             {plan.featured && (
-              <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-violet-500 to-indigo-500" />
+              <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-[#20e0b2] to-emerald-400" />
             )}
 
             <div className="p-8 flex flex-col flex-1">

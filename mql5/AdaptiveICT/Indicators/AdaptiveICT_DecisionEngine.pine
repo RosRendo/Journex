@@ -1,9 +1,33 @@
 // ============================================================
 // AdaptiveICT Decision Engine | Pine Script v5
-// Version: 2.10 (Volume Profile POC & Institutional Confluence)
+// Version: 2.11 (Volume Profile POC & Institutional Confluence)
 // ============================================================
 // A professional-grade market intelligence dashboard.
 // NOT a simple signal indicator — it explains WHY a trade exists.
+//
+// Changelog v2.11 (2026-10-27):
+//   - FIX: Zero-volume guard in Daily Volume Profile — symbols without volume data
+//     now suppress POC/VAH/VAL (na) instead of drawing a degenerate bottom-of-range POC
+//   - FIX: Asian Range & London Judas Killzone hours are now configurable inputs
+//     (defaults 0000-0800 / 0800-1100 UTC preserve v2.10 behaviour)
+//   - FIX: CVD divergence pivot bar-stamping — price and CVD pivots must now be
+//     contemporaneous (within 5 bars), eliminating false divergences from stale CVD pivots
+//   - FIX: Same-bar TP1/SL conflict now counted conservatively as -1R (was optimistic +0.4R)
+//   - NEW: Projection Freeze — flat-state Entry/SL/TP lines anchor at the last confirmed
+//     signal close (or last flow flip / trade close) instead of chasing the rolling close;
+//     new input "Show Projected Targets When Flat" to hide them entirely
+//   - NEW: Projection stale-anchor guard — flat projections re-anchor when price drifts
+//     more than N × ATR from the frozen entry (input "Projection Refresh — Max Drift", default 3)
+//   - FIX: HUD mode title now shows PARITY / MOMENTUM / ZONE SNIPER correctly per mode
+//   - FIX: Runtime crash "historical offset beyond buffer" — Volume Profile lookback
+//     capped at 470 bars, 80% Rule uses a captured day-open var, max_bars_back(time, 500)
+//     reserved, and POC/VA/Asian/Midnight line anchors clamped to <= 470 bars back
+//     (bar_index x-coordinates convert to timestamps via the time series internally)
+//   - NEW: Zone Sniper mode (replaces ICT Swing/Sniper) — BUY only from the bottom
+//     (Discount zone), SELL only from the top (Premium zone); Equilibrium (middle) =
+//     momentum scalp. TP1 for Zone Sniper entries = ATR-based volatility target
+//     ("TP1 ATR Multiple" input, default 1.0). TP2/TP3 runners only for base entries;
+//     middle scalps exit fully at TP1. HUD shows "--" for absent runner targets.
 //
 // Changelog v2.10 (2026-09-28):
 //   - US1: Developing Daily Volume Profile (20 dynamic bins, POC, 70% VAH/VAL)
@@ -32,6 +56,12 @@
 //@version=5
 indicator("AdaptiveICT Decision Engine", shorttitle="AICT-DE", overlay=true, max_lines_count=200, max_labels_count=200, max_boxes_count=100)
 
+// v2.11: drawings anchored in the past (POC/VA/Asian/Midnight lines) internally convert
+// bar_index x-coordinates via the `time` series; on realtime bars that exceeded the
+// auto-sized buffer ("historical offset beyond limit"). Reserve room explicitly and
+// clamp drawing anchors to <= 470 bars back so x->time conversion stays in bounds.
+max_bars_back(time, 500)
+
 // ============================================================
 // ── INPUTS
 // ============================================================
@@ -46,7 +76,7 @@ var string G_NEWS  = "News / Calendar Filter"
 var string G_EXEC  = "Execution & Trade"
 var string G_DISP  = "Display Settings"
 
-mode       = input.string("MQL5 Engine Parity (v0.50)", "Trading Mode", options=["MQL5 Engine Parity (v0.50)", "Momentum Scalper", "ICT Swing / Sniper"], group=G_MODE)
+mode       = input.string("MQL5 Engine Parity (v0.50)", "Trading Mode", options=["MQL5 Engine Parity (v0.50)", "Momentum Scalper", "Zone Sniper (Low/High)"], group=G_MODE)
 min_score  = input.int(75, "Minimum Decision Score", minval=50, maxval=100, group=G_MODE)
 
 mom_lookback = input.int(5,  "Momentum Lookback Bars", minval=2, maxval=20, group=G_MOM)
@@ -65,6 +95,7 @@ eqh_tol      = input.float(0.001,  "EQH/EQL Tolerance", minval=0.0001, group=G_I
 
 sl_atr_mult  = input.float(2.0, "Stop Loss ATR Multiple", minval=0.5, step=0.25, group=G_EXEC)
 tp1_rr       = input.float(1.2, "TP1 Target RR (Safety & BE)", minval=0.5, step=0.1, group=G_EXEC)
+tp1_atr_mult = input.float(1.0, "TP1 ATR Multiple (Zone Sniper Volatility Scalp)", minval=0.1, step=0.1, group=G_EXEC)
 tp2_rr       = input.float(2.5, "TP2 Target RR (Structural)", minval=1.0, step=0.1, group=G_EXEC)
 tp3_rr       = input.float(4.0, "TP3 Target RR (Expansion Runner)", minval=1.5, step=0.1, group=G_EXEC)
 enable_be    = input.bool(true, "Move SL to Break-Even on TP1 Hit", group=G_EXEC)
@@ -72,6 +103,8 @@ enable_trail = input.bool(true, "Enable Trailing Stop on Structure", group=G_EXE
 reset_stats  = input.bool(false, "Reset Performance Analytics", group=G_EXEC)
 show_lines   = input.bool(true, "Show Entry / SL / TP Lines", group=G_EXEC)
 show_labels  = input.bool(true, "Show Trade Labels",           group=G_EXEC)
+show_proj    = input.bool(true, "Show Projected Targets When Flat (Frozen at Last Signal)", group=G_EXEC)
+proj_max_atr = input.float(3.0, "Projection Refresh — Max Drift From Entry (x ATR)", minval=0.5, step=0.5, group=G_EXEC)
 
 // MTF Configuration
 use_mtf      = input.bool(true, "Enable MTF Alignment", group=G_MTF)
@@ -115,6 +148,10 @@ show_midnight_open  = input.bool(true, "Show NY Midnight True Open Benchmark", g
 show_cvd_divergence = input.bool(true, "Show Order Flow CVD Delta Absorption", group=G_VP_INST)
 show_smt_radar      = input.bool(true, "Show Multi-Asset SMT Divergence Radar", group=G_VP_INST)
 smt_symbol          = input.symbol("PEPPERSTONE:XAGUSD", "SMT Benchmark Correlated Symbol", group=G_VP_INST)
+// v2.11 FIX: previously hardcoded 00:00-08:00 UTC (range) and 08:00-11:00 UTC (killzone);
+// now configurable. Defaults preserve v2.10 behaviour exactly.
+sess_asia_range     = input.session("0000-0800:1234567", "Asian Range Hours (Judas Reference)", group=G_VP_INST)
+sess_killzone       = input.session("0800-1100:1234567", "London Judas Killzone Hours", group=G_VP_INST)
 
 // Risk Manager Inputs
 G_RISK_MGR   = "Dynamic Risk & Position Sizer"
@@ -204,9 +241,12 @@ detectRegime() =>
     string regime = "RANGING"
     int    conf   = 60
 
-    if atr_pct < 0.0003 or atr_pct > 0.0025
+    if atr_pct > 0.0025
         regime := "HIGH_VOLATILITY"
         conf   := 85
+    else if atr_pct < 0.0003
+        regime := "COMPRESSION"
+        conf   := 75
     else if adx_v > 40
         regime := close > ema_s ? "TRENDING_BULLISH" : "TRENDING_BEARISH"
         conf   := int(math.min(95.0, 70.0 + (adx_v - adx_trend) * 0.8))
@@ -485,31 +525,41 @@ c_lo = ta.pivotlow(cvd_val, 5, 5)
 var float last_p_hi_val = na
 var int   last_p_hi_bar = na
 var float last_c_hi_val = na
+var int   last_c_hi_bar = na   // v2.11 FIX: bar stamp for CVD pivot (divergences only valid when both pivots are contemporaneous)
 
 var float last_p_lo_val = na
 var int   last_p_lo_bar = na
 var float last_c_lo_val = na
+var int   last_c_lo_bar = na   // v2.11 FIX: bar stamp for CVD pivot
 
 if not na(p_hi)
     last_p_hi_val := p_hi
     last_p_hi_bar := bar_index[5]
 if not na(c_hi)
     last_c_hi_val := c_hi
+    last_c_hi_bar := bar_index[5]
 
 if not na(p_lo)
     last_p_lo_val := p_lo
     last_p_lo_bar := bar_index[5]
 if not na(c_lo)
     last_c_lo_val := c_lo
+    last_c_lo_bar := bar_index[5]
 
 calcOrderFlow() =>
     bool bear_div = false
     bool bull_div = false
 
-    if not na(p_hi) and not na(last_p_hi_val) and (bar_index[5] - last_p_hi_bar < div_lookback)
+    // v2.11 FIX: require the price pivot and the CVD pivot to be contemporaneous
+    // (within pivot_half of each other) — previously last_c_hi/lo_val could be from a
+    // completely different swing, producing false divergences.
+    bool c_hi_contemp = not na(last_c_hi_val) and not na(last_c_hi_bar) and math.abs(bar_index[5] - last_c_hi_bar) <= 5
+    bool c_lo_contemp = not na(last_c_lo_val) and not na(last_c_lo_bar) and math.abs(bar_index[5] - last_c_lo_bar) <= 5
+
+    if not na(p_hi) and not na(last_p_hi_val) and c_hi_contemp and (bar_index[5] - last_p_hi_bar < div_lookback)
         if high[5] > last_p_hi_val and cvd_val[5] < last_c_hi_val
             bear_div := true
-    if not na(p_lo) and not na(last_p_lo_val) and (bar_index[5] - last_p_lo_bar < div_lookback)
+    if not na(p_lo) and not na(last_p_lo_val) and c_lo_contemp and (bar_index[5] - last_p_lo_bar < div_lookback)
         if low[5] < last_p_lo_val and cvd_val[5] > last_c_lo_val
             bull_div := true
 
@@ -546,7 +596,10 @@ checkNewsGating() =>
 // ============================================================
 // T004 & T005: 20-bin Session Volume Profile with 70% Value Area
 calcSessionVolumeProfile(lookback_len) =>
-    lb = math.max(1, lookback_len)
+    // v2.11: cap lookback at 470 bars — Pine historical buffer is ~473; on 5m/3m/1m
+    // charts a full day can exceed it and crash with "historical offset beyond limit".
+    // On 15m+ no behavioural change (a day is < 100 bars there).
+    lb = math.max(1, math.min(lookback_len, 470))
     hi_price = high
     lo_price = low
     for i = 0 to lb - 1
@@ -572,9 +625,13 @@ calcSessionVolumeProfile(lookback_len) =>
             max_vol := v
             poc_index := j
             
-    poc_price = bin_size > 0 ? lo_price + (poc_index + 0.5) * bin_size : close
+    // v2.11 FIX: Zero-volume guard — feeds without volume (some forex/data sources)
+    // produce empty bins; returning na here prevents a degenerate POC locked to the
+    // bottom bin with collapsed VAH/VAL. Downstream consumers already check `not na()`.
+    bool vp_has_vol = total_vol > 0.0 and bin_size > 0
+    float poc_price = vp_has_vol ? lo_price + (poc_index + 0.5) * bin_size : na
     
-    // Accumulate 70% of total volume for Value Area
+    // Accumulate 70% of total volume for Value Area (harmless loop when no volume)
     double_va_target = total_vol * 0.70
     accum_vol = array.get(bin_vols, poc_index)
     left_idx = poc_index
@@ -592,8 +649,8 @@ calcSessionVolumeProfile(lookback_len) =>
             right_idx := right_idx + 1
             accum_vol := accum_vol + right_val
             
-    vah_price = bin_size > 0 ? lo_price + (right_idx + 1) * bin_size : close
-    val_price = bin_size > 0 ? lo_price + left_idx * bin_size : close
+    vah_price = vp_has_vol ? lo_price + (right_idx + 1) * bin_size : na
+    val_price = vp_has_vol ? lo_price + left_idx * bin_size : na
     [poc_price, vah_price, val_price]
 
 // ============================================================
@@ -661,7 +718,7 @@ calcDecisionScore(m_s, v_s, regime, bias, struct_bias, liq, fvg, ob, pd_zone, mt
             
             s := c_mom + c_reg + c_vol + c_struct + c_mtf + c_of + c_sess + c_exec + sess_bst
         else
-            // ICT Sniper Mode: Structure 25% | Liquidity 15% | FVG 10% | OB 10% | Premium/Discount 10% | MTF 10% | OF 10% | Session 5% | Exec 5%
+            // Zone Sniper scoring branch: Structure 25% | Liquidity 15% | FVG 10% | OB 10% | Premium/Discount 10% | MTF 10% | OF 10% | Session 5% | Exec 5%
             c_struct := (struct_bias != 0 ? 100.0 : 30.0) * 0.25
             c_liq    := (liq ? 100.0 : 25.0)             * 0.15
             c_fvg    := (fvg ? 100.0 : 20.0)             * 0.10
@@ -725,7 +782,9 @@ var float[] virgin_pocs       = array.new_float(0)
 var line[]  virgin_poc_lines  = array.new_line(0)
 var label[] virgin_poc_labels = array.new_label(0)
 
+var float day_open = na
 if is_new_day
+    day_open := open
     if not na(dev_poc)
         yesterday_poc := dev_poc
         if show_vpoc
@@ -777,8 +836,10 @@ if is_new_day
     va_80_rule_active := false
     va_reentry_dir    := 0
 
-opened_above_va = open[cur_day_bars - 1] > dev_vah
-opened_below_va = open[cur_day_bars - 1] < dev_val
+// v2.11: use the captured day-open (var) instead of open[cur_day_bars - 1] —
+// dynamic historical indexing blew past Pine's ~473-bar buffer on low timeframes
+opened_above_va = day_open > dev_vah
+opened_below_va = day_open < dev_val
 
 if (opened_above_va or opened_below_va) and not va_80_rule_active
     inside_va = close <= dev_vah and close >= dev_val
@@ -791,7 +852,7 @@ if (opened_above_va or opened_below_va) and not va_80_rule_active
         va_reentry_count := 0
 
 // 2. Institutional Time Benchmarks & Asian Judas Swings (US2 - FR-003, FR-004, FR-005)
-in_asia_session = not na(time(timeframe.period, "0000-0800:1234567", "UTC"))
+in_asia_session = not na(time(timeframe.period, sess_asia_range, "UTC"))
 var float asia_range_hi  = na
 var float asia_range_lo  = na
 var int   asia_start_idx = na
@@ -810,8 +871,8 @@ if in_asia_session
         asia_range_hi  := math.max(asia_range_hi, high)
         asia_range_lo  := math.min(asia_range_lo, low)
 
-// London Killzone Judas Swing Detection (08:00 - 11:00 UTC)
-in_london_killzone   = not na(time(timeframe.period, "0800-1100:1234567", "UTC"))
+// London Killzone Judas Swing Detection (configurable, default 08:00 - 11:00 UTC)
+in_london_killzone   = not na(time(timeframe.period, sess_killzone, "UTC"))
 var bool judas_bull_sweep = false
 var bool judas_bear_sweep = false
 judas_bull_sweep := false
@@ -857,14 +918,19 @@ var bool smt_bear_div = false
 smt_bull_div := false
 smt_bear_div := false
 
+// v2.11: ta.* calls extracted to global scope (consistency warning fix) —
+// they run every bar; the conditional logic below just gates their consumption.
+b_hi    = ta.pivothigh(bench_high, 5, 5)
+b_lo    = ta.pivotlow(bench_low, 5, 5)
+b_hi20  = ta.highest(bench_high, 20)[5]
+b_lo20  = ta.lowest(bench_low, 20)[5]
+
 if show_smt_radar and not na(bench_high) and not na(bench_low)
-    b_hi = ta.pivothigh(bench_high, 5, 5)
-    b_lo = ta.pivotlow(bench_low, 5, 5)
     if not na(p_hi) and not na(last_p_hi_val) and (high[5] > last_p_hi_val) and not na(b_hi)
-        if b_hi < ta.highest(bench_high, 20)[5]
+        if b_hi < b_hi20
             smt_bear_div := true
     if not na(p_lo) and not na(last_p_lo_val) and (low[5] < last_p_lo_val) and not na(b_lo)
-        if b_lo > ta.lowest(bench_low, 20)[5]
+        if b_lo > b_lo20
             smt_bull_div := true
 
 // 5. Calculate Consolidated Institutional Bonus Points (FR-008, Max +10 pts)
@@ -890,6 +956,7 @@ else if struct_bias_v == -1 or bear_sweep_v or bear_fvg_v or bear_ob_v or judas_
 // ============================================================
 // ── SIGNAL LOGIC (barstate.isconfirmed — no repainting)
 // ============================================================
+var int last_signal_dir = 0 // 1 = BUY, -1 = SELL (Persistent memory across trades & flat state)
 bool buy_signal  = false
 bool sell_signal = false
 
@@ -902,8 +969,31 @@ if barstate.isconfirmed
         buy_signal  := mom_dir == 1 and mom_s >= 65 and ema_bias_v == 1 and (vol_state == "NORMAL" or vol_state == "HIGH") and (regime_lbl == "TRENDING_BULLISH" or regime_lbl == "TRANSITION") and dec_score >= min_score and not news_active
         sell_signal := mom_dir == -1 and mom_s >= 65 and ema_bias_v == -1 and (vol_state == "NORMAL" or vol_state == "HIGH") and (regime_lbl == "TRENDING_BEARISH" or regime_lbl == "TRANSITION") and dec_score >= min_score and not news_active
     else
-        buy_signal  := struct_bias_v == 1 and liq_active and (bull_fvg_v or bull_ob_v) and pd_zone == "DISCOUNT" and regime_lbl != "HIGH_VOLATILITY" and dec_score >= min_score and not news_active
-        sell_signal := struct_bias_v == -1 and liq_active and (bear_fvg_v or bear_ob_v) and pd_zone == "PREMIUM" and regime_lbl != "HIGH_VOLATILITY" and dec_score >= min_score and not news_active
+        // Zone Sniper (v2.11): BUY only from the BOTTOM (Discount zone), SELL only from
+        // the TOP (Premium zone). Equilibrium (middle) = momentum continuation scalp.
+        // Base entries hold runners to TP2/TP3; middle scalps exit fully at volatility TP1.
+        bool zone_discount = pd_zone == "DISCOUNT"
+        bool zone_premium  = pd_zone == "PREMIUM"
+        bool zone_mid      = pd_zone == "EQUILIBRIUM"
+
+        bool bull_bottom_trigger = struct_bias_v == 1 or mtf_align_bias == 1 or ema_bias_v == 1 or bull_fvg_v or bull_ob_v or bull_sweep_v
+        bool bear_top_trigger    = struct_bias_v == -1 or mtf_align_bias == -1 or ema_bias_v == -1 or bear_fvg_v or bear_ob_v or bear_sweep_v
+
+        // Base (zone) entries: directional bias + trigger, no extreme volatility regime
+        bool buy_from_bottom  = zone_discount and bull_bottom_trigger and regime_lbl != "HIGH_VOLATILITY"
+        bool sell_from_top    = zone_premium  and bear_top_trigger    and regime_lbl != "HIGH_VOLATILITY"
+
+        // Middle-of-range momentum scalp: aligned momentum, no hostile MTF, sane volatility
+        bool buy_mid_scalp  = zone_mid and mom_dir == 1  and ema_bias_v == 1  and mtf_align_bias != -1 and mom_s >= 60 and vol_state != "EXTREME"
+        bool sell_mid_scalp = zone_mid and mom_dir == -1 and ema_bias_v == -1 and mtf_align_bias != 1  and mom_s >= 60 and vol_state != "EXTREME"
+
+        buy_signal  := (buy_from_bottom  or buy_mid_scalp)  and dec_score >= min_score and not news_active
+        sell_signal := (sell_from_top    or sell_mid_scalp) and dec_score >= min_score and not news_active
+
+    if buy_signal
+        last_signal_dir := 1
+    else if sell_signal
+        last_signal_dir := -1
 
 // ============================================================
 // ── SIGNAL SHAPE PLOTS (Confirmed closed candles only — Zero repainting/flickering)
@@ -952,6 +1042,8 @@ var string trade_grade = na    // Grade at entry
 var float  trade_lot   = na    // Dynamic lot sizing at entry
 var string trade_pattern = ""  // Setup pattern name
 var string trade_sess    = ""  // Open session name
+var bool   trade_scalp   = false // v2.11 Zone Sniper: middle-of-range scalp entry (exit ALL at TP1)
+var float  trade_r1      = na   // v2.11: R-gain of the scalp TP1 exit (target dist / SL dist)
 
 // Performance Analytics variables
 var int    total_trades_count = 0
@@ -1029,7 +1121,7 @@ var label lbl_status = na      // Live status label
 
 // ── Define active setup pattern name
 setup_pattern = "MOMENTUM SCALP"
-if mode == "ICT Sniper"
+if mode == "Zone Sniper (Low/High)"
     if liq_active and (struct_lbl == "CHOCH BULL" or struct_lbl == "CHOCH BEAR")
         setup_pattern := "ICT REVERSAL"
     else if (struct_lbl == "BULLISH" or struct_lbl == "BEARISH") and (fvg_active or ob_active)
@@ -1037,7 +1129,7 @@ if mode == "ICT Sniper"
     else if pd_zone == "DISCOUNT" or pd_zone == "PREMIUM"
         setup_pattern := "ZONE MITIGATION"
     else
-        setup_pattern := "ICT SNIPER SETUP"
+        setup_pattern := "MID SCALP"
 else
     if regime_lbl == "TRANSITION" and vol_ratio_v > 1.4
         setup_pattern := "RANGE BREAKOUT"
@@ -1049,31 +1141,103 @@ else
 // ── Global Trade State & Execution Targets (Always in Scope)
 trade_active = trade_dir != 0 and not na(trade_entry)
 
-float curr_sl_px = na
-if sl_mode == "Structure Pivot"
-    curr_sl_px := (buy_signal or struct_bias_v == 1) ? pl1 : ph1
-if na(curr_sl_px) or curr_sl_px <= 0.0
-    sl_dist = atr_v * sl_atr_mult
-    curr_sl_px := (buy_signal or struct_bias_v == 1) ? close - sl_dist : close + sl_dist
+// Dynamic 5-Tier Direction Resolution Ladder (Solves the "targets stuck at bottom" defect)
+int disp_dir = 0
+if trade_active
+    disp_dir := trade_dir
+else if buy_signal
+    disp_dir := 1
+else if sell_signal
+    disp_dir := -1
+else if last_signal_dir != 0
+    disp_dir := last_signal_dir
+else if mode == "Momentum Scalper"
+    disp_dir := mom_dir != 0 ? mom_dir : ema_bias_v
+else
+    // Zone Sniper / MQL5 Engine Parity mode
+    if mtf_align_bias != 0
+        disp_dir := mtf_align_bias
+    else if potential_dir != 0
+        disp_dir := potential_dir
+    else if struct_bias_v != 0
+        disp_dir := struct_bias_v
+    else
+        disp_dir := ema_bias_v
 
-curr_sl_dist = math.abs(close - curr_sl_px)
+// Fallback: If still indeterminate, align with fast EMA vs close
+if disp_dir == 0
+    disp_dir := close >= ema_f_v ? 1 : -1
+
+// ── v2.11: PROJECTION FREEZE — flat-state targets no longer chase the rolling close.
+// They anchor at the last confirmed signal bar close (or the last flow-direction flip
+// when no signal has fired yet, or the bar a trade closes on) and stay fixed until one
+// of those events re-anchors them. This stops SL/TP lines from crawling with every bar.
+var float proj_entry      = na
+var float proj_sl         = na
+var int   proj_dir        = 0
+var bool  proj_was_active = false
+
+bool just_closed_trade = proj_was_active and not trade_active
+// v2.11: stale-anchor guard — if price drifts further than proj_max_atr × ATR from the
+// frozen entry, re-anchor so projections never orphan far from live price.
+float proj_drift = na(proj_entry) ? 0.0 : math.abs(close - proj_entry)
+bool proj_stale  = not na(proj_entry) and proj_drift > atr_v * proj_max_atr
+if not trade_active and (buy_signal or sell_signal or just_closed_trade or disp_dir != proj_dir or proj_stale or na(proj_entry))
+    proj_dir      := disp_dir
+    proj_entry    := close
+    float pd      = math.max(syminfo.mintick * 10, atr_v * sl_atr_mult)
+    proj_sl       := disp_dir == 1 ? close - pd : close + pd
+proj_was_active := trade_active
+
+float curr_sl_px = na
+sl_dist_base = atr_v * sl_atr_mult
+
+if sl_mode == "Structure Pivot"
+    curr_sl_px := disp_dir == 1 ? pl1 : ph1
+    // Sanity check: Ensure SL is strictly on the valid side of price
+    if disp_dir == 1 and (na(curr_sl_px) or curr_sl_px >= close)
+        curr_sl_px := close - sl_dist_base
+    else if disp_dir == -1 and (na(curr_sl_px) or curr_sl_px <= close)
+        curr_sl_px := close + sl_dist_base
+else
+    curr_sl_px := disp_dir == 1 ? close - sl_dist_base : close + sl_dist_base
+
+if na(curr_sl_px) or curr_sl_px <= 0.0
+    curr_sl_px := disp_dir == 1 ? close - sl_dist_base : close + sl_dist_base
+
+curr_sl_dist = math.max(syminfo.mintick * 10, math.abs(close - curr_sl_px))
 curr_lot_size = (acct_size * (risk_pct / 100.0)) / (curr_sl_dist * syminfo.pointvalue)
 curr_lot_size := math.max(0.01, math.round(curr_lot_size * 100.0) / 100.0)
 
 // Current or Projected Execution Targets (TP1, TP2, TP3, SL)
-float disp_entry = trade_active ? trade_entry : close
-float disp_sl    = trade_active ? trade_sl : curr_sl_px
+// v2.11: when flat, use frozen projection anchor (proj_entry/proj_sl) — see above
+bool use_frozen_proj = not trade_active and not na(proj_entry)
+float disp_entry = trade_active ? trade_entry : use_frozen_proj ? proj_entry : close
+float disp_sl    = trade_active ? trade_sl    : use_frozen_proj ? proj_sl    : curr_sl_px
+
+// Enforce strict Stop Loss boundary relative to entry
+if disp_dir == 1 and disp_sl >= disp_entry
+    disp_sl := disp_entry - curr_sl_dist
+else if disp_dir == -1 and disp_sl <= disp_entry
+    disp_sl := disp_entry + curr_sl_dist
+
 float disp_sl_dist = math.max(syminfo.mintick * 10, math.abs(disp_entry - disp_sl))
-int   disp_dir   = trade_active ? trade_dir : (buy_signal or struct_bias_v == 1 ? 1 : -1)
 
-float disp_tp1   = trade_active and not na(trade_tp1) ? trade_tp1 : (disp_dir == 1 ? disp_entry + disp_sl_dist * tp1_rr : disp_entry - disp_sl_dist * tp1_rr)
-float disp_tp2   = trade_active and not na(trade_tp2) ? trade_tp2 : (disp_dir == 1 ? disp_entry + disp_sl_dist * tp2_rr : disp_entry - disp_sl_dist * tp2_rr)
-float disp_tp3   = trade_active and not na(trade_tp3) ? trade_tp3 : (disp_dir == 1 ? disp_entry + disp_sl_dist * tp3_rr : disp_entry - disp_sl_dist * tp3_rr)
+// Current or Projected Execution Targets (TP1, TP2, TP3, SL)
+// v2.11: when flat, use frozen projection anchor (proj_entry/proj_sl) — see above.
+// v2.11: active + scalped entry with no runners (trade_tp2/tp3 = na) → targets na.
+float disp_tp1 = trade_active ? trade_tp1 : (disp_dir == 1 ? disp_entry + disp_sl_dist * tp1_rr : disp_entry - disp_sl_dist * tp1_rr)
+float disp_tp2 = trade_active ? trade_tp2 : (disp_dir == 1 ? disp_entry + disp_sl_dist * tp2_rr : disp_entry - disp_sl_dist * tp2_rr)
+float disp_tp3 = trade_active ? trade_tp3 : (disp_dir == 1 ? disp_entry + disp_sl_dist * tp3_rr : disp_entry - disp_sl_dist * tp3_rr)
 
-string tp1_txt = str.tostring(disp_tp1, "#.##") + (trade_active and tp1_hit ? " ✓" : "")
-string tp2_txt = str.tostring(disp_tp2, "#.##") + (trade_active and tp2_hit ? " ✓" : "")
-string tp3_txt = str.tostring(disp_tp3, "#.##") + (trade_active and tp3_hit ? " ✓" : "")
-string sl_txt  = str.tostring(disp_sl, "#.##") + (trade_active and trade_sl == trade_entry ? " (BE)" : "")
+f_price(_p) =>
+    na(_p) ? "--" : str.tostring(_p, "#.##")
+
+string dir_tag = disp_dir == 1 ? "BUY" : "SELL"
+string tp1_txt = f_price(disp_tp1) + (trade_active and tp1_hit ? " ✓" : "")
+string tp2_txt = f_price(disp_tp2) + (trade_active and tp2_hit ? " ✓" : "")
+string tp3_txt = f_price(disp_tp3) + (trade_active and tp3_hit ? " ✓" : "")
+string sl_txt  = f_price(disp_sl) + (trade_active and trade_sl == trade_entry ? " (BE)" : "")
 
 // ── Trade Lifecycle — gated behind barstate.isconfirmed
 if barstate.isconfirmed
@@ -1095,6 +1259,10 @@ if barstate.isconfirmed
                 line.set_y2(ln_sl, trade_sl)
 
     // ── Target Hit Checks (Bar closed OHLC check)
+    // NOTE (v2.11): if TP1 and the original SL are both touched within the SAME bar,
+    // the old accounting assumed TP1 filled first (+0.4R BE). That is optimistic on
+    // bar-close OHLC checks; we now flag the conflict and count the conservative
+    // -1R outcome unless TP1/TP2 were already hit on earlier bars.
     tp1_triggered = trade_active and trade_dir == 1 and not tp1_hit and high >= trade_tp1
     tp2_triggered = trade_active and trade_dir == 1 and not tp2_hit and high >= trade_tp2
     tp3_triggered = trade_active and trade_dir == 1 and not tp3_hit and high >= trade_tp3
@@ -1105,11 +1273,14 @@ if barstate.isconfirmed
     tp3_triggered := tp3_triggered or (trade_active and trade_dir == -1 and not tp3_hit and low <= trade_tp3)
     sl_triggered  := sl_triggered  or (trade_active and trade_dir == -1 and high >= trade_sl)
 
+    // v2.11: same-bar conflict — fresh TP1 and fresh SL touched on the same bar
+    bool same_bar_sl_conflict = sl_triggered and tp1_triggered
+
     // ── Handle Partial Target Hits
     if tp1_triggered and not tp1_hit
         tp1_hit := true
         if show_labels
-            label.new(bar_index, trade_tp1, "🎯 TP1 HIT (40%)", xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(#22c55e, 10), textcolor=color.white, size=size.small)
+            label.new(bar_index, trade_tp1, trade_scalp ? "🎯 SCALP TP1 (100%)" : "🎯 TP1 HIT (40%)", xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(#22c55e, 10), textcolor=color.white, size=size.small)
         // Module 15 Break-Even rules
         if enable_be
             trade_sl := trade_entry
@@ -1123,7 +1294,8 @@ if barstate.isconfirmed
             label.new(bar_index, trade_tp2, "🎯 TP2 HIT (40%)", xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(#22c55e, 10), textcolor=color.white, size=size.small)
 
     // ── Check Overall Trade Exit
-    exit_triggered = sl_triggered or tp3_triggered
+    // v2.11: middle scalps (trade_scalp) exit fully at TP1 — no runners to wait for
+    exit_triggered = sl_triggered or tp3_triggered or (trade_scalp and tp1_triggered)
 
     if exit_triggered and trade_active
         float r_gain = 0.0
@@ -1132,7 +1304,11 @@ if barstate.isconfirmed
         float  result_y   = trade_entry
 
         if sl_triggered
-            if tp2_hit
+            if same_bar_sl_conflict
+                r_gain     := -1.0 // v2.11: conservative — TP1 & SL both touched within one bar, assume worst-case fill
+                result_txt := "❌ SL HIT (-1.0R, same-bar TP conflict)"
+                result_col := #ef4444
+            else if tp2_hit
                 r_gain     := 1.2  // 0.4*1R + 0.4*2R + 0.2*BE = 1.2R
                 result_txt := "❌ SL HIT (Profit +1.2R)"
                 result_col := #3b82f6
@@ -1145,6 +1321,12 @@ if barstate.isconfirmed
                 result_txt := "❌ SL HIT (-1.0R)"
                 result_col := #ef4444
             result_y := trade_sl
+        else if trade_scalp and tp1_triggered
+            tp1_hit    := true
+            r_gain     := nz(trade_r1, 1.0) // actual R of the volatility TP1 vs entry SL
+            result_txt := "🎯 SCALP TP1 EXIT (+" + str.tostring(r_gain, "#.##") + "R)"
+            result_col := #22c55e
+            result_y   := trade_tp1
         else if tp3_triggered
             tp3_hit    := true
             r_gain     := 1.8  // 0.4*1R + 0.4*2R + 0.2*3R = 1.8R
@@ -1258,6 +1440,8 @@ if barstate.isconfirmed
         trade_dir   := 0
         trade_bar   := na
         trade_lot   := na
+        trade_scalp := false
+        trade_r1    := na
 
     // ── On New Signal: Open trade, draw lines + labels
     if (buy_signal or sell_signal) and trade_dir == 0
@@ -1265,14 +1449,34 @@ if barstate.isconfirmed
         float sl_px = na
         if sl_mode == "Structure Pivot"
             sl_px := buy_signal ? pl1 : ph1
-        if na(sl_px) or sl_px <= 0.0
-            sl_dist = atr_v * sl_atr_mult
-            sl_px  := buy_signal ? e_px - sl_dist : e_px + sl_dist
+        
+        sl_fallback = atr_v * sl_atr_mult
+        if buy_signal
+            if na(sl_px) or sl_px >= e_px or sl_px <= 0.0
+                sl_px := e_px - sl_fallback
+        else
+            if na(sl_px) or sl_px <= e_px or sl_px <= 0.0
+                sl_px := e_px + sl_fallback
             
-        sl_dist_act = math.abs(e_px - sl_px)
-        tp1_px  = buy_signal ? e_px + sl_dist_act * tp1_rr : e_px - sl_dist_act * tp1_rr
-        tp2_px  = buy_signal ? e_px + sl_dist_act * tp2_rr : e_px - sl_dist_act * tp2_rr
-        tp3_px  = buy_signal ? e_px + sl_dist_act * tp3_rr : e_px - sl_dist_act * tp3_rr
+        sl_dist_act = math.max(syminfo.mintick * 10, math.abs(e_px - sl_px))
+
+        // v2.11 Zone Sniper scheme:
+        //   TP1 = ATR-based volatility target for ALL Zone Sniper entries
+        //   TP2/TP3 runners only for BASE entries (entering from Discount/Premium zone)
+        //   Middle (Equilibrium) scalp entries exit fully at TP1 — no runners
+        bool is_scalp_entry = mode == "Zone Sniper (Low/High)" and pd_zone == "EQUILIBRIUM"
+        float tp1_px = na
+        float tp2_px = na
+        float tp3_px = na
+        if mode == "Zone Sniper (Low/High)"
+            tp1_px := buy_signal ? e_px + atr_v * tp1_atr_mult : e_px - atr_v * tp1_atr_mult
+            if not is_scalp_entry
+                tp2_px := buy_signal ? e_px + sl_dist_act * tp2_rr : e_px - sl_dist_act * tp2_rr
+                tp3_px := buy_signal ? e_px + sl_dist_act * tp3_rr : e_px - sl_dist_act * tp3_rr
+        else
+            tp1_px := buy_signal ? e_px + sl_dist_act * tp1_rr : e_px - sl_dist_act * tp1_rr
+            tp2_px := buy_signal ? e_px + sl_dist_act * tp2_rr : e_px - sl_dist_act * tp2_rr
+            tp3_px := buy_signal ? e_px + sl_dist_act * tp3_rr : e_px - sl_dist_act * tp3_rr
 
         // Sizing calculation
         lot_size = (acct_size * (risk_pct / 100.0)) / (sl_dist_act * syminfo.pointvalue)
@@ -1287,12 +1491,15 @@ if barstate.isconfirmed
         tp2_hit       := false
         tp3_hit       := false
         trade_dir     := buy_signal ? 1 : -1
+        last_signal_dir := trade_dir
         trade_bar     := bar_index
         trade_score   := dec_score
         trade_grade   := dec_grade
         trade_lot     := lot_size
         trade_pattern := setup_pattern
         trade_sess    := act_sess
+        trade_scalp   := is_scalp_entry
+        trade_r1      := is_scalp_entry ? math.abs(tp1_px - e_px) / sl_dist_act : na
 
         if show_lines
             if not na(ln_entry)
@@ -1426,7 +1633,7 @@ if (show_session_vp or show_vprof) and barstate.islast
     if not na(lbl_val)
         label.delete(lbl_val)
         
-    start_b = math.max(0, day_start_bar)
+    start_b = math.max(day_start_bar, bar_index - 470)
     line_poc := line.new(start_b, dev_poc, bar_index, dev_poc, color=color.new(#a855f7, 20), width=2, style=line.style_solid)
     line_vah := line.new(start_b, dev_vah, bar_index, dev_vah, color=color.new(#ef4444, 40), width=1, style=line.style_dashed)
     line_val := line.new(start_b, dev_val, bar_index, dev_val, color=color.new(#22c55e, 40), width=1, style=line.style_dashed)
@@ -1441,7 +1648,7 @@ if show_asian_range and not in_asia_session and not na(asia_range_hi) and not na
         line.delete(line_asia_hi)
     if not na(line_asia_lo)
         line.delete(line_asia_lo)
-    a_start = math.max(0, nz(asia_start_idx, day_start_bar))
+    a_start = math.max(nz(asia_start_idx, day_start_bar), bar_index - 470)
     line_asia_hi := line.new(a_start, asia_range_hi, bar_index, asia_range_hi, color=color.new(#f59e0b, 40), style=line.style_dotted, width=1)
     line_asia_lo := line.new(a_start, asia_range_lo, bar_index, asia_range_lo, color=color.new(#3b82f6, 40), style=line.style_dotted, width=1)
 
@@ -1449,7 +1656,7 @@ if show_asian_range and not in_asia_session and not na(asia_range_hi) and not na
 if show_midnight_open and not na(ny_midnight_open) and barstate.islast
     if not na(line_midnight)
         line.delete(line_midnight)
-    start_b = math.max(0, day_start_bar)
+    start_b = math.max(day_start_bar, bar_index - 470)
     line_midnight := line.new(start_b, ny_midnight_open, bar_index + 10, ny_midnight_open, color=color.new(#94a3b8, 30), style=line.style_dashed, width=1)
 
 // ── Live Labels: Fixed Anchor with Dynamic Text Updates
@@ -1565,7 +1772,7 @@ if show_hud and hud_mode != "Hidden" and barstate.islast
     if str.contains(hud_mode, "Compact")
         // ── COMPACT DASHBOARD (Clean 5 Rows)
         table.cell(hud_compact, 0, 0, "⚡ ADAPTIVE ICT", text_color=c_purple, text_size=size.small, bgcolor=c_hdr, text_halign="center")
-        table.cell(hud_compact, 2, 0, mode == "Momentum Scalper" ? "MOMENTUM" : "ICT SNIPER", text_color=color.new(c_purple, 40), text_size=size.tiny, bgcolor=c_hdr, text_halign="center")
+        table.cell(hud_compact, 2, 0, mode == "Momentum Scalper" ? "MOMENTUM" : mode == "MQL5 Engine Parity (v0.50)" ? "PARITY" : "ZONE SNIPER", text_color=color.new(c_purple, 40), text_size=size.tiny, bgcolor=c_hdr, text_halign="center")
 
         table.cell(hud_compact, 0, 1, "  Score", text_color=c_txt, text_size=size.tiny, text_halign="left")
         table.cell(hud_compact, 1, 1, str.tostring(dec_score) + " [" + dec_grade + "]  ", text_color=sc_col, text_size=size.tiny, text_halign="right")
@@ -1604,14 +1811,14 @@ if show_hud and hud_mode != "Hidden" and barstate.islast
         table.cell(hud_compact, 3, 7, (smt_bull_div ? "BULL DIV" : smt_bear_div ? "BEAR DIV" : "ALIGNED") + "  ", text_color=(smt_bull_div or smt_bear_div) ? c_blue : color.gray, text_size=size.tiny, text_halign="right")
 
         // Rows 8-10: Dedicated Execution Targets (TP1, TP2, TP3, SL)
-        table.cell(hud_compact, 0, 8, "🎯 EXECUTION TARGETS (TP / SL)", text_color=color.white, text_size=size.tiny, bgcolor=c_sub, text_halign="center")
+        table.cell(hud_compact, 0, 8, "🎯 TARGETS (" + dir_tag + ")", text_color=color.white, text_size=size.tiny, bgcolor=c_sub, text_halign="center")
 
-        table.cell(hud_compact, 0, 9, "  TP1 (1.2R)", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 0, 9, "  " + dir_tag + " TP1 (1.2R)", text_color=c_txt, text_size=size.tiny, text_halign="left")
         table.cell(hud_compact, 1, 9, tp1_txt + "  ", text_color=c_green, text_size=size.tiny, text_halign="right")
-        table.cell(hud_compact, 2, 9, "  TP2 (2.5R)", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 2, 9, "  " + dir_tag + " TP2 (2.5R)", text_color=c_txt, text_size=size.tiny, text_halign="left")
         table.cell(hud_compact, 3, 9, tp2_txt + "  ", text_color=c_green, text_size=size.tiny, text_halign="right")
 
-        table.cell(hud_compact, 0, 10, "  TP3 (4.0R)", text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud_compact, 0, 10, "  " + dir_tag + " TP3 (4.0R)", text_color=c_txt, text_size=size.tiny, text_halign="left")
         table.cell(hud_compact, 1, 10, tp3_txt + "  ", text_color=#10b981, text_size=size.tiny, text_halign="right")
         table.cell(hud_compact, 2, 10, "  Stop Loss", text_color=c_txt, text_size=size.tiny, text_halign="left")
         table.cell(hud_compact, 3, 10, sl_txt + "  ", text_color=c_red, text_size=size.tiny, text_halign="right")
@@ -1620,7 +1827,7 @@ if show_hud and hud_mode != "Hidden" and barstate.islast
         // ── FULL TELEMETRY DASHBOARD (34 Rows)
         // ── HEADER (Row 0)
         table.cell(hud, 0, 0, "⚡ ADAPTIVE ICT — DECISION ENGINE", text_color=c_purple, text_size=size.small, bgcolor=c_hdr, text_halign="center")
-        table.cell(hud, 2, 0, mode == "Momentum Scalper" ? "MOMENTUM MODE" : "ICT SNIPER MODE", text_color=color.new(c_purple, 40), text_size=size.tiny, bgcolor=c_hdr, text_halign="center")
+        table.cell(hud, 2, 0, mode == "Momentum Scalper" ? "MOMENTUM MODE" : mode == "MQL5 Engine Parity (v0.50)" ? "PARITY MODE" : "ZONE SNIPER MODE", text_color=color.new(c_purple, 40), text_size=size.tiny, bgcolor=c_hdr, text_halign="center")
 
         // ── LEFT COLUMN SECTIONS ──
 
@@ -1748,11 +1955,11 @@ if show_hud and hud_mode != "Hidden" and barstate.islast
         table.cell(hud, 2, 20, "  Net R-Gain",             text_color=c_txt, text_size=size.tiny, text_halign="left")
         table.cell(hud, 3, 20, str.tostring(net_r_gained, "#.##") + " R  ", text_color=net_r_gained >= 0 ? c_green : c_red, text_size=size.tiny, text_halign="right")
         table.cell(hud, 2, 21, "  Target TP1 (1.2R)",      text_color=c_txt, text_size=size.tiny, text_halign="left")
-        table.cell(hud, 3, 21, tp1_txt + "  ", text_color=c_green, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 3, 21, dir_tag + " " + tp1_txt + "  ", text_color=c_green, text_size=size.tiny, text_halign="right")
         table.cell(hud, 2, 22, "  Target TP2 (2.5R)",      text_color=c_txt, text_size=size.tiny, text_halign="left")
-        table.cell(hud, 3, 22, tp2_txt + "  ", text_color=c_green, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 3, 22, dir_tag + " " + tp2_txt + "  ", text_color=c_green, text_size=size.tiny, text_halign="right")
         table.cell(hud, 2, 23, "  Target TP3 (4.0R)",      text_color=c_txt, text_size=size.tiny, text_halign="left")
-        table.cell(hud, 3, 23, tp3_txt + "  ", text_color=#10b981, text_size=size.tiny, text_halign="right")
+        table.cell(hud, 3, 23, dir_tag + " " + tp3_txt + "  ", text_color=#10b981, text_size=size.tiny, text_halign="right")
 
         // JOURNAL BY SESSION (Rows 24-28)
         table.cell(hud, 2, 24, "  JOURNAL BY SESSION",     text_color=color.gray, text_size=size.tiny, bgcolor=c_sub, text_halign="left")
@@ -1765,7 +1972,7 @@ if show_hud and hud_mode != "Hidden" and barstate.islast
         table.cell(hud, 3, 26, str.tostring(ny_trades) + " (" + str.tostring(ny_wr, "#.#") + "%)  ", text_color=ny_wr >= 50 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
         table.cell(hud, 2, 27, "  Asian Session",          text_color=c_txt, text_size=size.tiny, text_halign="left")
         table.cell(hud, 3, 27, str.tostring(asia_trades) + " (" + str.tostring(as_wr, "#.#") + "%)  ", text_color=as_wr >= 50 ? c_green : color.gray, text_size=size.tiny, text_halign="right")
-        table.cell(hud, 2, 28, "  Asian Range (00-08)",   text_color=c_txt, text_size=size.tiny, text_halign="left")
+        table.cell(hud, 2, 28, "  Asian Range",   text_color=c_txt, text_size=size.tiny, text_halign="left")
         table.cell(hud, 3, 28, (not na(asia_range_hi) ? str.tostring(asia_range_hi, "#.#") + "-" + str.tostring(asia_range_lo, "#.#") : "--") + "  ", text_color=c_blue, text_size=size.tiny, text_halign="right")
 
         // JOURNAL BY SETUP PATTERN (Rows 29-33)
@@ -1843,7 +2050,7 @@ var label live_lbl_tp1   = na
 var label live_lbl_tp2   = na
 var label live_lbl_tp3   = na
 
-if show_lines and barstate.islast
+if show_lines and barstate.islast and (trade_active or show_proj)
     if not na(live_ln_entry)
         line.delete(live_ln_entry)
     if not na(live_ln_sl)
@@ -1875,8 +2082,8 @@ if show_lines and barstate.islast
     live_ln_tp2   := line.new(live_x1, disp_tp2, live_x2, disp_tp2, color=#22c55e, width=2, style=line.style_dashed)
     live_ln_tp3   := line.new(live_x1, disp_tp3, live_x2, disp_tp3, color=#10b981, width=2, style=line.style_solid)
 
-    live_lbl_entry := label.new(live_x2, disp_entry, (trade_active ? "ENTRY " : "PROJ ENTRY ") + str.tostring(disp_entry, "#.##"), xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(#3b82f6, 10), textcolor=color.white, size=size.tiny)
+    live_lbl_entry := label.new(live_x2, disp_entry, (trade_active ? (disp_dir == 1 ? "▲ BUY " : "▼ SELL ") : (disp_dir == 1 ? "PROJ BUY " : "PROJ SELL ")) + str.tostring(disp_entry, "#.##"), xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(#3b82f6, 10), textcolor=color.white, size=size.tiny)
     live_lbl_sl    := label.new(live_x2, disp_sl, (trade_active ? "⛔ SL " : "⛔ PROJ SL ") + sl_txt, xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(#ef4444, 10), textcolor=color.white, size=size.tiny)
-    live_lbl_tp1   := label.new(live_x2, disp_tp1, "🎯 TP1 " + tp1_txt, xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(#22c55e, 10), textcolor=color.white, size=size.tiny)
-    live_lbl_tp2   := label.new(live_x2, disp_tp2, "🎯 TP2 " + tp2_txt, xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(#22c55e, 10), textcolor=color.white, size=size.tiny)
-    live_lbl_tp3   := label.new(live_x2, disp_tp3, "🎯 TP3 " + tp3_txt, xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(#10b981, 10), textcolor=color.white, size=size.tiny)
+    live_lbl_tp1   := label.new(live_x2, disp_tp1, "🎯 " + dir_tag + " TP1 " + tp1_txt, xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(#22c55e, 10), textcolor=color.white, size=size.tiny)
+    live_lbl_tp2   := label.new(live_x2, disp_tp2, "🎯 " + dir_tag + " TP2 " + tp2_txt, xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(#22c55e, 10), textcolor=color.white, size=size.tiny)
+    live_lbl_tp3   := label.new(live_x2, disp_tp3, "🎯 " + dir_tag + " TP3 " + tp3_txt, xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=color.new(#10b981, 10), textcolor=color.white, size=size.tiny)

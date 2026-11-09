@@ -84,13 +84,13 @@ export const NAV_PILLARS: NavPillar[] = [
       },
       {
         id: "terminal",
-        label: "Execution",
+        label: "FX Terminal",
         role: "Execute",
-        description: "Full-screen institutional MT5 order placement, hotkeys, and chart entries",
+        description: "Institutional Bloomberg-grade FX Terminal and multi-panel execution workstation",
         href: "/terminal",
         icon: Terminal,
         badge: "LIVE MT5",
-        isPrimaryCore: true,
+        adminOnly: true,
         category: "execution",
       },
       {
@@ -100,6 +100,7 @@ export const NAV_PILLARS: NavPillar[] = [
         description: "Live open positions and pending tickets with inline PnL, partial close, and edit",
         href: "/positions",
         icon: List,
+        adminOnly: true,
         category: "execution",
       },
       {
@@ -136,11 +137,11 @@ export const NAV_PILLARS: NavPillar[] = [
       {
         id: "macro",
         label: "Macro Desk",
-        role: "Understand environment",
-        description: "Multi-asset correlation matrices, DXY, bond yields, and higher-timeframe bias",
+        role: "Institutional Market Intel",
+        description: "Macro multi-factor confluence, currency regime radar, and full chart intelligence workstation",
         href: "/macro/XAUUSD",
         icon: Globe,
-        badge: "MACRO",
+        badge: "MACRO DESK",
         category: "intel",
       },
       {
@@ -160,6 +161,7 @@ export const NAV_PILLARS: NavPillar[] = [
         description: "Indicator engine and technical parameter reference desk",
         href: "/indicator",
         icon: Activity,
+        adminOnly: true,
         category: "intel",
       },
       {
@@ -248,6 +250,7 @@ export const NAV_PILLARS: NavPillar[] = [
         href: "/playbook",
         icon: Cpu,
         badge: "AI DESK",
+        adminOnly: true,
         category: "journal",
       },
     ],
@@ -282,13 +285,12 @@ export const NAV_PILLARS: NavPillar[] = [
       },
       {
         id: "accounts",
-        label: "MT5 Accounts",
+        label: "Broker Connection",
         role: "Bridges",
-        description: "Manage connected MT5 broker terminals, balance sync, and login credentials",
+        description: "Connect personal MT5 (Option A) or manage cloud hosted accounts (Option B)",
         href: "/accounts",
         icon: Wallet,
         badge: "BROKERS",
-        adminOnly: true,
         category: "risk_system",
       },
       {

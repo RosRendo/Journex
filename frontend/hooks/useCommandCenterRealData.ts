@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { sanitizeChartData } from "@/lib/chartSanitizer";
 
 export interface RealAccountData {
   login: number;
@@ -62,14 +63,28 @@ export function useCommandCenterRealData(symbol: string, timeframe: string) {
   const [connected, setConnected] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Timeframe mapping for MT5 API
-  const tfMap: Record<string, string> = {
-    M1: "M1",
-    M5: "M5",
-    M15: "M15",
-    H1: "H1",
-    H4: "H4",
-    D1: "D1",
+  // Comprehensive Timeframe mapping for MT5 API (handles all casing and formats)
+  const resolveTf = (tf: string): string => {
+    if (!tf) return "H1";
+    const key = tf.toUpperCase().trim();
+    const map: Record<string, string> = {
+      "1M": "M1", "M1": "M1",
+      "3M": "M3", "M3": "M3",
+      "5M": "M5", "M5": "M5",
+      "15M": "M15", "M15": "M15",
+      "30M": "M30", "M30": "M30",
+      "1H": "H1", "H1": "H1",
+      "2H": "H2", "H2": "H2",
+      "3H": "H3", "H3": "H3",
+      "4H": "H4", "H4": "H4",
+      "6H": "H6", "H6": "H6",
+      "8H": "H8", "H8": "H8",
+      "12H": "H12", "H12": "H12",
+      "D": "D1", "1D": "D1", "D1": "D1",
+      "W": "W1", "1W": "W1", "W1": "W1",
+      "M": "MN1", "1MN": "MN1", "MN": "MN1", "MN1": "MN1",
+    };
+    return map[key] || "H1";
   };
 
   const fetchRealData = useCallback(async () => {
@@ -80,116 +95,95 @@ export function useCommandCenterRealData(symbol: string, timeframe: string) {
       });
       if (accRes.ok) {
         const accJson = await accRes.json();
-        if (accJson.success) {
+        if (accJson.success && accJson.balance !== undefined) {
           setAccount({
-            login: accJson.login ?? 463717417,
-            balance: accJson.balance ?? 865.65,
-            equity: accJson.equity ?? 914.44,
-            profit: accJson.profit ?? 48.79,
+            login: accJson.login ?? 0,
+            balance: accJson.balance ?? 0,
+            equity: accJson.equity ?? 0,
+            profit: accJson.profit ?? 0,
             margin: accJson.margin ?? 0,
-            margin_free: accJson.margin_free ?? 914.44,
+            margin_free: accJson.margin_free ?? 0,
             currency: accJson.currency ?? "USD",
-            server: accJson.server ?? "Exness-MT5Trial17",
+            server: accJson.server ?? "MT5-Broker",
           });
           setConnected(true);
+        } else {
+          setConnected(false);
         }
+      } else {
+        setConnected(false);
       }
 
       // 2. Real Live Price
-      const priceRes = await fetch(`/api/bridge/api/symbol-price?symbol=${symbol}`, {
-        headers: { "ngrok-skip-browser-warning": "true" },
-      });
-      if (priceRes.ok) {
-        const pJson = await priceRes.json();
-        if (pJson.success) {
-          const pipSize = pJson.pip_size || (symbol.includes("JPY") ? 0.01 : 0.0001);
-          const spread = Math.abs(pJson.ask - pJson.bid) / (pipSize || 1);
-          setPrice({
-            bid: pJson.bid,
-            ask: pJson.ask,
-            spreadPips: Number(spread.toFixed(1)),
-            digits: pJson.digits ?? (symbol === "XAUUSD" ? 2 : 5),
-          });
-        }
-      }
-
-      // 3. Real MT5 Candles with Automatic Backend Fallback
-      let candlesLoaded = false;
+      let gotPrice = false;
       try {
-        const candlesRes = await fetch(
-          `/api/bridge/api/historical-candles?symbol=${symbol}&timeframe=${tfMap[timeframe] || "M15"}&count=50`,
-          { headers: { "ngrok-skip-browser-warning": "true" } }
-        );
-        if (candlesRes.ok) {
-          const cJson = await candlesRes.json();
-          if (cJson.success && Array.isArray(cJson.data) && cJson.data.length > 0) {
-            setCandles(cJson.data);
-            candlesLoaded = true;
+        const priceRes = await fetch(`/api/bridge/api/symbol-price?symbol=${symbol}`, {
+          headers: { "ngrok-skip-browser-warning": "true" },
+        });
+        if (priceRes.ok) {
+          const pJson = await priceRes.json();
+          if (pJson.success && typeof pJson.bid === "number") {
+            const pipSize = pJson.pip_size || (symbol.includes("JPY") ? 0.01 : 0.0001);
+            const spread = Math.abs(pJson.ask - pJson.bid) / (pipSize || 1);
+            setPrice({
+              bid: pJson.bid,
+              ask: pJson.ask,
+              spreadPips: Number(spread.toFixed(1)),
+              digits: pJson.digits ?? (symbol === "XAUUSD" ? 2 : 5),
+            });
+            gotPrice = true;
           }
         }
       } catch (_) {}
 
-      // Fallback to Native Real Market Price API if MT5 bridge is offline (e.g. on Vercel)
-      if (!candlesLoaded) {
+      if (!gotPrice) {
         try {
-          const mRes = await fetch(`/api/market-price?symbol=${symbol}&timeframe=${tfMap[timeframe] || "M15"}`);
-          if (mRes.ok) {
-            const mJson = await mRes.json();
-            if (mJson.success) {
-              if (Array.isArray(mJson.candles) && mJson.candles.length > 0) {
-                setCandles(mJson.candles);
-                candlesLoaded = true;
-              }
-              if (mJson.bid && mJson.ask) {
-                setPrice({
-                  bid: mJson.bid,
-                  ask: mJson.ask,
-                  spreadPips: mJson.spreadPips || 1.8,
-                  digits: mJson.digits || (symbol === "XAUUSD" ? 2 : 5),
-                });
-              }
-              if (mJson.levels) {
-                setLevels(mJson.levels);
-              }
-              setConnected(true);
+          const clean = symbol.replace("/", "").toUpperCase();
+          const snapRes = await fetch(`/api/terminal/snapshot?symbol=${clean}`);
+          if (snapRes.ok) {
+            const sJson = await snapRes.json();
+            if (sJson.price && typeof sJson.price.bid === "number") {
+              setPrice({
+                bid: sJson.price.bid,
+                ask: sJson.price.ask || sJson.price.bid + 0.25,
+                spreadPips: sJson.price.spread || 2.5,
+                digits: symbol === "XAUUSD" || symbol.includes("JPY") ? 2 : 5,
+              });
+              gotPrice = true;
             }
           }
         } catch (_) {}
       }
 
-      // Secondary fallback to Terminal Snapshot API if available
-      if (!candlesLoaded) {
+      // 3. Real MT5 Candles (Load 300 bars for full-width high-definition chart view)
+      let gotCandles = false;
+      try {
+        const mappedTf = resolveTf(timeframe);
+        const candlesRes = await fetch(
+          `/api/bridge/api/historical-candles?symbol=${symbol}&timeframe=${mappedTf}&count=300`,
+          { headers: { "ngrok-skip-browser-warning": "true" } }
+        );
+        if (candlesRes.ok) {
+          const cJson = await candlesRes.json();
+          if (cJson.success && Array.isArray(cJson.data) && cJson.data.length > 0) {
+            setCandles(sanitizeChartData(cJson.data));
+            gotCandles = true;
+          }
+        }
+      } catch (_) {}
+
+      // Fallback: Terminal API Candles
+      if (!gotCandles) {
         try {
+          const clean = symbol.replace("/", "").toUpperCase();
           const snapRes = await fetch(
-            `/api/terminal/snapshot?symbol=${symbol}&timeframe=${tfMap[timeframe] || "M15"}`
+            `/api/terminal/candles?symbol=${clean}&timeframe=${timeframe || "M15"}&limit=300`
           );
           if (snapRes.ok) {
-            const snap = await snapRes.json();
-            if (Array.isArray(snap.candles) && snap.candles.length > 0) {
-              setCandles(snap.candles);
-              setConnected(true);
-            }
-            if (snap.account && !account) {
-              setAccount({
-                login: 463717417,
-                balance: snap.account.balance || 865.65,
-                equity: snap.account.equity || 914.44,
-                profit: snap.account.profit || 48.79,
-                margin: snap.account.margin || 0,
-                margin_free: snap.account.free_margin || 914.44,
-                currency: "USD",
-                server: "Exness-MT5Trial17",
-              });
-            }
-            if (snap.order_book && snap.order_book.bids?.[0]) {
-              const bestBid = snap.order_book.bids[0].price;
-              const bestAsk = snap.order_book.asks?.[0]?.price || (bestBid + 0.18);
-              setPrice({
-                bid: bestBid,
-                ask: bestAsk,
-                spreadPips: Number(Math.abs(bestAsk - bestBid).toFixed(1)),
-                digits: symbol === "XAUUSD" ? 2 : 5,
-              });
+            const snapJson = await snapRes.json();
+            if (Array.isArray(snapJson.candles) && snapJson.candles.length > 0) {
+              setCandles(sanitizeChartData(snapJson.candles));
+              gotCandles = true;
             }
           }
         } catch (_) {}

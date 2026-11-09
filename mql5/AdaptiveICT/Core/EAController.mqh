@@ -14,10 +14,13 @@
 #include "../Strategies/MeanReversion/MeanReversionStrategy.mqh"
 #include "../Strategies/Breakout/BreakoutStrategy.mqh"
 #include "../Strategies/Momentum/MomentumScalperStrategy.mqh"
+#include "../Strategies/ICT/ZoneSniperStrategy.mqh"
+#include "../Strategies/ICT/SwingTrendStrategy.mqh"
 
 #include "../PositionManagement/BasePositionManager.mqh"
 #include "../PositionManagement/Single/SinglePositionManager.mqh"
 #include "../PositionManagement/PartialExit/PartialExitManager.mqh"
+#include "../PositionManagement/Swing/SwingPositionManager.mqh"
 #include "../PositionManagement/Grid/GridPositionManager.mqh" // DISABLED: kept for reference only — do not instantiate
 
 #include "../Risk/RiskManager.mqh"
@@ -37,6 +40,8 @@
 #include "DecisionEngine/DecisionEngine.mqh"
 #include "MarketRegimeGate.mqh"
 #include "RecoveryStateMachine.mqh"
+#include "LossStreakGuard.mqh"
+#include "StrategySelector.mqh"
 #include "../Targets/StopModel.mqh"
 #include "../Targets/TakeProfitModel.mqh"
 #include "ResearchMode.mqh"
@@ -47,12 +52,72 @@
 class EAController
   {
 private:
+   // Closed-bar scan gate: one scan per (timeframe, closed candle).
+   // Prevents the 30s poll from re-evaluating (and re-signaling) the
+   // same forming candle as it evolves; each candidate is judged once,
+   // on confirmed data, right after its candle closes.
+   ENUM_TIMEFRAMES m_scan_bar_tf[8];
+   datetime        m_scan_bar_time[8];
+   int             m_scan_bar_count;
+   
+   bool IsNewClosedBarForScan(ENUM_TIMEFRAMES tf)
+     {
+      datetime closed_bar = iTime(_Symbol, tf, 1);
+      if(closed_bar <= 0) return false; // history not ready yet
+      
+      for(int i = 0; i < m_scan_bar_count; i++)
+        {
+         if(m_scan_bar_tf[i] == tf)
+           {
+            if(m_scan_bar_time[i] == closed_bar) return false; // already scanned
+            m_scan_bar_time[i] = closed_bar;
+            return true;
+           }
+        }
+      if(m_scan_bar_count < 8)
+        {
+         m_scan_bar_tf[m_scan_bar_count] = tf;
+         m_scan_bar_time[m_scan_bar_count] = closed_bar;
+         m_scan_bar_count++;
+         return true;
+        }
+      return true; // table full: fail open, scan allowed
+     }
+
    //+------------------------------------------------------------------+
    //| Core Timeframe Scan & Planning Pipeline                          |
    //+------------------------------------------------------------------+
    void RunScannerPipeline()
      {
       if(is_paused || is_disabled) return;
+      
+      // All GetRates() consumers (strategies + ICT helpers) read only
+      // completed candles while the pipeline evaluates candidates.
+      g_scan_closed_bars = true;
+
+      // Phase 3: regime-based engine selection (auto mode only).
+      // Evaluated per pipeline pass, hysteresis guards flip-flopping.
+      if(InpAutoStrategy && g_sel_pool_count > 0)
+        {
+         ENUM_TIMEFRAMES sel_tf = (parsed_signal_tf_str == "ALL") ? (ENUM_TIMEFRAMES)Period() : parsed_signal_tf;
+         MarketRegimeState sel_state = MarketRegimeDetector::DetectState(sel_tf);
+         string sel_log = "";
+         if(StrategySelector::Update(sel_state.regime, sel_state.confidence, sel_log))
+           {
+            active_strategy = StrategySelector::GetStrategy(StrategySelector::CurrentType());
+            Print("[StrategySelector] Switched to ", EnumToString(StrategySelector::CurrentType()),
+                  " | Regime: ", sel_state.regime, " (", sel_state.confidence, "%) | Why: ", sel_log);
+           }
+         
+         // Keep the position manager in sync with the selected engine:
+         // swing trades must not be killed by scalper time-decay exits.
+         ENUM_POSITION_MODE want_mode = (StrategySelector::CurrentType() == STRATEGY_SWING_TREND) ? MODE_SWING : (ENUM_POSITION_MODE)InpPositionMode;
+         if(dyn_position_mode != want_mode)
+           {
+            dyn_position_mode = want_mode;
+            Print("[StrategySelector] Position manager mode -> ", EnumToString(want_mode), " to match engine.");
+           }
+        }
 
       if(parsed_signal_tf_str == "ALL")
         {
@@ -72,6 +137,13 @@ private:
      {
       TradeSignal signal;
       ConfluenceResult confluence;
+      
+      // Tick-driven momentum keeps its live-bar semantics; every other
+      // strategy scans exactly once per closed candle on this timeframe.
+      if(InpStrategyType != STRATEGY_MOMENTUM_SCALPER && !IsNewClosedBarForScan(tf))
+        {
+         return;
+        }
       
       // 1. Strategy Layer: Scan & Confluence check
       if(active_strategy != NULL && active_strategy.Scan(tf, tf_str, signal))
@@ -115,6 +187,20 @@ private:
                Print("[RecoverySM Gate] Blocked candidate for ", _Symbol, ": Recovery state is ", 
                      RecoveryStateMachine::StateToString(g_recovery_state.state), " (Reason: ", g_recovery_state.reason, ")");
                last_rec_block_log = TimeCurrent();
+              }
+             return;
+            }
+
+         // Phase 2: Consecutive-loss entry freeze (anti revenge-trading).
+         // Applies to ALL strategies incl. tick-driven Momentum.
+         if(IsLossStreakCooldownActive())
+           {
+            static datetime last_streak_block_log = 0;
+            if(TimeCurrent() - last_streak_block_log >= 1800)
+              {
+               Print("[LossStreak] Entry cooldown active: ", g_lsg_cached_streak, " consecutive losses. New entries blocked until ",
+                     TimeToString(g_lsg_cached_until, TIME_DATE|TIME_MINUTES));
+               last_streak_block_log = TimeCurrent();
               }
             return;
            }
@@ -169,17 +255,16 @@ private:
          last_sig_grade  = dec.grade;
          last_sig_breakdown = dec.breakdown; // T026: cache breakdown for dashboard
 
-         // Check Day/Time & calendar news constraints (Bypass for Momentum Scalper)
-         if(InpStrategyType != STRATEGY_MOMENTUM_SCALPER)
-           {
-            if(!ValidateSignal(tf)) 
-              { 
-               if(!MQLInfoInteger(MQL_TESTER) && !MQLInfoInteger(MQL_OPTIMIZATION))
-                 {
-                  Print("[debug] Signal validation failed (Spread, Day/Time, or News block)."); 
-                 }
-               return; 
+         // Check Day/Time & calendar news constraints (now applies to ALL
+         // strategies incl. Momentum; news verdict is cached for 60s, so
+         // the 5s momentum scan cadence does not hammer the HTTP bridge)
+         if(!ValidateSignal(tf)) 
+           { 
+            if(!MQLInfoInteger(MQL_TESTER) && !MQLInfoInteger(MQL_OPTIMIZATION))
+              {
+               Print("[debug] Signal validation failed (Spread, Day/Time, or News block)."); 
               }
+            return; 
            }
 
          // T036 [US5]: Research Mode intercept - log setup without executing live orders
@@ -235,6 +320,14 @@ private:
             
             // T033 [US3]: Identify structural targets TP1, TP2, TP3
             TakeProfitModel::IdentifyTargets(tf, signal, plan.tp1, plan.tp2, plan.tp3);
+            if(signal.strategy_id == "SWING_TREND")
+              {
+               // Phase 4: swing runner — no broker TP. The SwingPositionManager
+               // owns the exit ladder (BE lock, optional partial, wide trail).
+               plan.tp1 = 0.0;
+               plan.tp2 = 0.0;
+               plan.tp3 = 0.0;
+              }
             plan.lots = lots;
             
             string sig_id = signal.signal_id;
@@ -301,6 +394,9 @@ public:
    //+------------------------------------------------------------------+
    int Initialize()
      {
+      // Reset closed-bar scan gate bookkeeping
+      m_scan_bar_count = 0;
+      
       // Initialize Order Manager Magic number
       OrderManager::Init();
       trade.SetExpertMagicNumber(InpMagic);
@@ -312,7 +408,23 @@ public:
       TradeAnalyticsLogger::InitLogger(InpMagic);
       
       // Instantiate selected strategy dynamically
-      if(InpStrategyType == STRATEGY_ICT_SNIPER)
+      if(InpAutoStrategy)
+        {
+         // Phase 3: Unified Strategy Selector — build the closed-bar engine
+         // pool; the regime-to-engine choice is made at scan time.
+         StrategySelector::BuildPool();
+         Print("[StrategySelector] Auto-selection active. Pool: 5 engines (Zone Sniper, ICT Sniper, ICT Scalper, Mean Reversion, Breakout). Momentum Scalper excluded (manual tick mode).");
+         
+         // Initial regime pick so scanning starts immediately
+         ENUM_TIMEFRAMES sel_tf0 = (parsed_signal_tf_str == "ALL") ? (ENUM_TIMEFRAMES)Period() : parsed_signal_tf;
+         MarketRegimeState rs0 = MarketRegimeDetector::DetectState(sel_tf0);
+         string why0 = "";
+         StrategySelector::Update(rs0.regime, rs0.confidence, why0);
+         active_strategy = StrategySelector::GetStrategy(StrategySelector::CurrentType());
+         Print("[StrategySelector] Initial engine: ", EnumToString(StrategySelector::CurrentType()),
+               " | Regime: ", rs0.regime, " (", rs0.confidence, "%) | Why: ", why0);
+        }
+      else if(InpStrategyType == STRATEGY_ICT_SNIPER)
         {
          active_strategy = new ICTSniperStrategy();
         }
@@ -334,6 +446,16 @@ public:
          signal_interval = 5; // High-frequency: scan every 5 seconds
          Print("[MomentumScalper] Active. Signal interval set to 5 seconds.");
         }
+      else if(InpStrategyType == STRATEGY_ZONE_SNIPER)
+        {
+         active_strategy = new ZoneSniperStrategy();
+         Print("[ZoneSniper] Active. Pine v2.11 port: Discount=BUY / Premium=SELL / Mid=SCALP.");
+        }
+      else if(InpStrategyType == STRATEGY_SWING_TREND)
+        {
+         active_strategy = new SwingTrendStrategy();
+         Print("[SwingTrend] Active. HTF trend + pullback entries, wide trail exits, no time decay.");
+        }
       else
         {
          active_strategy = new ICTSniperStrategy(); // Fallback
@@ -348,12 +470,20 @@ public:
         {
          active_position_manager = new PartialExitManager();
         }
+      else if(InpPositionMode == MODE_SWING)
+        {
+         active_position_manager = new SwingPositionManager();
+        }
       else
         {
          // MODE_GRID is permanently disabled. Fall back to single.
          Print("[WARN] MODE_GRID is disabled (constitution violation). Falling back to MODE_SINGLE.");
          active_position_manager = new SinglePositionManager();
         }
+      
+      // Reload exit-ladder state for positions still open after a restart
+      // (prevents synthetic 1R/1.5R targets computed off a trailed SL)
+      active_position_manager.RestoreState();
       
       // Event timer hook for background HTTP queries
       EventSetTimer(1);
@@ -391,18 +521,24 @@ public:
         }
 
       // Dynamic Hot-Swap for Position Manager
-      static ENUM_POSITION_MODE last_mode = InpPositionMode;
-      if (last_mode != dyn_position_mode)
-        {
-         if(active_position_manager != NULL) delete active_position_manager;
+       static ENUM_POSITION_MODE last_mode = InpPositionMode;
+       if (last_mode != dyn_position_mode)
+         {
+          if(active_position_manager != NULL)
+            {
+             active_position_manager.SaveState(); // flush before mode switch
+             delete active_position_manager;
+            }
          if(dyn_position_mode == MODE_SINGLE) active_position_manager = new SinglePositionManager();
          else if(dyn_position_mode == MODE_PARTIAL_EXIT) active_position_manager = new PartialExitManager();
+         else if(dyn_position_mode == MODE_SWING) active_position_manager = new SwingPositionManager();
          else
            {
             // MODE_GRID is permanently disabled. Ignore and keep current manager.
             Print("[WARN] Hot-swap to MODE_GRID blocked (constitution violation). Using MODE_SINGLE.");
             active_position_manager = new SinglePositionManager();
            }
+         active_position_manager.RestoreState();
          Print("[debug] Position Manager dynamically hot-swapped to ", EnumToString(dyn_position_mode));
          last_mode = dyn_position_mode;
         }
@@ -580,12 +716,18 @@ public:
       // T046 [US6]: Compute score-band statistics and validate scoring model
       StatisticsEngine::ComputeBandStats();
       
-      // Delete dynamic objects to prevent memory leaks
-      if(active_strategy != NULL)
-        {
-         delete active_strategy;
-         active_strategy = NULL;
-        }
+       // Delete dynamic objects to prevent memory leaks
+       if(InpAutoStrategy)
+         {
+          // Auto mode: strategies are owned by the selector pool
+          active_strategy = NULL;
+          StrategySelector::DestroyPool();
+         }
+       else if(active_strategy != NULL)
+         {
+          delete active_strategy;
+          active_strategy = NULL;
+         }
       if(active_position_manager != NULL)
         {
          delete active_position_manager;

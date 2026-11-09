@@ -1,7 +1,13 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
-const ADMIN_EMAIL = "rousrendo@gmail.com";
+const DEFAULT_ADMINS = ["rousrendo@gmail.com", "admin@journex.io"];
+const ENV_ADMINS = (process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL || "")
+  .split(",")
+  .map((e) => e.toLowerCase().trim())
+  .filter(Boolean);
+
+export const ADMIN_EMAILS = Array.from(new Set([...DEFAULT_ADMINS, ...ENV_ADMINS]));
 const API_SECRET_KEY = process.env.API_SECRET_KEY || "dev-api-secret-key-change-in-prod";
 
 export interface AuthenticatedRequest extends Request {
@@ -16,29 +22,32 @@ export interface AuthenticatedRequest extends Request {
  * In development, it falls back to accepting the raw email for easier local debugging.
  */
 export function verifyAdminToken(authHeader: string): { valid: boolean; email?: string; isPro?: boolean } {
-  // In local development, always assume admin to avoid issues with missing tokens
-  if (process.env.NODE_ENV !== "production") {
-    return { valid: true, email: ADMIN_EMAIL, isPro: true };
-  }
-
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return { valid: false };
   }
   const token = authHeader.slice(7).trim();
 
+  // 1. Try cryptographically verifying the signed JWT
   try {
-    // 1. Try cryptographically verifying the JWT
     const decoded = jwt.verify(token, API_SECRET_KEY) as { email: string; isPro?: boolean };
     if (decoded && decoded.email) {
       const email = decoded.email.toLowerCase();
       return {
-        valid: email === ADMIN_EMAIL.toLowerCase(),
+        valid: ADMIN_EMAILS.includes(email),
         email,
         isPro: decoded.isPro === true
       };
     }
   } catch (err) {
-    // Ignore error in production, handled below
+    // If not a signed JWT, check dev-only raw email fallback
+  }
+
+  // 2. In non-production, accept raw token ONLY if it explicitly matches an admin email
+  if (process.env.NODE_ENV !== "production") {
+    const lowerToken = token.toLowerCase();
+    if (ADMIN_EMAILS.includes(lowerToken)) {
+      return { valid: true, email: lowerToken, isPro: true };
+    }
   }
 
   return { valid: false };

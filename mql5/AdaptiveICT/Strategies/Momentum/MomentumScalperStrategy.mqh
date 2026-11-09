@@ -127,8 +127,21 @@ public:
         }
 
       // --- Use bar-based lookback ---
-      int lookback_bars = (InpMomLookbackSec > 0) ? InpMomLookbackSec : 5;
-      if(lookback_bars > 50) lookback_bars = 50;
+      // FIX: InpMomLookbackSec is defined in SECONDS. Convert to bars for
+      // the signal timeframe (previously used raw as bar count, which made
+      // "momentum" span 7-30 HOURS on M15 and fire stale-trend signals).
+      int lookback_bars = 1;
+      if(InpMomLookbackSec > 0)
+        {
+         int tf_seconds2 = PeriodSeconds(tf);
+         if(tf_seconds2 > 0) lookback_bars = InpMomLookbackSec / tf_seconds2;
+         if(lookback_bars < 1) lookback_bars = 1; // sub-bar: momentum since bar open vs prev close
+         if(lookback_bars > 50) lookback_bars = 50;
+        }
+      else
+        {
+         lookback_bars = 1;
+        }
 
       int tf_seconds = PeriodSeconds(tf);
 
@@ -176,10 +189,16 @@ public:
          atr_sum += rates[i].high - rates[i].low;
       double atr = (atr_period > 0) ? (atr_sum / atr_period) : (10.0 * point);
 
-      // Dynamic threshold: price must move InpMomThresholdPips (converted to points)
+      // Dynamic threshold: price must move InpMomThresholdPips (per 1 bar),
+      // scaled by sqrt(lookback_bars) for longer windows so the trigger
+      // stays meaningful at any lookback (e.g. 4 bars -> 2x per-bar threshold)
       double price_change    = price_now - price_then;
       double abs_change      = MathAbs(price_change);
       double required_change = InpMomThresholdPips * point * 10.0;
+      if(InpMomAdaptiveThreshold && lookback_bars > 1)
+        {
+         required_change *= MathSqrt((double)lookback_bars);
+        }
 
       // Body strength: reject doji / indecision bars
       double last_bar_range = rates[copied - 1].high - rates[copied - 1].low;
@@ -214,7 +233,11 @@ public:
             candidate.type = "BUY";
             candidate.entry_price = price_now;
             candidate.invalidation_price = price_now - sl_dist;
-            candidate.signal_id = "MOM_BUY_" + TimeToString(current_time);
+            // Bar-time ID: one momentum entry per bar (TimeCurrent() IDs
+            // re-fired every 5s poll and bypassed dedupe)
+            datetime cur_bar_ts = iTime(_Symbol, tf, 0);
+            if(cur_bar_ts == 0) cur_bar_ts = current_time;
+            candidate.signal_id = "MOM_BUY_" + TimeToString(cur_bar_ts, TIME_DATE|TIME_MINUTES);
             last_entry_time = current_time;
             candidate.reason = StringFormat("BULL_MOM[H4_BULL] | +%.1f pips | body=%.0f%%", diff_pips, body_ratio * 100);
             return true;
@@ -224,9 +247,13 @@ public:
          if(price_change < 0 && (bias <= 0))
            {
             candidate.type = "SELL";
-            candidate.entry_price = price_now;
-            candidate.invalidation_price = price_now + sl_dist;
-            candidate.signal_id = "MOM_SELL_" + TimeToString(current_time);
+             candidate.entry_price = price_now;
+             candidate.invalidation_price = price_now + sl_dist;
+             // Bar-time ID: one momentum entry per bar (TimeCurrent() IDs
+             // re-fired every 5s poll and bypassed dedupe)
+             datetime cur_bar_ts2 = iTime(_Symbol, tf, 0);
+             if(cur_bar_ts2 == 0) cur_bar_ts2 = current_time;
+             candidate.signal_id = "MOM_SELL_" + TimeToString(cur_bar_ts2, TIME_DATE|TIME_MINUTES);
             last_entry_time = current_time;
             candidate.reason = StringFormat("BEAR_MOM[H4_BEAR] | %.1f pips | body=%.0f%%", diff_pips, body_ratio * 100);
             return true;

@@ -34,20 +34,34 @@ export function formatTradingViewSymbol(symbolStr: string): string {
   return `FX:${clean}`;
 }
 
+const DEFAULT_STUDIES = ["STD;EMA", "STD;RSI"];
+
 function TradingViewWidgetComponent({
   symbol = "XAUUSD",
   interval = "60",
   height = "100%",
   autosize = true,
   hideSideToolbar = false,
-  studies = ["STD;EMA", "STD;RSI"],
+  studies = DEFAULT_STUDIES,
   containerClassName = "",
 }: TradingViewWidgetProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const lastKeyRef = useRef<string>("");
+
+  const studiesKey = JSON.stringify(studies || DEFAULT_STUDIES);
 
   useEffect(() => {
     const currentContainer = containerRef.current;
     if (!currentContainer) return;
+
+    const tvSymbol = formatTradingViewSymbol(symbol);
+    const currentKey = `${tvSymbol}_${interval}_${studiesKey}`;
+
+    // If widget already rendered and config hasn't changed, prevent destroy/re-inject loop
+    if (currentContainer.querySelector("iframe") && lastKeyRef.current === currentKey) {
+      return;
+    }
+    lastKeyRef.current = currentKey;
 
     currentContainer.innerHTML = "";
 
@@ -62,9 +76,7 @@ function TradingViewWidgetComponent({
     script.type = "text/javascript";
     script.async = true;
 
-    const tvSymbol = formatTradingViewSymbol(symbol);
-
-    script.innerHTML = JSON.stringify({
+    const config: any = {
       autosize: autosize,
       symbol: tvSymbol,
       interval: interval,
@@ -73,7 +85,7 @@ function TradingViewWidgetComponent({
       style: "1", // 1 = Candlesticks
       locale: "en",
       enable_publishing: false,
-      backgroundColor: "#0d0d12",
+      backgroundColor: "#070709",
       gridColor: "rgba(255, 255, 255, 0.04)",
       hide_side_toolbar: hideSideToolbar,
       allow_symbol_change: true,
@@ -81,22 +93,28 @@ function TradingViewWidgetComponent({
       details: false,
       hotlist: false,
       calendar: false,
-      studies: studies,
       support_host: "https://www.tradingview.com",
-    });
+    };
 
+    if (studies && studies.length > 0) {
+      config.studies = studies;
+    }
+
+    script.innerHTML = JSON.stringify(config);
     currentContainer.appendChild(script);
 
     return () => {
+      // Clean up when unmounting
       if (currentContainer) {
         currentContainer.innerHTML = "";
       }
+      lastKeyRef.current = "";
     };
-  }, [symbol, interval, height, autosize, hideSideToolbar, studies]);
+  }, [symbol, interval, height, autosize, hideSideToolbar, studiesKey, studies]);
 
   return (
     <div
-      className={`tradingview-widget-container relative w-full overflow-hidden rounded-lg ${containerClassName}`}
+      className={`tradingview-widget-container relative w-full h-full overflow-hidden rounded-lg ${containerClassName}`}
       ref={containerRef}
       style={{ height: typeof height === "number" ? `${height}px` : height, minHeight: "220px" }}
     />

@@ -1,4 +1,4 @@
-//+------------------------------------------------------------------+
+﻿//+------------------------------------------------------------------+
 //|                                              TakeProfitModel.mqh |
 //|                                  Copyright 2026, AdaptiveICT     |
 //|                                             https://www.mql5.com |
@@ -13,6 +13,7 @@
 #include "../Core/StateManager.mqh"
 #include "../ICT/MarketStructure.mqh"
 #include "../ICT/Liquidity.mqh"
+#include "../Indicators/ATR.mqh"
 
 //+------------------------------------------------------------------+
 //| T032 [US3]: Structural Take-Profit Model                         |
@@ -48,6 +49,32 @@ public:
       tp2 = 0.0;
       tp3 = 0.0;
 
+      //  Zone Sniper (Pine v2.11 port) scheme:
+      //   TP1 = ATR-based volatility target for ALL Zone Sniper entries
+      //   Mid scalps (reason contains "SCALP") = exit fully at TP1 (tp2=tp3=tp1)
+      //   Base entries keep structural TP2/TP3 runners below.
+      bool zone_sniper = (StringFind(signal.reason, "ZONE_SNIPER") >= 0);
+      bool scalp_only  = zone_sniper && (StringFind(signal.reason, "SCALP") >= 0);
+      bool override_tp1 = false;
+      if(zone_sniper)
+        {
+         double z_atr = GetATR(tf, 14);
+         if(z_atr > 0.0)
+           {
+            // ALL Zone Sniper entries use the ATR volatility target as TP1
+            tp1 = is_buy ? entry + z_atr * InpZoneTP1AtrMult : entry - z_atr * InpZoneTP1AtrMult;
+            override_tp1 = true;
+            if(scalp_only)
+              {
+               // Middle-of-range scalp: no runners  full exit at the volatility TP1
+               tp1 = NormalizeDouble(tp1, _Digits);
+               tp2 = tp1;
+               tp3 = tp1;
+               return;
+              }
+           }
+        }
+
       double min_tp_dist  = sl_dist * 1.0;         // Minimum 1R
       double max_tp1_dist = sl_dist * 3.0;         // Within 3R for TP1
       double max_tp2_dist = sl_dist * 4.5;         // Within 4.5R for TP2
@@ -66,8 +93,8 @@ public:
                if(price < best_tp1) best_tp1 = price;
               }
            }
-         if(best_tp1 < 999990.0) tp1 = best_tp1;
-         else tp1 = entry + sl_dist * InpMinRR;
+         if(best_tp1 < 999990.0 && !override_tp1) tp1 = best_tp1;
+         else if(!override_tp1) tp1 = entry + sl_dist * InpMinRR;
 
          // TP2: next structural swing high beyond TP1
          double best_tp2 = 999999.0;
@@ -110,8 +137,8 @@ public:
                if(price > best_tp1) best_tp1 = price;
               }
            }
-         if(best_tp1 > -999990.0) tp1 = best_tp1;
-         else tp1 = entry - sl_dist * InpMinRR;
+         if(best_tp1 > -999990.0 && !override_tp1) tp1 = best_tp1;
+         else if(!override_tp1) tp1 = entry - sl_dist * InpMinRR;
 
          // TP2: next structural swing low beyond TP1
          double best_tp2 = -999999.0;

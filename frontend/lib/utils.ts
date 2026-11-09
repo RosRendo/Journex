@@ -9,10 +9,15 @@ export function cn(...inputs: ClassValue[]) {
 let cachedSessionPromise: Promise<any> | null = null;
 let sessionFetchTime = 0;
 
+export function clearSessionCache() {
+  cachedSessionPromise = null;
+  sessionFetchTime = 0;
+}
+
 export async function getCachedSession() {
   const now = Date.now();
-  // Cache the session for 60 seconds to prevent /api/auth/session spam
-  if (!cachedSessionPromise || now - sessionFetchTime > 60_000) {
+  // Cache session for max 5 seconds to ensure rapid role switching is immediately reflected
+  if (!cachedSessionPromise || now - sessionFetchTime > 5_000) {
     cachedSessionPromise = getSession();
     sessionFetchTime = now;
   }

@@ -12,14 +12,24 @@
 import { useEffect, useRef } from "react";
 import { useSession } from "@/lib/useSession";
 
-export function useAutoMT5Connect() {
+export function useAutoMT5Connect(enabled: boolean = true) {
   const { data: session } = useSession();
   const attempted = useRef(false);
 
   useEffect(() => {
-    if (attempted.current) return;
+    if (!enabled || attempted.current) return;
     const email = session?.user?.email;
     if (!email) return;
+
+    const adminEmail = (
+      process.env.NEXT_PUBLIC_ADMIN_EMAIL || "rousrendo@gmail.com"
+    ).toLowerCase();
+    const isAdmin =
+      (session?.user as any)?.role === "admin" ||
+      email.toLowerCase() === adminEmail;
+
+    // Public users use paper/journal mode — never auto-trigger private MT5 bridge
+    if (!isAdmin) return;
 
     attempted.current = true;
 

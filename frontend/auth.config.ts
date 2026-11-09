@@ -64,16 +64,16 @@ export const authConfig: NextAuthConfig = {
       }
 
       // ── Admin-Only Routes Gate ──────────────────────────────
-      // Sensitive owner tools: Live Execution Terminal, FX Terminal & Macro Desk,
-      // Playbook learning notes, MT5 scripts, bot EA, custom indicators are strictly restricted
+      // Sensitive owner tools: Live Execution Terminal (/terminal),
+      // Playbook learning notes, MT5 scripts, bot EA, custom indicators are strictly restricted.
+      // NOTE: /macro and /macro/[pair] are public to all authenticated users (Macro Intel & 24/7 Charts).
       const normalizedPath = pathname.toLowerCase();
       const isAdminRoute =
         normalizedPath.startsWith("/script") ||
         normalizedPath.startsWith("/playbook") ||
         normalizedPath.startsWith("/bot") ||
         normalizedPath.startsWith("/indicator") ||
-        normalizedPath.startsWith("/terminal") ||
-        normalizedPath.startsWith("/macro");
+        normalizedPath.startsWith("/terminal");
 
       const userEmail = (user?.email || "").toLowerCase().trim();
       const envAdmins = (process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL || "")

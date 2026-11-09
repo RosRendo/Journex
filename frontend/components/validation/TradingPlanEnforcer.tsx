@@ -47,7 +47,7 @@ export default function TradingPlanEnforcer() {
   const todayTrades = trades.filter(t => (t.date || "").startsWith(todayStr));
   const weekTrades = trades.filter(t => new Date(t.date || Date.now()) >= oneWeekAgo);
 
-  const balance = snapshot?.account?.balance || 35.18;
+  const balance = snapshot?.account?.balance ?? 0;
   const todayPnl = todayTrades.reduce((sum, t) => sum + (t.profit || 0), 0);
   const weekPnl = weekTrades.reduce((sum, t) => sum + (t.profit || 0), 0);
 

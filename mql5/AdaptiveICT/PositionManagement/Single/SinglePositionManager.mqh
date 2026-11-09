@@ -9,6 +9,7 @@
 #property once
 
 #include "../BasePositionManager.mqh"
+#include "../PositionStateStore.mqh"
 #include "../../Trade/TradeExecutor.mqh"
 #include "../../Indicators/ATR.mqh"
 #include "../../Core/TradeHealthEngine.mqh"
@@ -42,19 +43,22 @@ private:
             return;
            }
         }
-      if(pos_states_count < 100)
-        {
-         position_states[pos_states_count].ticket = ticket;
-         position_states[pos_states_count].tp1_hit = tp1;
-         position_states[pos_states_count].tp2_hit = tp2;
-         position_states[pos_states_count].original_sl = original_sl;
-         position_states[pos_states_count].tp1 = tp1_val;
-         position_states[pos_states_count].tp2 = tp2_val;
-         position_states[pos_states_count].tp3 = tp3_val;
-         pos_states_count++;
-        }
-     }
+       if(pos_states_count < 100)
+         {
+          position_states[pos_states_count].ticket = ticket;
+          position_states[pos_states_count].tp1_hit = tp1;
+          position_states[pos_states_count].tp2_hit = tp2;
+          position_states[pos_states_count].original_sl = original_sl;
+          position_states[pos_states_count].tp1 = tp1_val;
+          position_states[pos_states_count].tp2 = tp2_val;
+          position_states[pos_states_count].tp3 = tp3_val;
+          pos_states_count++;
+         }
+       PersistState();
+      }
 
+   //+------------------------------------------------------------------+
+   //| Retrieve state tracking flags and levels                           |
    //+------------------------------------------------------------------+
    //| Retrieve state tracking flags and levels                         |
    //+------------------------------------------------------------------+
@@ -109,12 +113,13 @@ private:
            }
         }
         
-      pos_states_count = active_count;
-      for(int i = 0; i < pos_states_count; i++)
-        {
-         position_states[i] = active_states[i];
-        }
-     }
+       pos_states_count = active_count;
+       for(int i = 0; i < pos_states_count; i++)
+         {
+          position_states[i] = active_states[i];
+         }
+       PersistState();
+      }
 
    //+------------------------------------------------------------------+
    //| Retrieve and update last health evaluation bar time per position |
@@ -141,6 +146,14 @@ private:
         }
      }
 
+   //+------------------------------------------------------------------+
+   //| Persist current state array to disk                              |
+   //+------------------------------------------------------------------+
+   void PersistState()
+     {
+      PMStateSave("SINGLE", position_states, pos_states_count);
+     }
+
 public:
    SinglePositionManager()
      {
@@ -154,6 +167,31 @@ public:
    virtual void RegisterPosition(ulong ticket, double original_sl, double tp1, double tp2, double tp3)
      {
       UpdatePositionState(ticket, false, false, original_sl, tp1, tp2, tp3);
+     }
+
+   //+------------------------------------------------------------------+
+   //| Restore persisted state for positions still open after restart   |
+   //+------------------------------------------------------------------+
+   virtual void RestoreState()
+     {
+      MqlPositionState loaded[];
+      int n = PMStateLoad("SINGLE", loaded);
+      if(n <= 0) return;
+      
+      pos_states_count = 0;
+      ZeroMemory(position_states);
+      
+      int kept = 0;
+      for(int i = 0; i < n && pos_states_count < 100; i++)
+        {
+         // Keep only states that still belong to an open position
+         if(!PositionSelectByTicket(loaded[i].ticket)) continue;
+         position_states[pos_states_count] = loaded[i];
+         pos_states_count++;
+         kept++;
+        }
+      PersistState();
+      Print("[PM] Restored ", kept, " position state(s) from disk after restart.");
      }
 
    //+------------------------------------------------------------------+

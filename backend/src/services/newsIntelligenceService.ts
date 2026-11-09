@@ -56,8 +56,36 @@ export function analyzeNewsMacroImpact(
   let trade_action = "";
   const currencies: CurrencyReaction[] = [];
 
-  // 1. WAR / GEOPOLITICAL CONFLICT / MILITARY CRISIS (TOP PRIORITY)
+  // 0. US ELECTION / PRESIDENTIAL RACE / FISCAL DEFICIT (HIGHEST PRIORITY)
   if (
+    text.includes("election") ||
+    text.includes("president") ||
+    text.includes("trump") ||
+    text.includes("harris") ||
+    text.includes("vote") ||
+    text.includes("ballot") ||
+    text.includes("polls") ||
+    text.includes("congress") ||
+    text.includes("white house") ||
+    text.includes("deficit") ||
+    text.includes("debt ceiling")
+  ) {
+    explanation = "US presidential election outcomes and congressional control fundamentally shift sovereign fiscal and trade policy. Expectation of multi-trillion dollar budget deficit expansion, renewed trade tariffs, and geopolitical realignment triggers aggressive safe-haven and debasement hedging into physical Gold (XAU/USD).";
+    usd_direction = "VOLATILE";
+    usd_direction_formatted = "⚡ HIGH VOLATILITY / TWO-WAY EXPANSION";
+    usd_reason = "Elections generate extreme two-way liquidity sweeps in US Treasury yields and DXY before markets price in long-term fiscal debt expansion.";
+    regime = "ELECTION_REGIME";
+    regime_formatted = "🗳️ ELECTION REGIME / FISCAL EXPANSION";
+    trade_action = "Strongly favor buying Gold (XAU/USD) pullbacks into Discount Fair Value Gaps and Asian range liquidity sweeps. Exercise caution on high-beta USD pairs (EUR/USD, GBP/USD) during ballot and exit poll releases.";
+    currencies.push(
+      { symbol: "XAU/USD (Gold)", bias: "bullish", formatted: "📈 STRONG BUY / BULLISH (Sovereign Hedge)", note: "Gold serves as the world's premier hedge against election turmoil, trillion-dollar deficit expansion, and tariff inflation" },
+      { symbol: "DXY (US Dollar)", bias: "neutral", formatted: "⚡ TWO-WAY VOLATILITY / SWEEP", note: "Initial knee-jerk liquidity rally followed by deficit debasement concerns" },
+      { symbol: "EUR/USD", bias: "bearish", formatted: "📉 SELL / BEARISH (Tariff Drag)", note: "US protectionist tariff proposals weigh heavily on European manufacturing exports" },
+      { symbol: "NAS100 / US30", bias: "bullish", formatted: "📈 BUY / BULLISH (Relief Expansion)", note: "Equity indices historically stage powerful relief rallies once electoral uncertainty is settled" }
+    );
+  }
+  // 1. WAR / GEOPOLITICAL CONFLICT / MILITARY CRISIS (TOP PRIORITY)
+  else if (
     text.includes("war") ||
     text.includes("missile") ||
     text.includes("strike") ||

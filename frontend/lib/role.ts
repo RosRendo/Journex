@@ -3,9 +3,13 @@
 import { useEffect, useState } from "react";
 import { getSession } from "@/lib/useSession";
 
-const ADMIN_EMAILS = (process.env.NEXT_PUBLIC_ADMIN_EMAIL || "rousrendo@gmail.com")
+const DEFAULT_ADMINS = ["rousrendo@gmail.com", "admin@journex.io"];
+const ENV_ADMINS = (process.env.NEXT_PUBLIC_ADMIN_EMAIL || process.env.ADMIN_EMAIL || "")
   .split(",")
-  .map((e) => e.toLowerCase().trim());
+  .map((e) => e.toLowerCase().trim())
+  .filter(Boolean);
+
+const ADMIN_EMAILS = Array.from(new Set([...DEFAULT_ADMINS, ...ENV_ADMINS]));
 
 export function isAdminEmail(email?: string | null): boolean {
   if (!email) return false;
@@ -19,7 +23,10 @@ export function useIsAdmin(): boolean {
     let alive = true;
     getSession()
       .then((session) => {
-        if (alive) setIsAdmin(isAdminEmail((session?.user as any)?.email));
+        if (alive) {
+          const u = session?.user as any;
+          setIsAdmin(isAdminEmail(u?.email) || u?.role === "admin");
+        }
       })
       .catch(() => {});
     return () => {

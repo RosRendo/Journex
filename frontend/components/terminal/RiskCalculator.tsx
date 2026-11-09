@@ -60,7 +60,9 @@ interface RiskResult {
 
 export default function RiskCalculator({ accountBalance }: { accountBalance?: number }) {
   const { liveEquity, livePrices } = useWebSocket();
-  const balance = liveEquity?.balance || accountBalance || 100000;
+  const hasBrokerBalance = Boolean(liveEquity?.balance || accountBalance);
+  const [customBalance, setCustomBalance] = useState<number>(10000);
+  const balance = hasBrokerBalance ? (liveEquity?.balance || accountBalance!) : customBalance;
   
   const [riskPct, setRiskPct] = useState(1);
   const [slPips, setSlPips] = useState(30);
@@ -108,9 +110,22 @@ export default function RiskCalculator({ accountBalance }: { accountBalance?: nu
       <div className="px-2 py-2 grid grid-cols-1 gap-1">
         <div className="flex items-center gap-1 text-[10px]">
           <span className="text-zinc-500 uppercase tracking-widest w-16">Balance</span>
-          <div className="flex-1 px-1.5 py-0.5 font-mono text-[11px] text-zinc-400">
-            ${balance.toLocaleString()}
-          </div>
+          {hasBrokerBalance ? (
+            <div className="flex-1 px-1.5 py-0.5 font-mono text-[11px] text-zinc-400">
+              ${balance.toLocaleString()} <span className="text-[9px] text-[#20e0b2] font-sans">(MT5 Live)</span>
+            </div>
+          ) : (
+            <div className="flex-1 flex items-center gap-1 font-mono text-[11px]">
+              <span className="text-zinc-500">$</span>
+              <input
+                type="number"
+                value={customBalance}
+                onChange={(e) => setCustomBalance(Math.max(1, parseFloat(e.target.value) || 0))}
+                className="w-full bg-black/40 border border-zinc-800 px-1 py-0.5 text-zinc-300 font-mono text-[11px] outline-none"
+              />
+              <span className="text-[8px] text-amber-500/80 whitespace-nowrap">(Manual)</span>
+            </div>
+          )}
         </div>
         <NumberField label="Risk" value={riskPct} onChange={setRiskPct} suffix="%" step={0.1} testId="risk-pct" />
         <NumberField label="SL Pips" value={slPips} onChange={setSlPips} suffix="p" step={1} testId="risk-sl" />

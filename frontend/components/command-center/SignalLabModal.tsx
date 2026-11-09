@@ -69,8 +69,8 @@ export default function SignalLabModal({
                 <span className="text-zinc-500 text-[9.5px] uppercase font-bold block">Status</span>
                 <span className="text-emerald-400 font-bold">{signal.readinessState}</span>
               </div>
-              <div className="w-10 h-10 rounded-full border-2 border-purple-500/40 bg-purple-500/10 flex items-center justify-center font-bold text-purple-300 text-xs">
-                ICT
+              <div className="w-10 h-10 rounded-full border-2 border-[#20e0b2]/40 bg-[#20e0b2]/10 flex items-center justify-center font-bold text-[#20e0b2] text-[10px]">
+                QUANT
               </div>
             </div>
           </div>

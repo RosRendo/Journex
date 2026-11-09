@@ -7,6 +7,8 @@
 #property link      "https://www.mql5.com"
 #property version   "1.00"
 
+#include "../Market/MarketData.mqh"
+
 //+------------------------------------------------------------------+
 //| Check SMT Intermarket Divergence against correlated symbol        |
 //+------------------------------------------------------------------+
@@ -17,8 +19,9 @@ bool CheckSMT(ENUM_TIMEFRAMES tf, string smt_symbol)
    ArraySetAsSeries(rates_main, true);
    ArraySetAsSeries(rates_smt, true);
    
-   int copied_main = CopyRates(_Symbol, tf, 0, 10, rates_main);
-   int copied_smt = CopyRates(smt_symbol, tf, 0, 10, rates_smt);
+   int start_shift = g_scan_closed_bars ? 1 : 0;
+   int copied_main = CopyRates(_Symbol, tf, start_shift, 10, rates_main);
+   int copied_smt = CopyRates(smt_symbol, tf, start_shift, 10, rates_smt);
    if(copied_main < 10 || copied_smt < 10) return false;
    
    double low_main_curr = rates_main[0].low;

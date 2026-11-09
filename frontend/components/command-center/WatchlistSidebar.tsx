@@ -25,35 +25,41 @@ interface Props {
 }
 
 const DEFAULT_WATCHLIST: WatchlistItem[] = [
-  // ── Metals ──────────────────────────────────────────────
-  { symbol: "XAUUSD", name: "Gold / USD",      price: 4152.00, changePct:  0.85, score: 82, bias: "LONG",     spread: 1.8 },
-  { symbol: "XAGUSD", name: "Silver / USD",    price:   32.50, changePct: -0.40, score: 58, bias: "NO_SETUP", spread: 2.2 },
+  // ── Metals & Commodities ────────────────────────────────
+  { symbol: "XAUUSD", name: "Gold / USD",      price: 0, changePct: 0, score: 0, bias: "NO_SETUP", spread: 0 },
+  { symbol: "XAGUSD", name: "Silver / USD",    price: 0, changePct: 0, score: 0, bias: "NO_SETUP", spread: 0 },
+  { symbol: "USOIL",  name: "Crude Oil / USD", price: 0, changePct: 0, score: 0, bias: "NO_SETUP", spread: 0 },
 
-  // ── Majors ──────────────────────────────────────────────
-  { symbol: "EURUSD", name: "EUR / USD",       price:  1.1610, changePct: -0.12, score: 78, bias: "SHORT",    spread: 0.8 },
-  { symbol: "GBPUSD", name: "GBP / USD",       price:  1.3510, changePct:  0.18, score: 54, bias: "NO_SETUP", spread: 1.1 },
-  { symbol: "USDJPY", name: "USD / JPY",       price: 156.10,  changePct: -0.32, score: 86, bias: "SHORT",    spread: 0.9 },
-  { symbol: "AUDUSD", name: "AUD / USD",       price:  0.6550, changePct:  0.22, score: 61, bias: "LONG",     spread: 1.2 },
-  { symbol: "NZDUSD", name: "NZD / USD",       price:  0.5890, changePct: -0.08, score: 44, bias: "NO_SETUP", spread: 1.5 },
-  { symbol: "USDCHF", name: "USD / CHF",       price:  0.8920, changePct:  0.15, score: 50, bias: "NO_SETUP", spread: 1.0 },
-  { symbol: "USDCAD", name: "USD / CAD",       price:  1.3850, changePct:  0.10, score: 55, bias: "NO_SETUP", spread: 1.1 },
+  // ── Forex Majors ────────────────────────────────────────
+  { symbol: "EURUSD", name: "EUR / USD",       price: 0, changePct: 0, score: 0, bias: "NO_SETUP", spread: 0 },
+  { symbol: "GBPUSD", name: "GBP / USD",       price: 0, changePct: 0, score: 0, bias: "NO_SETUP", spread: 0 },
+  { symbol: "USDJPY", name: "USD / JPY",       price: 0, changePct: 0, score: 0, bias: "NO_SETUP", spread: 0 },
+  { symbol: "AUDUSD", name: "AUD / USD",       price: 0, changePct: 0, score: 0, bias: "NO_SETUP", spread: 0 },
+  { symbol: "NZDUSD", name: "NZD / USD",       price: 0, changePct: 0, score: 0, bias: "NO_SETUP", spread: 0 },
+  { symbol: "USDCHF", name: "USD / CHF",       price: 0, changePct: 0, score: 0, bias: "NO_SETUP", spread: 0 },
+  { symbol: "USDCAD", name: "USD / CAD",       price: 0, changePct: 0, score: 0, bias: "NO_SETUP", spread: 0 },
 
-  // ── Crosses ─────────────────────────────────────────────
-  { symbol: "EURJPY", name: "EUR / JPY",       price: 181.20,  changePct: -0.20, score: 63, bias: "SHORT",    spread: 1.4 },
-  { symbol: "AUDJPY", name: "AUD / JPY",       price: 102.30,  changePct:  0.14, score: 48, bias: "NO_SETUP", spread: 1.8 },
-  { symbol: "GBPJPY", name: "GBP / JPY",       price: 210.50,  changePct: -0.28, score: 70, bias: "SHORT",    spread: 2.0 },
-  { symbol: "EURGBP", name: "EUR / GBP",       price:  0.8590, changePct:  0.05, score: 42, bias: "NO_SETUP", spread: 1.2 },
-  { symbol: "GBPCHF", name: "GBP / CHF",       price:  1.2040, changePct:  0.12, score: 46, bias: "NO_SETUP", spread: 1.6 },
-  { symbol: "CADCHF", name: "CAD / CHF",       price:  0.6440, changePct: -0.07, score: 38, bias: "NO_SETUP", spread: 1.9 },
+  // ── Forex Crosses ───────────────────────────────────────
+  { symbol: "GBPJPY", name: "GBP / JPY",       price: 0, changePct: 0, score: 0, bias: "NO_SETUP", spread: 0 },
+  { symbol: "EURJPY", name: "EUR / JPY",       price: 0, changePct: 0, score: 0, bias: "NO_SETUP", spread: 0 },
+  { symbol: "EURGBP", name: "EUR / GBP",       price: 0, changePct: 0, score: 0, bias: "NO_SETUP", spread: 0 },
+  { symbol: "AUDJPY", name: "AUD / JPY",       price: 0, changePct: 0, score: 0, bias: "NO_SETUP", spread: 0 },
+  { symbol: "CADJPY", name: "CAD / JPY",       price: 0, changePct: 0, score: 0, bias: "NO_SETUP", spread: 0 },
+  { symbol: "GBPCHF", name: "GBP / CHF",       price: 0, changePct: 0, score: 0, bias: "NO_SETUP", spread: 0 },
+  { symbol: "EURCHF", name: "EUR / CHF",       price: 0, changePct: 0, score: 0, bias: "NO_SETUP", spread: 0 },
+  { symbol: "EURAUD", name: "EUR / AUD",       price: 0, changePct: 0, score: 0, bias: "NO_SETUP", spread: 0 },
+  { symbol: "CADCHF", name: "CAD / CHF",       price: 0, changePct: 0, score: 0, bias: "NO_SETUP", spread: 0 },
 
   // ── Crypto ──────────────────────────────────────────────
-  { symbol: "BTCUSD", name: "Bitcoin / USD",   price: 79500.00, changePct:  1.75, score: 68, bias: "LONG",    spread: 12.0 },
-  { symbol: "ETHUSD", name: "Ethereum / USD",  price:  3100.00, changePct:  2.10, score: 62, bias: "LONG",    spread:  5.0 },
+  { symbol: "BTCUSD", name: "Bitcoin / USD",   price: 0, changePct: 0, score: 0, bias: "NO_SETUP", spread: 0 },
+  { symbol: "ETHUSD", name: "Ethereum / USD",  price: 0, changePct: 0, score: 0, bias: "NO_SETUP", spread: 0 },
+  { symbol: "SOLUSD", name: "Solana / USD",    price: 0, changePct: 0, score: 0, bias: "NO_SETUP", spread: 0 },
 
-  // ── Indices ─────────────────────────────────────────────
-  { symbol: "NAS100", name: "Nasdaq 100",      price: 20120.00, changePct:  0.95, score: 72, bias: "LONG",    spread:  2.0 },
-  { symbol: "US30",   name: "Dow Jones 30",    price: 42800.00, changePct:  0.40, score: 60, bias: "LONG",    spread:  3.0 },
-  { symbol: "US500",  name: "S&P 500",         price:  5680.00, changePct:  0.55, score: 65, bias: "LONG",    spread:  0.5 },
+  // ── Global Indices ──────────────────────────────────────
+  { symbol: "NAS100", name: "Nasdaq 100",      price: 0, changePct: 0, score: 0, bias: "NO_SETUP", spread: 0 },
+  { symbol: "US30",   name: "Dow Jones 30",    price: 0, changePct: 0, score: 0, bias: "NO_SETUP", spread: 0 },
+  { symbol: "US500",  name: "S&P 500",         price: 0, changePct: 0, score: 0, bias: "NO_SETUP", spread: 0 },
+  { symbol: "GER40",  name: "DAX 40 / EUR",    price: 0, changePct: 0, score: 0, bias: "NO_SETUP", spread: 0 },
 ];
 
 export default function WatchlistSidebar({
@@ -170,6 +176,8 @@ export default function WatchlistSidebar({
     );
   }, [activePrice, activeSymbol]);
 
+  // Note: Background random mock ticks removed. Watchlist strictly reflects real WebSocket/snapshot feeds.
+
   const filteredItems = items.filter(
     (i) => i.symbol.toLowerCase().includes(search.toLowerCase()) || i.name.toLowerCase().includes(search.toLowerCase())
   );
@@ -206,10 +214,13 @@ export default function WatchlistSidebar({
       {/* Sidebar Header */}
       <div className="h-10 px-3 border-b border-white/[0.08] bg-[#0c0c11] flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#20e0b2] opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#20e0b2]" />
+          </span>
           <span className="font-bold text-white text-[11px] uppercase tracking-wider">Watchlist</span>
-          <span className="px-1.5 py-0.2 rounded text-[9px] bg-white/10 text-zinc-400 font-mono">
-            {items.length}
+          <span className="px-1.5 py-0.5 rounded text-[8.5px] bg-[#20e0b2]/10 text-[#20e0b2] border border-[#20e0b2]/20 font-mono font-semibold">
+            {items.length} LIVE
           </span>
         </div>
         
@@ -301,24 +312,27 @@ export default function WatchlistSidebar({
                     <span className="text-[9px] text-zinc-500 font-sans">{item.name}</span>
                   </div>
                   <div className="text-[9px] text-zinc-500">
-                    Spread: {item.spread.toFixed(1)}p
+                    {item.price > 0 ? `Spread: ${item.spread.toFixed(1)}p` : "Feed Offline"}
                   </div>
                 </div>
               </div>
 
               <div className="text-right">
                 <div
-                  className={`font-bold tabular-nums text-[11px] transition-colors duration-300 ${
+                  className={`font-bold tabular-nums text-[11px] px-1.5 py-0.5 rounded transition-all duration-300 inline-block ${
                     flashMap[item.symbol] === "up"
-                      ? "text-emerald-400"
+                      ? "text-emerald-300 bg-emerald-500/20 shadow-[0_0_10px_rgba(32,224,178,0.25)]"
                       : flashMap[item.symbol] === "down"
-                      ? "text-rose-400"
-                      : "text-white"
+                      ? "text-rose-300 bg-rose-500/20 shadow-[0_0_10px_rgba(244,63,94,0.25)]"
+                      : item.price > 0
+                      ? "text-white bg-transparent"
+                      : "text-zinc-600 bg-transparent font-mono"
                   }`}
                 >
                   {(() => {
+                    if (item.price <= 0) return "--";
                     const sym = item.symbol;
-                    if (["BTCUSD", "ETHUSD", "NAS100", "US30", "US500"].includes(sym))
+                    if (["BTCUSD", "ETHUSD", "SOLUSD", "NAS100", "US30", "US500", "GER40", "USOIL"].includes(sym))
                       return item.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                     if (["XAUUSD"].includes(sym))
                       return item.price.toFixed(2);
@@ -326,19 +340,21 @@ export default function WatchlistSidebar({
                       return item.price.toFixed(3);
                     if (sym.includes("JPY"))
                       return item.price.toFixed(3);
-                    return item.price.toFixed(4);
+                    return item.price.toFixed(5);
                   })()}
                 </div>
                 <div className="flex items-center justify-end gap-1.5 text-[9.5px]">
                   <span
                     className={`font-semibold tabular-nums ${
-                      isUp ? "text-emerald-400" : "text-rose-400"
+                      item.price > 0
+                        ? isUp ? "text-emerald-400" : "text-rose-400"
+                        : "text-zinc-600"
                     }`}
                   >
-                    {isUp ? "+" : ""}{item.changePct.toFixed(2)}%
+                    {item.price > 0 ? `${isUp ? "+" : ""}${item.changePct.toFixed(2)}%` : "--"}
                   </span>
                   <span className="px-1 py-0.2 rounded font-mono font-medium text-[8.5px] bg-white/[0.05] text-zinc-400 border border-white/[0.05]">
-                    {item.score}
+                    {item.price > 0 ? item.score : "--"}
                   </span>
                 </div>
               </div>

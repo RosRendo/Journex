@@ -21,16 +21,28 @@ export interface StrategyProfile {
 
 export interface MarketStateData {
   symbol: string;
-  htfTrend: "BULLISH" | "BEARISH" | "NEUTRAL";
-  h4Structure: "BULLISH" | "BEARISH" | "SIDEWAYS";
-  h1Structure: "BULLISH" | "BEARISH" | "SIDEWAYS";
-  m15Structure: "BULLISH" | "BEARISH" | "SIDEWAYS";
-  structureEvent: "BOS" | "CHOCH" | "RNG BOUND";
-  session: string;
-  volatility: "LOW" | "NORMAL" | "HIGH" | "EXTREME";
-  liquidityBias: "SWEEP_BELOW" | "SWEEP_ABOVE" | "POOLS_BALANCED";
+  // ── 9 Quantitative Decision Pillars ─────────────────────────────────
+  marketRegime: "TREND_EXPANSION" | "MEAN_REVERSION" | "VOLATILITY_SQUEEZE" | "BREAKOUT_HIGH_VOL";
+  volatilityRegime: "LOW_COMPRESSION" | "OPTIMAL_EXPANSION" | "ELEVATED_RISK" | "EXTREME";
+  htfLtfAlignment: "FULL_BULLISH_CONVERGENCE" | "FULL_BEARISH_CONVERGENCE" | "DIVERGENT";
+  statisticalMomentum: string;
+  crossAssetCorrelation: string;
+  smtMeasurement: string;
+  sessionTiming: string;
+  newsRiskStatus: "CLEAR" | "WARNING_WINDOW" | "EMBARGO_ACTIVE";
+  riskRewardRatio: string;
   atrPips: number;
   spreadPips: number;
+
+  // Legacy mappings for backward compatibility
+  htfTrend?: "BULLISH" | "BEARISH" | "NEUTRAL";
+  h4Structure?: "BULLISH" | "BEARISH" | "SIDEWAYS";
+  h1Structure?: "BULLISH" | "BEARISH" | "SIDEWAYS";
+  m15Structure?: "BULLISH" | "BEARISH" | "SIDEWAYS";
+  structureEvent?: string;
+  session?: string;
+  volatility?: "LOW" | "NORMAL" | "HIGH" | "EXTREME";
+  liquidityBias?: string;
 }
 
 export interface SetupSignalData {
@@ -51,7 +63,25 @@ export interface SetupSignalData {
     confirmation: number; // e.g. 70
   };
   invalidationRules: string[];
-  evidenceLog: { time: string; event: string; type: "sweep" | "mss" | "fvg" | "retest" | "close" }[];
+  evidenceLog: {
+    time: string;
+    event: string;
+    type:
+      | "regime"
+      | "volatility"
+      | "alignment"
+      | "momentum"
+      | "correlation"
+      | "smt"
+      | "session"
+      | "news"
+      | "risk"
+      | "sweep"
+      | "mss"
+      | "fvg"
+      | "retest"
+      | "close";
+  }[];
 }
 
 export interface NewsEventData {

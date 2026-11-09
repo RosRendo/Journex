@@ -68,8 +68,11 @@ public:
       int fvg_count = ArraySize(fvgs);
 
       bool bull_fvg = false, bear_fvg = false;
+      // Newest 5 detected FVGs within the 30-bar window, but only those
+      // formed within the last 8 bars count as "recent" confirmation
       for(int i = MathMax(0, fvg_count - 5); i < fvg_count; i++)
         {
+         if(iBarShift(_Symbol, tf, fvgs[i].time) > 8) continue;
          if(fvgs[i].is_bullish) bull_fvg = true;
          else bear_fvg = true;
         }
@@ -133,16 +136,18 @@ public:
       if(candidate.type == "BUY" && mss == "BULLISH") score += 20.0;
       if(candidate.type == "SELL" && mss == "BEARISH") score += 20.0;
 
-      // FVG bonus
+      // FVG bonus (only gaps formed within the last 8 bars)
       for(int i = MathMax(0, fvg_count - 3); i < fvg_count; i++)
         {
+         if(iBarShift(_Symbol, tf, fvgs[i].time) > 8) continue;
          if(candidate.type == "BUY" && fvgs[i].is_bullish) { score += 15.0; break; }
          if(candidate.type == "SELL" && !fvgs[i].is_bullish) { score += 15.0; break; }
         }
 
-      // OB bonus
+      // OB bonus (only blocks formed within the last 10 bars)
       for(int i = MathMax(0, ob_count - 5); i < ob_count; i++)
         {
+         if(iBarShift(_Symbol, tf, obs[i].time) > 10) continue;
          if(candidate.type == "BUY" && obs[i].is_bullish) { score += 15.0; break; }
          if(candidate.type == "SELL" && !obs[i].is_bullish) { score += 15.0; break; }
         }

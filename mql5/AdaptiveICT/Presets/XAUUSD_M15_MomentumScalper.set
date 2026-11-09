@@ -1,0 +1,24 @@
+; ==============================================================
+; XAUUSD M15 MOMENTUM SCALPER — fast burst entries
+; TICK-driven (5s), entries on >=20 pip net burst over last 1 bar,
+// aligned with H4 bias, force-exit after 300s. No news-bridge call
+; every tick (news cached 60s). Use on active LDN/NY sessions ONLY;
+; it legitimately stands down in HIGH_VOLATILITY regimes.
+; Attach to XAUUSD M15 chart.
+; ==============================================================
+InpStrategyType=4||0||0||0||N
+InpSignalTimeframe=M15||0||0||0||N
+InpPositionMode=0||0||0||0||N
+InpMomLookbackSec=900||0||0||0||N
+InpMomThresholdPips=20||0||0||0||N
+InpMomAdaptiveThreshold=true||0||0||0||N
+InpMomSLATRMult=1.5||0||0||0||N
+InpMomMaxHoldingSec=300||0||0||0||N
+InpPyramidCooldownSec=60||0||0||0||N
+InpRiskPercent=1.0||0||0||0||N
+InpMaxOpenTrades=2||0||0||0||N
+InpMaxSpreadPoints=300||0||0||0||N
+InpUseNewsFilter=true||0||0||0||N
+InpUseLossStreakCooldown=true||0||0||0||N
+InpLossStreakThreshold=3||0||0||0||N
+InpLossStreakCooldownMin=60||0||0||0||N

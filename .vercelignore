@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+.vscode
+scratch
+backend
+mql5
+specs
+docs
+*.log

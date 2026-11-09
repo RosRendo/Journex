@@ -9,6 +9,7 @@
 #property once
 
 #include "../Types.mqh"
+#include "../Config.mqh"
 
 class MarketRegimeDetector
   {
@@ -42,7 +43,7 @@ public:
         
       int c_rsi = CopyBuffer(h_rsi, 0, 0, 1, rsi_buf);
       int c_adx = CopyBuffer(h_adx, 0, 0, 1, adx_buf);
-      int c_atr = CopyBuffer(h_atr, 0, 0, 1, atr_buf);
+      int c_atr = CopyBuffer(h_atr, 0, 0, MathMax(2, InpRegimeBaselineBars + 1), atr_buf);
       
       IndicatorRelease(h_rsi);
       IndicatorRelease(h_adx);
@@ -66,16 +67,43 @@ public:
          return "UNKNOWN";
         }
       
+      // --- Volatility classification (RELATIVE, not absolute) ---
+      // Fixed atr_pct thresholds (0.0004 / 0.0020) were calibrated for
+      // low-priced symbols; on 2026-era XAUUSD the H1 ATR floor makes
+      // atr_pct permanently > 0.0020, classifying the market as
+      // HIGH_VOLATILITY and blocking ALL engines forever (straight-line
+      // backtests). Instead, compare today's ATR against its own
+      // recent baseline: a SPIKE or lull is what defines the regime.
+      if(c_atr >= InpRegimeBaselineBars + 1)
+        {
+         double baseline = 0.0;
+         for(int i = 1; i < c_atr; i++) baseline += atr_buf[i];
+         baseline /= (double)(c_atr - 1);
+         
+         if(baseline > 0.0)
+           {
+            double vol_ratio = atr / baseline;
+            if(vol_ratio >= InpRegimeVolSpikeRatio)
+              {
+               confidence = 90;
+               return "HIGH_VOLATILITY";
+              }
+            if(vol_ratio <= InpRegimeVolDeadRatio)
+              {
+               confidence = 85;
+               return "LOW_VOLATILITY";
+              }
+           }
+        }
+      
       double atr_pct = atr / current_price;
       
       // Classifications
-      if(atr_pct < 0.0004)
-        {
-         confidence = 85;
-         return "LOW_VOLATILITY";
-        }
-        
-      if(atr_pct > 0.0020)
+      // (absolute fixed thresholds removed: they pinned 2026-era XAUUSD
+      // to a permanent HIGH_VOLATILITY block. Relative ATR-vs-baseline
+      // checks above now define spikes/lulls. One absurd-extreme cap
+      // remains as a safety net: single-bar range > 1% of price.)
+      if(atr_pct > 0.0100)
         {
          confidence = 90;
          return "HIGH_VOLATILITY";

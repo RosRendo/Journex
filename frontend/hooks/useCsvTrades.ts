@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { getBackendUrl, fetchWithAuth } from "@/lib/utils";
 import { useSession } from "next-auth/react";
 import { useWorkspace, WorkspaceType } from "@/src/context/WorkspaceContext";
+import { isAdminEmail } from "@/lib/role";
 
 // Use getBackendUrl() — returns NEXT_PUBLIC_BACKEND_URL or localhost:5000.
 // Never uses resolveLocalUrl() which was blindly replacing 'localhost' with
@@ -133,37 +134,42 @@ export function useCsvTrades(accountNumber?: string, autoRefreshMs: number = 0) 
   const API_BASE = BRIDGE_URL;
   const DB_API = DB_API_URL;
 
-  // Fetch true history from Live MT5 bridge (bypassing node backend)
+  // Fetch true history (Role-aware: Admin gets Live MT5 Bridge; Users get their own DB trades)
   const fetchTrades = useCallback(async () => {
     try {
-      // Don't set loading to true here during polling to prevent UI flicker and scroll resets
       setError(null);
 
-      // 1. Fetch from MT5 bridge history
-      const url = `${API_BASE}/api/history`;
-      const response = await fetchWithAuth(url);
+      const userEmail = (session?.user?.email || "").toLowerCase();
+      const isAdmin =
+        isAdminEmail(userEmail) || (session?.user as any)?.role === "admin";
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch MT5 history (${response.status})`);
+      let normalized: TradeData[] = [];
+
+      // 1. Fetch from live MT5 bridge history ONLY IF ADMIN (personal bridge owner)
+      if (isAdmin) {
+        try {
+          const url = `${API_BASE}/api/history`;
+          const response = await fetchWithAuth(url);
+          if (response.ok) {
+            const data = await response.json();
+            const fetchedTrades = data.trades || data.data || [];
+            normalized = fetchedTrades.map((t: any) => ({
+              id: t.id,
+              date: t.date,
+              openTime: t.openTime,
+              pair: t.pair,
+              direction: t.direction,
+              entry: Number(t.entry || 0),
+              closePrice: t.closePrice !== undefined && t.closePrice !== null ? Number(t.closePrice) : undefined,
+              lotSize: t.lotSize !== undefined && t.lotSize !== null ? Number(t.lotSize) : undefined,
+              profit: Number(t.profit || 0),
+              outcome: t.outcome,
+              ticket: t.ticket,
+              accountNumber: t.accountNumber || undefined,
+            }));
+          }
+        } catch (_) {}
       }
-
-      const data = await response.json();
-      const fetchedTrades = data.trades || data.data || [];
-
-      const normalized: TradeData[] = fetchedTrades.map((t: any) => ({
-        id: t.id,
-        date: t.date,
-        openTime: t.openTime,
-        pair: t.pair,
-        direction: t.direction,
-        entry: Number(t.entry || 0),
-        closePrice: t.closePrice !== undefined && t.closePrice !== null ? Number(t.closePrice) : undefined,
-        lotSize: t.lotSize !== undefined && t.lotSize !== null ? Number(t.lotSize) : undefined,
-        profit: Number(t.profit || 0),
-        outcome: t.outcome,
-        ticket: t.ticket,
-        accountNumber: t.accountNumber || undefined,
-      }));
 
       // 2. ALSO fetch from database API for recently placed trades
       try {
@@ -179,9 +185,32 @@ export function useCsvTrades(accountNumber?: string, autoRefreshMs: number = 0) 
         if (dbRes.ok) {
           const dbData = await dbRes.json();
           const dbTrades = dbData.data || [];
-          
-          // Merge and dedupe by ticket
-          const ticketMap = new Map<string, TradeData>();
+
+          if (!isAdmin) {
+            // For standard/pro users, their trade list is STRICTLY their own database trades
+            normalized = dbTrades.map((t: any) => ({
+              id: t.id,
+              date: t.closeTime || t.date,
+              openTime: t.date,
+              pair: t.pair,
+              direction: (t.direction?.toLowerCase() === "buy" || t.direction?.toLowerCase() === "long") ? "Long" : "Short",
+              entry: Number(t.entry || 0),
+              closePrice: t.closePrice !== undefined && t.closePrice !== null ? Number(t.closePrice) : undefined,
+              lotSize: t.lotSize !== undefined && t.lotSize !== null ? Number(t.lotSize) : undefined,
+              profit: Number(t.profit || 0),
+              outcome: t.outcome || (t.profit > 0 ? "W" : t.profit < 0 ? "L" : "E"),
+              ticket: t.ticket,
+              notes: t.notes || "",
+              imageUrl: t.imageUrl || "",
+              followedPlan: t.followedPlan !== null ? t.followedPlan : undefined,
+              planDeviationReason: t.planDeviationReason || "",
+              checklistPassed: t.checklistPassed !== null ? t.checklistPassed : undefined,
+              emotion: t.emotion || "",
+              accountNumber: t.accountNumber || undefined,
+            }));
+          } else {
+            // Merge and dedupe by ticket for Admin
+            const ticketMap = new Map<string, TradeData>();
           normalized.forEach(t => { if (t.ticket) ticketMap.set(String(t.ticket), t); });
           
           dbTrades.forEach((t: any) => {
@@ -231,7 +260,8 @@ export function useCsvTrades(accountNumber?: string, autoRefreshMs: number = 0) 
           setLoading(false);
           return;
         }
-      } catch (dbErr) {
+      }
+    } catch (dbErr) {
         console.warn("Failed to fetch trades from DB:", dbErr);
       }
 
@@ -336,7 +366,7 @@ export function useBrokerAccounts() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`${API_BASE}/api/broker/accounts`, { headers: { "ngrok-skip-browser-warning": "true" } });
+      const response = await fetchWithAuth(`${API_BASE}/api/broker/accounts`);
 
       if (!response.ok) {
         throw new Error("Failed to fetch accounts");

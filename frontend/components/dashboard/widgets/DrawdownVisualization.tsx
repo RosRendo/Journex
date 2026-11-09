@@ -1,15 +1,16 @@
-﻿import { useMemo } from "react";
+import { useMemo } from "react";
 import { AreaChart, Area, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { TradeData } from "@/hooks/useCsvTrades";
 
 interface Props {
   trades: TradeData[];
+  initialBalance?: number;
 }
 
-export function DrawdownVisualization({ trades }: Props) {
+export function DrawdownVisualization({ trades, initialBalance = 10000 }: Props) {
   const underwaterData = useMemo(() => {
-    let peak = 0;
-    let balance = 0;
+    let balance = initialBalance > 0 ? initialBalance : 10000;
+    let peak = balance;
     
     // Sort trades chronologically
     const sorted = [...trades].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -17,8 +18,7 @@ export function DrawdownVisualization({ trades }: Props) {
     return sorted.map(t => {
       balance += t.profit;
       peak = Math.max(peak, balance);
-      // To prevent division by zero or weird results if peak is 0 or negative
-      const drawdownValue = peak > 0 ? ((peak - balance) / peak) * 100 : (balance < 0 ? Math.abs(balance) : 0);
+      const drawdownValue = peak > 0 ? ((peak - balance) / peak) * 100 : 0;
       
       return {
         date: new Date(t.date).toLocaleDateString(),
@@ -27,7 +27,7 @@ export function DrawdownVisualization({ trades }: Props) {
         balance
       };
     });
-  }, [trades]);
+  }, [trades, initialBalance]);
 
   const maxDrawdown = useMemo(() => {
     if (!underwaterData.length) return 0;

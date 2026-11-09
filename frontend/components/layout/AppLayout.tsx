@@ -52,7 +52,17 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [ecosystemOpen, setEcosystemOpen] = useState(false);
-  useAutoMT5Connect();
+  const isTerminal = pathname.startsWith("/terminal");
+  const isMacro = pathname.startsWith("/macro");
+  const isTerminalOrMacro = isTerminal || isMacro;
+  const isPublicMarketingOrAuth =
+    pathname === "/" ||
+    pathname.startsWith("/auth") ||
+    pathname.startsWith("/subscription") ||
+    pathname.startsWith("/pricing");
+  const isStandalonePage = isPublicMarketingOrAuth || isTerminalOrMacro;
+
+  useAutoMT5Connect(!isPublicMarketingOrAuth);
 
   // Global keyboard shortcuts: Ctrl+K (Command Palette), Ctrl+M (Ecosystem Map)
   useEffect(() => {
@@ -78,13 +88,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
     setIsMobileMenuOpen(false);
   }, [pathname]);
 
-  const isTerminalOrMacro = pathname.startsWith("/terminal") || pathname.startsWith("/macro");
-  const isStandalonePage =
-    pathname === "/" ||
-    pathname.startsWith("/auth") ||
-    pathname.startsWith("/subscription") ||
-    isTerminalOrMacro;
-
   if (isStandalonePage) {
     return (
       <PanicModeProvider>
@@ -93,11 +96,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
           <EcosystemMapModal open={ecosystemOpen} onClose={() => setEcosystemOpen(false)} />
           <PanicModeOverlay />
           <div
-            className={`flex flex-col ${isTerminalOrMacro ? "h-screen w-screen overflow-hidden" : "min-h-screen"}`}
+            className={`flex flex-col ${isTerminal ? "h-screen w-screen overflow-hidden" : "min-h-screen w-full"}`}
             style={{ background: "var(--bg-base)", color: "var(--text-primary)" }}
           >
             {pathname.startsWith("/subscription") && <Navbar />}
-            <main className={`w-full ${isTerminalOrMacro ? "flex-1 h-full min-h-0 overflow-hidden" : "flex-1"}`}>{children}</main>
+            <main className={`w-full ${isTerminal ? "flex-1 h-full min-h-0 overflow-hidden" : "flex-1"}`}>{children}</main>
           </div>
         </FocusModeProvider>
       </PanicModeProvider>
