@@ -97,6 +97,21 @@ async function handleProxy(req: NextRequest, { path }: { path: string[] }) {
 
     clearTimeout(timeout);
 
+    if (!response.ok || response.status >= 500) {
+      return NextResponse.json(
+        {
+          success: false,
+          connected: false,
+          offline: true,
+          message: "MT5 Bridge is currently offline.",
+          positions: [],
+          news: [],
+          trades: [],
+        },
+        { status: 200 }
+      );
+    }
+
     const data = await response.json().catch(() => ({}));
     return NextResponse.json(data, { status: response.status });
   } catch {
