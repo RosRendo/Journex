@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import prisma from '../config/database';
 import { AppError } from '../middleware/errorHandler';
 import { AccountInput } from '../types';
+import { syncMT5AccountOnDemand } from '../services/syncService';
 
 export const createAccount = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -96,6 +97,44 @@ export const deleteAccount = async (req: Request, res: Response, next: NextFunct
 
     await prisma.account.delete({ where: { id: existing.id } });
     res.json({ success: true, message: 'Account deleted' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const syncAccountTrades = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const userId = req.userId || 'default-user';
+
+    const account = await prisma.account.findFirst({
+      where: { id: parseInt(id), userId },
+    });
+
+    if (!account) {
+      throw new AppError('Account not found or access denied', 404);
+    }
+
+    if (!account.mt5Server || !account.accountNumber) {
+      throw new AppError('Account is missing MT5 server or account number', 400);
+    }
+
+    const days = req.body?.days ? parseInt(req.body.days, 10) : 90;
+
+    const result = await syncMT5AccountOnDemand({
+      userId,
+      server: account.mt5Server,
+      login: account.accountNumber,
+      password: account.mt5Password || '',
+      accountDbId: account.id,
+      days,
+    });
+
+    res.json({
+      success: true,
+      message: `Successfully synced ${result.insertedCount} new trades from ${account.mt5Server}`,
+      data: result,
+    });
   } catch (error) {
     next(error);
   }

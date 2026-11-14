@@ -8,10 +8,12 @@ echo  │   Journex — Local Optimized Startup (Docker + PM2)       │
 echo  │   Frontend  -^> http://localhost:3000                      │
 echo  │   Backend   -^> http://localhost:5000                      │
 echo  │   MT5 Brdg  -^> http://localhost:5003                      │
+echo  │   MT5 Sync  -^> http://localhost:5005                      │
 echo  └──────────────────────────────────────────────────────────┘
 echo.
 
-set PROJECT_WIN=d:\FOR RENDO (ONLY )\Personal Project\Dashboard
+set PROJECT_WIN=%~dp0
+if "%PROJECT_WIN:~-1%"=="\" set PROJECT_WIN=%PROJECT_WIN:~0,-1%
 
 REM ── [1/3] Start Docker Compose (Database, Backend, Frontend) ──────────
 echo.

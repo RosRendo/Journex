@@ -30,8 +30,9 @@ services:
       DIRECT_URL: postgresql://postgres:zipmu3-cEcsak-jifqyf@postgres:5432/trading_journal?schema=public
       NODE_ENV: production
       PORT: 5000
-      FRONTEND_URL: http://192.168.100.171:3000
+      FRONTEND_URL: http://${LOCAL_IP:-localhost}:3000
       MT5_BRIDGE_URL: http://host.docker.internal:5003
+      MT5_SYNC_ENGINE_URL: http://host.docker.internal:5005
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -51,7 +52,7 @@ services:
       context: ./frontend
       args:
         # Baked at BUILD TIME into the Next.js JS bundle
-        NEXT_PUBLIC_API_URL: http://192.168.100.171:5000
+        NEXT_PUBLIC_API_URL: http://${LOCAL_IP:-localhost}:5000
         INTERNAL_API_URL: http://backend:5000
         BRIDGE_URL: http://host.docker.internal:5003
     container_name: trading-frontend
@@ -60,12 +61,12 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      NEXT_PUBLIC_API_URL: http://192.168.100.171:5000
-      NEXT_PUBLIC_BRIDGE_URL: http://192.168.100.171:5000/api/bridge
+      NEXT_PUBLIC_API_URL: http://${LOCAL_IP:-localhost}:5000
+      NEXT_PUBLIC_BRIDGE_URL: http://${LOCAL_IP:-localhost}:5000/api/bridge
       INTERNAL_API_URL: http://backend:5000
       # NextAuth needs the public-facing URL
-      NEXTAUTH_URL: http://192.168.100.171:3000
-      AUTH_URL: http://192.168.100.171:3000
+      NEXTAUTH_URL: http://${LOCAL_IP:-localhost}:3000
+      AUTH_URL: http://${LOCAL_IP:-localhost}:3000
       AUTH_TRUST_HOST: "true"
       # Server-side only — used by /api/bridge-status route.
       # resolveLocalUrl() in browser auto-replaces localhost → phone IP.

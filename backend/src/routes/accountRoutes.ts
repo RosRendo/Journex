@@ -11,5 +11,6 @@ accountRouter.post('/', accountController.createAccount);
 accountRouter.get('/', accountController.getAllAccounts);
 accountRouter.put('/:id', accountController.updateAccount);
 accountRouter.delete('/:id', accountController.deleteAccount);
+accountRouter.post('/:id/sync', accountController.syncAccountTrades);
 
 export default accountRouter;

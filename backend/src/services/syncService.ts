@@ -6,6 +6,61 @@ import { HttpsProxyAgent } from "https-proxy-agent";
 
 const prisma = new PrismaClient();
 
+export async function syncMT5AccountOnDemand(params: {
+  userId: string;
+  server: string;
+  login: number | string;
+  password?: string;
+  accountDbId?: number;
+  days?: number;
+}) {
+  const syncEngineUrl = process.env.MT5_SYNC_ENGINE_URL || "http://localhost:5005";
+  try {
+    const payload = {
+      server: params.server,
+      login: typeof params.login === "string" ? parseInt(params.login, 10) : params.login,
+      password: params.password || "",
+      days: params.days || 90
+    };
+
+    console.log(`[MT5 Sync] Requesting dynamic sync for account ${payload.login} on ${payload.server}...`);
+    const res = await axios.post(`${syncEngineUrl}/api/sync-account`, payload, {
+      timeout: 45000
+    });
+
+    if (!res.data || !res.data.success) {
+      throw new Error(res.data?.detail || "Sync engine returned failure");
+    }
+
+    const { balance, equity, trades } = res.data;
+    const insertedCount = await processImportedTrades(params.userId, trades || [], `MT5 (${params.server})`);
+
+    // Update account record in DB if accountDbId was provided
+    if (params.accountDbId) {
+      await prisma.account.update({
+        where: { id: params.accountDbId },
+        data: {
+          balance: balance !== undefined ? balance : undefined,
+          equity: equity !== undefined ? equity : undefined,
+          lastUpdated: new Date()
+        }
+      });
+    }
+
+    return {
+      success: true,
+      insertedCount,
+      totalReceived: (trades || []).length,
+      balance,
+      equity
+    };
+  } catch (error: any) {
+    const msg = error.response?.data?.detail || error.message;
+    console.error(`[MT5 On-Demand Sync Error] ${msg}`);
+    throw new Error(`MT5 Sync Failed: ${msg}`);
+  }
+}
+
 export async function syncBrokerTrades(userId: string) {
   const settings = getSettings();
   if (!settings || !settings.broker) {
@@ -16,6 +71,19 @@ export async function syncBrokerTrades(userId: string) {
   let newTradesCount = 0;
 
   if (provider === "mt5_bridge") {
+    const srv = settings.broker.server || settings.broker.mt5Server;
+    const lgn = settings.broker.login || settings.broker.accountNumber || account_id;
+    const pwd = settings.broker.password || settings.broker.mt5Password;
+    if (srv && lgn) {
+      const res = await syncMT5AccountOnDemand({
+        userId,
+        server: srv,
+        login: lgn,
+        password: pwd || "",
+        days: 90
+      });
+      return res.insertedCount;
+    }
     newTradesCount = await syncMT5Trades(userId, process.env.MT5_BRIDGE_URL || base_url || "http://localhost:5003");
   } else if (provider === "oanda") {
     newTradesCount = await syncOandaTrades(userId, api_key, account_id, base_url || "https://api-fxpractice.oanda.com");

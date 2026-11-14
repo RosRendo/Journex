@@ -318,35 +318,31 @@ function AccountsInner() {
   const handleConnectMaster = async (acc: any) => {
     setConnectStatus({
       loading: true,
-      msg: `Routing Bridge to Master Node #${acc.accountNumber}...`,
+      msg: `Syncing trades from ${acc.mt5Server || acc.brokerName} #${acc.accountNumber}...`,
     });
     try {
-      const res = await fetchWithAuth(`${BRIDGE}/api/connect`, {
+      const res = await fetchWithAuth(`${API_URL}/api/accounts/${acc.id}/sync`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          login: parseInt(acc.accountNumber, 10) || 0,
-          password: acc.mt5Password,
-          server: acc.mt5Server,
-          email: userEmail,
-        }),
+        body: JSON.stringify({ days: 90 }),
       });
       const data = await res.json();
       if (data.success) {
         setConnectStatus({
           loading: false,
           success: true,
-          msg: `Master Link Established: Node #${acc.accountNumber}`,
+          msg: data.message || `Synced ${data.data?.insertedCount ?? 0} trades!`,
         });
+        await fetchDbAccounts();
       } else {
-        const errorMsg = data.error || (data.detail ? JSON.stringify(data.detail) : "Unknown error");
+        const errorMsg = data.error || (data.detail ? JSON.stringify(data.detail) : "Sync failed");
         setConnectStatus({ loading: false, success: false, msg: errorMsg });
       }
     } catch (e: any) {
       setConnectStatus({
         loading: false,
         success: false,
-        msg: e.message || "Failed to contact MT5 bridge.",
+        msg: e.message || "Failed to contact sync service.",
       });
     }
   };
@@ -807,25 +803,24 @@ function AccountsInner() {
                             </td>
                             <td className="px-4 py-4 text-right">
                               <div className="flex items-center justify-end gap-1.5">
-                                {!isMaster ? (
+                                {!isMaster && (
                                   <button
                                     onClick={() => setAsMaster(acc.id)}
                                     className="px-2.5 py-1.5 border border-[rgba(255,255,255,0.07)] hover:border-[rgba(32,224,178,0.3)]/50 text-[9px] uppercase font-bold tracking-widest rounded-lg transition-colors text-zinc-400 hover:text-[#20e0b2]"
                                   >
                                     Set Master
                                   </button>
-                                ) : (
-                                  <button
-                                    onClick={() => handleConnectMaster(acc)}
-                                    disabled={connectStatus.loading}
-                                    className="px-2.5 py-1.5 bg-[#20e0b2] hover:bg-emerald-450 text-emerald-950 text-[9px] uppercase font-bold tracking-widest rounded-lg transition-all flex items-center justify-center gap-1.5 font-mono font-black"
-                                  >
-                                    <RefreshCw
-                                      className={`w-3 h-3 ${connectStatus.loading ? "animate-spin" : ""}`}
-                                    />
-                                    Initialize
-                                  </button>
                                 )}
+                                <button
+                                  onClick={() => handleConnectMaster(acc)}
+                                  disabled={connectStatus.loading}
+                                  className="px-2.5 py-1.5 bg-[#20e0b2] hover:bg-emerald-450 text-emerald-950 text-[9px] uppercase font-bold tracking-widest rounded-lg transition-all flex items-center justify-center gap-1.5 font-mono font-black"
+                                >
+                                  <RefreshCw
+                                    className={`w-3 h-3 ${connectStatus.loading ? "animate-spin" : ""}`}
+                                  />
+                                  Sync Trades
+                                </button>
                                 <button
                                   onClick={() => removeMt5Account(acc.id)}
                                   className="p-1.5 text-zinc-600 hover:text-[#ff5c73] transition-colors rounded-lg hover:bg-[rgba(255,92,115,0.08)] border border-transparent hover:border-[rgba(255,92,115,0.2)]"
@@ -937,25 +932,24 @@ function AccountsInner() {
                           )}
 
                           <div className="flex gap-2 pt-1 font-mono text-[9px] font-bold">
-                            {!acc.isMaster ? (
+                            {!acc.isMaster && (
                               <button
                                 onClick={() => setAsMaster(acc.id)}
                                 className="flex-1 border border-[rgba(255,255,255,0.07)] hover:border-[rgba(32,224,178,0.3)]/50 text-[8px] uppercase tracking-widest rounded-lg py-2 transition-colors text-zinc-400 hover:text-[#20e0b2]"
                               >
                                 Set Master
                               </button>
-                            ) : (
-                              <button
-                                onClick={() => handleConnectMaster(acc)}
-                                disabled={connectStatus.loading}
-                                className="flex-1 bg-[#20e0b2] hover:bg-emerald-450 text-emerald-950 uppercase tracking-widest rounded-lg py-2 hover:opacity-80 transition-all flex items-center justify-center gap-1.5 font-black"
-                              >
-                                <RefreshCw
-                                  className={`w-3 h-3 ${connectStatus.loading ? "animate-spin" : ""}`}
-                                />
-                                Initialize
-                              </button>
                             )}
+                            <button
+                              onClick={() => handleConnectMaster(acc)}
+                              disabled={connectStatus.loading}
+                              className="flex-1 bg-[#20e0b2] hover:bg-emerald-450 text-emerald-950 uppercase tracking-widest rounded-lg py-2 hover:opacity-80 transition-all flex items-center justify-center gap-1.5 font-black"
+                            >
+                              <RefreshCw
+                                className={`w-3 h-3 ${connectStatus.loading ? "animate-spin" : ""}`}
+                              />
+                              Sync Trades
+                            </button>
 
                             <button
                               onClick={() => removeMt5Account(acc.id)}
