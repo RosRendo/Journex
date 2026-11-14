@@ -1,6 +1,7 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
+import AdminOnly from "@/components/AdminOnly";
 import {
   TrendingUp, Clock, Target, AlertTriangle,
   DollarSign, BarChart3, Brain, Shield,
@@ -31,14 +32,15 @@ export default function TradingStylesDashboard() {
   const styleData = getStyleData(selectedStyle);
 
   return (
-          <div className="space-y-6">
+    <AdminOnly pageName="Trading Profile">
+      <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <TrendingUp className="text-[#20e0b2]" size={24} />
             Trading Style & Planning
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Master different trading approaches and find your perfect strategy
+            Choose your trading style to view optimized strategies, risk parameters, and guidelines.
           </p>
         </div>
 
@@ -205,6 +207,7 @@ export default function TradingStylesDashboard() {
           </div>
         </div>
       </div>
+    </AdminOnly>
   );
 }
 

@@ -104,15 +104,19 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         action: () => navigate("/journal"),
         keywords: ["journal", "log", "diary", "new trade", "screenshot", "mistake"],
       },
-      {
-        id: "act-review",
-        label: "Audit Session & Grade Trades (A+, B, C)",
-        description: "Post-session execution review and mistake analysis",
-        icon: CheckCircle2,
-        category: "ACTIONS (DO)",
-        action: () => navigate("/review"),
-        keywords: ["review", "grade", "audit", "debrief", "score"],
-      },
+        ...(isAdmin
+          ? [
+              {
+                id: "act-review",
+                label: "Audit Session & Grade Trades (A+, B, C)",
+                description: "Post-session execution review and mistake analysis",
+                icon: CheckCircle2,
+                category: "ACTIONS (DO)",
+                action: () => navigate("/review"),
+                keywords: ["review", "grade", "audit", "debrief", "score"],
+              },
+            ]
+          : []),
       {
         id: "act-ecosystem",
         label: "Open Ecosystem Blueprint / Sitemap",

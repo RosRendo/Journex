@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect } from "react";
 import { DEFAULT_PINNED_IDS } from "@/components/layout/navigation";
 

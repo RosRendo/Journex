@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Auto-MT5 Connect Hook
  *

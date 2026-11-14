@@ -9,7 +9,11 @@ export async function signIn(provider?: string, options?: any) {
 }
 
 export async function getSession() {
-  return await nextAuthGetSession();
+  try {
+    return await nextAuthGetSession();
+  } catch {
+    return null;
+  }
 }
 
 export async function signOut(options?: any) {

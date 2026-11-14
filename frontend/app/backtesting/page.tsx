@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import AdminOnly from "@/components/AdminOnly";
 import {
   Play, Pause, SkipBack, SkipForward, X, Plus, Minus, Trash2,
   SlidersHorizontal, BarChart2, TrendingUp, TrendingDown, Target,
@@ -764,7 +765,8 @@ export default function BacktestingPage() {
   const sessionInfo = currentCandle?.time ? getMarketSessionName(currentCandle.time) : null;
 
   return (
-    <div className="h-[calc(100vh-64px)] w-full flex flex-col bg-[#131722] text-[#d1d4dc] overflow-hidden select-none font-sans">
+    <AdminOnly pageName="Backtest Lab">
+      <div className="h-[calc(100vh-64px)] w-full flex flex-col bg-[#131722] text-[#d1d4dc] overflow-hidden select-none font-sans">
       
       {/* ═════════════════════════════════════════════════════════════════════
           1. FX REPLAY TOP NAVIGATION & REPLAY CONTROL ISLAND
@@ -1803,6 +1805,7 @@ export default function BacktestingPage() {
         </div>
       )}
 
-    </div>
+      </div>
+    </AdminOnly>
   );
 }

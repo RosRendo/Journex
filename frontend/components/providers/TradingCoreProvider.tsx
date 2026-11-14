@@ -256,12 +256,16 @@ export function TradingCoreProvider({ children }: { children: React.ReactNode })
   // --- LIVE SYNC LOGIC ---
   const syncLiveState = useCallback(async () => {
     try {
-      const headers = await getHeaders();
+      const headers = await getHeaders().catch(() => ({} as Record<string, string>));
       const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge";
-      const res = await fetch(`${bridgeUrl}/api/account`, { headers });
-      const data = await res.json();
+      const res = await fetch(`${bridgeUrl}/api/account`, { headers }).catch(() => null);
+      if (!res || !res.ok) {
+        setLiveAccount(prev => ({ ...prev, id: "OFFLINE" }));
+        return;
+      }
+      const data = await res.json().catch(() => ({ error: true }));
 
-      if (data.error) {
+      if (data.error || data.offline) {
         setLiveAccount(prev => ({ ...prev, id: "OFFLINE" }));
         return;
       }
@@ -277,8 +281,8 @@ export function TradingCoreProvider({ children }: { children: React.ReactNode })
       });
 
       // Synchronize positions
-      const posRes = await fetch(`${bridgeUrl}/api/positions`, { headers });
-      const posData = await posRes.json();
+      const posRes = await fetch(`${bridgeUrl}/api/positions`, { headers }).catch(() => null);
+      const posData = posRes && posRes.ok ? await posRes.json().catch(() => []) : [];
       if (Array.isArray(posData)) {
         setLivePositions(
           posData.map((p: any) => ({

@@ -90,27 +90,31 @@ export function useCommandCenterRealData(symbol: string, timeframe: string) {
   const fetchRealData = useCallback(async () => {
     try {
       // 1. Account Telemetry
-      const accRes = await fetch("/api/bridge/api/account", {
-        headers: { "ngrok-skip-browser-warning": "true" },
-      });
-      if (accRes.ok) {
-        const accJson = await accRes.json();
-        if (accJson.success && accJson.balance !== undefined) {
-          setAccount({
-            login: accJson.login ?? 0,
-            balance: accJson.balance ?? 0,
-            equity: accJson.equity ?? 0,
-            profit: accJson.profit ?? 0,
-            margin: accJson.margin ?? 0,
-            margin_free: accJson.margin_free ?? 0,
-            currency: accJson.currency ?? "USD",
-            server: accJson.server ?? "MT5-Broker",
-          });
-          setConnected(true);
+      try {
+        const accRes = await fetch("/api/bridge/api/account", {
+          headers: { "ngrok-skip-browser-warning": "true" },
+        });
+        if (accRes.ok) {
+          const accJson = await accRes.json().catch(() => ({}));
+          if (accJson.success && accJson.balance !== undefined) {
+            setAccount({
+              login: accJson.login ?? 0,
+              balance: accJson.balance ?? 0,
+              equity: accJson.equity ?? 0,
+              profit: accJson.profit ?? 0,
+              margin: accJson.margin ?? 0,
+              margin_free: accJson.margin_free ?? 0,
+              currency: accJson.currency ?? "USD",
+              server: accJson.server ?? "MT5-Broker",
+            });
+            setConnected(true);
+          } else {
+            setConnected(false);
+          }
         } else {
           setConnected(false);
         }
-      } else {
+      } catch (_) {
         setConnected(false);
       }
 
@@ -190,39 +194,45 @@ export function useCommandCenterRealData(symbol: string, timeframe: string) {
       }
 
       // 4. Real Levels
-      const levRes = await fetch(`/api/bridge/api/levels?symbol=${symbol}`, {
-        headers: { "ngrok-skip-browser-warning": "true" },
-      });
-      if (levRes.ok) {
-        const lJson = await levRes.json();
-        if (lJson.success && lJson.levels) {
-          setLevels(lJson.levels);
+      try {
+        const levRes = await fetch(`/api/bridge/api/levels?symbol=${symbol}`, {
+          headers: { "ngrok-skip-browser-warning": "true" },
+        });
+        if (levRes.ok) {
+          const lJson = await levRes.json().catch(() => ({}));
+          if (lJson.success && lJson.levels) {
+            setLevels(lJson.levels);
+          }
         }
-      }
+      } catch (_) {}
 
       // 5. Real Positions
-      const posRes = await fetch("/api/bridge/api/positions", {
-        headers: { "ngrok-skip-browser-warning": "true" },
-      });
-      if (posRes.ok) {
-        const posJson = await posRes.json();
-        if (posJson.success && Array.isArray(posJson.positions)) {
-          setPositions(posJson.positions);
+      try {
+        const posRes = await fetch("/api/bridge/api/positions", {
+          headers: { "ngrok-skip-browser-warning": "true" },
+        });
+        if (posRes.ok) {
+          const posJson = await posRes.json().catch(() => ({}));
+          if (posJson.success && Array.isArray(posJson.positions)) {
+            setPositions(posJson.positions);
+          }
         }
-      }
+      } catch (_) {}
 
       // 6. Real News
-      const newsRes = await fetch("/api/bridge/api/news", {
-        headers: { "ngrok-skip-browser-warning": "true" },
-      });
-      if (newsRes.ok) {
-        const nJson = await newsRes.json();
-        if (nJson.success && Array.isArray(nJson.news)) {
-          setNews(nJson.news.slice(0, 5));
+      try {
+        const newsRes = await fetch("/api/bridge/api/news", {
+          headers: { "ngrok-skip-browser-warning": "true" },
+        });
+        if (newsRes.ok) {
+          const nJson = await newsRes.json().catch(() => ({}));
+          if (nJson.success && Array.isArray(nJson.news)) {
+            setNews(nJson.news.slice(0, 5));
+          }
         }
-      }
-    } catch (err) {
-      console.warn("Real data fetch warning:", err);
+      } catch (_) {}
+    } catch (_) {
+      // Quiet failover
     } finally {
       setLoading(false);
     }
@@ -230,7 +240,10 @@ export function useCommandCenterRealData(symbol: string, timeframe: string) {
 
   useEffect(() => {
     fetchRealData();
-    const interval = setInterval(fetchRealData, 2000); // 2-second real-time tick poll
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      fetchRealData();
+    }, 4000); // 4-second real-time tick poll (paused when tab hidden)
     return () => clearInterval(interval);
   }, [fetchRealData]);
 

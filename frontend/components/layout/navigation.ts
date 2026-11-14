@@ -201,6 +201,7 @@ export const NAV_PILLARS: NavPillar[] = [
         description: "Measure whether your statistical edge favors scalping, intraday, or swing trading",
         href: "/tradingstyle",
         icon: PieChart,
+        adminOnly: true,
         category: "analytics",
       },
       {
@@ -211,6 +212,7 @@ export const NAV_PILLARS: NavPillar[] = [
         href: "/backtesting",
         icon: Repeat,
         badge: "LAB",
+        adminOnly: true,
         category: "analytics",
       },
     ],
@@ -240,6 +242,7 @@ export const NAV_PILLARS: NavPillar[] = [
         description: "Post-session execution review and mistake analysis",
         href: "/review",
         icon: Eye,
+        adminOnly: true,
         category: "journal",
       },
       {
@@ -281,6 +284,7 @@ export const NAV_PILLARS: NavPillar[] = [
         href: "/practice",
         icon: Terminal,
         badge: "SANDBOX",
+        adminOnly: true,
         category: "risk_system",
       },
       {
@@ -290,7 +294,7 @@ export const NAV_PILLARS: NavPillar[] = [
         description: "Connect personal MT5 (Option A) or manage cloud hosted accounts (Option B)",
         href: "/accounts",
         icon: Wallet,
-        badge: "BROKERS",
+        badge: "PRO SYNC",
         category: "risk_system",
       },
       {

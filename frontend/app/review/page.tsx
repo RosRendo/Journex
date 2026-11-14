@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, Suspense } from "react";
+import AdminOnly from "@/components/AdminOnly";
 import { useSearchParams } from "next/navigation";
 import {
   Calendar,
@@ -571,8 +572,10 @@ function ReviewContent() {
 
 export default function UnifiedReviewPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-xs font-mono text-[#71717a]">Loading Review Center...</div>}>
-      <ReviewContent />
-    </Suspense>
+    <AdminOnly pageName="Session Review">
+      <Suspense fallback={<div className="p-8 text-center text-xs font-mono text-[#71717a]">Loading Review Center...</div>}>
+        <ReviewContent />
+      </Suspense>
+    </AdminOnly>
   );
 }

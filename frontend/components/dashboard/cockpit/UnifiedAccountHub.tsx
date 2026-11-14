@@ -88,8 +88,13 @@ export default function UnifiedAccountHub({
     }
   };
 
-  const isTodayProfitable = todayStats.todayPnl >= 0;
-  const isFloatingProfitable = (accountData.profit ?? 0) >= 0;
+  const balNum = accountData?.balance !== null && accountData?.balance !== undefined ? Number(accountData.balance) : null;
+  const eqNum = accountData?.equity !== null && accountData?.equity !== undefined ? Number(accountData.equity) : null;
+  const profitNum = accountData?.profit !== null && accountData?.profit !== undefined ? Number(accountData.profit) : null;
+  const marginFreeNum = accountData?.margin_free !== null && accountData?.margin_free !== undefined ? Number(accountData.margin_free) : null;
+
+  const isTodayProfitable = Number(todayStats?.todayPnl || 0) >= 0;
+  const isFloatingProfitable = (profitNum ?? 0) >= 0;
 
   return (
     <div className="w-full bg-[#0c0c10] border-b border-[rgba(255,255,255,0.07)] px-5 py-3 flex flex-col gap-3">
@@ -98,9 +103,9 @@ export default function UnifiedAccountHub({
         {/* Left: Account Connection Status & Server */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#141419] border border-[rgba(255,255,255,0.07)]">
-            <span className={`w-2 h-2 rounded-full ${accountData.connected ? "bg-[#20e0b2] animate-pulse" : "bg-rose-500"}`} />
-            <span className={`text-[10px] font-bold uppercase tracking-wider font-mono ${accountData.connected ? "text-[#f4f4f5]" : "text-rose-400"}`}>
-              {accountData.connected ? (accountData.server || "MT5 Connected") : "MT5 Offline"}
+            <span className={`w-2 h-2 rounded-full ${accountData?.connected ? "bg-[#20e0b2] animate-pulse" : "bg-rose-500"}`} />
+            <span className={`text-[10px] font-bold uppercase tracking-wider font-mono ${accountData?.connected ? "text-[#f4f4f5]" : "text-rose-400"}`}>
+              {accountData?.connected ? (accountData.server || "MT5 Connected") : "MT5 Offline"}
             </span>
           </div>
 
@@ -153,13 +158,13 @@ export default function UnifiedAccountHub({
           </div>
           <div className="mt-1 flex items-baseline gap-2">
             <span className="text-base font-black font-mono text-[#f4f4f5]">
-              {accountData.balance !== null && accountData.balance !== undefined
-                ? `$${accountData.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+              {balNum !== null && !isNaN(balNum)
+                ? `$${balNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                 : "--"}
             </span>
           </div>
           <div className="text-[8px] text-[#71717a] font-mono mt-0.5">
-            Equity: <span className="text-[#a1a1aa]">{accountData.equity !== null && accountData.equity !== undefined ? `$${accountData.equity.toFixed(2)}` : "--"}</span>
+            Equity: <span className="text-[#a1a1aa]">{eqNum !== null && !isNaN(eqNum) ? `$${eqNum.toFixed(2)}` : "--"}</span>
           </div>
         </div>
 
@@ -171,11 +176,11 @@ export default function UnifiedAccountHub({
           </div>
           <div className="mt-1 flex items-baseline gap-2">
             <span className={`text-base font-black font-mono ${isTodayProfitable ? "text-[#20e0b2]" : "text-[#ff5c73]"}`}>
-              {isTodayProfitable ? "+" : ""}${todayStats.todayPnl.toFixed(2)}
+              {isTodayProfitable ? "+" : ""}${Number(todayStats?.todayPnl || 0).toFixed(2)}
             </span>
           </div>
           <div className="text-[8px] text-[#71717a] font-mono mt-0.5">
-            {todayStats.tradeCount} trades · <span className="text-[#a1a1aa]">{todayStats.winRate.toFixed(0)}% winrate</span>
+            {todayStats?.tradeCount || 0} trades · <span className="text-[#a1a1aa]">{Number(todayStats?.winRate || 0).toFixed(0)}% winrate</span>
           </div>
         </div>
 
@@ -186,14 +191,14 @@ export default function UnifiedAccountHub({
             <Activity className="w-3 h-3 text-[#a855f7]" />
           </div>
           <div className="mt-1 flex items-baseline gap-2">
-            <span className={`text-base font-black font-mono ${accountData.profit !== null && accountData.profit !== undefined ? (isFloatingProfitable ? "text-[#20e0b2]" : "text-[#ff5c73]") : "text-zinc-500"}`}>
-              {accountData.profit !== null && accountData.profit !== undefined
-                ? `${isFloatingProfitable ? "+" : ""}$${accountData.profit.toFixed(2)}`
+            <span className={`text-base font-black font-mono ${profitNum !== null && !isNaN(profitNum) ? (isFloatingProfitable ? "text-[#20e0b2]" : "text-[#ff5c73]") : "text-zinc-500"}`}>
+              {profitNum !== null && !isNaN(profitNum)
+                ? `${isFloatingProfitable ? "+" : ""}$${profitNum.toFixed(2)}`
                 : "--"}
             </span>
           </div>
           <div className="text-[8px] text-[#71717a] font-mono mt-0.5">
-            Free Margin: <span className="text-[#a1a1aa]">{accountData.margin_free !== null && accountData.margin_free !== undefined ? `$${accountData.margin_free.toFixed(2)}` : "--"}</span>
+            Free Margin: <span className="text-[#a1a1aa]">{marginFreeNum !== null && !isNaN(marginFreeNum) ? `$${marginFreeNum.toFixed(2)}` : "--"}</span>
           </div>
         </div>
 
@@ -250,7 +255,7 @@ export default function UnifiedAccountHub({
                   </span>
                   <span className="text-[#71717a]">{pos.volume} lot</span>
                 </div>
-                <div className="text-[#a1a1aa]">${pos.openPrice?.toFixed(2) || pos.price_open?.toFixed(2)}</div>
+                <div className="text-[#a1a1aa]">${Number(pos.openPrice || pos.price_open || 0).toFixed(2)}</div>
                 <div className={`font-black ${isWin ? "text-[#20e0b2]" : "text-[#ff5c73]"}`}>
                   {isWin ? "+" : ""}${Number(pos.profit || 0).toFixed(2)}
                 </div>

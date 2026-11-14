@@ -10,7 +10,7 @@ const NAV = [
 
 const APP_LINKS = [
   { href: "/dashboard", label: "Cockpit" },
-  { href: "/terminal", label: "Execution Desk" },
+  { href: "/signals", label: "Setup Scanner" },
   { href: "/macro/XAUUSD", label: "COMEX Order Flow" },
   { href: "/journal", label: "Trade Journal" },
   { href: "/analytics", label: "Analytics" },

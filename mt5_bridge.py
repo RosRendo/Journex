@@ -584,6 +584,13 @@ class ConnectRequest(BaseModel):
 class AutoConnectRequest(BaseModel):
     email: str  # Try to auto-connect saved credentials for this Gmail
 
+class SyncAccountRequest(BaseModel):
+    login: int
+    server: str
+    password: Optional[str] = ""
+    days: Optional[int] = 90
+    email: Optional[str] = None
+
 class TradeRequest(BaseModel):
     symbol: str
     direction: str       # "BUY" or "SELL"
@@ -839,84 +846,6 @@ async def connect_account(req: ConnectRequest):
         print(f"[ERROR] /api/connect crashed: {e}", flush=True)
         return {"success": False, "error": str(e)}
 
-class SyncAccountRequest(BaseModel):
-    server: str
-    login: int
-    password: str
-    days: Optional[int] = 90
-    email: Optional[str] = None
-
-@app.post("/api/sync-account")
-async def sync_account_endpoint(req: SyncAccountRequest):
-    """Dynamically authenticate to requested MT5 account, extract closed trades, and return."""
-    global connected, _current_user_email
-    print(f"[API] /api/sync-account requested for login: {req.login} on {req.server}", flush=True)
-
-    def _do_sync():
-        global connected
-        if not connected or mt5.terminal_info() is None:
-            init_mt5()
-
-        authorized = mt5.login(req.login, password=req.password, server=req.server, timeout=15000)
-        if not authorized:
-            err_code = mt5.last_error()
-            return {"success": False, "error": f"Login failed. MT5 error: {err_code}"}
-
-        acc = mt5.account_info()
-        now = datetime.now()
-        from_date = now - timedelta(days=req.days or 90)
-        history = mt5.history_deals_get(from_date, now) or []
-
-        positions = {}
-        for d in history:
-            if not d.symbol:
-                continue
-            pid = d.position_id
-            if pid not in positions:
-                positions[pid] = {"in": None, "out": None}
-            if d.entry == 0:
-                positions[pid]["in"] = d
-            elif d.entry == 1:
-                positions[pid]["out"] = d
-
-        completed_trades = []
-        for pid, p in positions.items():
-            din = p["in"]
-            dout = p["out"]
-            if din and dout:
-                completed_trades.append({
-                    "ticket": str(pid),
-                    "symbol": din.symbol,
-                    "direction": "BUY" if din.type == 0 else "SELL",
-                    "lot_size": round(din.volume, 2),
-                    "entry": din.price,
-                    "close_price": dout.price,
-                    "profit": round(dout.profit, 2),
-                    "commission": round((din.commission or 0.0) + (dout.commission or 0.0), 2),
-                    "open_time": din.time,
-                    "close_time": dout.time,
-                    "date": datetime.fromtimestamp(dout.time, tz=timezone.utc).isoformat()
-                })
-
-        completed_trades.sort(key=lambda t: t["close_time"], reverse=True)
-
-        return {
-            "success": True,
-            "account": req.login,
-            "server": req.server,
-            "balance": acc.balance if acc else 0.0,
-            "equity": acc.equity if acc else 0.0,
-            "currency": acc.currency if acc else "USD",
-            "trade_count": len(completed_trades),
-            "trades": completed_trades
-        }
-
-    try:
-        return await _run_in_mt5_thread(_do_sync)
-    except Exception as e:
-        print(f"[ERROR] /api/sync-account crashed: {e}", flush=True)
-        return {"success": False, "error": str(e)}
-
 @app.post("/api/connect/auto")
 async def auto_connect(req: AutoConnectRequest):
     """Auto-reconnect a user's saved MT5 credentials by their Gmail."""
@@ -953,6 +882,136 @@ async def auto_connect(req: AutoConnectRequest):
     except Exception as e:
         print(f"[ERROR] /api/connect/auto crashed: {e}", flush=True)
         return {"success": False, "error": str(e)}
+
+@app.post("/api/sync-account")
+async def sync_account(req: SyncAccountRequest):
+    """On-demand sync of MT5 account deals and balance/equity."""
+    global connected, _current_user_email
+    print(f"[API] /api/sync-account requested for login: {req.login} on {req.server}", flush=True)
+    try:
+        def _do_sync():
+            global connected
+            if not connected or mt5.terminal_info() is None:
+                init_mt5()
+
+            # Check if MT5 is already logged into this account
+            current_acc = mt5.account_info()
+            need_login = True
+            if current_acc and current_acc.login == req.login and getattr(current_acc, "server", "") == req.server:
+                need_login = False
+
+            if need_login:
+                pwd = req.password
+                if not pwd:
+                    # Check saved credentials
+                    creds = _load_all_credentials()
+                    for k, v in creds.items():
+                        if v.get("login") == req.login:
+                            pwd = v.get("password")
+                            break
+
+                authorized = mt5.login(req.login, password=pwd or "", server=req.server, timeout=15000)
+                if not authorized:
+                    err = mt5.last_error()
+                    return {
+                        "success": False,
+                        "detail": f"MT5 login failed for account #{req.login} on {req.server}. MT5 Error: {err}"
+                    }
+
+            acc = mt5.account_info()
+            balance = float(acc.balance) if acc else 0.0
+            equity = float(acc.equity) if acc else 0.0
+
+            for sym in DEFAULT_SYMBOLS:
+                ensure_symbol(sym)
+
+            days = req.days if req.days and req.days > 0 else 90
+            from_date = datetime.now() - timedelta(days=days)
+            to_date = datetime.now() + timedelta(days=1)
+            history = mt5.history_deals_get(from_date, to_date)
+
+            if history is None or len(history) == 0:
+                return {
+                    "success": True,
+                    "login": req.login,
+                    "server": req.server,
+                    "balance": balance,
+                    "equity": equity,
+                    "trades": []
+                }
+
+            open_deals = {}
+            close_deals = []
+            for h in history:
+                if h.entry == 0:
+                    open_deals[h.position_id] = h
+                elif h.entry == 1:
+                    close_deals.append(h)
+
+            trades = []
+            for close in close_deals:
+                if not close.symbol:
+                    continue
+                open_d = open_deals.get(close.position_id)
+                entry_price = float(open_d.price) if open_d else float(close.price)
+                open_time = open_d.time if open_d else close.time
+
+                if open_d:
+                    direction = "Long" if open_d.type == 0 else "Short"
+                else:
+                    direction = "Short" if close.type == 0 else "Long"
+
+                sl_val = None
+                tp_val = None
+                try:
+                    pos_orders = mt5.history_orders_get(position=close.position_id)
+                    if pos_orders:
+                        for po in pos_orders:
+                            if po.sl > 0 and sl_val is None:
+                                sl_val = float(po.sl)
+                            if po.tp > 0 and tp_val is None:
+                                tp_val = float(po.tp)
+                except Exception:
+                    pass
+
+                trades.append({
+                    "id": close.ticket,
+                    "ticket": str(close.ticket),
+                    "pair": close.symbol,
+                    "symbol": close.symbol,
+                    "direction": direction,
+                    "entry": entry_price,
+                    "closePrice": float(close.price),
+                    "close_price": float(close.price),
+                    "sl": sl_val,
+                    "tp": tp_val,
+                    "openTime": datetime.fromtimestamp(open_time, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "date": datetime.fromtimestamp(close.time, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "closeTime": datetime.fromtimestamp(close.time, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "openTimestamp": int(open_time),
+                    "closeTimestamp": int(close.time),
+                    "lotSize": float(close.volume),
+                    "lot_size": float(close.volume),
+                    "profit": float(close.profit),
+                    "commission": float(close.commission) if hasattr(close, "commission") else 0.0,
+                    "outcome": "Win" if close.profit > 0 else ("Loss" if close.profit < 0 else "BreakEven"),
+                })
+
+            trades.sort(key=lambda x: x["date"], reverse=True)
+            return {
+                "success": True,
+                "login": req.login,
+                "server": req.server,
+                "balance": balance,
+                "equity": equity,
+                "trades": trades
+            }
+
+        result = await _run_in_mt5_thread(_do_sync)
+        return result
+    except Exception as e:
+        print(f"[ERROR] /api/sync-account crashed: {e}", flush=True)
+        return {"success": False, "detail": str(e)}
 
 @app.get("/api/symbol-price")
 async def get_symbol_price(symbol: str):

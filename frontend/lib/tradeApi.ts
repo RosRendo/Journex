@@ -88,8 +88,10 @@ export const fetchTrades = async (): Promise<Trade[]> => {
       return response.data.data.map(mapBackendTradeToFrontend);
     }
     return [];
-  } catch (error) {
-    console.error("Failed to fetch trades:", error);
+  } catch (error: any) {
+    if (error?.response?.status !== 401) {
+      console.error("Failed to fetch trades:", error);
+    }
     return [];
   }
 };

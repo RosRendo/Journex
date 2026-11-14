@@ -85,7 +85,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${syne.variable} ${dmSans.variable} ${jetbrains.variable}`}>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      data-scroll-behavior="smooth"
+      className={`${syne.variable} ${dmSans.variable} ${jetbrains.variable}`}
+    >
       <body style={{ background: "var(--bg-base)", color: "var(--text-primary)" }}>
         <Providers>
           <AppLayout>{children}</AppLayout>

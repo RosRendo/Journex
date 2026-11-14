@@ -36,7 +36,7 @@ export function BottomDock({ onOpenCommandPalette }: { onOpenCommandPalette: () 
   ];
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] group">
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] group lg:hidden">
       <div 
         className="flex items-center gap-2 px-4 py-3 rounded-full border border-white/10 backdrop-blur-2xl shadow-2xl transition-all duration-300 opacity-60 hover:opacity-100 hover:scale-105"
         style={{ background: "rgba(12, 12, 15, 0.75)" }}

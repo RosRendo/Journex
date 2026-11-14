@@ -169,11 +169,15 @@ export default function UnifiedDashboard() {
             if (json.success && (json.account || json.balance !== undefined)) {
               const acc = json.account || json;
               if (!cancelled) {
+                const b = acc.balance !== undefined && acc.balance !== null ? Number(acc.balance) : null;
+                const eq = acc.equity !== undefined && acc.equity !== null ? Number(acc.equity) : b;
+                const p = acc.profit !== undefined && acc.profit !== null ? Number(acc.profit) : 0.0;
+                const mf = acc.margin_free !== undefined && acc.margin_free !== null ? Number(acc.margin_free) : null;
                 setMt5Data({
-                  balance: typeof acc.balance === "number" ? acc.balance : null,
-                  equity: typeof acc.equity === "number" ? acc.equity : null,
-                  profit: typeof acc.profit === "number" ? acc.profit : 0.0,
-                  margin_free: typeof acc.margin_free === "number" ? acc.margin_free : null,
+                  balance: b !== null && !isNaN(b) ? b : null,
+                  equity: eq !== null && !isNaN(eq) ? eq : null,
+                  profit: !isNaN(p) ? p : 0.0,
+                  margin_free: mf !== null && !isNaN(mf) ? mf : null,
                   server: acc.server || "MT5 Connected",
                   connected: true,
                 });
@@ -189,12 +193,16 @@ export default function UnifiedDashboard() {
             const accounts = json.data || [];
             const primaryAcc = accounts.find((a: any) => a.isMaster) || accounts[0];
             if (primaryAcc && !cancelled) {
+              const b = Number(primaryAcc.balance ?? 0);
+              const eq = primaryAcc.equity !== null && primaryAcc.equity !== undefined ? Number(primaryAcc.equity) : b;
+              const p = Number(primaryAcc.profit ?? 0);
+              const mf = primaryAcc.marginFree ? Number(primaryAcc.marginFree) : null;
               setMt5Data({
-                balance: typeof primaryAcc.balance === "number" ? primaryAcc.balance : 0,
-                equity: typeof primaryAcc.equity === "number" ? primaryAcc.equity : (primaryAcc.balance || 0),
-                profit: typeof primaryAcc.profit === "number" ? primaryAcc.profit : 0.0,
-                margin_free: primaryAcc.marginFree || null,
-                server: primaryAcc.server || primaryAcc.broker || "MT5 Server Connected",
+                balance: !isNaN(b) ? b : 0,
+                equity: !isNaN(eq) ? eq : 0,
+                profit: !isNaN(p) ? p : 0.0,
+                margin_free: mf !== null && !isNaN(mf) ? mf : null,
+                server: primaryAcc.mt5Server || primaryAcc.server || primaryAcc.brokerName || "MT5 Server Connected",
                 connected: true,
               });
               return;

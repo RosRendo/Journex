@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * useBridgeUrl — fetches the live MT5 bridge URL from the server at runtime.
  *

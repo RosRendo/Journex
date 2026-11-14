@@ -4,6 +4,17 @@ import { AppError } from '../middleware/errorHandler';
 import { AccountInput } from '../types';
 import { syncMT5AccountOnDemand } from '../services/syncService';
 
+const getUserAccountFilter = (userId: string) => {
+  const isAdmin =
+    userId === "rousrendo@gmail.com" ||
+    userId === "admin@journex.io" ||
+    userId === "admin-master-id";
+
+  return isAdmin
+    ? { in: [userId, "default-user", "admin-master-id", "rousrendo@gmail.com"] }
+    : { in: [userId, "default-user"] };
+};
+
 export const createAccount = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const accountData: AccountInput = req.body;
@@ -27,18 +38,8 @@ export const createAccount = async (req: Request, res: Response, next: NextFunct
 
 export const getAllAccounts = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.userId;
-    if (!userId) {
-      return res.json({ success: true, data: [] });
-    }
-    const isAdmin =
-      userId === "rousrendo@gmail.com" ||
-      userId === "admin@journex.io" ||
-      userId === "admin-master-id";
-
-    const where: any = isAdmin
-      ? { userId: { in: [userId, "default-user", "admin-master-id", "rousrendo@gmail.com"] } }
-      : { userId };
+    const userId = req.userId || 'default-user';
+    const where: any = { userId: getUserAccountFilter(userId) };
 
     const accounts = await prisma.account.findMany({
       where,
@@ -61,7 +62,7 @@ export const updateAccount = async (req: Request, res: Response, next: NextFunct
     const userId = req.userId || 'default-user';
 
     const existing = await prisma.account.findFirst({
-      where: { id: parseInt(id), userId },
+      where: { id: parseInt(id), userId: getUserAccountFilter(userId) },
     });
 
     if (!existing) {
@@ -88,7 +89,7 @@ export const deleteAccount = async (req: Request, res: Response, next: NextFunct
     const userId = req.userId || 'default-user';
 
     const existing = await prisma.account.findFirst({
-      where: { id: parseInt(id), userId },
+      where: { id: parseInt(id), userId: getUserAccountFilter(userId) },
     });
 
     if (!existing) {
@@ -108,7 +109,7 @@ export const syncAccountTrades = async (req: Request, res: Response, next: NextF
     const userId = req.userId || 'default-user';
 
     const account = await prisma.account.findFirst({
-      where: { id: parseInt(id), userId },
+      where: { id: parseInt(id), userId: getUserAccountFilter(userId) },
     });
 
     if (!account) {

@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useCallback, useEffect } from "react";
 import { getBackendUrl, fetchWithAuth } from "@/lib/utils";
 import { useSession } from "next-auth/react";

@@ -20,8 +20,8 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction) => 
     const token = authHeader.split(" ")[1];
 
     if (process.env.NODE_ENV !== "production") {
-      // In development, if the token is a simple email string and not a JWT, allow it
-      if (!token.includes(".")) {
+      // In development, if the token is a simple email or username string and not a JWT, allow it
+      if (token.split(".").length !== 3) {
         req.userId = token;
         return next();
       }

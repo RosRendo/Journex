@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/auth";
+import { isAdminEmail } from "@/lib/role";
 
 const TARGET_BRIDGE = process.env.BRIDGE_URL || "http://127.0.0.1:5003";
 
@@ -13,6 +15,15 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
+  const session = await auth();
+  const u = session?.user as any;
+  const isAdmin = isAdminEmail(u?.email) || u?.role === "admin";
+  if (!isAdmin && process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      { success: false, error: "Forbidden: MT5 execution desk is reserved strictly for administrator." },
+      { status: 403 }
+    );
+  }
   return handleProxy(req, await params);
 }
 
@@ -20,6 +31,15 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
+  const session = await auth();
+  const u = session?.user as any;
+  const isAdmin = isAdminEmail(u?.email) || u?.role === "admin";
+  if (!isAdmin && process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      { success: false, error: "Forbidden: MT5 execution desk is reserved strictly for administrator." },
+      { status: 403 }
+    );
+  }
   return handleProxy(req, await params);
 }
 
@@ -27,6 +47,15 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
+  const session = await auth();
+  const u = session?.user as any;
+  const isAdmin = isAdminEmail(u?.email) || u?.role === "admin";
+  if (!isAdmin && process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      { success: false, error: "Forbidden: MT5 execution desk is reserved strictly for administrator." },
+      { status: 403 }
+    );
+  }
   return handleProxy(req, await params);
 }
 

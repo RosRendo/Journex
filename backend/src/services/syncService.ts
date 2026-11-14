@@ -33,7 +33,12 @@ export async function syncMT5AccountOnDemand(params: {
     }
 
     const { balance, equity, trades } = res.data;
-    const insertedCount = await processImportedTrades(params.userId, trades || [], `MT5 (${params.server})`);
+    const insertedCount = await processImportedTrades(
+      params.userId,
+      trades || [],
+      `MT5 (${params.server})`,
+      params.login ? String(params.login) : undefined
+    );
 
     // Update account record in DB if accountDbId was provided
     if (params.accountDbId) {
@@ -154,14 +159,17 @@ async function syncOandaTrades(userId: string, token: string, accountId: string,
   }
 }
 
-async function processImportedTrades(userId: string, trades: any[], brokerName: string) {
+async function processImportedTrades(userId: string, trades: any[], brokerName: string, accountNumber?: string) {
   let inserted = 0;
   for (const t of trades) {
     if (!t.ticket) continue;
 
     // Check if trade already exists
     const existing = await prisma.trade.findFirst({
-      where: { ticket: String(t.ticket), userId: userId }
+      where: {
+        ticket: String(t.ticket),
+        OR: [{ userId }, { userId: 'default-user' }]
+      }
     });
 
     if (!existing) {
@@ -171,12 +179,16 @@ async function processImportedTrades(userId: string, trades: any[], brokerName: 
       if (profit > 0) outcome = "Win";
       if (profit < 0) outcome = "Loss";
 
+      const dirRaw = String(t.direction || "Long").toUpperCase();
+      const direction = dirRaw.includes("BUY") || dirRaw === "LONG" ? "Long" : "Short";
+
       await prisma.trade.create({
         data: {
           userId: userId,
+          accountNumber: accountNumber || (t.accountNumber ? String(t.accountNumber) : undefined),
           date: t.date ? new Date(t.date) : new Date(),
           pair: t.symbol || t.pair || "Unknown",
-          direction: t.direction,
+          direction: direction,
           entry: parseFloat(t.entry) || 0,
           closePrice: parseFloat(t.close_price || t.closePrice) || 0,
           profit: profit,

@@ -81,7 +81,7 @@ export function DrawdownVisualization({ trades, initialBalance = 10000 }: Props)
               contentStyle={{ backgroundColor: '#0c0c0d', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px' }}
               itemStyle={{ color: '#ff5c73', fontWeight: 'bold' }}
               labelStyle={{ color: '#9ca3af', marginBottom: '4px' }}
-              formatter={(val: number) => [`${val.toFixed(2)}%`, 'Drawdown']}
+              formatter={(val: any) => [`${Number(val || 0).toFixed(2)}%`, 'Drawdown']}
             />
             <Area 
               type="monotone" 

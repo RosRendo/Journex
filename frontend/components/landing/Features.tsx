@@ -46,7 +46,7 @@ function MT5Split() {
             ))}
           </ul>
           <div className="mt-6">
-            <FeatureLink href="/terminal" label="Launch execution terminal" />
+            <FeatureLink href="/dashboard" label="Launch trading radar" />
           </div>
         </div>
 

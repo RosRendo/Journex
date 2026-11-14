@@ -4,6 +4,9 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   compress: true,
   poweredByHeader: false,
+  logging: {
+    incomingRequests: false,
+  },
   typescript: {
     ignoreBuildErrors: false,
   },

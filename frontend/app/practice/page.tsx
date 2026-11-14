@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import AdminOnly from "@/components/AdminOnly";
 import FixedTradingSimulator from "@/components/FixedTradingSimulator";
 import FlexibleTradingSimulator from "@/components/FlexibleTradingSimulator";
 
@@ -13,7 +14,8 @@ export default function PracticeTerminal() {
   ] as const;
 
   return (
-    <div className="min-h-screen w-full bg-[#09090b] text-[#f4f4f5] flex flex-col pb-12 font-sans">
+    <AdminOnly pageName="Practice Lab">
+      <div className="min-h-screen w-full bg-[#09090b] text-[#f4f4f5] flex flex-col pb-12 font-sans">
 
       {/* ── TOPBAR ── */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(255,255,255,0.07)] sticky top-0 z-20 bg-[#09090b]">
@@ -65,5 +67,6 @@ export default function PracticeTerminal() {
         {activeTab === "flexible" && <FlexibleTradingSimulator />}
       </div>
     </div>
+    </AdminOnly>
   );
 }

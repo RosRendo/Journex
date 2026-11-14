@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { 
@@ -219,7 +219,7 @@ export default function GoldTradingSimulator() {
               <Tooltip 
                 contentStyle={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "12px", fontSize: "12px" }}
                 itemStyle={{ color: "var(--text-primary)", fontWeight: "bold" }}
-                formatter={(val: number) => [val.toFixed(2), "Price"]}
+                formatter={(val: any) => [Number(val || 0).toFixed(2), "Price"]}
               />
               <Area type="stepAfter" dataKey="price" stroke="#f59e0b" strokeWidth={2} fill="url(#goldVibes)" isAnimationActive={false} />
 

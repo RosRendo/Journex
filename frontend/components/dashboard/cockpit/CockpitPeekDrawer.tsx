@@ -165,8 +165,8 @@ export const CockpitPeekDrawer: React.FC<CockpitPeekDrawerProps> = ({
 
   if (!isOpen) return null;
 
-  const currentEquity = accountData.equity || accountEquity || 0;
-  const currentBalance = accountData.balance || 0;
+  const currentEquity = Number(accountData?.equity ?? accountEquity ?? 0);
+  const currentBalance = Number(accountData?.balance ?? 0);
 
   const nowUtcHour = new Date().getUTCHours();
   const currentSessionName =
@@ -748,8 +748,8 @@ export const CockpitPeekDrawer: React.FC<CockpitPeekDrawerProps> = ({
                 </div>
                 <div className="flex justify-between text-xs text-[#a1a1aa] pt-1 border-t border-[rgba(255,255,255,0.05)]">
                   <span>Balance: ${currentBalance.toFixed(2)}</span>
-                  <span className={accountData.profit >= 0 ? "text-[#20e0b2]" : "text-[#ff5c73]"}>
-                    {accountData.profit >= 0 ? "+" : ""}${accountData.profit.toFixed(2)} Floating
+                  <span className={Number(accountData?.profit ?? 0) >= 0 ? "text-[#20e0b2]" : "text-[#ff5c73]"}>
+                    {Number(accountData?.profit ?? 0) >= 0 ? "+" : ""}${Number(accountData?.profit ?? 0).toFixed(2)} Floating
                   </span>
                 </div>
               </div>
@@ -757,12 +757,12 @@ export const CockpitPeekDrawer: React.FC<CockpitPeekDrawerProps> = ({
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="p-3 rounded-xl bg-[#09090b] border border-[rgba(255,255,255,0.06)]">
                   <span className="text-[8px] text-[#71717a] uppercase block">Free Margin</span>
-                  <span className="font-bold text-white">${(accountData.margin_free ?? currentBalance).toFixed(2)}</span>
+                  <span className="font-bold text-white">${Number(accountData?.margin_free ?? currentBalance).toFixed(2)}</span>
                 </div>
                 <div className="p-3 rounded-xl bg-[#09090b] border border-[rgba(255,255,255,0.06)]">
                   <span className="text-[8px] text-[#71717a] uppercase block">Today Net PnL</span>
-                  <span className={`font-bold ${todayStats.todayPnl >= 0 ? "text-[#20e0b2]" : "text-[#ff5c73]"}`}>
-                    {todayStats.todayPnl >= 0 ? "+" : ""}${todayStats.todayPnl.toFixed(2)}
+                  <span className={`font-bold ${Number(todayStats?.todayPnl ?? 0) >= 0 ? "text-[#20e0b2]" : "text-[#ff5c73]"}`}>
+                    {Number(todayStats?.todayPnl ?? 0) >= 0 ? "+" : ""}${Number(todayStats?.todayPnl ?? 0).toFixed(2)}
                   </span>
                 </div>
               </div>
