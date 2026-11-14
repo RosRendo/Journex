@@ -3,19 +3,5 @@
   "regions": ["sfo1"],
   "git": {
     "deploymentEnabled": true
-  },
-  "rewrites": [
-    {
-      "source": "/api/bridge/:path*",
-      "destination": "https://python.dashboardkiller.online/:path*"
-    },
-    {
-      "source": "/api/:path*",
-      "destination": "https://api.dashboardkiller.online/api/:path*"
-    },
-    {
-      "source": "/uploads/:path*",
-      "destination": "https://api.dashboardkiller.online/uploads/:path*"
-    }
-  ]
+  }
 }

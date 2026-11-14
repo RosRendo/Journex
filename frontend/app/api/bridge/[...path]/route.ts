@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { isAdminEmail } from "@/lib/role";
 
-const TARGET_BRIDGE = process.env.BRIDGE_URL || "http://127.0.0.1:5003";
+const TARGET_BRIDGE =
+  process.env.BRIDGE_URL ||
+  (process.env.VERCEL ? "https://python.dashboardkiller.online" : "http://127.0.0.1:5003");
 
 export async function GET(
   req: NextRequest,

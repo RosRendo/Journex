@@ -1,9 +1,10 @@
 $ErrorActionPreference = "Continue"
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $backendDir = Join-Path $projectRoot "backend"
-$dashboardUrl = "https://dashboard-roan-tau-xrg43s0811.vercel.app/dashboard"
+$dashboardUrl = "https://journex-khaki.vercel.app/dashboard"
 $pythonExe = Join-Path $projectRoot ".venv\Scripts\python.exe"
 if (-not (Test-Path $pythonExe)) { $pythonExe = "python" }
+$cfTunnelToken = "eyJhIjoiNjgyYTI2OGM1YjBlNThhMjRjMTU0Y2I2MjU1ODVlN2MiLCJ0IjoiZDM2ODVhZTktNmY5OC00NWFmLTk0ZjQtNGQ1NDkyZTcxMDU2IiwicyI6IlltUXdPVGN6T0dZdE1UZ3laUzAwTkRZMUxXRTVZakF0T1dJMVlUaGxZV1U0TWpnMiJ9"
 
 $cloudflaredExe = (Get-Command cloudflared -ErrorAction SilentlyContinue).Source
 if (-not $cloudflaredExe -and (Test-Path "C:\Program Files (x86)\cloudflared\cloudflared.exe")) {
@@ -35,7 +36,7 @@ Start-Sleep -Seconds 3
 # 3. Start Cloudflare Tunnel
 if ($cloudflaredExe) {
     Write-Host "[3/3] Starting Cloudflare Tunnel..." -ForegroundColor Yellow
-    Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$projectRoot'; & '$cloudflaredExe' tunnel --config config.yml run"
+    Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$projectRoot'; & '$cloudflaredExe' tunnel run --token $cfTunnelToken"
 } else {
     Write-Host "[WARN] cloudflared.exe not found. Please start it manually." -ForegroundColor Red
 }
