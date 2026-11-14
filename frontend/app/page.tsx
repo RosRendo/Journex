@@ -49,16 +49,17 @@ const jsonLd = {
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-[#070709] text-zinc-100 antialiased selection:bg-[#20e0b2]/20 selection:text-[#20e0b2] relative overflow-hidden">
+    <div className="min-h-screen bg-[#000000] text-zinc-100 antialiased selection:bg-[#20e0b2]/20 selection:text-[#20e0b2] relative overflow-hidden">
       {/* Search Engine Structured Data */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      {/* Subtle institutional desk lighting (Restrained single-accent, zero rainbow orb slop) */}
+      {/* Neon-Style Luminous Radial Halo & Geometric Grid Overlay */}
       <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[420px] bg-[#20e0b2]/[0.025] blur-[160px]" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1200px] h-[550px] bg-[radial-gradient(ellipse_at_top,rgba(32,224,178,0.14),transparent_70%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:48px_48px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-70" />
       </div>
 
       <div className="relative z-10">

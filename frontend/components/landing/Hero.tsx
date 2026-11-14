@@ -16,7 +16,7 @@ function Panel({
 }) {
   return (
     <div
-      className={`rounded-xl border border-white/[0.09] bg-[#0c0c14] shadow-2xl ${className}`}
+      className={`rounded-2xl border border-white/[0.08] bg-[#09090d]/90 backdrop-blur-2xl shadow-[0_24px_60px_rgba(0,0,0,0.85)] ${className}`}
     >
       {children}
     </div>
@@ -234,7 +234,7 @@ export default function Hero() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5 }}
-            className="mb-4 inline-flex items-center gap-2 rounded-md border border-[#20e0b2]/30 bg-[#20e0b2]/10 px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[#20e0b2]"
+            className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#20e0b2]/30 bg-[#20e0b2]/10 px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[#20e0b2] shadow-[0_0_15px_rgba(32,224,178,0.15)]"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-[#20e0b2] animate-pulse" />
             MetaTrader 5 Real-Time Telemetry
@@ -244,11 +244,11 @@ export default function Hero() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
-            className="text-[42px] font-extrabold leading-[1.02] tracking-[-0.03em] sm:text-6xl text-white"
+            className="text-[44px] sm:text-6xl lg:text-[66px] font-black leading-[0.96] tracking-[-0.04em] text-white"
           >
             Stop guessing.
             <br />
-            <span className="text-[#20e0b2]">
+            <span className="bg-gradient-to-r from-[#20e0b2] via-[#46eed0] to-[#20e0b2] bg-clip-text text-transparent">
               Execute with edge.
             </span>
           </motion.h1>
@@ -257,7 +257,7 @@ export default function Hero() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
-            className="mt-5 max-w-md text-[15px] leading-relaxed text-zinc-400"
+            className="mt-6 max-w-md text-[15px] leading-relaxed text-zinc-400 font-sans"
           >
             The institutional trading desk and analytical journal built specifically for MetaTrader 5 traders.
             Live COMEX order flow, multi-timeframe quantitative engines, and automated drawdown protection.
@@ -267,18 +267,18 @@ export default function Hero() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className="mt-7 flex flex-wrap items-center gap-3"
+            className="mt-8 flex flex-wrap items-center gap-3.5"
           >
             <Link
               href="/dashboard"
-              className="rounded-xl bg-[#20e0b2] hover:bg-[#1bc79e] px-5 py-3 text-sm font-bold text-black transition-all shadow-[0_0_24px_rgba(32,224,178,0.35)] hover:shadow-[0_0_32px_rgba(32,224,178,0.55)] flex items-center gap-2"
+              className="relative group rounded-full bg-[#20e0b2] hover:bg-[#2bf5c5] px-6 py-3.5 text-sm font-black text-black transition-all shadow-[0_0_24px_rgba(32,224,178,0.4),inset_0_1px_1px_rgba(255,255,255,0.7)] hover:shadow-[0_0_36px_rgba(32,224,178,0.65)] flex items-center gap-2 active:scale-[0.98]"
             >
               <span>Launch Live Cockpit</span>
-              <ArrowUpRight className="w-4 h-4" />
+              <ArrowUpRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             </Link>
             <a
               href="#showcase"
-              className="rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-semibold text-zinc-300 transition-all hover:bg-white/[0.08] hover:text-white"
+              className="rounded-full border border-white/10 bg-white/[0.03] hover:bg-white/[0.07] px-6 py-3.5 text-sm font-semibold text-zinc-300 transition-all hover:text-white backdrop-blur-md"
             >
               Explore Workspace
             </a>

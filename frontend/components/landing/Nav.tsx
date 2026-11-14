@@ -18,7 +18,7 @@ export default function Nav() {
   return (
     <nav
       aria-label="Main"
-      className="sticky top-0 z-50 border-b border-white/[0.08] bg-[#070709]/80 backdrop-blur-xl"
+      className="sticky top-0 z-50 border-b border-white/[0.07] bg-black/75 backdrop-blur-2xl"
     >
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-5 sm:px-8">
         <Link href="/" className="flex items-center gap-2.5" aria-label="Journex home">
@@ -49,13 +49,13 @@ export default function Nav() {
         <div className="hidden items-center gap-2.5 md:flex">
           <Link
             href="/auth?mode=login"
-            className="rounded-lg border border-white/10 bg-white/[0.04] px-3.5 py-1.5 text-[13px] font-medium text-zinc-300 transition-all hover:bg-white/[0.08] hover:text-white"
+            className="rounded-full border border-white/10 bg-white/[0.03] px-4 py-1.5 text-[13px] font-medium text-zinc-300 transition-all hover:bg-white/[0.08] hover:text-white"
           >
             Log in
           </Link>
           <Link
             href="/dashboard"
-            className="rounded-lg bg-[#20e0b2] hover:bg-[#1bc79e] px-4 py-1.5 text-[13px] font-bold text-black transition-all shadow-[0_0_16px_rgba(32,224,178,0.3)] hover:shadow-[0_0_22px_rgba(32,224,178,0.5)]"
+            className="rounded-full bg-[#20e0b2] hover:bg-[#25f0c0] px-4 py-1.5 text-[13px] font-black text-black transition-all shadow-[0_0_16px_rgba(32,224,178,0.35),inset_0_1px_1px_rgba(255,255,255,0.6)] hover:shadow-[0_0_24px_rgba(32,224,178,0.55)]"
           >
             Launch Cockpit
           </Link>
