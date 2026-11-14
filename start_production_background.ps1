@@ -100,21 +100,21 @@ if (-not $cfRunning) {
         $cloudflaredExe = "C:\Program Files\cloudflared\cloudflared.exe"
     }
 
-    $configYml = Join-Path $projectRoot "config.yml"
+    $cfToken = "eyJhIjoiNjgyYTI2OGM1YjBlNThhMjRjMTU0Y2I2MjU1ODVlN2MiLCJ0IjoiZDg4NTUzZmItZDVlMy00OTZhLWIyNWUtOGY4ODI1NTcwYTIzIiwicyI6Ik56UXlPV0pqTnpJdE5HSmtNQzAwWW1GbExUbGtPREV0WVRObFpqZGxZVEpqTjJabSJ9"
     $cfOut = Join-Path $logsDir "cloudflared.log"
     $cfErr = Join-Path $logsDir "cloudflared_error.log"
 
-    if ($cloudflaredExe -and (Test-Path $configYml)) {
+    if ($cloudflaredExe) {
         Start-Process -FilePath $cloudflaredExe `
-            -ArgumentList "tunnel --config `"$configYml`" run" `
+            -ArgumentList "tunnel run --token $cfToken" `
             -WorkingDirectory $projectRoot `
             -WindowStyle Hidden `
             -RedirectStandardOutput $cfOut `
             -RedirectStandardError $cfErr
 
-        Add-Content -Path "$logsDir\startup_status.log" -Value "[$timestamp] Spawned Cloudflare Tunnel"
+        Add-Content -Path "$logsDir\startup_status.log" -Value "[$timestamp] Spawned Cloudflare Tunnel (Token: $cfToken)"
     } else {
-        Add-Content -Path "$logsDir\startup_status.log" -Value "[$timestamp] Cloudflare binary or config.yml not found"
+        Add-Content -Path "$logsDir\startup_status.log" -Value "[$timestamp] Cloudflare binary not found"
     }
 } else {
     Add-Content -Path "$logsDir\startup_status.log" -Value "[$timestamp] Cloudflare tunnel already running"

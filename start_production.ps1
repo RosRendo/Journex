@@ -35,7 +35,8 @@ Start-Sleep -Seconds 3
 # 3. Start Cloudflare Tunnel
 if ($cloudflaredExe) {
     Write-Host "[3/3] Starting Cloudflare Tunnel..." -ForegroundColor Yellow
-    Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$projectRoot'; & '$cloudflaredExe' tunnel --config config.yml run"
+    $cfToken = "eyJhIjoiNjgyYTI2OGM1YjBlNThhMjRjMTU0Y2I2MjU1ODVlN2MiLCJ0IjoiZDg4NTUzZmItZDVlMy00OTZhLWIyNWUtOGY4ODI1NTcwYTIzIiwicyI6Ik56UXlPV0pqTnpJdE5HSmtNQzAwWW1GbExUbGtPREV0WVRObFpqZGxZVEpqTjJabSJ9"
+    Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$projectRoot'; & '$cloudflaredExe' tunnel run --token $cfToken"
 } else {
     Write-Host "[WARN] cloudflared.exe not found. Please start it manually." -ForegroundColor Red
 }
