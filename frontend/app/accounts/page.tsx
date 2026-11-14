@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useSession } from "@/lib/useSession";
 import { useBridgeUrl } from "@/hooks/useBridgeUrl";
@@ -140,8 +141,16 @@ function AccountCard({
 }
 
 function AccountsInner() {
-  const { data: session } = useSession();
+  const router = useRouter();
+  const { data: session, status } = useSession();
   const isAdmin = useIsAdmin();
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.replace("/auth?callbackUrl=/accounts");
+    }
+  }, [status, router]);
+
   const user = session?.user as any;
   const isPro = Boolean(user?.isPro || user?.plan === "pro" || user?.plan === "lifetime" || isAdmin || !user?.isTrialExpired);
   const userEmail = session?.user?.email ?? undefined;

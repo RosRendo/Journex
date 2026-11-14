@@ -59,8 +59,16 @@ import { DailyRiskWidget } from "@/components/dashboard/widgets/DailyRiskWidget"
 
 export default function UnifiedDashboard() {
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const isAdmin = useIsAdmin();
+
+  // Strict Client-Side Authentication Gate
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.replace("/auth?callbackUrl=/dashboard");
+    }
+  }, [status, router]);
+
   const user = session?.user as any;
   const displayName = user?.name?.split(" ")[0] || "Trader";
   const { trades, analytics, loading, error, refresh } = useCsvTrades();
@@ -444,6 +452,15 @@ export default function UnifiedDashboard() {
 
   const isProfitable = filteredStats.totalProfit >= 0;
   const labelCls = "text-[9px] uppercase tracking-widest font-bold text-[#71717a] font-mono";
+
+  if (status === "unauthenticated") {
+    return (
+      <div className="min-h-screen w-full bg-[#070709] flex flex-col items-center justify-center text-zinc-400 font-mono text-xs gap-3">
+        <Loader2 className="w-5 h-5 animate-spin text-[#20e0b2]" />
+        <span>Redirecting to authentication...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen w-full bg-[#09090b] text-[#f4f4f5] flex flex-col font-sans pb-16">
