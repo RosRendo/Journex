@@ -16,10 +16,23 @@ if (-not $cloudflaredExe -and (Test-Path "C:\Program Files\cloudflared\cloudflar
 
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "  Journex Production Startup (Cloudflare Edition)" -ForegroundColor Cyan
-Write-Host "  Frontend -> $dashboardUrl" -ForegroundColor Green
-Write-Host "  Backend  -> http://localhost:5000 -> api.journex.online" -ForegroundColor Green
-Write-Host "  MT5 & Sync -> http://localhost:5003 -> python.journex.online" -ForegroundColor Green
+Write-Host "  Frontend   -> $dashboardUrl" -ForegroundColor Green
+Write-Host "  Backend    -> http://localhost:5000 -> api.dashboardkiller.online" -ForegroundColor Green
+Write-Host "  MT5 Bridge -> http://localhost:5003 -> python.dashboardkiller.online" -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Cyan
+
+# 0. Check & Launch MetaTrader 5
+$mt5Running = Get-Process terminal64 -ErrorAction SilentlyContinue
+if (-not $mt5Running) {
+    $mt5Path = "C:\Program Files\MetaTrader 5\terminal64.exe"
+    if (Test-Path $mt5Path) {
+        Write-Host "[0/3] Opening MetaTrader 5..." -ForegroundColor Cyan
+        Start-Process -FilePath $mt5Path
+        Start-Sleep -Seconds 4
+    }
+} else {
+    Write-Host "[0/3] MetaTrader 5 is already running." -ForegroundColor Green
+}
 
 # 1. Start Backend Express API
 Write-Host "[1/3] Starting Backend API on port 5000..." -ForegroundColor Yellow
