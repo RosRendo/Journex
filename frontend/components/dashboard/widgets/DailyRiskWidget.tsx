@@ -18,12 +18,14 @@ export function DailyRiskWidget({
   maxTotalDrawdownPct = 10,
 }: DailyRiskWidgetProps) {
   const { todayPnl, todayPnlPct, totalDrawdownPct, todayTrades } = useMemo(() => {
+    const numBal = Number(balance) || 0;
+    const numEq = Number(equity) || 0;
     const today = new Date().toDateString();
     const todayTrades = trades.filter(t => new Date(t.date).toDateString() === today);
-    const todayPnl = todayTrades.reduce((acc, t) => acc + t.profit, 0);
-    const todayPnlPct = balance > 0 ? (todayPnl / balance) * 100 : 0;
-    const totalDrawdownPct = balance > 0 && equity > 0
-      ? ((balance - equity) / balance) * 100
+    const todayPnl = todayTrades.reduce((acc, t) => acc + (Number(t.profit) || 0), 0);
+    const todayPnlPct = numBal > 0 ? (todayPnl / numBal) * 100 : 0;
+    const totalDrawdownPct = numBal > 0 && numEq > 0
+      ? ((numBal - numEq) / numBal) * 100
       : 0;
     return { todayPnl, todayPnlPct, totalDrawdownPct, todayTrades };
   }, [trades, balance, equity]);

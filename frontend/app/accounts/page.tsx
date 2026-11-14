@@ -523,8 +523,8 @@ function AccountsInner() {
                 </span>
                 <p className="text-xl font-bold font-mono text-white mt-1">
                   ${mt5Pulse?.connected && mt5Pulse?.balance != null
-                    ? mt5Pulse.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })
-                    : mt5Accounts.reduce((sum, a) => sum + (Number(a.balance) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    ? Number(mt5Pulse.balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    : mt5Accounts.reduce((sum, a) => sum + (Number(a.balance) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
                 <span className="text-[10px] text-zinc-500 font-mono">Aggregated across accounts</span>
               </div>
@@ -535,8 +535,8 @@ function AccountsInner() {
                 </span>
                 <p className="text-xl font-bold font-mono text-emerald-400 mt-1">
                   ${mt5Pulse?.connected && mt5Pulse?.equity != null
-                    ? mt5Pulse.equity.toLocaleString(undefined, { minimumFractionDigits: 2 })
-                    : mt5Accounts.reduce((sum, a) => sum + (Number(a.equity) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    ? Number(mt5Pulse.equity).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    : mt5Accounts.reduce((sum, a) => sum + (Number(a.equity) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
                 <span className="text-[10px] text-zinc-500 font-mono">Floating real-time value</span>
               </div>
@@ -547,10 +547,10 @@ function AccountsInner() {
                 </span>
                 <p
                   className={`text-xl font-bold font-mono mt-1 ${
-                    (mt5Pulse?.profit || 0) >= 0 ? "text-emerald-400" : "text-rose-400"
+                    (Number(mt5Pulse?.profit) || 0) >= 0 ? "text-emerald-400" : "text-rose-400"
                   }`}
                 >
-                  ${mt5Pulse?.profit ? mt5Pulse.profit.toFixed(2) : "0.00"}
+                  ${Number(mt5Pulse?.profit || 0).toFixed(2)}
                 </p>
                 <span className="text-[10px] text-zinc-500 font-mono">Open market positions</span>
               </div>
@@ -560,7 +560,7 @@ function AccountsInner() {
                   Margin Health
                 </span>
                 <p className="text-xl font-bold font-mono text-zinc-200 mt-1">
-                  {mt5Pulse?.marginLevel ? `${mt5Pulse.marginLevel.toFixed(1)}%` : "Safe (100%)"}
+                  {mt5Pulse?.marginLevel != null ? `${Number(mt5Pulse.marginLevel).toFixed(1)}%` : "Safe (100%)"}
                 </p>
                 <span className="text-[10px] text-zinc-500 font-mono">Drawdown risk status</span>
               </div>
@@ -961,7 +961,7 @@ function AccountsInner() {
                   Win Rate
                 </span>
                 <p className="text-2xl font-bold font-mono text-[#20e0b2] mt-1">
-                  {analytics?.winRate ? analytics.winRate.toFixed(1) : 0}%
+                  {analytics?.winRate != null ? Number(analytics.winRate).toFixed(1) : "0.0"}%
                 </p>
               </div>
 
@@ -971,10 +971,10 @@ function AccountsInner() {
                 </span>
                 <p
                   className={`text-2xl font-bold font-mono mt-1 ${
-                    (analytics?.totalProfit || 0) >= 0 ? "text-emerald-400" : "text-rose-400"
+                    (Number(analytics?.totalProfit) || 0) >= 0 ? "text-emerald-400" : "text-rose-400"
                   }`}
                 >
-                  ${analytics?.totalProfit ? analytics.totalProfit.toFixed(2) : "0.00"}
+                  ${analytics?.totalProfit != null ? Number(analytics.totalProfit).toFixed(2) : "0.00"}
                 </p>
               </div>
 
@@ -983,7 +983,7 @@ function AccountsInner() {
                   Profit Factor
                 </span>
                 <p className="text-2xl font-bold font-mono text-[#20e0b2] mt-1">
-                  {analytics?.profitFactor ? analytics.profitFactor.toFixed(2) : "0.00"}
+                  {analytics?.profitFactor != null ? Number(analytics.profitFactor).toFixed(2) : "0.00"}
                 </p>
               </div>
             </div>

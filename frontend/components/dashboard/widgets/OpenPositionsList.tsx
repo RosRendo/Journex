@@ -120,17 +120,17 @@ export function OpenPositionsList({ positions = [], loading }: OpenPositionsList
                        {p.direction}
                      </span>
                   </td>
-                  <td className="px-4 py-3 text-zinc-400 text-[10px]">{p.volume.toFixed(2)} Lots</td>
-                  <td className="px-4 py-3 text-zinc-300">{Number(p.entry).toFixed(getPairDigits(p.pair))}</td>
+                  <td className="px-4 py-3 text-zinc-400 text-[10px]">{Number(p.volume || 0).toFixed(2)} Lots</td>
+                  <td className="px-4 py-3 text-zinc-300">{Number(p.entry || 0).toFixed(getPairDigits(p.pair))}</td>
                   <td className="px-4 py-3 text-white">
-                     {Number(p.current).toFixed(getPairDigits(p.pair))}
+                     {Number(p.current || 0).toFixed(getPairDigits(p.pair))}
                   </td>
                   <td className="px-4 py-3 text-[9px] text-zinc-500">
-                     <div className="mb-0.5">SL: {p.sl > 0 ? p.sl.toFixed(getPairDigits(p.pair)) : "—"}</div>
-                     <div>TP: {p.tp > 0 ? p.tp.toFixed(getPairDigits(p.pair)) : "—"}</div>
+                     <div className="mb-0.5">SL: {Number(p.sl) > 0 ? Number(p.sl).toFixed(getPairDigits(p.pair)) : "—"}</div>
+                     <div>TP: {Number(p.tp) > 0 ? Number(p.tp).toFixed(getPairDigits(p.pair)) : "—"}</div>
                   </td>
-                  <td className={`px-4 py-3 text-right font-black text-xs ${p.pnl >= 0 ? "text-[--bull]" : "text-[--bear]"}`}>
-                    {p.pnl >= 0 ? "+" : ""}${Math.abs(p.pnl).toFixed(2)}
+                  <td className={`px-4 py-3 text-right font-black text-xs ${Number(p.pnl || 0) >= 0 ? "text-[--bull]" : "text-[--bear]"}`}>
+                    {Number(p.pnl || 0) >= 0 ? "+" : ""}${Math.abs(Number(p.pnl || 0)).toFixed(2)}
                   </td>
                 </tr>
               ))
