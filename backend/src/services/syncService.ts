@@ -14,7 +14,7 @@ export async function syncMT5AccountOnDemand(params: {
   accountDbId?: number;
   days?: number;
 }) {
-  const syncEngineUrl = process.env.MT5_SYNC_ENGINE_URL || "http://localhost:5005";
+  const syncEngineUrl = process.env.MT5_SYNC_ENGINE_URL || process.env.MT5_BRIDGE_URL || "http://localhost:5003";
   try {
     const payload = {
       server: params.server,

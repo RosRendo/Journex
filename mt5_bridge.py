@@ -839,6 +839,84 @@ async def connect_account(req: ConnectRequest):
         print(f"[ERROR] /api/connect crashed: {e}", flush=True)
         return {"success": False, "error": str(e)}
 
+class SyncAccountRequest(BaseModel):
+    server: str
+    login: int
+    password: str
+    days: Optional[int] = 90
+    email: Optional[str] = None
+
+@app.post("/api/sync-account")
+async def sync_account_endpoint(req: SyncAccountRequest):
+    """Dynamically authenticate to requested MT5 account, extract closed trades, and return."""
+    global connected, _current_user_email
+    print(f"[API] /api/sync-account requested for login: {req.login} on {req.server}", flush=True)
+
+    def _do_sync():
+        global connected
+        if not connected or mt5.terminal_info() is None:
+            init_mt5()
+
+        authorized = mt5.login(req.login, password=req.password, server=req.server, timeout=15000)
+        if not authorized:
+            err_code = mt5.last_error()
+            return {"success": False, "error": f"Login failed. MT5 error: {err_code}"}
+
+        acc = mt5.account_info()
+        now = datetime.now()
+        from_date = now - timedelta(days=req.days or 90)
+        history = mt5.history_deals_get(from_date, now) or []
+
+        positions = {}
+        for d in history:
+            if not d.symbol:
+                continue
+            pid = d.position_id
+            if pid not in positions:
+                positions[pid] = {"in": None, "out": None}
+            if d.entry == 0:
+                positions[pid]["in"] = d
+            elif d.entry == 1:
+                positions[pid]["out"] = d
+
+        completed_trades = []
+        for pid, p in positions.items():
+            din = p["in"]
+            dout = p["out"]
+            if din and dout:
+                completed_trades.append({
+                    "ticket": str(pid),
+                    "symbol": din.symbol,
+                    "direction": "BUY" if din.type == 0 else "SELL",
+                    "lot_size": round(din.volume, 2),
+                    "entry": din.price,
+                    "close_price": dout.price,
+                    "profit": round(dout.profit, 2),
+                    "commission": round((din.commission or 0.0) + (dout.commission or 0.0), 2),
+                    "open_time": din.time,
+                    "close_time": dout.time,
+                    "date": datetime.fromtimestamp(dout.time, tz=timezone.utc).isoformat()
+                })
+
+        completed_trades.sort(key=lambda t: t["close_time"], reverse=True)
+
+        return {
+            "success": True,
+            "account": req.login,
+            "server": req.server,
+            "balance": acc.balance if acc else 0.0,
+            "equity": acc.equity if acc else 0.0,
+            "currency": acc.currency if acc else "USD",
+            "trade_count": len(completed_trades),
+            "trades": completed_trades
+        }
+
+    try:
+        return await _run_in_mt5_thread(_do_sync)
+    except Exception as e:
+        print(f"[ERROR] /api/sync-account crashed: {e}", flush=True)
+        return {"success": False, "error": str(e)}
+
 @app.post("/api/connect/auto")
 async def auto_connect(req: AutoConnectRequest):
     """Auto-reconnect a user's saved MT5 credentials by their Gmail."""
