@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { signOut, useSession } from "@/lib/useSession";
+import { signOut, useSession, performLogout } from "@/lib/useSession";
 import { User, DollarSign, ShieldAlert, LogOut, Settings2, MonitorSmartphone, BellRing, Key, Palette, Save, Server, CheckCircle2, XCircle, Loader2, RefreshCw, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -106,8 +106,7 @@ export default function EnvironmentSettings() {
   };
 
   const handleLogout = async () => {
-    await signOut({ redirect: false });
-    router.push("/auth");
+    await performLogout();
   };
 
   const TABS = [

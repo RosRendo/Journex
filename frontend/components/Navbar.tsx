@@ -5,7 +5,7 @@ import {
   LogOut, User, Settings, Bell, X, Flame, TrendingUp, TrendingDown, CreditCard, ChevronDown, Palette, Menu, Clock, Globe, Users, Terminal, Wallet, Plus
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useSession, signOut, getSession } from "@/lib/useSession";
+import { useSession, signOut, getSession, performLogout } from "@/lib/useSession";
 import { toast } from "sonner";
 import Link from "next/link";
 import { HEADER_GROUPS } from "@/components/layout/navigation";
@@ -422,8 +422,7 @@ export default function Navbar({ onMenuToggle }: { onMenuToggle?: () => void }) 
   const handleLogout = async () => {
     setShowProfileMenu(false);
     clearSessionCache();
-    await signOut({ redirect: false });
-    router.push("/auth");
+    await performLogout();
   };
 
   return (
@@ -583,16 +582,6 @@ export default function Navbar({ onMenuToggle }: { onMenuToggle?: () => void }) 
                 </button>
               ))}
               <div className="my-1.5 border-t" style={{ borderColor: "var(--border)" }} />
-              <button
-                onClick={() => {
-                  setShowProfileMenu(false);
-                  clearSessionCache();
-                  router.push("/auth");
-                }}
-                className="w-full flex items-center gap-3 px-4 py-2 text-[12px] text-[#20e0b2] hover:bg-[#20e0b2]/10 transition-colors font-semibold"
-              >
-                <Users className="w-4 h-4" />Switch Test Role
-              </button>
               <button onClick={handleLogout}
                 className="w-full flex items-center gap-3 px-4 py-2 text-[12px] text-[--bear] hover:bg-[--bear]/10 transition-colors">
                 <LogOut className="w-4 h-4" />Logout

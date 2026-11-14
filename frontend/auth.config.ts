@@ -35,6 +35,14 @@ export const authConfig: NextAuthConfig = {
         pathname === "/";
 
       if (isAuthPage) {
+        // If user explicitly initiated logout, allow rendering /auth page without redirecting back
+        if (
+          nextUrl.searchParams.get("logout") === "true" ||
+          nextUrl.searchParams.get("action") === "logout"
+        ) {
+          return true;
+        }
+
         // Redirect logged-in users away from auth pages to their intended callbackUrl or /dashboard
         if (isLoggedIn) {
           const callbackUrl = nextUrl.searchParams.get("callbackUrl");
