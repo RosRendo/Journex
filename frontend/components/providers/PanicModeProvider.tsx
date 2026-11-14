@@ -118,7 +118,7 @@ export function PanicModeProvider({ children }: { children: React.ReactNode }) {
         const backendUrl = getBackendUrl();
 
         // Get today's closed trades from the history endpoint
-        const histRes = await fetchWithAuth(`${backendUrl}/api/bridge/api/history`);
+        const histRes = await fetchWithAuth("/api/bridge/api/history");
         if (!histRes.ok) return;
         const histData = await histRes.json();
         const trades: any[] = histData.trades || histData.history || [];

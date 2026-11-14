@@ -46,7 +46,7 @@ export function usePositions(accountId?: string, autoRefreshMs: number = 2000) {
         if (apiToken) {
           headers["Authorization"] = `Bearer ${apiToken}`;
         }
-        const res = await fetch(`${backendUrl}/api/bridge/api/positions`, { headers });
+        const res = await fetch("/api/bridge/api/positions", { headers });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
 

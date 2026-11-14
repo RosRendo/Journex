@@ -190,9 +190,7 @@ function BotsPageInner() {
   const [confirmCommand, setConfirmCommand] = useState<string | null>(null);
   const [commanding, setCommanding] = useState(false);
 
-  const BRIDGE = typeof window !== "undefined" && window.location.hostname === "localhost"
-    ? "/api/bridge"
-    : (process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge");
+  const BRIDGE = "/api/bridge";
 
   const loadData = async () => {
     try {

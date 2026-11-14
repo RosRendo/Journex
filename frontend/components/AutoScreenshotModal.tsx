@@ -18,7 +18,7 @@ interface Props {
   onClose: () => void;
 }
 
-const BRIDGE = process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge";
+const BRIDGE = "/api/bridge";
 
 // ── draw one chart in a given container div ──────────────────────────────────
 async function drawChart(

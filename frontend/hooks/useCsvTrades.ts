@@ -10,8 +10,8 @@ import { isAdminEmail } from "@/lib/role";
 // Never uses resolveLocalUrl() which was blindly replacing 'localhost' with
 // the current window hostname, producing broken URLs like
 // http://dashboard-roan-tau-xrg43s0811.vercel.app:3000 on Vercel.
-const BRIDGE_URL = process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge";
-const DB_API_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
+const BRIDGE_URL = "/api/bridge";
+const DB_API_URL = "/api";
 const API_URL   = getBackendUrl();
 
 export interface TradeData {
@@ -178,9 +178,7 @@ export function useCsvTrades(accountNumber?: string, autoRefreshMs: number = 0) 
         // Build query: filter by accountNumber if provided
         const params = new URLSearchParams({ limit: "100", sortBy: "date", order: "DESC" });
         if (accountNumber) params.set("accountNumber", accountNumber);
-        const fetchUrl = DB_API_URL === "http://localhost:5000"
-          ? `${DB_API}/api/trades?${params}`
-          : `/api/trades?${params}`;
+        const fetchUrl = `/api/trades?${params}`;
         const dbRes = await fetchWithAuth(fetchUrl, {
           headers: { "ngrok-skip-browser-warning": "true" }
         });

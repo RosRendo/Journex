@@ -1,7 +1,7 @@
 import { resolveLocalUrl, getBackendUrl } from "../../lib/utils";
 
 const BACKEND_URL = getBackendUrl();
-const BRIDGE_URL = resolveLocalUrl(process.env.NEXT_PUBLIC_BRIDGE_URL || "");
+const BRIDGE_URL = "/api/bridge/api";
 
 export interface Trade {
   id?: number;

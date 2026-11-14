@@ -41,7 +41,7 @@ export default function EnvironmentSettings() {
   const runDiagnostics = async () => {
     setDiagRunning(true);
     setDiagResults({});
-    const bridge = localStorage.getItem("bridge_url") || "/api/bridge";
+    const bridge = "/api/bridge";
     const apiKey = localStorage.getItem("ai_key");
     const provider = localStorage.getItem("ai_provider") || "openai";
     const next: typeof diagResults = {};

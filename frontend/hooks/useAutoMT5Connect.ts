@@ -35,31 +35,26 @@ export function useAutoMT5Connect(enabled: boolean = true) {
 
     attempted.current = true;
 
-    // Fetch bridge URL dynamically from server (avoids baked-in build-time URL)
-    fetch("/api/bridge-status")
+    // Directly use same-origin relative proxy (avoids browser CORS)
+    fetch("/api/bridge/api/connect/auto", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true",
+      },
+      body: JSON.stringify({ email }),
+      signal: AbortSignal.timeout(5000),
+    })
       .then((r) => r.json())
-      .then(({ url: bridgeUrl }) => {
-        if (!bridgeUrl) return;
-        return fetch(`${bridgeUrl}/api/connect/auto`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "ngrok-skip-browser-warning": "true",
-          },
-          body: JSON.stringify({ email }),
-          signal: AbortSignal.timeout(5000),
-        })
-          .then((r) => r.json())
-          .then((data) => {
-            if (data.success) {
-              console.log(`[MT5] Auto-connected: ${data.message}`);
-            } else {
-              console.log(`[MT5] Auto-connect skipped: ${data.error}`);
-            }
-          });
+      .then((data) => {
+        if (data.success) {
+          console.log(`[MT5] Auto-connected: ${data.message}`);
+        } else {
+          console.log(`[MT5] Auto-connect skipped: ${data.error}`);
+        }
       })
       .catch(() => {
-        // Bridge not running — fail silently, user connects manually
+        // Bridge not running — fail silently
       });
   }, [session?.user?.email]);
 }

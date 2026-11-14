@@ -257,7 +257,7 @@ export function TradingCoreProvider({ children }: { children: React.ReactNode })
   const syncLiveState = useCallback(async () => {
     try {
       const headers = await getHeaders().catch(() => ({} as Record<string, string>));
-      const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge";
+      const bridgeUrl = "/api/bridge";
       const res = await fetch(`${bridgeUrl}/api/account`, { headers }).catch(() => null);
       if (!res || !res.ok) {
         setLiveAccount(prev => ({ ...prev, id: "OFFLINE" }));
@@ -346,7 +346,7 @@ export function TradingCoreProvider({ children }: { children: React.ReactNode })
       setLoading(true);
       try {
         const headers = await getHeaders();
-        const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge";
+        const bridgeUrl = "/api/bridge";
         const res = await fetch(`${bridgeUrl}/api/execute-trade`, {
           method: "POST",
           headers,
@@ -414,7 +414,7 @@ export function TradingCoreProvider({ children }: { children: React.ReactNode })
         const pos = livePositions.find(p => p.ticket === ticket);
         if (!pos) return false;
 
-        const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge";
+        const bridgeUrl = "/api/bridge";
         const res = await fetch(`${bridgeUrl}/api/execute-trade`, {
           method: "POST",
           headers,

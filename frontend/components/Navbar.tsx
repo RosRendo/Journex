@@ -348,7 +348,7 @@ export default function Navbar({ onMenuToggle }: { onMenuToggle?: () => void }) 
           ...((sess?.user as any)?.apiToken ? { "Authorization": `Bearer ${(sess?.user as any).apiToken}` } : {}),
         };
 
-        const res = await fetch(`${backendUrl}/api/bridge/api/news`, { headers: authHeaders });
+        const res = await fetch("/api/bridge/api/news", { headers: authHeaders });
         const data = await res.json();
         if (!data.success || !data.news) return;
 
@@ -363,7 +363,7 @@ export default function Navbar({ onMenuToggle }: { onMenuToggle?: () => void }) 
         if (newHot.length > 0 && !isFirstFetch) {
           setNewsUnread(prev => prev + newHot.length);
           newHot.forEach((item: any) => {
-            fetch(`${backendUrl}/api/bridge/api/notify`, {
+            fetch("/api/bridge/api/notify", {
               method: "POST",
               headers: authHeaders,
               body: JSON.stringify({

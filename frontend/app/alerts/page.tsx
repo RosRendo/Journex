@@ -34,7 +34,7 @@ import { toast } from "sonner";
 import { useIsAdmin } from "@/lib/role";
 import AdminOnly from "@/components/AdminOnly";
 
-const BRIDGE = process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge";
+const BRIDGE = "/api/bridge";
 
 export interface AlertConfig {
   discord_news_webhook: string;

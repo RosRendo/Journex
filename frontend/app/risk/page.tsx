@@ -24,7 +24,7 @@ import RiskLimitGuard from "@/components/validation/RiskLimitGuard";
 // --- PAIR SYMBOLS ---
 const SYMBOLS = ["XAUUSD","EURUSD","GBPUSD","USDJPY","GBPJPY","AUDUSD","USDCAD","USDCHF","USOIL","US100","US30","BTCUSD"];
 
-const MT5_API = process.env.NEXT_PUBLIC_BRIDGE_URL || "/api/bridge";
+const MT5_API = "/api/bridge";
 
 export default function RiskDeskPage() {
   const [activeTab, setActiveTab] = useState<"calculator" | "drawdown" | "compliance" | "validation">("calculator");
