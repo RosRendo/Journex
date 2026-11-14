@@ -71,6 +71,12 @@ export function resolveLocalUrl(url: string): string {
  * - Locally: falls back to http://localhost:5000.
  */
 export function getBackendUrl(): string {
+  if (typeof window !== "undefined") {
+    // In the browser, always use relative paths ("") so requests go to the current origin (/api/...)
+    // and are handled or proxied by Next.js. This eliminates cross-origin browser CORS errors completely.
+    return "";
+  }
+  if (process.env.INTERNAL_API_URL) return process.env.INTERNAL_API_URL;
   if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
   return ""; // Default to relative paths so Next.js rewrites can proxy requests
 }
