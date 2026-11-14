@@ -133,7 +133,7 @@ export function RightSidebar() {
         setNews(data.news);
       }
     } catch (err) {
-      console.error(err);
+      // Bridge offline - handled gracefully
     } finally {
       setNewsLoading(false);
     }
@@ -141,7 +141,7 @@ export function RightSidebar() {
 
   useEffect(() => {
     fetchPositions();
-    const interval = setInterval(fetchPositions, 3000);
+    const interval = setInterval(fetchPositions, 10000);
     return () => clearInterval(interval);
   }, [fetchPositions]);
 

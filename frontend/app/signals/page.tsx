@@ -130,8 +130,7 @@ export default function SignalsPage() {
         setError(res.data?.error || "Signal engine returned unsuccessful response");
       }
     } catch (e: any) {
-      console.error("Failed to load signals", e);
-      setError(e?.message || "Signal scanner offline");
+      setError("Signal scanner offline (backend disconnected)");
     } finally {
       setLoading(false);
     }

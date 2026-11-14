@@ -13,7 +13,7 @@ import { TradingCoreProvider } from "@/components/providers/TradingCoreProvider"
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <SessionProvider>
+    <SessionProvider refetchInterval={0} refetchOnWindowFocus={false}>
       <WorkspaceProvider>
       <ThemeProvider
         attribute="class"
