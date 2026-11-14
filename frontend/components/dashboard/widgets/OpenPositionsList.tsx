@@ -1,4 +1,4 @@
-﻿import { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { Position } from "@/hooks/usePositions";
 import { Activity, XCircle, ArrowUpRight, ArrowDownRight, Clock, Loader2, CheckCircle2 } from "lucide-react";
 import { getPairDigits } from "@/lib/format";
